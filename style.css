@@ -40,3 +40,7 @@ label{font-size:.9rem;color:var(--muted);margin-right:6px}
 
 .footer{padding:16px;border-top:1px solid var(--border);text-align:center;color:var(--muted)}
 .badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#223047;border:1px solid var(--border);font-size:.8rem;color:var(--muted)}
+
+.offer-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#1d2533;color:var(--text);cursor:pointer}
+.offer-btn.accept{background:var(--primary);border-color:#1a7f34;color:#041308}
+.offer-btn.decline{background:#2b3643}

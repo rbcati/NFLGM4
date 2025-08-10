@@ -721,7 +721,361 @@
     });
   }
 
-  // Boot
+  
+// ==== AI trade suggestion with roster-need weighting ====
+function teamNeedProfile(team){
+  // Compute how far below target depth and quality each position is
+  const target = DEPTH_NEEDS;
+  const byPos = {}; POSITIONS.forEach(p=>byPos[p]=[]);
+  team.roster.forEach(p=>byPos[p.pos].push(p));
+  POSITIONS.forEach(p=>byPos[p].sort((a,b)=>b.ovr-a.ovr));
+  const profile = {};
+  for (const [pos, need] of Object.entries(target)){
+    const have = byPos[pos].length;
+    const top = byPos[pos].slice(0, Math.max(1, need));
+    const quality = top.length? top.reduce((s,x)=>s+x.ovr,0)/top.length : 50;
+    const countGap = Math.max(0, need - have);
+    const qualityGap = Math.max(0, 80 - quality); // aim for avg 80 in the two-deep
+    profile[pos] = {countGap, qualityGap, score: countGap*6 + qualityGap*0.6};
+  }
+  return profile;
+}
+
+function teamSurplusPositions(team){
+  const byPos = {}; POSITIONS.forEach(p=>byPos[p]=0);
+  team.roster.forEach(p=>byPos[p.pos]++);
+  const surplus = [];
+  for (const [pos, need] of Object.entries(DEPTH_NEEDS)){
+    const extra = byPos[pos] - need;
+    if (extra>0) surplus.push(pos);
+  }
+  return surplus;
+}
+
+function pickBestTradeCounterpart(L, teamA){
+  // Choose teamB whose surplus matches A's biggest needs
+  const needs = teamNeedProfile(teamA);
+  const needOrder = Object.entries(needs).sort((a,b)=>b[1].score - a[1].score).map(([pos])=>pos);
+  let best = null, bestScore = -1;
+  for (const teamB of L.teams){
+    if (teamB===teamA) continue;
+    const bSurplus = new Set(teamSurplusPositions(teamB));
+    let match = 0;
+    for (let i=0;i<needOrder.length;i++){
+      const pos = needOrder[i];
+      const weight = (needOrder.length - i);
+      if (bSurplus.has(pos)) match += weight;
+    }
+    if (match>bestScore){ bestScore = match; best = teamB; }
+  }
+  return best;
+}
+
+function chooseTradePieces(teamA, teamB){
+  const needsA = teamNeedProfile(teamA);
+  const needsB = teamNeedProfile(teamB);
+  const wantA = Object.entries(needsA).sort((a,b)=>b[1].score - a[1].score).map(([pos])=>pos);
+  const wantB = Object.entries(needsB).sort((a,b)=>b[1].score - a[1].score).map(([pos])=>pos);
+
+  function bestFrom(team, pos){ return team.roster.filter(p=>p.pos===pos).sort((a,b)=>a.ovr-b.ovr)[0] || null; }
+  function tradable(team, pos){
+    const pool = team.roster.filter(p=>p.pos===pos).sort((a,b)=>a.ovr-b.ovr);
+    // Don't trade away if at or below need count
+    if (pool.length <= (DEPTH_NEEDS[pos]||1)) return null;
+    return pool[0] || null;
+  }
+
+  let offerFromB = null;
+  for (const pos of wantA){
+    offerFromB = tradable(teamB, pos);
+    if (offerFromB) break;
+  }
+  let offerFromA = null;
+  for (const pos of wantB){
+    offerFromA = tradable(teamA, pos);
+    if (offerFromA) break;
+  }
+  return {fromB: offerFromB, fromA: offerFromA};
+}
+
+function adjustValueForNeed(rawValue, receiverTeam, player){
+  // Boost value if the receiver has a big need at player's position
+  const needs = teamNeedProfile(receiverTeam);
+  const posNeed = needs[player.pos]?.score || 0;
+  // Scale: up to +30% for severe need
+  const factor = 1 + Math.min(0.3, posNeed/40);
+  return rawValue * factor;
+}
+
+function suggestTradeForTeamA(){
+  const L = state.league;
+  const teamA = L.teams[parseInt($("#tradeA").value,10)];
+  const teamB = pickBestTradeCounterpart(L, teamA);
+  if (!teamB){ setStatus("No counterpart found"); return null; }
+  const pieces = chooseTradePieces(teamA, teamB);
+  if (!pieces.fromB && !pieces.fromA){ setStatus("No reasonable pieces to swap"); return null; }
+
+  const packageA = []; const packageB = [];
+  if (pieces.fromA) packageA.push(pieces.fromA);
+  if (pieces.fromB) packageB.push(pieces.fromB);
+
+  // Balancer using picks
+  let valA = 0, valB = 0;
+  for (const p of packageA) valA += adjustValueForNeed(valueOf(p), teamB, p);
+  for (const p of packageB) valB += adjustValueForNeed(valueOf(p), teamA, p);
+
+  // If imbalance, add smallest possible pick(s) from the side with deficit
+  function smallestPick(team){ return team.picks.slice().sort((a,b)=> pickValue(a)-pickValue(b))[0] || null; }
+  let guard=0;
+  while (Math.abs(valA - valB) > 8 && guard++<4){
+    if (valA < valB){
+      const pk = smallestPick(teamA);
+      if (!pk) break;
+      packageA.push(pk);
+      valA += pickValue(pk);
+      // remove from temp pool to avoid reusing
+      teamA.picks = teamA.picks.filter(x=>x.id!==pk.id).concat([pk]); // keep original, just simulate
+    } else {
+      const pk = smallestPick(teamB);
+      if (!pk) break;
+      packageB.push(pk);
+      valB += pickValue(pk);
+      teamB.picks = teamB.picks.filter(x=>x.id!==pk.id).concat([pk]);
+    }
+  }
+
+  return {teamA, teamB, packageA, packageB, valA, valB};
+}
+
+function applySuggestionToUI(sug){
+  if (!sug) return;
+  const checks = $$('input[type=checkbox][data-side]');
+  checks.forEach(c=>c.checked=false);
+
+  function tick(side, item){
+    if (!item) return;
+    const type = item.round? "pick" : "player";
+    const id = item.id;
+    const sel = `input[type=checkbox][data-side=${side}][data-type=${type}][data-id="${id}"]`;
+    const el = document.querySelector(sel);
+    if (el) el.checked = true;
+  }
+  sug.packageA.forEach(x=>tick("A", x));
+  sug.packageB.forEach(x=>tick("B", x));
+  $("#tradeInfo").textContent = `Suggested. Revalidate before executing.`;
+}
+
+// Wire the Suggest button
+document.addEventListener("click", (e)=>{
+  if (e.target && e.target.id==="btnSuggest"){
+    const sug = suggestTradeForTeamA();
+    if (sug){
+      applySuggestionToUI(sug);
+    }
+  }
+});
+
+
+// ===== Weekly trade proposals with NFL-like probabilities and user offers =====
+function weeklyTradeProbability(week){
+  // No trades after deadline (week 9). Approximate NFL pattern.
+  if (week <= 2) return 0.03;     // quiet open
+  if (week <= 6) return 0.06;     // early season
+  if (week <= 8) return 0.12;     // ramping up
+  if (week === 9) return 0.35;    // deadline week spike
+  return 0.0;                     // after deadline
+}
+
+function aiWeeklyTrades(){
+  const L = state.league;
+  const wk = Math.min(L.week, 18);
+  const p = weeklyTradeProbability(wk);
+  if (p <= 0) return;
+
+  // Up to two attempts weekly; higher chance at deadline
+  const attempts = wk === 9 ? 2 : 1;
+  let executed = 0;
+
+  for (let i=0; i<attempts; i++){
+    if (Math.random() > p) continue;
+    // 20% chance to target the user team for an offer
+    const targetUser = Math.random() < 0.2;
+    if (targetUser){
+      tryOfferToUser();
+    } else {
+      const tA = choice(L.teams);
+      const tB = pickBestTradeCounterpart(L, tA);
+      if (!tB || tA===tB) continue;
+      const sug = buildSuggestionForTeams(tA, tB);
+      if (!sug) continue;
+      if (validateSuggestionCapsAndFairness(sug)){
+        executeSuggestion(sug);
+        logTrade(sug);
+        executed++;
+      }
+    }
+  }
+  if (executed>0) setStatus(`${executed} AI trade${executed>1?"s":""} executed.`);
+}
+
+function buildSuggestionForTeams(teamA, teamB){
+  const pieces = chooseTradePieces(teamA, teamB);
+  if (!pieces.fromA && !pieces.fromB) return null;
+  const packageA = []; const packageB = [];
+  if (pieces.fromA) packageA.push(pieces.fromA);
+  if (pieces.fromB) packageB.push(pieces.fromB);
+
+  // Balance with picks like UI suggestion does
+  let valA = 0, valB = 0;
+  for (const p of packageA) valA += adjustValueForNeed(valueOf(p), teamB, p);
+  for (const p of packageB) valB += adjustValueForNeed(valueOf(p), teamA, p);
+
+  function smallestPick(team){ return team.picks.slice().sort((a,b)=> pickValue(a)-pickValue(b))[0] || null; }
+  let guard=0;
+  while (Math.abs(valA - valB) > 8 && guard++<4){
+    if (valA < valB){
+      const pk = smallestPick(teamA);
+      if (!pk) break;
+      packageA.push(pk);
+      valA += pickValue(pk);
+      teamA.picks = teamA.picks; // no mutation here
+    } else {
+      const pk = smallestPick(teamB);
+      if (!pk) break;
+      packageB.push(pk);
+      valB += pickValue(pk);
+      teamB.picks = teamB.picks;
+    }
+  }
+  return {teamA, teamB, packageA, packageB, valA, valB};
+}
+
+function validateSuggestionCapsAndFairness(sug){
+  const L = state.league;
+  const A = sug.packageA.filter(x=>!x.round); // players
+  const B = sug.packageB.filter(x=>!x.round);
+  const valA = sug.valA, valB = sug.valB;
+  const fair = Math.abs(valA - valB) <= 15;
+  const capA = sug.teamA.capUsed - A.reduce((s,p)=>s+capHitFor(p,0,L.season),0) + B.reduce((s,p)=>s+capHitFor(p,0,L.season),0);
+  const capB = sug.teamB.capUsed - B.reduce((s,p)=>s+capHitFor(p,0,L.season),0) + A.reduce((s,p)=>s+capHitFor(p,0,L.season),0);
+  const capOK = capA <= sug.teamA.capTotal && capB <= sug.teamB.capTotal;
+  return fair && capOK;
+}
+
+function executeSuggestion(sug){
+  const L = state.league;
+  const A_players = sug.packageA.filter(x=>!x.round);
+  const B_players = sug.packageB.filter(x=>!x.round);
+  const A_picks = sug.packageA.filter(x=>x.round);
+  const B_picks = sug.packageB.filter(x=>x.round);
+
+  // players
+  sug.teamA.roster = sug.teamA.roster.filter(p=>!A_players.some(x=>x.id===p.id)).concat(B_players).sort((x,y)=>y.ovr-x.ovr);
+  sug.teamB.roster = sug.teamB.roster.filter(p=>!B_players.some(x=>x.id===p.id)).concat(A_players).sort((x,y)=>y.ovr-x.ovr);
+  // picks
+  sug.teamA.picks = sug.teamA.picks.filter(pk=>!A_picks.some(x=>x.id===pk.id)).concat(B_picks);
+  sug.teamB.picks = sug.teamB.picks.filter(pk=>!B_picks.some(x=>x.id===pk.id)).concat(A_picks);
+  recalcCap(L, sug.teamA);
+  recalcCap(L, sug.teamB);
+}
+
+function assetLabel(asset, nowSeason){
+  if (asset.round) return `Y${nowSeason + (asset.year-1)} R${asset.round}`;
+  return `${asset.name} (${asset.pos} ${asset.ovr})`;
+}
+
+function logTrade(sug){
+  const L = state.league;
+  L.news = L.news || [];
+  const now = L.season;
+  const aOut = sug.packageA.map(x=>assetLabel(x, now)).join(", ");
+  const bOut = sug.packageB.map(x=>assetLabel(x, now)).join(", ");
+  L.news.push(`Trade: ${sug.teamA.abbr} send ${aOut} to ${sug.teamB.abbr} for ${bOut}`);
+}
+
+function tryOfferToUser(){
+  const L = state.league;
+  const user = L.teams[parseInt($("#userTeam").value||"0",10)];
+  const counterpart = pickBestTradeCounterpart(L, user);
+  if (!counterpart) return;
+  const sug = buildSuggestionForTeams(counterpart, user); // they initiate to you
+  if (!sug) return;
+  if (!validateSuggestionCapsAndFairness(sug)) return;
+  // Store as pending offer
+  state.pendingOffers = state.pendingOffers || [];
+  state.pendingOffers.push({
+    from: counterpart.abbr,
+    to: user.abbr,
+    packageFrom: sug.packageA, // from counterpart
+    packageTo: sug.packageB,   // from user
+  });
+  renderOffers();
+}
+
+function renderOffers(){
+  const box = $("#hubOffers"); if (!box) return;
+  box.innerHTML = "";
+  const L = state.league;
+  const now = L.season;
+  const offers = state.pendingOffers || [];
+  if (!offers.length){
+    const d = document.createElement("div"); d.className="muted"; d.textContent = "No offers.";
+    box.appendChild(d);
+    return;
+  }
+  offers.forEach((off, idx)=>{
+    const d = document.createElement("div"); d.className="row";
+    const fromList = off.packageFrom.map(x=>assetLabel(x, now)).join(", ");
+    const toList = off.packageTo.map(x=>assetLabel(x, now)).join(", ");
+    d.innerHTML = `<div>${off.from} offers ${fromList} for ${off.to}'s ${toList}</div>
+                   <div class="spacer"></div>
+                   <button class="offer-btn decline" data-off="${idx}" data-act="decline">Decline</button>
+                   <button class="offer-btn accept" data-off="${idx}" data-act="accept">Accept</button>`;
+    box.appendChild(d);
+  });
+}
+
+document.addEventListener("click", (e)=>{
+  const t = e.target;
+  if (!t || !t.dataset || !t.dataset.act) return;
+  const idx = Number(t.dataset.off);
+  if (Number.isNaN(idx)) return;
+  if (!state.pendingOffers || !state.pendingOffers[idx]) return;
+  const off = state.pendingOffers[idx];
+  if (t.dataset.act==="decline"){
+    state.pendingOffers.splice(idx,1);
+    renderOffers();
+    setStatus("Offer declined.");
+    return;
+  }
+  if (t.dataset.act==="accept"){
+    // Execute
+    const L = state.league;
+    const user = L.teams.find(tm=>tm.abbr===off.to);
+    const other = L.teams.find(tm=>tm.abbr===off.from);
+    const sug = {teamA: other, teamB: user, packageA: off.packageFrom, packageB: off.packageTo, valA: 0, valB:0};
+    if (validateSuggestionCapsAndFairness(sug)){
+      executeSuggestion(sug);
+      logTrade(sug);
+      setStatus("Trade accepted.");
+    }else{
+      setStatus("Offer invalid due to cap or value change.");
+    }
+    state.pendingOffers.splice(idx,1);
+    renderOffers();
+    renderRoster();
+  }
+});
+
+// Hook weekly AI into week advance
+const _simulateWeekOrig = simulateWeek;
+simulateWeek = function(){
+  _simulateWeekOrig();
+  aiWeeklyTrades();
+  renderOffers();
+};
+
+// Boot
   $("#btnSave").onclick = ()=>{
     const payload = JSON.stringify({league: state.league, prospects: state.prospects, freeAgents: state.freeAgents, playoffs: state.playoffs});
     localStorage.setItem(SAVE_KEY, payload);
