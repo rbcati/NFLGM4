@@ -221,46 +221,37 @@ const { makeLeague } = window.League;
         strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 }
       };
     });
+// schedule after L exists
+L.schedule = S.makeAccurateSchedule(L);
 
-    // seed rosters and picks
-    teams.forEach(function (tm) {
-      var roster = [];
-      var template = {QB:2,RB:3,WR:5,TE:2,OL:7,DL:7,LB:5,CB:5,S:3,K:1};
-      Object.keys(template).forEach(function(pos){
-        for (var i=0;i<template[pos];i++){
-          var p = makePlayer(pos);
-          tagAbilities(p);
-          roster.push(p);
-        }
-      });
-      tm.roster = roster.sort(function(a,b){return b.ovr-a.ovr;});
-      seedTeamPicks(tm, 1, C.YEARS_OF_PICKS);
-      tm.rating = Math.round(0.6*U.avg(tm.roster.map(function(p){return p.ovr;})) + 0.4*tm.rating);
-    });
+// cap setup
+L.teams.forEach(function (t) { recalcCap(L, t); });
 
+// stored initial ranks for scheduling next year
+var tmpRanks = S.computeLastDivisionRanks(L);
+L.teams.forEach(function (t,i) { t.lastDivisionRank = tmpRanks[i]; });
 
-    // schedule after L exists
-    L.schedule = S.makeAccurateSchedule(L);
+return L;
+} // <-- if makeLeague was declared as `function makeLeague(...) {` keep this lone brace
+// }; // <-- if makeLeague was assigned like `const makeLeague = function(...) {`, then use `};` instead
 
-    // cap setup
-    L.teams.forEach(function (t) { recalcCap(L, t); });
+/* ------------------------------------------------------------------ */
+/* Namesets and relabeling                                            */
+/* ------------------------------------------------------------------ */
 
-    // stored initial ranks for scheduling next year
-    var tmpRanks = S.computeLastDivisionRanks(L);
-    L.teams.forEach(function (t,i) { t.lastDivisionRank = tmpRanks[i]; });
-
-    return L;
-  }
-function listByMode(mode) {
-  // Replace with your real data sources
-  return mode === 'real' ? REAL_TEAMS_32 : FICTIONAL_TEAMS_32;
-}
+// Make listByMode duplicate-safe and expression-based (can’t break parsing)
+window.listByMode ||= function listByMode(mode) {
+  return mode === 'real'
+    ? (window.REAL_TEAMS_32 || window.TEAMS_REAL || [])
+    : (window.FICTIONAL_TEAMS_32 || window.TEAMS || []);
+};
 
 /* Names mode relabel */
 window.rebuildTeamLabels ??= function rebuildTeamLabels(mode) {
-  const L = state?.league;
-  const meta = listByMode(mode);
-  if (!L?.teams || !Array.isArray(meta) || L.teams.length !== meta.length) return;
+  const L = state && state.league;
+  const meta = window.listByMode(mode);
+
+  if (!L || !Array.isArray(L.teams) || !Array.isArray(meta) || L.teams.length !== meta.length) return;
 
   for (let i = 0; i < L.teams.length; i++) {
     const src = meta[i], dst = L.teams[i];
@@ -270,13 +261,14 @@ window.rebuildTeamLabels ??= function rebuildTeamLabels(mode) {
     dst.div  = src.div;
   }
 };
+
+// Wire the Settings button
 document.getElementById('btnApplyNamesMode')?.addEventListener('click', () => {
   const mode = document.querySelector('input[name="settingsNamesMode"]:checked')?.value || 'fictional';
   window.rebuildTeamLabels(mode);
-  // re-render any views that show team labels
-  renderStandings?.();
-  renderRoster?.();
-  renderHub?.();
+  window.renderStandings && window.renderStandings();
+  window.renderRoster && window.renderRoster();
+  window.renderHub && window.renderHub();
 });
 
 
