@@ -943,8 +943,6 @@ function renderStandings(){
 function pct(rec) {
   var g = (rec.w|0) + (rec.l|0) + (rec.t|0);
   return g ? ((rec.w|0) + 0.5 * (rec.t|0)) / g : 0;
-}
-
 function cmpTeams(a, b) {
   const pA = pct(a.record ?? {});
   const pB = pct(b.record ?? {});
@@ -956,20 +954,18 @@ function cmpTeams(a, b) {
 }
 // usage: teams.sort(cmpTeams)
 
-  }
-  function standingsRows(scope){
-    const L = state.league;
-    const rows = [...L.teams].map((t,i)=>({i, t}));
-    rows.sort((a,b)=>cmpTeams(b.t, a.t));
-    if (scope==="league") return [{"All Teams": rows}];
-    if (scope==="conference"){
-      const groups = {}; for (const r of rows){ const key = CONF_NAMES[r.t.conf]; (groups[key] = groups[key] || []).push(r); }
-      return Object.entries(groups).map(([k,v])=>({[k]:v}));
-    }
-    const groups = {}; for (const r of rows){ const key = `${CONF_NAMES[r.t.conf]} ${DIV_NAMES[r.t.div]}`; (groups[key] = groups[key] || []).push(r); }
+function standingsRows(scope){
+  const L = state.league;
+  const rows = [...L.teams].map((t,i)=>({i, t}));
+  rows.sort((a,b)=>cmpTeams(b.t, a.t));
+  if (scope==="league") return [{"All Teams": rows}];
+  if (scope==="conference"){
+    const groups = {}; for (const r of rows){ const key = CONF_NAMES[r.t.conf]; (groups[key] = groups[key] || []).push(r); }
     return Object.entries(groups).map(([k,v])=>({[k]:v}));
   }
-
+  const groups = {}; for (const r of rows){ const key = `${CONF_NAMES[r.t.conf]} ${DIV_NAMES[r.t.div]}`; (groups[key] = groups[key] || []).push(r); }
+  return Object.entries(groups).map(([k,v])=>({[k]:v}));
+}
   
 // ===== Standings stats and NFL-style tiebreakers =====
 function teamStats(L){
