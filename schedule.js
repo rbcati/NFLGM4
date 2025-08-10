@@ -1,23 +1,34 @@
-<!-- schedule.js -->
-<script>
+// schedule.js
 (function (global) {
   'use strict';
 
-  function pct(rec){ var w=+rec.w||0, l=+rec.l||0, t=+rec.t||0; var g=w+l+t; return g? (w+0.5*t)/g : 0; }
+  // Local pct used by rank calc
+  function pct(rec){ var w=+rec.w||0, l=+rec.l||0, t=+rec.t||0; var g=w+l+t; return g ? (w + 0.5*t)/g : 0; }
 
   var HOST_GRID_CANON = [
     [1,0,1,0],
     [0,1,0,1],
     [1,0,1,0],
-    [0,1,0,1]
+    [0,1,0,1],
   ];
   function hostByGrid(aIndex, bIndex, flip){
     var bit = HOST_GRID_CANON[aIndex][bIndex];
     var h = flip ? (1-bit) : bit;
     return h === 1;
   }
-  var INTER_ROT_8 = { 0:[0,1,2,3, 0,1,2,3], 1:[1,2,3,0, 1,2,3,0], 2:[2,3,0,1, 2,3,0,1], 3:[3,0,1,2, 3,0,1,2] };
-  var INTRA_ROT_8  = { 0:[1,2,3, 1,2,3, 1,2], 1:[2,3,0, 2,3,0, 2,3], 2:[3,0,1, 3,0,1, 3,0], 3:[0,1,2, 0,1,2, 0,1] };
+
+  var INTER_ROT_8 = {
+    0: [0,1,2,3, 0,1,2,3],
+    1: [1,2,3,0, 1,2,3,0],
+    2: [2,3,0,1, 2,3,0,1],
+    3: [3,0,1,2, 3,0,1,2],
+  };
+  var INTRA_ROT_8 = {
+    0: [1,2,3, 1,2,3, 1,2],
+    1: [2,3,0, 2,3,0, 2,3],
+    2: [3,0,1, 3,0,1, 3,0],
+    3: [0,1,2, 0,1,2, 0,1],
+  };
 
   function divisionTeamsByConf(league){
     var by = {0:[[],[],[],[]], 1:[[],[],[],[]]};
@@ -44,7 +55,6 @@
     return ranks;
   }
 
-  // Robust scheduler: place games, swap if blocked, then mark byes from empty weeks
   function makeAccurateSchedule(league){
     var year = league.year || (2025 + ((league.season||1)-1));
     var by = divisionTeamsByConf(league);
@@ -61,7 +71,7 @@
       games.push({home:h, away:a});
     }
 
-    // 1) Divisional home and away
+    // 1) Division H/A
     for (var conf=0; conf<2; conf++){
       for (var dv=0; dv<4; dv++){
         var tms = by[conf][dv];
@@ -76,11 +86,12 @@
       }
     }
 
+    // Anchor flips
     var y0 = year - 2025;
     var intraFlip = (Math.floor(y0/3) % 2) ? 1 : 0;
     var interFlip = (Math.floor(y0/4) % 2) ? 1 : 0;
 
-    // 2) Intra conference rotation
+    // 2) Intra-conf rotation
     for (var c2=0;c2<2;c2++){
       for (var d2=0;d2<4;d2++){
         var tgt = INTRA_ROT_8[d2][y8];
@@ -95,7 +106,7 @@
       }
     }
 
-    // 3) Inter conference rotation
+    // 3) Inter-conf rotation
     for (var c3=0;c3<2;c3++){
       var other = c3===0?1:0;
       for (var d3=0;d3<4;d3++){
@@ -116,7 +127,7 @@
       return idxs[Math.min(rank, idxs.length-1)];
     }
 
-    // 4) Two same place intra-conference
+    // 4) Two same-place intra-conf
     for (var c4=0;c4<2;c4++){
       for (var d4=0;d4<4;d4++){
         var A4 = by[c4][d4];
@@ -136,7 +147,7 @@
       }
     }
 
-    // 5) Seventeenth same-place cross-conference
+    // 5) Seventeenth cross-conf same-place
     for (var c5=0;c5<2;c5++){
       var oc = c5===0?1:0;
       for (var d5=0;d5<4;d5++){
@@ -153,7 +164,7 @@
       }
     }
 
-    // Placement with swap fallback
+    // Placement with swap fallback, then compute byes from empty slots
     for (var gi=games.length-1; gi>0; gi--){
       var j = Math.floor(Math.random()*(gi+1));
       var tmp = games[gi]; games[gi]=games[j]; games[j]=tmp;
@@ -168,19 +179,16 @@
       for (var w=0; w<18; w++){
         if (canPlace(w,g)){ weeks[w].push(g); hasGame[w][g.home]=true; hasGame[w][g.away]=true; return true; }
       }
-      // one-hop swap
       for (var w1=0; w1<18; w1++){
         for (var idx=0; idx<weeks[w1].length; idx++){
           var g2 = weeks[w1][idx];
           for (var w2=0; w2<18; w2++){
             if (w2===w1) continue;
             if (!canPlace(w2,g2)) continue;
-            // move g2
             weeks[w2].push(g2);
             hasGame[w2][g2.home]=true; hasGame[w2][g2.away]=true;
             weeks[w1].splice(idx,1);
             hasGame[w1][g2.home]=false; hasGame[w1][g2.away]=false;
-            // place g
             if (canPlace(w1,g)){
               weeks[w1].push(g);
               hasGame[w1][g.home]=true; hasGame[w1][g.away]=true;
@@ -202,12 +210,11 @@
       if (!placed && !trySwapPlace(g)) throw new Error("Scheduler fallback failed for "+g.home+" vs "+g.away);
     }
 
-    // Emit bye markers from empty-team weeks
+    // Add bye markers from actual empty appearances
     for (var w3=0; w3<18; w3++){
       var played = Array(N).fill(false);
       for (var ii=0; ii<weeks[w3].length; ii++){
         var gg = weeks[w3][ii];
-        if (gg.bye!==undefined) continue;
         played[gg.home]=true; played[gg.away]=true;
       }
       for (var t=0; t<N; t++){ if (!played[t]) weeks[w3].push({bye:t}); }
@@ -215,24 +222,5 @@
     return weeks;
   }
 
-  // Optional export if you ever want to force fixed bye windows again
-  function assignByes(teamCount){
-    var quotas = [4,4,4,4,4,4,4,2,2]; // weeks 6..14
-    var weeks = Array(18).fill(null);
-    var sum = quotas.reduce(function(s,x){return s+x;},0);
-    if (sum !== teamCount) throw new Error("assignByes quotas sum mismatch");
-    var pool = Array.apply(null, Array(teamCount)).map(function(_,i){return i;});
-    for (var i=pool.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
-    var p=0;
-    for (var k=0;k<quotas.length;k++){
-      var w = 5 + k;
-      var set = new Set();
-      for (var c=0;c<quotas[k] && p<pool.length;c++) set.add(pool[p++]);
-      weeks[w]=set;
-    }
-    return weeks;
-  }
-
-  global.Scheduler = { makeAccurateSchedule: makeAccurateSchedule, assignByes: assignByes, computeLastDivisionRanks: computeLastDivisionRanks };
+  global.Scheduler = { makeAccurateSchedule, computeLastDivisionRanks, divisionTeamsByConf };
 })(window);
-</script>
