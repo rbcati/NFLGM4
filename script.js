@@ -1091,7 +1091,16 @@
     _simulateWeekOrig();
     aiWeeklyTrades();
     renderOffers();
-  };
+  }
+  // NEW: run player training for all teams once per completed week
+  runWeeklyTraining(state.league);
+
+  aiWeeklyTrades();
+  renderOffers();
+  // training affects roster and sidebar, so refresh a couple of views
+  updateCapSidebar();
+  if (location.hash === '#/roster') renderRoster();
+};;
 
   // Playoffs
   function seedPlayoffs(L){
@@ -1341,6 +1350,165 @@
       $('#tradeInfo').textContent = 'Suggested. Revalidate before executing.';
     }
   });
+// ===== Weekly Training =====
+
+// Persist the user’s pick for the current week
+state.trainingPlan = null; // { teamIdx, playerId, stat }
+
+// Inject a small Training card under the Roster view
+function renderTrainingUI(team) {
+  var root = document.getElementById('trainingCard');
+  if (!root) {
+    // create once and insert after depth chart card
+    var rosterView = document.getElementById('roster');
+    root = document.createElement('div');
+    root.className = 'card';
+    root.id = 'trainingCard';
+    rosterView.appendChild(root);
+  }
+
+  // Build player options for current visible roster team
+  var teamIdx = parseInt(document.getElementById('rosterTeam').value || document.getElementById('userTeam').value || '0', 10);
+  var optsPlayers = team.roster.map(function (p) {
+    return '<option value="'+p.id+'">'+p.name+' • '+p.pos+' • OVR '+p.ovr+'</option>';
+  }).join('');
+
+  root.innerHTML =
+    '<h3>Weekly Training</h3>' +
+    '<div class="row">' +
+      '<label for="trainPlayer">Player</label>' +
+      '<select id="trainPlayer" style="min-width:240px">'+optsPlayers+'</select>' +
+      '<div class="spacer"></div>' +
+      '<label for="trainStat">Skill</label>' +
+      '<select id="trainStat">' +
+        '<option value="speed">Speed</option>' +
+        '<option value="strength">Strength</option>' +
+        '<option value="agility">Agility</option>' +
+        '<option value="awareness">Awareness</option>' +
+      '</select>' +
+      '<div class="spacer"></div>' +
+      '<button id="btnSetTraining" class="btn">Set For This Week</button>' +
+    '</div>' +
+    '<div class="muted small">One player per team per week. Success chance scales with coach skill, age, and current rating. Results apply after you simulate the week.</div>';
+
+  document.getElementById('btnSetTraining').onclick = function () {
+    var pid = document.getElementById('trainPlayer').value;
+    var stat = document.getElementById('trainStat').value;
+    state.trainingPlan = { teamIdx: teamIdx, playerId: pid, stat: stat, week: state.league.week };
+    setStatus('Training scheduled: ' + stat + ' for ' + (team.roster.find(function(x){return x.id===pid;}) || {name:'player'}).name);
+  };
+}
+
+// Pick the AI’s target: prefer a healthy starter with the lowest targeted stat
+function pickAITarget(team) {
+  // starters = first in each depth slot
+  var byPos = {}; window.Constants.POSITIONS.forEach(function(pos){ byPos[pos] = []; });
+  team.roster.forEach(function(p){ byPos[p.pos].push(p); });
+  window.Constants.POSITIONS.forEach(function(pos){ byPos[pos].sort(function(a,b){ return b.ovr - a.ovr; }); });
+
+  var starters = [];
+  Object.keys(window.Constants.DEPTH_NEEDS).forEach(function(pos){
+    var need = window.Constants.DEPTH_NEEDS[pos];
+    starters = starters.concat(byPos[pos].slice(0, Math.max(1, need)));
+  });
+
+  // score candidates by potential gain: lower stat, younger, not injured
+  var best = null, bestScore = -1, bestStat = 'awareness';
+  var stats = ['speed','strength','agility','awareness'];
+
+  starters.forEach(function(p) {
+    if (p.injuryWeeks > 0) return;
+    stats.forEach(function(st) {
+      var cur = p[st] | 0;
+      var headroom = Math.max(0, 99 - cur);
+      var agePenalty = Math.max(0, p.age - 27);
+      var score = headroom - 0.8*agePenalty + (p.pos==='QB' && st==='awareness' ? 3 : 0);
+      if (score > bestScore) { bestScore = score; best = p; bestStat = st; }
+    });
+  });
+
+  if (!best) return null;
+  return { playerId: best.id, stat: bestStat };
+}
+
+// Core training math
+function resolveTrainingFor(team, plan, league) {
+  if (!plan) return null;
+  var p = team.roster.find(function(x){ return x.id === plan.playerId; });
+  if (!p) return { ok:false, reason:'not-found' };
+  if (p.injuryWeeks > 0) return { ok:false, reason:'injured' };
+
+  var stat = plan.stat;
+  var cur = p[stat] | 0;
+  if (cur >= 99) return { ok:false, reason:'capped' };
+
+  // success chance
+  var coach = (team.strategy && team.strategy.coachSkill) || 0.7;          // 0.6..1.0
+  var base = 0.55 + 0.15*(coach - 0.7);                                    // around 55 percent, better coach helps
+  var dim = Math.max(0, (cur - 70)) * 0.01;                                 // harder above 70
+  var agePen = Math.max(0, (p.age - 27)) * 0.015;                           // older is harder
+  var successP = Math.max(0.15, Math.min(0.85, base - dim - agePen));
+
+  var roll = Math.random();
+  var success = roll < successP;
+
+  // delta magnitude is smaller for high current ratings, bigger for awareness
+  var maxBump = stat === 'awareness' ? 4 : 3;
+  var bump = success ? 1 + Math.floor(Math.random() * Math.max(1, maxBump - Math.floor((cur - 75)/10))) : 0;
+  bump = Math.max(1, Math.min(bump, 3));
+  var newVal = success ? Math.min(99, cur + bump) : cur;
+
+  // fatigue tick
+  p.fatigue = (p.fatigue|0) + (success ? 2 : 1);
+
+  // write back
+  if (success) p[stat] = newVal;
+
+  // small OVR nudge if awareness or agility improved
+  if (success && (stat === 'awareness' || stat === 'agility')) {
+    p.ovr = Math.min(99, p.ovr + 1);
+  }
+
+  return { ok:true, success:success, stat:stat, before:cur, after:p[stat], bump: success ? (p[stat]-cur) : 0, prob:successP };
+}
+
+// Run once per completed week
+function runWeeklyTraining(league) {
+  if (!league || !league.teams) return;
+
+  var weekJustCompleted = league.week - 1; // after simulateWeek, week already incremented
+
+  // User plan is consumed only once and only for the week it was set
+  var userPlan = (state.trainingPlan && state.trainingPlan.week === weekJustCompleted) ? state.trainingPlan : null;
+
+  league.teams.forEach(function(team, idx){
+    var plan = null;
+
+    // user team uses explicit plan if provided
+    var userIdx = parseInt(document.getElementById('userTeam').value || '0', 10);
+    if (idx === userIdx && userPlan) {
+      plan = { playerId: userPlan.playerId, stat: userPlan.stat };
+    } else {
+      // AI chooses automatically
+      var ai = pickAITarget(team);
+      if (ai) plan = ai;
+    }
+
+    var res = resolveTrainingFor(team, plan, league);
+    if (!res || !res.ok) return;
+
+    // Log to news
+    var tAbbr = team.abbr || ('T'+idx);
+    if (res.success) {
+      league.news.push('Week '+weekJustCompleted+': '+tAbbr+' trained '+res.stat+' from '+res.before+' to '+res.after);
+    } else {
+      league.news.push('Week '+weekJustCompleted+': '+tAbbr+' training on '+res.stat+' did not improve');
+    }
+  });
+
+  // consume the user plan
+  if (userPlan) state.trainingPlan = null;
+}
 
   // Save/Load/New
   $('#btnSave').onclick = function(){
