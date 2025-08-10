@@ -788,9 +788,9 @@ function assignByes(teamCount){
   
 function renderStandings(){
   const L = state.league;
-  const scope = $("#standingsScope").value || "league";
-  const leadersOnly = $("#leadersOnly")?.checked || false;
-  const highlight = $("#highlightLeaders")?.checked !== false;
+  const scope = (($("#standingsScope") && $("#standingsScope").value) ? $("#standingsScope").value : "league");
+  const leadersOnly = (($("#leadersOnly")) ? $("#leadersOnly").checked : false) || false;
+  const highlight = (($("#highlightLeaders")) ? $("#highlightLeaders").checked : false) !== false;
   const wrap = $("#standingsWrap"); wrap.innerHTML="";
   const stats = teamStats(L);
 
@@ -866,9 +866,9 @@ function renderStandings(){
   }
 
   $("#standingsScope").onchange = renderStandings;
-  $("#leadersOnly")?.addEventListener("change", renderStandings);
-  $("#highlightLeaders")?.addEventListener("change", renderStandings);
-  $("#btnPlayoffPicture")?.addEventListener("click", ()=>{
+  if ($("#leadersOnly")) $("#leadersOnly").addEventListener("change", renderStandings);
+  if ($("#highlightLeaders")) $("#highlightLeaders").addEventListener("change", renderStandings);
+  if ($("#btnPlayoffPicture")) $("#btnPlayoffPicture").addEventListener("click", ()=>{
     renderPlayoffPicture();
     $("#playoffPicture").hidden = false;
   }, {once:true});
@@ -1328,7 +1328,7 @@ function chooseTradePieces(teamA, teamB){
 function adjustValueForNeed(rawValue, receiverTeam, player){
   // Boost value if the receiver has a big need at player's position
   const needs = teamNeedProfile(receiverTeam);
-  const posNeed = needs[player.pos]?.score || 0;
+  const posNeed = (needs[player.pos] ? needs[player.pos].score : 0) || 0;
   // Scale: up to +30% for severe need
   const factor = 1 + Math.min(0.3, posNeed/40);
   return rawValue * factor;
@@ -1846,7 +1846,7 @@ function renderPlayoffs(){
   info.textContent = P ? `Round: ${P.round}` : "No playoffs in progress.";
   bracket.innerHTML = "";
   rs.innerHTML = "";
-  (state.playoffs?.results||[]).forEach(line=>{ const d=document.createElement("div"); d.textContent=line; rs.appendChild(d); });
+  (((state.playoffs && state.playoffs.results) || []).forEach(line=>{ const d=document.createElement("div"); d.textContent=line; rs.appendChild(d); });
   if (!P) return;
   function listSeries(key){
     const wrap = document.createElement("div");
@@ -1898,7 +1898,7 @@ function renderPlayoffs(){
   }
   $("#btnSimWeek").onclick = () => { if(!state.onboarded){ openOnboard(); return; } simulateWeek(); };
   $("#btnSimSeason").onclick = () => { if(!state.onboarded){ openOnboard(); return; } for (let i=0;i<999;i++){ if (state.league.week > state.league.schedule.length) break; simulateWeek(); } };
-  $("#btnSimRound")?.addEventListener("click", simulatePlayoffRound);
+  if ($("#btnSimRound")) $("#btnSimRound").addEventListener("click", simulatePlayoffRound);
 
   function startNew(){
     state.league = makeLeague();
