@@ -38,8 +38,11 @@
     var g = w+l+t; return g? (w + 0.5*t)/g : 0;
   }
 
-  // Official teams with abbreviations and accurate divisions
-  // conf: 0 = AFC, 1 = NFC; div: 0 = East, 1 = North, 2 = South, 3 = West
+// where you build the league:
+L.schedule = Scheduler.makeAccurateSchedule(L);
+
+// remove any references to local assignByes since the schedule now generates byes from empty weeks
+
   var TEAM_META_REAL = [
     // AFC East
     {abbr:"BUF", name:"Buffalo Bills", conf:0, div:0},
