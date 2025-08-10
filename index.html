@@ -5,8 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NFL GM Simulator </title>
     <link rel="stylesheet" href="style.css" />
+ <!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NFL GM Simulator</title>
+    <link rel="stylesheet" href="style.css" />
   </head>
   <body>
+    <!-- your existing markup stays the same -->
+
+    <!-- Order matters. Load helpers first, then your app code. -->
+    <script src="utils.js" defer></script>
+    <script src="constants.js" defer></script>
+    <script src="teams.js" defer></script>
+    <script src="schedule.js" defer></script>
+    <script src="script.js" defer></script>
+  </body>
+</html>
     <header class="topbar">
       <div class="brand">NFL GM Simulator — Pro + Contracts & Picks</div>
       <nav class="topnav">
@@ -297,7 +314,5 @@
       <div>Contracts 2.0 and pick trading are live. Rollover applies each offseason.</div>
     </footer>
 
-  <script src="schedule.js"></script>
-  <script src="script.js"></script>
   </body>
 </html>
