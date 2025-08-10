@@ -4,104 +4,10 @@
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const SAVE_KEY = "nflGM.league.contracts.picks";
 
-  const state = { league: null, prospects: [], freeAgents: [], playoffs: null, namesMode: 'fictional', onboarded: false, pendingOffers: [] };
+  const state = { league: null, prospects: [], freeAgents: [], playoffs: null };
 
   const POSITIONS = ["QB","RB","WR","TE","OL","DL","LB","CB","S","K"];
   const DEPTH_NEEDS = { QB:1, RB:1, WR:3, TE:1, OL:5, DL:4, LB:3, CB:2, S:2, K:1 };
-  
-  
-  // Official teams with abbreviations and accurate divisions
-  // conf: 0 = AFC, 1 = NFC; div: 0 = East, 1 = North, 2 = South, 3 = West
-  const TEAM_META_REAL = [
-    // AFC East
-    {abbr:"BUF", name:"Buffalo Bills", conf:0, div:0},
-    {abbr:"MIA", name:"Miami Dolphins", conf:0, div:0},
-    {abbr:"NE",  name:"New England Patriots", conf:0, div:0},
-    {abbr:"NYJ", name:"New York Jets", conf:0, div:0},
-    // AFC North
-    {abbr:"BAL", name:"Baltimore Ravens", conf:0, div:1},
-    {abbr:"CIN", name:"Cincinnati Bengals", conf:0, div:1},
-    {abbr:"CLE", name:"Cleveland Browns", conf:0, div:1},
-    {abbr:"PIT", name:"Pittsburgh Steelers", conf:0, div:1},
-    // AFC South
-    {abbr:"HOU", name:"Houston Texans", conf:0, div:2},
-    {abbr:"IND", name:"Indianapolis Colts", conf:0, div:2},
-    {abbr:"JAX", name:"Jacksonville Jaguars", conf:0, div:2},
-    {abbr:"TEN", name:"Tennessee Titans", conf:0, div:2},
-    // AFC West
-    {abbr:"DEN", name:"Denver Broncos", conf:0, div:3},
-    {abbr:"KC",  name:"Kansas City Chiefs", conf:0, div:3},
-    {abbr:"LV",  name:"Las Vegas Raiders", conf:0, div:3},
-    {abbr:"LAC", name:"Los Angeles Chargers", conf:0, div:3},
-    // NFC East
-    {abbr:"DAL", name:"Dallas Cowboys", conf:1, div:0},
-    {abbr:"NYG", name:"New York Giants", conf:1, div:0},
-    {abbr:"PHI", name:"Philadelphia Eagles", conf:1, div:0},
-    {abbr:"WAS", name:"Washington Commanders", conf:1, div:0},
-    // NFC North
-    {abbr:"CHI", name:"Chicago Bears", conf:1, div:1},
-    {abbr:"DET", name:"Detroit Lions", conf:1, div:1},
-    {abbr:"GB",  name:"Green Bay Packers", conf:1, div:1},
-    {abbr:"MIN", name:"Minnesota Vikings", conf:1, div:1},
-    // NFC South
-    {abbr:"ATL", name:"Atlanta Falcons", conf:1, div:2},
-    {abbr:"CAR", name:"Carolina Panthers", conf:1, div:2},
-    {abbr:"NO",  name:"New Orleans Saints", conf:1, div:2},
-    {abbr:"TB",  name:"Tampa Bay Buccaneers", conf:1, div:2},
-    // NFC West
-    {abbr:"ARI", name:"Arizona Cardinals", conf:1, div:3},
-    {abbr:"LAR", name:"Los Angeles Rams", conf:1, div:3},
-    {abbr:"SF",  name:"San Francisco 49ers", conf:1, div:3},
-    {abbr:"SEA", name:"Seattle Seahawks", conf:1, div:3}
-  ];
-
-  // Fictional teams (same order length, generic conf/div by index)
-  const TEAM_META_FICTIONAL = [
-    {abbr:"ARI",name:"Arizona Scorpions",conf:1,div:3},
-    {abbr:"ATL",name:"Atlanta Flight",conf:1,div:2},
-    {abbr:"BAL",name:"Baltimore Crabs",conf:0,div:1},
-    {abbr:"BUF",name:"Buffalo Blizzard",conf:0,div:0},
-    {abbr:"CAR",name:"Carolina Lynx",conf:1,div:2},
-    {abbr:"CHI",name:"Chicago Hammers",conf:1,div:1},
-    {abbr:"CIN",name:"Cincinnati Tigers",conf:0,div:1},
-    {abbr:"CLE",name:"Cleveland Dawgs",conf:0,div:1},
-    {abbr:"DAL",name:"Dallas Mustangs",conf:1,div:0},
-    {abbr:"DEN",name:"Denver Peaks",conf:0,div:3},
-    {abbr:"DET",name:"Detroit Motors",conf:1,div:1},
-    {abbr:"GB", name:"Green Bay Wolves",conf:1,div:1},
-    {abbr:"HOU",name:"Houston Comets",conf:0,div:2},
-    {abbr:"IND",name:"Indianapolis Racers",conf:0,div:2},
-    {abbr:"JAX",name:"Jacksonville Sharks",conf:0,div:2},
-    {abbr:"KC", name:"Kansas City Kings",conf:0,div:3},
-    {abbr:"LV", name:"Las Vegas Aces",conf:0,div:3},
-    {abbr:"LAC",name:"Los Angeles Lightning",conf:0,div:3},
-    {abbr:"LAR",name:"Los Angeles Guardians",conf:1,div:3},
-    {abbr:"MIA",name:"Miami Surge",conf:0,div:0},
-    {abbr:"MIN",name:"Minnesota North",conf:1,div:1},
-    {abbr:"NE", name:"New England Minutemen",conf:0,div:0},
-    {abbr:"NO", name:"New Orleans Spirits",conf:1,div:2},
-    {abbr:"NYG",name:"New York Giants*",conf:1,div:0},
-    {abbr:"NYJ",name:"New York Jets*",conf:0,div:0},
-    {abbr:"PHI",name:"Philadelphia Liberty",conf:1,div:0},
-    {abbr:"PIT",name:"Pittsburgh Iron",conf:0,div:1},
-    {abbr:"SEA",name:"Seattle Orcas",conf:1,div:3},
-    {abbr:"SF", name:"San Francisco Gold",conf:1,div:3},
-    {abbr:"TB", name:"Tampa Bay Cannons",conf:1,div:2},
-    {abbr:"TEN",name:"Tennessee Twang",conf:0,div:2},
-    {abbr:"WAS",name:"Washington Sentinels",conf:1,div:0}
-  ];
-
-  const TEAM_LIST_REAL = [
-    ["ARI","Arizona Cardinals"],["ATL","Atlanta Falcons"],["BAL","Baltimore Ravens"],["BUF","Buffalo Bills"],
-    ["CAR","Carolina Panthers"],["CHI","Chicago Bears"],["CIN","Cincinnati Bengals"],["CLE","Cleveland Browns"],
-    ["DAL","Dallas Cowboys"],["DEN","Denver Broncos"],["DET","Detroit Lions"],["GB","Green Bay Packers"],
-    ["HOU","Houston Texans"],["IND","Indianapolis Colts"],["JAX","Jacksonville Jaguars"],["KC","Kansas City Chiefs"],
-    ["LV","Las Vegas Raiders"],["LAC","Los Angeles Chargers"],["LAR","Los Angeles Rams"],["MIA","Miami Dolphins"],
-    ["MIN","Minnesota Vikings"],["NE","New England Patriots"],["NO","New Orleans Saints"],["NYG","New York Giants"],
-    ["NYJ","New York Jets"],["PHI","Philadelphia Eagles"],["PIT","Pittsburgh Steelers"],["SEA","Seattle Seahawks"],
-    ["SF","San Francisco 49ers"],["TB","Tampa Bay Buccaneers"],["TEN","Tennessee Titans"],["WAS","Washington Commanders"]
-  ];
-
   const TEAM_LIST = [
     ["ARI","Arizona Scorpions"],["ATL","Atlanta Flight"],["BAL","Baltimore Crabs"],["BUF","Buffalo Blizzard"],
     ["CAR","Carolina Lynx"],["CHI","Chicago Hammers"],["CIN","Cincinnati Tigers"],["CLE","Cleveland Dawgs"],
@@ -148,23 +54,16 @@
   const LAST=["Johnson","Smith","Williams","Brown","Jones","Miller","Davis","Garcia","Rodriguez","Wilson","Martinez","Anderson","Taylor","Thomas","Hernandez","Moore","Martin","Jackson","Thompson","White","Lopez","Lee","Gonzalez","Harris","Clark","Lewis","Robinson","Walker","Young","Allen","King","Wright","Scott","Torres","Reed","Cook","Bell","Perez","Hill","Green"];
 
   // League creation
-  function makeLeague(teamList){
-    const baseList = teamList || TEAM_LIST; const teams = baseList.map((t, idx) => {
-      const isArray = Array.isArray(t);
-      const abbr = isArray ? t[0] : t.abbr;
-      const name = isArray ? t[1] : t.name;
-      const conf = isArray ? Math.floor(idx/16) : t.conf;
-      const div  = isArray ? Math.floor((idx%16)/4) : t.div;
-      return {
-        id: idx, abbr, name,
-        rating: rand(70, 88), roster: [], record: {w:0,l:0,t:0,pf:0,pa:0},
-        conf, div,
-        capBook: {}, deadCapBook: {}, capRollover: 0,
-        capTotal: CAP_BASE,
-        picks: [],
-        strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 },
-      };
-    });
+  function makeLeague(){
+    const teams = TEAM_LIST.map((t, idx) => ({
+      id: idx, abbr: t[0], name: t[1],
+      rating: rand(70, 88), roster: [], record: {w:0,l:0,t:0,pf:0,pa:0},
+      conf: Math.floor(idx/16), div: Math.floor((idx%16)/4),
+      capBook: {}, deadCapBook: {}, capRollover: 0,
+      capTotal: CAP_BASE,
+      picks: [],
+      strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 },
+    }));
     for (const tm of teams){
       const roster = [];
       const template = {QB:2,RB:3,WR:5,TE:2,OL:7,DL:7,LB:5,CB:5,S:3,K:1};
@@ -179,17 +78,12 @@
       seedTeamPicks(tm, 1, YEARS_OF_PICKS);
       tm.rating = Math.round(0.6*avg(tm.roster.map(p=>p.ovr)) + 0.4*tm.rating);
     }
-    const schedule = makeAccurateSchedule(L);
+    const schedule = make17GameSchedule(32);
     const L = {
       seed: rand(1, 999999), season: 1, week: 1,
       teams, schedule, resultsByWeek: {}, playoffsDone: false, champion: null
     };
     for (const t of teams) recalcCap(L, t);
-
-    // Seed lastDivisionRank based on current ratings for year 1
-    const tmpRanks = computeLastDivisionRanks(L);
-    L.teams.forEach((t,i)=>{ t.lastDivisionRank = tmpRanks[i]; });
-
     return L;
   }
 
@@ -274,249 +168,18 @@
   }
 
   // 17-game schedule with byes
-  
-// ===== Accurate NFL-like schedule generation =====
-function divisionTeamsByConf(league){
-  const by = {0:[[],[],[],[]], 1:[[],[],[],[]]};
-  league.teams.forEach((t,i)=>{ by[t.conf][t.div].push(i); });
-  return by;
-}
-
-function computeLastDivisionRanks(league){
-  const ranks = Array(league.teams.length).fill(0);
-  for (let conf=0; conf<2; conf++){
-    for (let dv=0; dv<4; dv++){
-      const idxs = league.teams.map((t,i)=>({i,t})).filter(x=>x.t.conf===conf && x.t.div===dv);
-      idxs.sort((a,b)=>{
-        const pa = pct(a.t.record), pb = pct(b.t.record);
-        if (pa!==pb) return pb - pa;
-        const pda = a.t.record.pf - a.t.record.pa;
-        const pdb = b.t.record.pf - b.t.record.pa;
-        if (pda!==pdb) return pdb - pda;
-        return (b.t.rating||0) - (a.t.rating||0);
-      });
-      idxs.forEach((x,rank)=>{ ranks[x.i] = rank; });
-    }
-  }
-  return ranks;
-}
-
-// 8-year inter-conference rotation: each division plays all 4 opposite-conference divisions twice in 8 years.
-// Host flips on the second pass.
-const INTER_ROT_8 = {
-  0: [0,1,2,3, 0,1,2,3], // East
-  1: [1,2,3,0, 1,2,3,0], // North
-  2: [2,3,0,1, 2,3,0,1], // South
-  3: [3,0,1,2, 3,0,1,2], // West
-};
-
-// 3-year intra-conference rotation embedded across 8 years (repeats 1,2,3,1,2,3,1,2). Host flips every repeat.
-const INTRA_ROT_8 = {
-  0: [1,2,3, 1,2,3, 1,2], // East
-  1: [2,3,0, 2,3,0, 2,3], // North
-  2: [3,0,1, 3,0,1, 3,0], // South
-  3: [0,1,2, 0,1,2, 0,1], // West
-};
-
-function makeAccurateSchedule(league){
-  const season = league.season || 1;
-  const by = divisionTeamsByConf(league);
-  const lastRanks = computeLastDivisionRanks(league);
-  const y8 = (season-1) % 8;
-  const seventeenthHostConf = (season % 2 === 1) ? 0 : 1; // AFC hosts odd seasons
-
-  const games = [];
-  const keyset = new Set();
-  function addGame(home, away){
-    const k = home < away ? `${home}-${away}` : `${away}-${home}`;
-    if (keyset.has(k)) return;
-    keyset.add(k);
-    games.push({home, away});
-  }
-
-  // 1) Division home-and-away (6 each)
-  for (let conf=0; conf<2; conf++){
-    for (let dv=0; dv<4; dv++){
-      const teams = by[conf][dv];
-      for (let i=0; i<teams.length; i++){
-        for (let j=i+1; j<teams.length; j++){
-          const a = teams[i], b = teams[j];
-          games.push({home:a, away:b});
-          games.push({home:b, away:a});
-          keyset.add(`${Math.min(a,b)}-${Math.max(a,b)}`);
-        }
+  function make17GameSchedule(N){
+    const weeks = 18;
+    const schedule = Array.from({length: weeks}, ()=>[]);
+    const teams = Array.from({length:N}, (_,i)=>i);
+    // byes weeks 6..14
+    const byeWeeks = [6,7,8,9,10,11,12,13,14];
+    let idx=0;
+    for (const w of byeWeeks){
+      for (let k=0;k<4;k++){
+        schedule[w-1].push({bye: teams[idx%N]});
+        idx++;
       }
-    }
-  }
-
-  // Host parity flags so the second pass flips home/away for divisional-cross slates
-  const intraHostFlip = (Math.floor((season-1)/3) % 2) ? 1 : 0;  // flips every time we repeat the 3-year cycle
-  const interHostFlip = (Math.floor((season-1)/4) % 2) ? 1 : 0;  // flips on second 4-year pass in the 8-year cycle
-
-  // 2) Intra-conference 4-game set vs rotated division (2 home / 2 away each team)
-  for (let conf=0; conf<2; conf++){
-    for (let dv=0; dv<4; dv++){
-      const targetDiv = INTRA_ROT_8[dv][y8];
-      const A = by[conf][dv], B = by[conf][targetDiv];
-      for (let i=0; i<4; i++){
-        for (let j=0; j<4; j++){
-          const a = A[i], b = B[j];
-          // Balanced 2H/2A: base pattern (i+j) even = A hosts. Flip on cycle repeats.
-          const hosts = ((i + j + intraHostFlip) % 2 === 0);
-          const home = hosts ? a : b;
-          const away = hosts ? b : a;
-          addGame(home, away);
-        }
-      }
-    }
-  }
-
-  // 3) Inter-conference 4-game set vs rotated opposite division (2 home / 2 away each)
-  for (let conf=0; conf<2; conf++){
-    const other = conf===0 ? 1 : 0;
-    for (let dv=0; dv<4; dv++){
-      const targetDiv = INTER_ROT_8[dv][y8];
-      const A = by[conf][dv], B = by[other][targetDiv];
-      for (let i=0; i<4; i++){
-        for (let j=0; j<4; j++){
-          const a = A[i], b = B[j];
-          // Balanced, flip on second 4-year pass
-          const hosts = ((i + j + interHostFlip) % 2 === 0);
-          const home = hosts ? a : b;
-          const away = hosts ? b : a;
-          addGame(home, away);
-        }
-      }
-    }
-  }
-
-  // Helper: get same-place team index
-  function samePlaceTeam(conf, div, rank){
-    const idxs = by[conf][div].slice().sort((x,y)=> lastRanks[x]-lastRanks[y]);
-    return idxs[Math.min(rank, idxs.length-1)];
-  }
-
-  // 4) Two intra-conference same-place games vs the two divisions not in the 4-game intra set
-  for (let conf=0; conf<2; conf++){
-    for (let dv=0; dv<4; dv++){
-      const A = by[conf][dv];
-      const targ = INTRA_ROT_8[dv][y8];
-      const otherDivs = [0,1,2,3].filter(x=>x!==dv && x!==targ);
-      for (const t of A){
-        const r = lastRanks[t];
-        for (let k=0; k<otherDivs.length; k++){
-          const od = otherDivs[k];
-          const opp = samePlaceTeam(conf, od, r);
-          if (t === opp) continue;
-          // Alternate H/A year-to-year so each year teams get 1H/1A across the two games
-          const home = ((season + k + r) % 2 === 0) ? t : opp;
-          const away = home===t ? opp : t;
-          addGame(home, away);
-        }
-      }
-    }
-  }
-
-  // 5) 17th cross-conference same-place vs next inter rotation division; AFC hosts odd seasons
-  for (let conf=0; conf<2; conf++){
-    const other = conf===0 ? 1 : 0;
-    for (let dv=0; dv<4; dv++){
-      const A = by[conf][dv];
-      const nextDiv = INTER_ROT_8[dv][(y8+1)%8];
-      for (const t of A){
-        const r = lastRanks[t];
-        const opp = samePlaceTeam(other, nextDiv, r);
-        if (t === opp) continue;
-        const home = (league.teams[t].conf === seventeenthHostConf) ? t : opp;
-        const away = home===t ? opp : t;
-        addGame(home, away);
-      }
-    }
-  }
-
-  // Build schedule by weeks with byes 6–14
-  const needed = Array(league.teams.length).fill(17);
-  const byes = assignByes(league.teams.length);
-  const weeks = Array.from({length:18}, ()=>[]);
-  const played = Array.from({length:18}, ()=>Array(league.teams.length).fill(false));
-
-  // Shuffle for dispersion
-  for (let i=games.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [games[i],games[j]]=[games[j],games[i]]; }
-
-  function canPlace(w,g){
-    const h=g.home, a=g.away;
-    if (byes[w] && (byes[w].has(h) || byes[w].has(a))) return false;
-    if (played[w][h] || played[w][a]) return false;
-    if (needed[h]<=0 || needed[a]<=0) return false;
-    return true;
-  }
-
-  for (const g of games){
-    if (needed[g.home]<=0 || needed[g.away]<=0) continue;
-    let placed=false;
-    for (let w=0; w<18; w++){
-      if (canPlace(w,g)){
-        weeks[w].push({home:g.home, away:g.away});
-        played[w][g.home]=true; played[w][g.away]=true;
-        needed[g.home]--; needed[g.away]--;
-        placed = true; break;
-      }
-    }
-    if (!placed){
-      // fallback ignoring byes
-      for (let w=0; w<18 && !placed; w++){
-        if (!played[w][g.home] && !played[w][g.away]){
-          weeks[w].push({home:g.home, away:g.away});
-          played[w][g.home]=true; played[w][g.away]=true;
-          needed[g.home]--; needed[g.away]--;
-          placed=true; break;
-        }
-      }
-    }
-  }
-
-  // Insert byes
-  for (let w=0; w<18; w++){
-    if (!byes[w]) continue;
-    for (const t of byes[w]) weeks[w].push({bye:t});
-  }
-
-  return weeks;
-}
-
-function assignByes(teamCount){
-  const quotas = [4,4,4,4,4,4,4,2,2]; // weeks 6..14
-  const weeks = Array(18).fill(null).map(()=>null);
-  const pool = Array.from({length:teamCount}, (_,i)=>i);
-  for (let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  let p=0;
-  for (let k=0;k<quotas.length;k++){
-    const w = 6 + k - 1;
-    const set = new Set();
-    for (let c=0;c<quotas[k] && p<pool.length;c++){ set.add(pool[p++]); }
-    weeks[w]=set;
-  }
-  return weeks;
-}
-(teamCount){
-  // Byes weeks 6..14. Quotas sum to 32.
-  const quotas = [4,4,4,4,4,4,4,2,2]; // 9 weeks
-  const weeks = Array(18).fill(null).map(()=>null);
-  const pool = Array.from({length:teamCount}, (_,i)=>i);
-  // Deterministic shuffle
-  for (let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  let p = 0;
-  for (let k=0;k<quotas.length;k++){
-    const weekIndex = 6 + k - 1; // weeks are 0-indexed
-    const set = new Set();
-    for (let c=0;c<quotas[k];c++){
-      if (p>=pool.length) break;
-      set.add(pool[p++]);
-    }
-    weeks[weekIndex] = set;
-  }
-  return weeks;
-}
     }
     // ensure all have a bye
     const byes = new Set();
@@ -543,38 +206,7 @@ function assignByes(teamCount){
   function shuffle(a){ for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
   function pairKey(a,b){ return a<b? `${a}-${b}` : `${b}-${a}`; }
 
-  
-  function listByMode(mode){ return mode==='real' ? TEAM_META_REAL : TEAM_META_FICTIONAL; }
-  
-  function rebuildTeamLabels(mode){
-    const L = state.league;
-    const meta = listByMode(mode);
-    if (!L || !L.teams || L.teams.length !== meta.length) return;
-    L.teams.forEach((tm, i)=>{
-      tm.abbr = meta[i].abbr;
-      tm.name = meta[i].name;
-      tm.conf = meta[i].conf;
-      tm.div  = meta[i].div;
-    });
-    // Refresh selects
-    $$("select").forEach(sel=>{
-      if (sel.id==="onboardTeam") return;
-      const prev = sel.value;
-      sel.innerHTML = "";
-      L.teams.forEach((t, i)=>{
-        const opt = document.createElement("option");
-        opt.value = String(i);
-        const conf = `${CONF_NAMES[t.conf]} ${DIV_NAMES[t.div]}`;
-        opt.textContent = `${t.abbr} — ${t.name} (${conf})`;
-        sel.appendChild(opt);
-      });
-      if (prev) sel.value = prev;
-    });
-    // Repaint key views
-    renderHub(); renderRoster(); renderStandings(); renderDraft();
-  }
-
-// UI wiring
+  // UI wiring
   const routes = ["hub","roster","cap","schedule","standings","trade","freeagency","draft","playoffs","settings"];
   function show(route){
     routes.forEach(r => {
@@ -1037,13 +669,7 @@ function assignByes(teamCount){
   // Offseason rollover and aging
   function runOffseason(){
     const L = state.league;
-    const preTeamsLoop = true;
-
-    // Store last-season division rank for scheduling
-    const ranks = computeLastDivisionRanks(L);
-    L.teams.forEach((t,i)=>{ t.lastDivisionRank = ranks[i]; });
-
-for (const t of L.teams){
+    for (const t of L.teams){
       // rollover
       recalcCap(L, t);
       const room = Math.max(0, t.capTotal - t.capUsed);
@@ -1074,7 +700,7 @@ for (const t of L.teams){
     L.season += 1;
     L.week = 1;
     L.resultsByWeek = {};
-    L.schedule = makeAccurateSchedule(L);
+    L.schedule = make17GameSchedule(32);
   }
 
   // Helpers
@@ -1449,61 +1075,9 @@ simulateWeek = function(){
   renderOffers();
 };
 
-
-  // Onboarding modal behavior
-  function openOnboard(){
-    const modal = $("#onboardModal"); if (!modal) return;
-    modal.hidden = false;
-    // Fill team list for current mode
-    const mode = state.namesMode || 'fictional';
-    const sel = $("#onboardTeam");
-    sel.innerHTML = "";
-    const base = listByMode(mode);
-    base.forEach((t,i)=>{
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = `${t.abbr} — ${t.name}`;
-      sel.appendChild(opt);
-    });
-  }
-  function closeOnboard(){ const m=$("#onboardModal"); if (m) m.hidden = true; }
-
-  document.addEventListener("click", (e)=>{
-    if (e.target && e.target.id==="onboardClose"){ closeOnboard(); }
-    if (e.target && e.target.id==="onboardRandom"){
-      const sel = $("#onboardTeam");
-      sel.value = String(Math.floor(Math.random()* (listByMode(state.namesMode).length)));
-    }
-    if (e.target && e.target.id==="onboardStart"){
-      const chosenMode = ($("input[name=namesMode]:checked")||{}).value || "fictional";
-      state.namesMode = chosenMode;
-      const teamList = listByMode(chosenMode);
-      // Start a fresh league using the chosen names
-      state.league = makeLeague(teamList);
-      state.onboarded = true;
-      // Set user's team
-      const teamIdx = parseInt($("#onboardTeam").value || "0", 10);
-      const userSel = $("#userTeam");
-      fillTeamSelect(userSel);
-      userSel.value = String(teamIdx);
-      // Apply names to labels
-      rebuildTeamLabels(chosenMode);
-      closeOnboard();
-      location.hash = "#/hub";
-      setStatus("Season started");
-      refreshAll();
-    }
-    if (e.target && e.target.id==="btnApplyNamesMode"){
-      const chosenMode = ($("input[name=settingsNamesMode]:checked")||{}).value || state.namesMode;
-      state.namesMode = chosenMode;
-      rebuildTeamLabels(chosenMode);
-      setStatus("Team names updated");
-    }
-  });
-
 // Boot
   $("#btnSave").onclick = ()=>{
-    const payload = JSON.stringify({league: state.league, prospects: state.prospects, freeAgents: state.freeAgents, playoffs: state.playoffs, namesMode: state.namesMode});
+    const payload = JSON.stringify({league: state.league, prospects: state.prospects, freeAgents: state.freeAgents, playoffs: state.playoffs});
     localStorage.setItem(SAVE_KEY, payload);
     setStatus("Saved");
   };
@@ -1516,7 +1090,7 @@ simulateWeek = function(){
     setStatus("Loaded");
   };
   $("#btnNewLeague").onclick = ()=>{
-    if (confirm("Start a new league, clears progress")){ state.onboarded=false; openOnboard(); }
+    if (confirm("Start a new league, clears progress")){ startNew(); }
   };
 
   function refreshAll(){
@@ -1530,8 +1104,8 @@ simulateWeek = function(){
     }
     renderHub(); renderRoster(); renderCap(); renderSchedule(); renderStandings(); renderTradeUI(); renderFreeAgency(); renderDraft(); renderPlayoffs();
   }
-  $("#btnSimWeek").onclick = () => { if(!state.onboarded){ openOnboard(); return; } simulateWeek(); };
-  $("#btnSimSeason").onclick = () => { if(!state.onboarded){ openOnboard(); return; } for (let i=0;i<999;i++){ if (state.league.week > state.league.schedule.length) break; simulateWeek(); } };
+  $("#btnSimWeek").onclick = () => simulateWeek();
+  $("#btnSimSeason").onclick = () => { for (let i=0;i<999;i++){ if (state.league.week > state.league.schedule.length) break; simulateWeek(); } };
   $("#btnSimRound")?.addEventListener("click", simulatePlayoffRound);
 
   function startNew(){

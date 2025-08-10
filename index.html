@@ -211,17 +211,6 @@
         <section id="settings" class="view" hidden>
           <div class="card">
             <h2>Settings</h2>
-            <div class="card">
-              <h3>Teams & Names</h3>
-              <div class="row">
-                <label class="row"><input type="radio" name="settingsNamesMode" value="fictional"> Fictional names</label>
-                <label class="row"><input type="radio" name="settingsNamesMode" value="real"> Real names</label>
-                <div class="spacer"></div>
-                <button id="btnApplyNamesMode" class="btn">Apply</button>
-              </div>
-              <div class="muted small">Switching names keeps records and rosters. Abbreviations remain generic.</div>
-            </div>
-
             <div class="row">
               <button id="btnNewLeague" class="btn danger">Start New League</button>
               <div class="spacer"></div>
@@ -231,30 +220,6 @@
         </section>
       </section>
     </main>
-
-    
-    <div id="onboardModal" class="modal" hidden>
-      <div class="modal-card">
-        <div class="row">
-          <h3>Start New League</h3>
-          <div class="spacer"></div>
-          <button id="onboardClose" class="btn">Close</button>
-        </div>
-        <div class="row mt">
-          <label class="row"><input type="radio" name="namesMode" value="fictional" checked> Fictional team names</label>
-          <label class="row"><input type="radio" name="namesMode" value="real"> Real NFL team names</label>
-        </div>
-        <div class="row mt">
-          <label for="onboardTeam">Choose your team</label>
-          <select id="onboardTeam"></select>
-          <button id="onboardRandom" class="btn">Random</button>
-        </div>
-        <div class="row mt">
-          <button id="onboardStart" class="btn primary">Start Season</button>
-        </div>
-        <div class="muted small">You must pick a team before playing. Real names are text only, no logos.</div>
-      </div>
-    </div>
 
     <footer class="footer">
       <div>Contracts 2.0 and pick trading are live. Rollover applies each offseason.</div>
