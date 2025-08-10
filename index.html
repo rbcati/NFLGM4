@@ -129,11 +129,31 @@
                 <option value="league">League</option>
                 <option value="conference">Conference</option>
                 <option value="division">Division</option>
-                <option value="leaders">Division Leaders</option>
-                <option value="picture">Playoff Picture</option>
               </select>
             </div>
+              <div class="row mt">
+                <label class="row"><input type="checkbox" id="leadersOnly"> Leaders only</label>
+                <label class="row"><input type="checkbox" id="highlightLeaders" checked> Highlight leaders</label>
+                <div class="spacer"></div>
+                <button id="btnPlayoffPicture" class="btn">Playoff picture</button>
+              </div>
+
             <div id="standingsWrap"></div>
+          <div class="card" id="playoffPicture" hidden>
+            <h3>Playoff picture</h3>
+            <div class="grid two">
+              <div>
+                <h4>AFC seeds</h4>
+                <ol id="seedsAFC"></ol>
+              </div>
+              <div>
+                <h4>NFC seeds</h4>
+                <ol id="seedsNFC"></ol>
+              </div>
+            </div>
+            <div class="muted small">Top seed in each conference has a bye. Wild Card round: 2v7, 3v6, 4v5.</div>
+          </div>
+
           </div>
         </section>
 

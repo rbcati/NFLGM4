@@ -44,3 +44,6 @@ label{font-size:.9rem;color:var(--muted);margin-right:6px}
 .offer-btn{padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:#1d2533;color:var(--text);cursor:pointer}
 .offer-btn.accept{background:var(--primary);border-color:#1a7f34;color:#041308}
 .offer-btn.decline{background:#2b3643}
+
+.leader-row{background:#162232 !important;}
+.badge.leader{background:#1f3b62;border-color:#2f4d78;color:#9ec3ff}
