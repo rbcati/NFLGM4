@@ -251,16 +251,42 @@ const { makeLeague } = window.League;
     return L;
   }
 
-  // Names mode relabel
-  function rebuildTeamLabels(mode){
-    var L = state.league;
-    var meta = listByMode(mode);
-    if (!L || !L.teams || L.teams.length !== meta.length) return;
-    L.teams.forEach(function (tm, i) {
-      tm.abbr = meta[i].abbr;
-      tm.name = meta[i].name;
-      tm.conf = meta[i].conf;
-      tm.div  = meta[i].div;
+// Names mode relabel
+function rebuildTeamLabels(mode) {
+  var L = state.league;
+  var meta = listByMode(mode);
+  if (!L || !L.teams || L.teams.length !== meta.length) return;
+
+  L.teams.forEach(function (tm, i) {
+    tm.abbr = meta[i].abbr;
+    tm.name = meta[i].name;
+    tm.conf = meta[i].conf;
+    tm.div  = meta[i].div;
+  });
+
+  // Refresh selects
+  var selects = document.querySelectorAll('select');
+  selects.forEach(function (sel) {
+    if (sel.id === 'onboardTeam') return;
+    var prev = sel.value;
+    sel.innerHTML = '';
+    L.teams.forEach(function (t, i) {
+      var opt = document.createElement('option');
+      opt.value = String(i);
+      var conf = CONF_NAMES[t.conf] + ' ' + DIV_NAMES[t.div];
+      opt.textContent = t.abbr + ' — ' + t.name + ' (' + conf + ')';
+      sel.appendChild(opt);
+    });
+    if (prev) sel.value = prev;
+  });
+
+  // Repaint key views
+  renderHub();
+  renderRoster();
+  renderStandings();
+  renderDraft();
+}
+
     });
     // refresh selects
     $$('select').forEach(function(sel){
