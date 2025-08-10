@@ -246,182 +246,208 @@
   var INTER_ROT_8 = { 0:[0,1,2,3, 0,1,2,3], 1:[1,2,3,0, 1,2,3,0], 2:[2,3,0,1, 2,3,0,1], 3:[3,0,1,2, 3,0,1,2] };
   var INTRA_ROT_8 =  { 0:[1,2,3, 1,2,3, 1,2], 1:[2,3,0, 2,3,0, 2,3], 2:[3,0,1, 3,0,1, 3,0], 3:[0,1,2, 0,1,2, 0,1] };
 
-  function makeAccurateSchedule(league){
-    var year = (league.year || (2025 + ((league.season||1)-1)));
-    var by = divisionTeamsByConf(league);
-    var lastRanks = computeLastDivisionRanks(league);
-    var y8 = (year - 2025) % 8;
-    var seventeenthHostConf = (year % 2 === 1) ? 0 : 1; // AFC hosts odd years
+ // DROP-IN REPLACEMENT
+function makeAccurateSchedule(league){
+  var year = (league.year || (2025 + ((league.season||1)-1)));
+  var by = divisionTeamsByConf(league);
+  var lastRanks = computeLastDivisionRanks(league);
+  var y8 = (year - 2025) % 8;
+  var seventeenthHostConf = (year % 2 === 1) ? 0 : 1; // AFC hosts odd years
 
-    var games = [];
-    var keyset = new Set();
-    function addGame(home, away){
-      var k = home < away ? (home+"-"+away) : (away+"-"+home);
-      if (keyset.has(k)) return;
-      keyset.add(k);
-      games.push({home:home, away:away});
-    }
-
-    // 1) Division home-and-away (6 each)
-    for (var conf=0; conf<2; conf++){
-      for (var dv=0; dv<4; dv++){
-        var teams = by[conf][dv];
-        for (var i=0; i<teams.length; i++){
-          for (var j=i+1; j<teams.length; j++){
-            var a = teams[i], b = teams[j];
-            games.push({home:a, away:b});
-            games.push({home:b, away:a});
-            keyset.add((Math.min(a,b))+"-"+(Math.max(a,b)));
-          }
-        }
-      }
-    }
-
-    // host parity flips based on calendar year anchor
-    var y0 = year - 2025;
-    var intraHostFlip = (Math.floor(y0/3) % 2) ? 1 : 0;
-    var interHostFlip = (Math.floor(y0/4) % 2) ? 1 : 0;
-
-    // 2) Intra-conference 4-game set vs rotated division
-    for (var conf2=0; conf2<2; conf2++){
-      for (var dv2=0; dv2<4; dv2++){
-        var targetDiv = INTRA_ROT_8[dv2][y8];
-        var A = by[conf2][dv2], B = by[conf2][targetDiv];
-        for (var i2=0; i2<4; i2++){
-          for (var j2=0; j2<4; j2++){
-            var a2 = A[i2], b2 = B[j2];
-            var hosts2 = hostByGrid(i2, j2, !!intraHostFlip);
-            addGame(hosts2 ? a2 : b2, hosts2 ? b2 : a2);
-          }
-        }
-      }
-    }
-
-    // 3) Inter-conference 4-game set vs rotated opposite division
-    for (var conf3=0; conf3<2; conf3++){
-      var other = conf3===0 ? 1 : 0;
-      for (var dv3=0; dv3<4; dv3++){
-        var tDiv = INTER_ROT_8[dv3][y8];
-        var A3 = by[conf3][dv3], B3 = by[other][tDiv];
-        for (var i3=0; i3<4; i3++){
-          for (var j3=0; j3<4; j3++){
-            var a3 = A3[i3], b3 = B3[j3];
-            var hosts3 = hostByGrid(i3, j3, !!interHostFlip);
-            addGame(hosts3 ? a3 : b3, hosts3 ? b3 : a3);
-          }
-        }
-      }
-    }
-
-    function samePlaceTeam(confX, divX, rank){
-      var idxs = by[confX][divX].slice().sort(function(x,y){ return lastRanks[x]-lastRanks[y]; });
-      return idxs[Math.min(rank, idxs.length-1)];
-    }
-
-    // 4) Two intra-conference same-place games vs the two other divisions
-    for (var conf4=0; conf4<2; conf4++){
-      for (var dv4=0; dv4<4; dv4++){
-        var A4 = by[conf4][dv4];
-        var targ = INTRA_ROT_8[dv4][y8];
-        var otherDivs = [0,1,2,3].filter(function(x){return x!==dv4 && x!==targ;});
-        for (var ti=0; ti<A4.length; ti++){
-          var t = A4[ti];
-          var r = lastRanks[t];
-          for (var k=0; k<otherDivs.length; k++){
-            var od = otherDivs[k];
-            var opp = samePlaceTeam(conf4, od, r);
-            if (t === opp) continue;
-            var home = ((year + k + r) % 2 === 0) ? t : opp;
-            addGame(home, home===t ? opp : t);
-          }
-        }
-      }
-    }
-
-    // 5) 17th cross-conference same-place
-    for (var conf5=0; conf5<2; conf5++){
-      var otherC = conf5===0 ? 1 : 0;
-      for (var dv5=0; dv5<4; dv5++){
-        var A5 = by[conf5][dv5];
-        var nextDiv = INTER_ROT_8[dv5][(y8+1)%8];
-        for (var ti2=0; ti2<A5.length; ti2++){
-          var t2 = A5[ti2];
-          var r2 = lastRanks[t2];
-          var opp2 = samePlaceTeam(otherC, nextDiv, r2);
-          if (t2 === opp2) continue;
-          var home2 = (league.teams[t2].conf === seventeenthHostConf) ? t2 : opp2;
-          addGame(home2, home2===t2 ? opp2 : t2);
-        }
-      }
-    }
-
-    // Build schedule by weeks with byes 6–14
-    var byes = assignByes(league.teams.length);
-
-    var weeks = Array.apply(null, Array(18)).map(function(){return [];});
-    var played = Array.apply(null, Array(18)).map(function(){ return Array(league.teams.length).fill(false); });
-
-    // Shuffle games for dispersion
-    for (var iG=games.length-1; iG>0; iG--){
-      var jG = Math.floor(Math.random()*(iG+1)); var tmpG = games[iG]; games[iG]=games[jG]; games[jG]=tmpG;
-    }
-
-    function canPlace(w,g){
-      var h=g.home, a=g.away;
-      if (byes[w] && (byes[w].has(h) || byes[w].has(a))) return false;
-      if (played[w][h] || played[w][a]) return false;
-      return true;
-    }
-
-    for (var gi=0; gi<games.length; gi++){
-      var g = games[gi], placed=false;
-      for (var w=0; w<18; w++){
-        if (canPlace(w,g)){
-          weeks[w].push({home:g.home, away:g.away});
-          played[w][g.home]=true; played[w][g.away]=true;
-          placed=true; break;
-        }
-      }
-      if (!placed){
-        // fallback: still avoid double-booking, ignore byes if necessary
-        for (var w2=0; w2<18 && !placed; w2++){
-          if (!played[w2][g.home] && !played[w2][g.away]){
-            weeks[w2].push({home:g.home, away:g.away});
-            played[w2][g.home]=true; played[w2][g.away]=true;
-            placed=true; break;
-          }
-        }
-      }
-      if (!placed){ throw new Error("Could not place game "+g.home+" vs "+g.away); }
-    }
-
-    // Insert byes
-    for (var wb=0; wb<18; wb++){
-      if (!byes[wb]) continue;
-      byes[wb].forEach(function(t){ weeks[wb].push({bye:t}); });
-    }
-
-    return weeks;
+  var games = [];
+  var keyset = new Set();
+  function addGameUnique(home, away){
+    var k = home < away ? (home+"-"+away) : (away+"-"+home);
+    if (keyset.has(k)) return;
+    keyset.add(k);
+    games.push({home:home, away:away});
   }
 
-  // 1) Byes: weeks 6..14, quotas sum to 32
-  function assignByes(teamCount){
-    var quotas = [4,4,4,4,4,4,4,2,2]; // 9 bye weeks -> 32 total
-    var weeks = Array(18).fill(null);
-    var sum = quotas.reduce(function(s,x){return s+x;},0);
-    if (sum !== teamCount) throw new Error("assignByes quotas sum "+sum+" != teamCount "+teamCount);
-    var pool = Array.apply(null, Array(teamCount)).map(function(_,i){return i;});
-    // shuffle
-    for (var i=pool.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=pool[i]; pool[i]=pool[j]; pool[j]=t; }
-    var p=0;
-    for (var k=0;k<quotas.length;k++){
-      var w = 5 + k; // 0-index 5..13 == NFL weeks 6..14
-      var set = new Set();
-      for (var c=0;c<quotas[k] && p<pool.length;c++){ set.add(pool[p++]); }
-      weeks[w]=set;
+  // 1) Division home-and-away (6 each)
+  for (var conf=0; conf<2; conf++){
+    for (var dv=0; dv<4; dv++){
+      var teams = by[conf][dv];
+      for (var i=0; i<teams.length; i++){
+        for (var j=i+1; j<teams.length; j++){
+          var a = teams[i], b = teams[j];
+          games.push({home:a, away:b});
+          games.push({home:b, away:a});
+          keyset.add((Math.min(a,b))+"-"+(Math.max(a,b))); // block dupes later
+        }
+      }
     }
-    return weeks;
   }
+
+  // Anchor flips
+  var y0 = year - 2025;
+  var intraHostFlip = (Math.floor(y0/3) % 2) ? 1 : 0;
+  var interHostFlip = (Math.floor(y0/4) % 2) ? 1 : 0;
+
+  // 2) Intra-conference rotated division (4 games)
+  for (var conf2=0; conf2<2; conf2++){
+    for (var dv2=0; dv2<4; dv2++){
+      var targetDiv = INTRA_ROT_8[dv2][y8];
+      var A = by[conf2][dv2], B = by[conf2][targetDiv];
+      for (var i2=0; i2<4; i2++){
+        for (var j2=0; j2<4; j2++){
+          var a2 = A[i2], b2 = B[j2];
+          var hosts2 = hostByGrid(i2, j2, !!intraHostFlip);
+          addGameUnique(hosts2 ? a2 : b2, hosts2 ? b2 : a2);
+        }
+      }
+    }
+  }
+
+  // 3) Inter-conference rotated division (4 games)
+  for (var conf3=0; conf3<2; conf3++){
+    var other = conf3===0 ? 1 : 0;
+    for (var dv3=0; dv3<4; dv3++){
+      var tDiv = INTER_ROT_8[dv3][y8];
+      var A3 = by[conf3][dv3], B3 = by[other][tDiv];
+      for (var i3=0; i3<4; i3++){
+        for (var j3=0; j3<4; j3++){
+          var a3 = A3[i3], b3 = B3[j3];
+          var hosts3 = hostByGrid(i3, j3, !!interHostFlip);
+          addGameUnique(hosts3 ? a3 : b3, hosts3 ? b3 : a3);
+        }
+      }
+    }
+  }
+
+  function samePlaceTeam(confX, divX, rank){
+    var idxs = by[confX][divX].slice().sort(function(x,y){ return lastRanks[x]-lastRanks[y]; });
+    return idxs[Math.min(rank, idxs.length-1)];
+  }
+
+  // 4) Two intra-conference same-place games
+  for (var conf4=0; conf4<2; conf4++){
+    for (var dv4=0; dv4<4; dv4++){
+      var A4 = by[conf4][dv4];
+      var targ = INTRA_ROT_8[dv4][y8];
+      var otherDivs = [0,1,2,3].filter(function(x){return x!==dv4 && x!==targ;});
+      for (var ti=0; ti<A4.length; ti++){
+        var t = A4[ti];
+        var r = lastRanks[t];
+        for (var k=0; k<otherDivs.length; k++){
+          var od = otherDivs[k];
+          var opp = samePlaceTeam(conf4, od, r);
+          if (t === opp) continue;
+          var home = ((year + k + r) % 2 === 0) ? t : opp;
+          addGameUnique(home, home===t ? opp : t);
+        }
+      }
+    }
+  }
+
+  // 5) 17th cross-conference same-place
+  for (var conf5=0; conf5<2; conf5++){
+    var otherC = conf5===0 ? 1 : 0;
+    for (var dv5=0; dv5<4; dv5++){
+      var A5 = by[conf5][dv5];
+      var nextDiv = INTER_ROT_8[dv5][(y8+1)%8];
+      for (var ti2=0; ti2<A5.length; ti2++){
+        var t2 = A5[ti2];
+        var r2 = lastRanks[t2];
+        var opp2 = samePlaceTeam(otherC, nextDiv, r2);
+        if (t2 === opp2) continue;
+        var home2 = (league.teams[t2].conf === seventeenthHostConf) ? t2 : opp2;
+        addGameUnique(home2, home2===t2 ? opp2 : t2);
+      }
+    }
+  }
+
+  // ===== Placement without preassigned byes, with swap fallback =====
+  // Shuffle for dispersion
+  for (var gsi=games.length-1; gsi>0; gsi--){
+    var jx = Math.floor(Math.random()*(gsi+1));
+    var tmpg = games[gsi]; games[gsi]=games[jx]; games[jx]=tmpg;
+  }
+
+  var teamCount = league.teams.length;
+  var weeks = Array.apply(null, Array(18)).map(function(){return [];});
+  var hasGame = Array.apply(null, Array(18)).map(function(){
+    return Array(teamCount).fill(false);
+  });
+
+  function canPlace(w,g){
+    var h=g.home, a=g.away;
+    if (hasGame[w][h] || hasGame[w][a]) return false;
+    return true;
+  }
+
+  function trySwapPlace(g){
+    // Try every week. If exactly one team has a conflict, try moving the blocking game elsewhere.
+    for (var w=0; w<18; w++){
+      if (canPlace(w,g)) {
+        weeks[w].push({home:g.home, away:g.away});
+        hasGame[w][g.home]=true; hasGame[w][g.away]=true;
+        return true;
+      }
+    }
+    // One-hop swap
+    for (var w1=0; w1<18; w1++){
+      // we want both teams free after a swap
+      var hBusy = hasGame[w1][g.home];
+      var aBusy = hasGame[w1][g.away];
+      if (hBusy || aBusy) continue; // we will move a different game, not their own
+      // pick any game in this week, try to rehome it
+      for (var idx=0; idx<weeks[w1].length; idx++){
+        var g2 = weeks[w1][idx];
+        // find a different week for g2
+        for (var w2=0; w2<18; w2++){
+          if (w2===w1) continue;
+          if (!canPlace(w2, g2)) continue;
+          // move g2 to w2
+          weeks[w2].push(g2);
+          hasGame[w2][g2.home]=true; hasGame[w2][g2.away]=true;
+          // remove g2 from w1
+          weeks[w1].splice(idx,1);
+          hasGame[w1][g2.home]=false; hasGame[w1][g2.away]=false;
+          // place original g into w1
+          weeks[w1].push({home:g.home, away:g.away});
+          hasGame[w1][g.home]=true; hasGame[w1][g.away]=true;
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  for (var gi=0; gi<games.length; gi++){
+    var g = games[gi];
+    var placed=false;
+    // try direct
+    for (var w=0; w<18; w++){
+      if (canPlace(w,g)){
+        weeks[w].push({home:g.home, away:g.away});
+        hasGame[w][g.home]=true; hasGame[w][g.away]=true;
+        placed=true; break;
+      }
+    }
+    if (!placed){
+      placed = trySwapPlace(g);
+    }
+    if (!placed){
+      throw new Error("Scheduler fallback failed for "+g.home+" vs "+g.away);
+    }
+  }
+
+  // Compute byes from empty appearances and add markers for UI
+  for (var w3=0; w3<18; w3++){
+    var marked = Array(teamCount).fill(false);
+    for (var ii=0; ii<weeks[w3].length; ii++){
+      var gg = weeks[w3][ii];
+      if (gg.bye !== undefined) continue;
+      marked[gg.home]=true; marked[gg.away]=true;
+    }
+    for (var t=0; t<teamCount; t++){
+      if (!marked[t]) weeks[w3].push({bye:t});
+    }
+  }
+
+  return weeks;
+}
+
 
   // League creation
   function makeLeague(teamList){
