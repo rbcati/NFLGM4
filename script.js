@@ -941,12 +941,21 @@ function renderStandings(){
 }
     $("#standingsScope").onchange = renderStandings;
   }
-  function pct(rec){ const g = rec.w + rec.l + rec.t; return g? (rec.w + 0.5*rec.t)/g : 0; }
-    const pA = pct(a.record), pB = pct(b.record);
-    if (pA !== pB) return pA - pB;
-    const pdA = a.record.pf - a.record.pa, pdB = b.record.pf - b.record.pa;
-    if (pdA !== pdB) return pdA - pdB;
-    return (a.rating||0) - (b.rating||0);
+function pct(rec) {
+  var g = (rec.w|0) + (rec.l|0) + (rec.t|0);
+  return g ? ((rec.w|0) + 0.5 * (rec.t|0)) / g : 0;
+}
+
+function cmpTeams(a, b) {
+  var pA = pct(a.record), pB = pct(b.record);
+  if (pA !== pB) return pB - pA;               // better record first
+  var pdA = (a.record.pf|0) - (a.record.pa|0);
+  var pdB = (b.record.pf|0) - (b.record.pa|0);
+  if (pdA !== pdB) return pdB - pdA;           // larger point diff first
+  return ((b.rating||0) - (a.rating||0));      // higher rating first
+}
+// usage: teams.sort(cmpTeams)
+
   }
   function standingsRows(scope){
     const L = state.league;
