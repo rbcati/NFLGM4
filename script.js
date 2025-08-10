@@ -24,7 +24,7 @@
   const Scheduler = window.Scheduler;
   if (!Scheduler || typeof Scheduler.makeAccurateSchedule !== 'function') {
     throw new Error('schedule.js failed to initialize (makeAccurateSchedule missing)');
-
+const { makeLeague } = window.League;
   // Shortcuts to split globals
   var U = window.Utils;
   var C = window.Constants;
@@ -183,8 +183,7 @@ function makeLeague(teamList){
     return base * discount;
   }
 
-  // League creation
-  function makeLeague(teamList) {
+
       // ...build teams...
   const L = {
     seed: rand(1, 999999),
