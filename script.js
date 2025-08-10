@@ -1916,7 +1916,12 @@ function renderPlayoffs(){
   info.textContent = P ? `Round: ${P.round}` : "No playoffs in progress.";
   bracket.innerHTML = "";
   rs.innerHTML = "";
-  (((state.playoffs && state.playoffs.results) || []).forEach(line=>{ const d=document.createElement("div"); d.textContent=line; rs.appendChild(d); });
+const results = (state.playoffs && state.playoffs.results) || [];
+results.forEach(line => {
+  const d = document.createElement("div");
+  d.textContent = line;
+  rs.appendChild(d);
+});
   if (!P) return;
   function listSeries(key){
     const wrap = document.createElement("div");
