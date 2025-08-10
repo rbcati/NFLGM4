@@ -35,7 +35,7 @@ const { makeLeague } = window.League;
   var YEAR_START = 2025;
   var SAVE_KEY = 'nflGM4.league';
   var routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings'];
-
+ 
   // State
   var state = {
     league: null,
@@ -237,18 +237,6 @@ const { makeLeague } = window.League;
       tm.rating = Math.round(0.6*U.avg(tm.roster.map(function(p){return p.ovr;})) + 0.4*tm.rating);
     });
 
-    var L = {
-      seed: U.rand(1, 999999),
-      season: 1,
-      year: YEAR_START,
-      week: 1,
-      teams: teams,
-      schedule: [],
-      resultsByWeek: {},
-      playoffsDone: false,
-      champion: null,
-      news: []
-    };
 
     // schedule after L exists
     L.schedule = S.makeAccurateSchedule(L);
