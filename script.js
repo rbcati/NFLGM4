@@ -2,6 +2,14 @@
 (function () {
   'use strict';
 
+  window.addEventListener('error', function (e) {
+    try {
+      var div = document.createElement('div');
+      div.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#3b0d0d;color:#fff;padding:8px 12px;font-family:system-ui;box-shadow:0 2px 6px rgba(0,0,0,.4)';
+      div.textContent = 'JS error: ' + (e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '');
+      document.body.appendChild(div);
+    } catch (_) {}
+  });
   // Quick error banner so Netlify previews surface failures immediately
   window.addEventListener('error', function (e) {
     try {
@@ -11,17 +19,17 @@
       document.body.appendChild(div);
     } catch (_) {}
   });
-// schedule API handle
-const S = window.S || window.Scheduler;
-if (!S || typeof S.makeAccurateSchedule !== 'function') {
-  throw new Error('schedule.js failed to initialize (makeAccurateSchedule missing)');
-}
+
+  // schedule API handle
+  const Scheduler = window.Scheduler;
+  if (!Scheduler || typeof Scheduler.makeAccurateSchedule !== 'function') {
+    throw new Error('schedule.js failed to initialize (makeAccurateSchedule missing)');
 
   // Shortcuts to split globals
   var U = window.Utils;
   var C = window.Constants;
   var T = window.Teams;
-  var S = window.Scheduler;
+
 
   // App constants
   var YEAR_START = 2025;
