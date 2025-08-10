@@ -24,21 +24,34 @@
 <script src="league.js"></script>
 <script src="script.js"></script>
 
+<header class="topbar" role="navigation">
+  <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
 
-<header class="topbar">
   <div class="brand">NFL GM</div>
-  <nav class="topnav">
-    <a href="/" aria-current="page">Home</a>
-    <a href="/teams">Teams</a>
-    <a href="/trade">Trades</a>
+
+  <nav id="site-nav" class="topnav" aria-label="Primary">
+    <a href="#hub"        class="nav-item" data-view="hub"><span class="nav-label">Home</span></a>
+    <a href="#roster"     class="nav-item" data-view="roster"><span class="nav-label">Roster</span></a>
+    <a href="#trade"      class="nav-item" data-view="trade"><span class="nav-label">Trades</span></a>
+    <a href="#standings"  class="nav-item" data-view="standings"><span class="nav-label">Standings</span></a>
+    <a href="#freeagency" class="nav-item" data-view="freeagency"><span class="nav-label">Free Agency</span></a>
+    <a href="#draft"      class="nav-item" data-view="draft"><span class="nav-label">Draft</span></a>
+    <a href="#settings"   class="nav-item" data-view="settings"><span class="nav-label">Settings</span></a>
   </nav>
+
   <div class="spacer"></div>
-  <div class="segmented" role="tablist">
-    <div class="seg" role="tab" aria-selected="true">League</div>
-    <div class="seg" role="tab">Roster</div>
-    <div class="seg" role="tab">Draft</div>
+
+  <div class="segmented" role="tablist" aria-label="Quick switch">
+    <div class="seg" role="tab" aria-selected="true"  data-view="hub">League</div>
+    <div class="seg" role="tab" aria-selected="false" data-view="roster">Roster</div>
+    <div class="seg" role="tab" aria-selected="false" data-view="draft">Draft</div>
   </div>
 </header>
+
 
 
     <main class="layout">
