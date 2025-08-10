@@ -930,7 +930,6 @@ function renderStandings(){
       }
     }
   }
-
   $("#standingsScope").onchange = renderStandings;
   if ($("#leadersOnly")) $("#leadersOnly").addEventListener("change", renderStandings);
   if ($("#highlightLeaders")) $("#highlightLeaders").addEventListener("change", renderStandings);
@@ -938,9 +937,9 @@ function renderStandings(){
     renderPlayoffPicture();
     $("#playoffPicture").hidden = false;
   }, {once:true});
+  $("#standingsScope").onchange = renderStandings;
 }
-    $("#standingsScope").onchange = renderStandings;
-  
+
 function pct(rec) {
   var g = (rec.w|0) + (rec.l|0) + (rec.t|0);
   return g ? ((rec.w|0) + 0.5 * (rec.t|0)) / g : 0;
