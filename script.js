@@ -250,19 +250,34 @@ const { makeLeague } = window.League;
 
     return L;
   }
+function listByMode(mode) {
+  // Replace with your real data sources
+  return mode === 'real' ? REAL_TEAMS_32 : FICTIONAL_TEAMS_32;
+}
 
-// Names mode relabel
-function rebuildTeamLabels(mode) {
-  var L = state.league;
-  var meta = listByMode(mode);
-  if (!L || !L.teams || L.teams.length !== meta.length) return;
+/* Names mode relabel */
+window.rebuildTeamLabels ??= function rebuildTeamLabels(mode) {
+  const L = state?.league;
+  const meta = listByMode(mode);
+  if (!L?.teams || !Array.isArray(meta) || L.teams.length !== meta.length) return;
 
-  L.teams.forEach(function (tm, i) {
-    tm.abbr = meta[i].abbr;
-    tm.name = meta[i].name;
-    tm.conf = meta[i].conf;
-    tm.div  = meta[i].div;
-  });
+  for (let i = 0; i < L.teams.length; i++) {
+    const src = meta[i], dst = L.teams[i];
+    dst.abbr = src.abbr;
+    dst.name = src.name;
+    dst.conf = src.conf;
+    dst.div  = src.div;
+  }
+};
+document.getElementById('btnApplyNamesMode')?.addEventListener('click', () => {
+  const mode = document.querySelector('input[name="settingsNamesMode"]:checked')?.value || 'fictional';
+  window.rebuildTeamLabels(mode);
+  // re-render any views that show team labels
+  renderStandings?.();
+  renderRoster?.();
+  renderHub?.();
+});
+
 
   // Refresh selects
   var selects = document.querySelectorAll('select');
