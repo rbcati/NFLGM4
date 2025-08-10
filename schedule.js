@@ -155,3 +155,7 @@
     for (conf=0; conf<2; conf++){
       for (dv=0; dv<4; dv++){
         A
+// expose API
+window.Scheduler = Scheduler;
+// compat alias for older script.js code
+window.S = window.Scheduler;
