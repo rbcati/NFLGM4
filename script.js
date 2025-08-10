@@ -511,64 +511,117 @@ function makeAccurateSchedule(league){
   return weeks;
 }
 
-function assignByes(teamCount){
-  const quotas = [4,4,4,4,4,4,4,2,2]; // weeks 6..14
-  const weeks = Array(18).fill(null).map(()=>null);
-  const pool = Array.from({length:teamCount}, (_,i)=>i);
-  for (let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  let p=0;
-  for (let k=0;k<quotas.length;k++){
-    const w = 6 + k - 1;
-    const set = new Set();
-    for (let c=0;c<quotas[k] && p<pool.length;c++){ set.add(pool[p++]); }
-    weeks[w]=set;
+// 1) Byes: weeks 6..14, quotas sum to teamCount (32)
+function assignByes(teamCount) {
+  // 9 bye weeks covering NFL weeks 6..14
+  var quotas = [4,4,4,4,4,4,4,2,2]; // 32 total
+  var weeks = new Array(18); // 0..17 regular season weeks
+  for (var i = 0; i < weeks.length; i++) weeks[i] = null;
+
+  // Basic sanity
+  var sum = 0; for (var q = 0; q < quotas.length; q++) sum += quotas[q];
+  if (sum !== teamCount) { throw new Error("assignByes quotas sum " + sum + " != teamCount " + teamCount); }
+
+  // Pool of team indices
+  var pool = [];
+  for (var t = 0; t < teamCount; t++) pool.push(t);
+
+  // Fisher–Yates shuffle
+  for (var a = pool.length - 1; a > 0; a--) {
+    var b = Math.floor(Math.random() * (a + 1));
+    var tmp = pool[a]; pool[a] = pool[b]; pool[b] = tmp;
   }
-  return weeks;
-}
-(teamCount){
-  // Byes weeks 6..14. Quotas sum to 32.
-  const quotas = [4,4,4,4,4,4,4,2,2]; // 9 weeks
-  const weeks = Array(18).fill(null).map(()=>null);
-  const pool = Array.from({length:teamCount}, (_,i)=>i);
-  // Deterministic shuffle
-  for (let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
-  let p = 0;
-  for (let k=0;k<quotas.length;k++){
-    const weekIndex = 6 + k - 1; // weeks are 0-indexed
-    const set = new Set();
-    for (let c=0;c<quotas[k];c++){
-      if (p>=pool.length) break;
+
+  // Place byes into 0-indexed week slots 5..13 which correspond to NFL weeks 6..14
+  var p = 0;
+  for (var k = 0; k < quotas.length; k++) {
+    var w = 5 + k; // 5..13
+    var set = new Set();
+    for (var c = 0; c < quotas[k] && p < pool.length; c++) {
       set.add(pool[p++]);
     }
-    weeks[weekIndex] = set;
+    weeks[w] = set;
   }
   return weeks;
 }
-    }
-    // ensure all have a bye
-    const byes = new Set();
-    schedule.forEach(week=>week.forEach(g=>{ if (g.bye!==undefined) byes.add(g.bye); }));
-    for (let t=0;t<N;t++){
-      if (!byes.has(t)) schedule[8].push({bye:t});
-    }
-    // fill games
-    const played = new Set();
-    const gamesPerTeam = Array(N).fill(0);
-    for (let w=0; w<weeks; w++){
-      const avail = teams.filter(t=>!schedule[w].some(g=>g.bye===t));
-      shuffle(avail);
-      while (avail.length>=2){
-        const a = avail.pop();
-        const b = avail.pop();
-        schedule[w].push({home:a, away:b});
-        gamesPerTeam[a]++; gamesPerTeam[b]++;
-        played.add(pairKey(a,b));
+
+// 2) Validator to catch mistakes early
+function validateByes(byes, teamCount) {
+  var seen = new Array(teamCount); for (var i = 0; i < teamCount; i++) seen[i] = 0;
+  for (var w = 0; w < byes.length; w++) {
+    var s = byes[w];
+    if (!s) continue;
+    if (typeof s.has !== "function") throw new Error("byes[" + w + "] is not a Set");
+    s.forEach(function (t) {
+      if (seen[t]) { throw new Error("team " + t + " has multiple byes"); }
+      seen[t] = 1;
+    });
+  }
+  var total = 0; for (var j = 0; j < teamCount; j++) total += seen[j];
+  if (total !== teamCount) { throw new Error("bye count " + total + " != teamCount " + teamCount); }
+}
+
+// 3) Greedy weekly placement that respects byes and avoids double-booking
+function placeGamesIntoWeeks(games, teamCount, byes) {
+  var weeks = []; for (var i = 0; i < 18; i++) weeks.push([]);
+  var hasGame = []; for (var w = 0; w < 18; w++) {
+    var row = []; for (var t = 0; t < teamCount; t++) row.push(false);
+    hasGame.push(row);
+  }
+
+  function canPlace(w, g) {
+    var h = g.home, a = g.away;
+    var s = byes[w];
+    if (s && (s.has(h) || s.has(a))) return false;
+    if (hasGame[w][h] || hasGame[w][a]) return false;
+    return true;
+  }
+
+  // Shuffle a copy for dispersion
+  var shuffled = games.slice();
+  for (var i = shuffled.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = shuffled[i]; shuffled[i] = shuffled[j]; shuffled[j] = tmp;
+  }
+
+  // First pass: respect byes
+  for (var g1 = 0; g1 < shuffled.length; g1++) {
+    var G = shuffled[g1];
+    var placed = false;
+    for (var w1 = 0; w1 < 18; w1++) {
+      if (canPlace(w1, G)) {
+        weeks[w1].push(G);
+        hasGame[w1][G.home] = true;
+        hasGame[w1][G.away] = true;
+        placed = true;
+        break;
       }
     }
-    return schedule;
+    if (!placed) {
+      // Second pass: ignore byes but still avoid double games in a week
+      for (var w2 = 0; w2 < 18 && !placed; w2++) {
+        if (!hasGame[w2][G.home] && !hasGame[w2][G.away]) {
+          weeks[w2].push(G);
+          hasGame[w2][G.home] = true;
+          hasGame[w2][G.away] = true;
+          placed = true;
+          break;
+        }
+      }
+    }
+    if (!placed) {
+      throw new Error("Could not place game " + G.home + " vs " + G.away);
+    }
   }
-  function shuffle(a){ for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
-  function pairKey(a,b){ return a<b? `${a}-${b}` : `${b}-${a}`; }
+
+  // Insert bye markers
+  for (var w3 = 0; w3 < 18; w3++) {
+    if (!byes[w3]) continue;
+    byes[w3].forEach(function (t) { weeks[w3].push({ bye: t }); });
+  }
+  return weeks;
+}
+
 
   
   function listByMode(mode){ return mode==='real' ? TEAM_META_REAL : TEAM_META_FICTIONAL; }
