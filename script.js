@@ -46,8 +46,6 @@ const { makeLeague } = window.League;
     pendingOffers: []
   };
 
-// when making a league:
-function makeLeague(teamList){
   // ...build teams first...
   const L = {
     seed: Math.floor(Math.random()*1e6),
