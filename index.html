@@ -23,34 +23,58 @@
 <script src="schedule.js"></script>
 <script src="league.js"></script>
 <script src="script.js"></script>
-
 <header class="topbar" role="navigation">
-  <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>
-  </button>
-
   <div class="brand">NFL GM</div>
 
-  <nav id="site-nav" class="topnav" aria-label="Primary">
-    <a href="#hub"        class="nav-item" data-view="hub"><span class="nav-label">Home</span></a>
-    <a href="#roster"     class="nav-item" data-view="roster"><span class="nav-label">Roster</span></a>
-    <a href="#trade"      class="nav-item" data-view="trade"><span class="nav-label">Trades</span></a>
-    <a href="#standings"  class="nav-item" data-view="standings"><span class="nav-label">Standings</span></a>
-    <a href="#freeagency" class="nav-item" data-view="freeagency"><span class="nav-label">Free Agency</span></a>
-    <a href="#draft"      class="nav-item" data-view="draft"><span class="nav-label">Draft</span></a>
-    <a href="#settings"   class="nav-item" data-view="settings"><span class="nav-label">Settings</span></a>
+  <nav id="site-nav" class="nav-pills" aria-label="Primary">
+    <a href="#hub"        class="nav-pill" data-view="hub"        aria-label="Home"         title="Home">
+      <!-- Home -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1v-10.5Z" fill="currentColor"/></svg>
+      <span class="label">Home</span>
+    </a>
+
+    <a href="#roster"     class="nav-pill" data-view="roster"     aria-label="Roster"       title="Roster">
+      <!-- Roster -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-8 8a8 8 0 0 1 16 0Z" fill="currentColor"/></svg>
+      <span class="label">Roster</span>
+    </a>
+
+    <a href="#trade"      class="nav-pill" data-view="trade"      aria-label="Trades"       title="Trades">
+      <!-- Trades -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M7 7h11l-3-3 1.5-1.5L22 7l-5.5 4.5L15 10l3-3H7V7Zm10 10H6l3 3-1.5 1.5L2 17l5.5-4.5L9 14l-3 3h11v0Z" fill="currentColor"/></svg>
+      <span class="label">Trades</span>
+    </a>
+
+    <a href="#standings"  class="nav-pill" data-view="standings"  aria-label="Standings"    title="Standings">
+      <!-- Standings -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 13h4v8H4v-8Zm6-6h4v14h-4V7Zm6-4h4v18h-4V3Z" fill="currentColor"/></svg>
+      <span class="label">Standings</span>
+    </a>
+
+    <a href="#freeagency" class="nav-pill" data-view="freeagency" aria-label="Free Agency"  title="Free Agency">
+      <!-- Free Agency -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 3a4 4 0 1 1-4 4 4 4 0 0 1 4-4Zm7 18H5a1 1 0 0 1-1-1 8 8 0 0 1 16 0 1 1 0 0 1-1 1Z" fill="currentColor"/></svg>
+      <span class="label">Free</span>
+    </a>
+
+    <a href="#draft"      class="nav-pill" data-view="draft"      aria-label="Draft"        title="Draft">
+      <!-- Draft -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 12l9-9 9 9-9 9-9-9Zm9-5 5 5-5 5-5-5 5-5Z" fill="currentColor"/></svg>
+      <span class="label">Draft</span>
+    </a>
+
+    <a href="#settings"   class="nav-pill" data-view="settings"   aria-label="Settings"     title="Settings">
+      <!-- Settings -->
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M19.4 12.97a7.6 7.6 0 0 0 .05-.97 7.6 7.6 0 0 0-.05-.97l2.11-1.65a.5.5 0 0 0 .12-.64l-2-3.46a.5.5 0 0 0-.6-.22l-2.49 1a7.83 7.83 0 0 0-1.68-.97l-.38-2.65A.5.5 0 0 0 12 0h-4a.5.5 0 0 0-.5.42l-.38 2.65c-.6.25-1.16.57-1.68.97l-2.49-1a.5.5 0 0 0-.6.22l-2 3.46a.5.5 0 0 0 .12.64L2.4 11.03a7.6 7.6 0 0 0-.05.97 7.6 7.6 0 0 0 .05.97L.29 14.62a.5.5 0 0 0-.12.64l2 3.46a.5.5 0 0 0 .6.22l2.49-1c.52.4 1.08.72 1.68.97l.38 2.65A.5.5 0 0 0 8 22h4a.5.5 0 0 0 .5-.42l.38-2.65c.6-.25 1.16-.57 1.68-.97l2.49 1a.5.5 0 0 0 .6-.22l2-3.46a.5.5 0 0 0-.12-.64L19.4 12.97ZM10 12a2 2 0 1 1 2 2 2 2 0 0 1-2-2Z" fill="currentColor"/></svg>
+      <span class="label">Settings</span>
+    </a>
   </nav>
 
-  <div class="spacer"></div>
-
-  <div class="segmented" role="tablist" aria-label="Quick switch">
-    <div class="seg" role="tab" aria-selected="true"  data-view="hub">League</div>
-    <div class="seg" role="tab" aria-selected="false" data-view="roster">Roster</div>
-    <div class="seg" role="tab" aria-selected="false" data-view="draft">Draft</div>
-  </div>
+  <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+  </button>
 </header>
+
 
 
 
