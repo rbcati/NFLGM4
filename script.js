@@ -940,7 +940,7 @@ function renderStandings(){
   }, {once:true});
 }
     $("#standingsScope").onchange = renderStandings;
-  }
+  
 function pct(rec) {
   var g = (rec.w|0) + (rec.l|0) + (rec.t|0);
   return g ? ((rec.w|0) + 0.5 * (rec.t|0)) / g : 0;
