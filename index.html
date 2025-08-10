@@ -25,6 +25,48 @@
 <script src="script.js"></script>
 <header class="topbar" role="navigation">
   <div class="brand">NFL GM</div>
+  <script>
+  (function () {
+    const pills = document.getElementById('site-nav');
+    const toggle = document.querySelector('.nav-toggle');
+    const views = Array.from(document.querySelectorAll('.view'));
+
+    function showView(id) {
+      views.forEach(v => v.toggleAttribute('hidden', v.id !== id));
+      document.querySelectorAll('.nav-pill').forEach(a => {
+        a.setAttribute('aria-current', a.dataset.view === id ? 'page' : null);
+      });
+    }
+
+    function initFromHash() {
+      const id = (location.hash || '#hub').slice(1);
+      showView(document.getElementById(id) ? id : 'hub');
+    }
+
+    document.addEventListener('click', e => {
+      const a = e.target.closest('.nav-pill');
+      if (a && a.dataset.view) {
+        e.preventDefault();
+        const id = a.dataset.view;
+        if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+        showView(id);
+        if (pills && pills.classList.contains('open')) {
+          pills.classList.remove('open');
+          toggle?.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
+    toggle?.addEventListener('click', () => {
+      const open = pills.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', String(open));
+    });
+
+    window.addEventListener('hashchange', initFromHash);
+    initFromHash();
+  })();
+</script>
+
 
   <nav id="site-nav" class="nav-pills" aria-label="Primary">
     <a href="#hub"        class="nav-pill" data-view="hub"        aria-label="Home"         title="Home">
