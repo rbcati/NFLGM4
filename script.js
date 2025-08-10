@@ -947,12 +947,13 @@ function pct(rec) {
 }
 
 function cmpTeams(a, b) {
-  var pA = pct(a.record), pB = pct(b.record);
-  if (pA !== pB) return pB - pA;               // better record first
-  var pdA = (a.record.pf|0) - (a.record.pa|0);
-  var pdB = (b.record.pf|0) - (b.record.pa|0);
-  if (pdA !== pdB) return pdB - pdA;           // larger point diff first
-  return ((b.rating||0) - (a.rating||0));      // higher rating first
+  const pA = pct(a.record ?? {});
+  const pB = pct(b.record ?? {});
+  if (pA !== pB) return pB - pA;
+  const pdA = (a.record?.pf ?? 0) - (a.record?.pa ?? 0);
+  const pdB = (b.record?.pf ?? 0) - (b.record?.pa ?? 0);
+  if (pdA !== pdB) return pdB - pdA;
+  return (b.rating ?? 0) - (a.rating ?? 0);
 }
 // usage: teams.sort(cmpTeams)
 
