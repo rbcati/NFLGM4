@@ -38,6 +38,30 @@ if (!S || typeof S.makeAccurateSchedule !== 'function') {
     pendingOffers: []
   };
 
+// when making a league:
+function makeLeague(teamList){
+  // ...build teams first...
+  const L = {
+    seed: Math.floor(Math.random()*1e6),
+    season: 1,
+    year: 2025,
+    week: 1,
+    teams,
+    schedule: [],        // fill after L exists
+    resultsByWeek: {},
+    playoffsDone: false,
+    champion: null
+  };
+  // compute ranks before schedule
+  const ranks = Scheduler.computeLastDivisionRanks(L);
+  L.teams.forEach((t,i)=>{ t.lastDivisionRank = ranks[i]; });
+
+  // now seed the schedule
+  L.schedule = Scheduler.makeAccurateSchedule(L);
+
+  // recalc cap etc...
+  return L;
+}
   // Name banks for generated players
   var FIRST = ['James','Michael','Chris','Alex','Jordan','Tyler','Jacob','Ethan','Logan','Mason','Liam','Noah','Owen','Jaden','Austin','Evan','Blake','Wyatt','Carson','Aiden','Dylan','Hunter','Cole','Kai','Zion','Nico','Xavier','Trent','Shawn','Brett','Marcus','Isaiah','Jamal','Elijah','Cameron','Trevor','Devon','Shane','Aaron','Caleb','Nick','Matt','Jake','Josh','Troy'];
   var LAST = ['Johnson','Smith','Williams','Brown','Jones','Miller','Davis','Garcia','Rodriguez','Wilson','Martinez','Anderson','Taylor','Thomas','Hernandez','Moore','Martin','Jackson','Thompson','White','Lopez','Lee','Gonzalez','Harris','Clark','Lewis','Robinson','Walker','Young','Allen','King','Wright','Scott','Torres','Reed','Cook','Bell','Perez','Hill','Green'];
