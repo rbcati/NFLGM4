@@ -433,5 +433,123 @@ input:focus, select:focus, textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .nav-item, .segmented .seg { transition: none; }
 }
+/* Base token fallbacks so this works with your current CSS */
+:root {
+  --hairline: rgba(255,255,255,.12);
+  --surface: rgba(255,255,255,.06);
+  --surface-strong: rgba(255,255,255,.08);
+  --accent: #0A84FF;
+  --text: #e6edf3;
+  --radius-lg: 20px;
+}
+
+/* Topbar frame stays the same if you already added it */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+  margin: 4px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 20px rgba(0,0,0,.35);
+  backdrop-filter: saturate(160%) blur(22px);
+  -webkit-backdrop-filter: saturate(160%) blur(22px);
+}
+.brand { font-weight: 700; letter-spacing: .02em; }
+
+/* Pill row */
+.nav-pills {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-pills::-webkit-scrollbar { display: none; }
+
+/* Single pill */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  color: var(--text);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.08),
+    0 6px 18px rgba(0,0,0,.28);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: transform .12s cubic-bezier(.2,.6,.2,1),
+              box-shadow .22s cubic-bezier(.2,.6,.2,1),
+              background .22s cubic-bezier(.2,.6,.2,1),
+              border-color .22s cubic-bezier(.2,.6,.2,1);
+}
+.nav-pill:hover {
+  background: var(--surface-strong);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10),
+              0 10px 24px rgba(0,0,0,.34);
+}
+.nav-pill:active { transform: translateY(1px); }
+.nav-pill[aria-current="page"] {
+  border-color: rgba(10,132,255,.45);
+  background: linear-gradient(180deg, rgba(10,132,255,.22), rgba(10,132,255,.12));
+  color: #d6e8ff;
+}
+.nav-pill svg { display: block; }
+
+/* Optional text labels inside the pill */
+.nav-pill .label {
+  display: none;
+  font-size: .92rem;
+}
+@media (min-width: 1100px) {
+  .nav-pill .label { display: inline; }
+}
+
+/* Mobile menu toggle */
+.nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+  color: var(--text);
+}
+@media (max-width: 900px) {
+  .topbar { grid-template-columns: auto 1fr auto; }
+  .nav-toggle { display: inline-flex; }
+  .nav-pills {
+    position: fixed;
+    left: 8px;
+    right: 8px;
+    top: calc(56px + env(safe-area-inset-top));
+    padding: 8px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 18px 40px rgba(0,0,0,.45);
+    display: none;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .nav-pills.open { display: flex; }
+}
 
 }
