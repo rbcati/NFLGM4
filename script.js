@@ -11,6 +11,11 @@
       document.body.appendChild(div);
     } catch (_) {}
   });
+// schedule API handle
+const S = window.S || window.Scheduler;
+if (!S || typeof S.makeAccurateSchedule !== 'function') {
+  throw new Error('schedule.js failed to initialize (makeAccurateSchedule missing)');
+}
 
   // Shortcuts to split globals
   var U = window.Utils;
@@ -148,6 +153,21 @@
 
   // League creation
   function makeLeague(teamList) {
+      // ...build teams...
+  const L = {
+    seed: rand(1, 999999),
+    season: 1,
+    year: YEAR_START,
+    week: 1,
+    teams,
+    schedule: [],           // set after L exists
+    resultsByWeek: {},
+    playoffsDone: false,
+    champion: null
+  };
+  L.schedule = S.makeAccurateSchedule(L);  // <-- call here, not before L
+  // ...rest...
+  return L;
     var baseList = teamList || listByMode(state.namesMode);
     var teams = baseList.map(function (t, idx) {
       var abbr = t.abbr || t[0];
