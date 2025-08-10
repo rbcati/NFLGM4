@@ -1983,21 +1983,22 @@ results.forEach(line => {
     refreshAll();
     location.hash = "#/hub";
   }
-
-  (function init(){
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (raw){
-      try{
-        const obj = JSON.parse(raw);
-        state.league = obj.league || makeLeague();
-        state.prospects = obj.prospects || [];
-        state.freeAgents = obj.freeAgents || [];
-        state.playoffs = obj.playoffs || null;
-      }catch(_){ state.league = makeLeague(); }
-    } else {
-      state.league = makeLeague();
+(function init(){
+  let obj = {};
+  const raw = localStorage.getItem(SAVE_KEY);
+  if (raw){
+    try {
+      obj = JSON.parse(raw);
+      if (typeof obj !== "object" || obj === null) obj = {};
+    } catch(e) {
+      console.error("Failed to parse saved league data:", e);
     }
-    const seg = location.hash.replace("#/","") || "hub";
-    show(routes.includes(seg) ? seg : "hub");
-  })();
+  }
+  state.league = obj.league || makeLeague();
+  state.prospects = obj.prospects || [];
+  state.freeAgents = obj.freeAgents || [];
+  state.playoffs = obj.playoffs ?? null;
+
+  const seg = location.hash.replace("#/","") || "hub";
+  show(routes.includes(seg) ? seg : "hub");
 })();
