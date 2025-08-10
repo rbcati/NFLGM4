@@ -1,4 +1,4 @@
-// Pro + Contracts & Picks build
+// NFL GM Simulator
 (function () {
   // Global error banner for quick diagnosis
   window.addEventListener('error', function(e){
@@ -19,7 +19,20 @@
   const POSITIONS = ["QB","RB","WR","TE","OL","DL","LB","CB","S","K"];
   const DEPTH_NEEDS = { QB:1, RB:1, WR:3, TE:1, OL:5, DL:4, LB:3, CB:2, S:2, K:1 };
   
-  
+  // ---- Standings helpers (top-level) ----
+function pct(rec) {
+  var w = Number(rec.w) || 0;
+  var l = Number(rec.l) || 0;
+  var t = Number(rec.t) || 0;
+  var g = w + l + t;
+  return g ? (w + 0.5 * t) / g : 0;
+}
+
+function cmpTeams(aIdx, bIdx) {
+  // Uses your existing NFL tiebreaker comparator
+  return tieBreakCompare(state.league, aIdx, bIdx, "league");
+}
+
   // Official teams with abbreviations and accurate divisions
   // conf: 0 = AFC, 1 = NFC; div: 0 = East, 1 = North, 2 = South, 3 = West
   const TEAM_META_REAL = [
@@ -929,7 +942,6 @@ function renderStandings(){
     $("#standingsScope").onchange = renderStandings;
   }
   function pct(rec){ const g = rec.w + rec.l + rec.t; return g? (rec.w + 0.5*rec.t)/g : 0; }
-  function cmpTeams(a,b){
     const pA = pct(a.record), pB = pct(b.record);
     if (pA !== pB) return pA - pB;
     const pdA = a.record.pf - a.record.pa, pdB = b.record.pf - b.record.pa;
