@@ -1,0 +1,42 @@
+*{box-sizing:border-box}
+:root{
+  --bg:#0b0f14;--panel:#131a22;--soft:#1b2430;--text:#e6edf3;--muted:#8fa3b6;
+  --primary:#2ea043;--danger:#e5534b;--border:#2b3643;--accent:#2f81f7
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;line-height:1.4}
+a{color:var(--accent);text-decoration:none}
+.small{font-size:.9rem}
+.topbar{position:sticky;top:0;z-index:10;display:flex;gap:24px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,rgba(11,15,20,.95),rgba(11,15,20,.85))}
+.brand{font-weight:700}
+.topnav a{margin-right:12px;padding:6px 8px;border-radius:8px}
+.topnav a:hover{background:var(--soft)}
+
+.layout{display:grid;grid-template-columns:260px 1fr;gap:16px;padding:16px}
+.sidebar{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:12px;align-self:start;position:sticky;top:60px}
+.section{margin-bottom:12px}
+.content{display:block}
+
+.view .row{display:flex;gap:12px;align-items:center}
+.spacer{flex:1}
+.mt{margin-top:12px}
+
+.card{background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px;box-shadow:0 1px 0 rgba(0,0,0,.2);}
+.grid.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.list{display:grid;gap:8px}
+
+.table{width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.table th,.table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+.table th{background:var(--soft);text-align:left}
+.table tr:hover{background:#151c25;cursor:pointer}
+
+.btn{background:#202836;border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:10px;cursor:pointer}
+.btn:hover{filter:brightness(1.1)}
+.btn.primary{background:var(--primary);border-color:#1a7f34;color:#041308}
+.btn.danger{background:var(--danger);border-color:#c3413a;color:#180705}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+label{font-size:.9rem;color:var(--muted);margin-right:6px}
+.muted{color:var(--muted)}
+
+.footer{padding:16px;border-top:1px solid var(--border);text-align:center;color:var(--muted)}
+.badge{display:inline-block;padding:2px 6px;border-radius:6px;background:#223047;border:1px solid var(--border);font-size:.8rem;color:var(--muted)}

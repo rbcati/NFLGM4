@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NFL GM Simulator — Pro + Contracts & Picks</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">NFL GM Simulator — Pro + Contracts & Picks</div>
+      <nav class="topnav">
+        <a href="#/hub">Hub</a>
+        <a href="#/roster">Roster</a>
+        <a href="#/cap">Cap</a>
+        <a href="#/schedule">Schedule</a>
+        <a href="#/standings">Standings</a>
+        <a href="#/trade">Trade</a>
+        <a href="#/freeagency">Free Agency</a>
+        <a href="#/draft">Draft</a>
+        <a href="#/playoffs">Playoffs</a>
+        <a href="#/settings">Settings</a>
+      </nav>
+    </header>
+
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="section">
+          <label for="userTeam">Your Team</label>
+          <select id="userTeam"></select>
+        </div>
+        <div class="section">
+          <div>Season <span id="seasonNow"></span></div>
+          <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
+          <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
+          <div class="muted small">Room: <span id="capRoom"></span></div>
+        </div>
+        <div class="section">
+          <button id="btnSave" class="btn">Save</button>
+          <button id="btnLoad" class="btn">Load</button>
+        </div>
+        <div class="section muted" id="statusMsg"></div>
+      </aside>
+
+      <section class="content">
+        <section id="hub" class="view">
+          <div class="card">
+            <div class="row">
+              <h2>League Hub</h2>
+              <div class="spacer"></div>
+              <div class="muted">Season <span id="hubSeason"></span></div>
+            </div>
+            <div class="grid two">
+              <div>
+                <div>Week <span id="hubWeek"></span> of <span id="hubWeeks"></span></div>
+                <div>Games this week: <span id="hubGames"></span></div>
+                <div class="actions">
+                  <button id="btnSimWeek" class="btn primary">Simulate Week</button>
+                  <button id="btnSimSeason" class="btn">Sim Season</button>
+                </div>
+              </div>
+              <div>
+                <h3>Power Ranking</h3>
+                <ol id="hubPower"></ol>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Last Week Results</h3>
+            <div id="hubResults" class="list"></div>
+          </div>
+        </section>
+
+        <section id="roster" class="view" hidden>
+          <div class="card">
+            <div class="row">
+              <h2 id="rosterTitle">Roster</h2>
+              <div class="spacer"></div>
+              <label for="rosterTeam">Team</label>
+              <select id="rosterTeam"></select>
+            </div>
+            <table class="table" id="rosterTable"></table>
+            <div class="row mt">
+              <label class="row"><input type="checkbox" id="postJune1"> Post June 1 release</label>
+              <div class="spacer"></div>
+              <button id="btnRelease" class="btn danger">Release Selected</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Depth Chart</h3>
+            <div id="depthChart" class="list"></div>
+          </div>
+        </section>
+
+        <section id="cap" class="view" hidden>
+          <div class="card">
+            <h2>Cap Table</h2>
+            <div id="capSummary" class="muted"></div>
+            <table class="table" id="capTable"></table>
+          </div>
+          <div class="card">
+            <h3>Dead Cap Ledger</h3>
+            <div id="deadLedger" class="list"></div>
+          </div>
+        </section>
+
+        <section id="schedule" class="view" hidden>
+          <div class="card">
+            <div class="row">
+              <h2>Schedule</h2>
+              <div class="spacer"></div>
+              <button id="btnSimWeek2" class="btn primary">Simulate Week</button>
+            </div>
+            <div id="scheduleList" class="list"></div>
+          </div>
+        </section>
+
+        <section id="standings" class="view" hidden>
+          <div class="card">
+            <div class="row">
+              <h2>Standings</h2>
+              <div class="spacer"></div>
+              <select id="standingsScope">
+                <option value="league">League</option>
+                <option value="conference">Conference</option>
+                <option value="division">Division</option>
+              </select>
+            </div>
+            <div id="standingsWrap"></div>
+          </div>
+        </section>
+
+        <section id="trade" class="view" hidden>
+          <div class="card">
+            <h2>Trade Center</h2>
+            <div class="grid two">
+              <div>
+                <label for="tradeA">Team A</label>
+                <select id="tradeA"></select>
+                <div class="small muted">Players</div>
+                <div id="tradeListA" class="list"></div>
+                <div class="small muted mt">Picks</div>
+                <div id="pickListA" class="list"></div>
+              </div>
+              <div>
+                <label for="tradeB">Team B</label>
+                <select id="tradeB"></select>
+                <div class="small muted">Players</div>
+                <div id="tradeListB" class="list"></div>
+                <div class="small muted mt">Picks</div>
+                <div id="pickListB" class="list"></div>
+              </div>
+            </div>
+            <div class="row mt">
+              <div id="tradeInfo" class="muted"></div>
+              <div class="spacer"></div>
+              <button id="tradeValidate" class="btn">Validate</button>
+              <button id="tradeExecute" class="btn primary" disabled>Execute</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="freeagency" class="view" hidden>
+          <div class="card">
+            <div class="row">
+              <h2>Free Agency</h2>
+              <div class="spacer"></div>
+              <label for="faTeam">Sign to</label>
+              <select id="faTeam"></select>
+            </div>
+            <table class="table" id="faTable"></table>
+            <div class="row mt">
+              <button id="btnSignFA" class="btn primary" disabled>Sign Selected</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="draft" class="view" hidden>
+          <div class="card">
+            <div class="row">
+              <h2>Draft Picks</h2>
+              <div class="spacer"></div>
+              <label for="draftTeam">Team</label>
+              <select id="draftTeam"></select>
+            </div>
+            <div id="draftPicks" class="list"></div>
+            <div class="muted small">The full multi round draft flow will be added next. Picks can already be traded.</div>
+          </div>
+        </section>
+
+        <section id="playoffs" class="view" hidden>
+          <div class="card">
+            <div class="row">
+              <h2>Playoffs</h2>
+              <div class="spacer"></div>
+              <button id="btnSimRound" class="btn primary">Simulate Next Round</button>
+            </div>
+            <div id="playoffState" class="muted"></div>
+            <div id="playoffBracket" class="list"></div>
+            <div id="playoffResults" class="list mt"></div>
+          </div>
+        </section>
+
+        <section id="settings" class="view" hidden>
+          <div class="card">
+            <h2>Settings</h2>
+            <div class="row">
+              <button id="btnNewLeague" class="btn danger">Start New League</button>
+              <div class="spacer"></div>
+              <button class="btn" onclick="history.back()">Back</button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div>Contracts 2.0 and pick trading are live. Rollover applies each offseason.</div>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
