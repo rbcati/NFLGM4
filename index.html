@@ -327,6 +327,66 @@
     <footer class="footer">
       <div>Contracts 2.0 and pick trading are live. Rollover applies each offseason.</div>
     </footer>
+<script>
+  (function () {
+    const views = Array.from(document.querySelectorAll('.view'));
+    const nav = document.getElementById('site-nav');
+    const toggle = document.querySelector('.nav-toggle');
+
+    function showView(id) {
+      views.forEach(v => {
+        if (v.id === id) v.removeAttribute('hidden');
+        else v.setAttribute('hidden', '');
+      });
+      // Update segmented tabs
+      document.querySelectorAll('.segmented .seg').forEach(seg => {
+        seg.setAttribute('aria-selected', seg.dataset.view === id ? 'true' : 'false');
+      });
+      // Update nav chips
+      document.querySelectorAll('.nav-item').forEach(a => {
+        a.setAttribute('aria-current', a.dataset.view === id ? 'page' : null);
+      });
+    }
+
+    function initFromHash() {
+      const id = (location.hash || '#hub').slice(1);
+      const exists = document.getElementById(id);
+      showView(exists ? id : 'hub');
+    }
+
+    // Click handlers for nav chips
+    document.addEventListener('click', (e) => {
+      const link = e.target.closest('.nav-item');
+      if (link && link.dataset.view) {
+        e.preventDefault();
+        const id = link.dataset.view;
+        if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+        showView(id);
+        if (nav && nav.classList.contains('open')) {
+          nav.classList.remove('open');
+          if (toggle) toggle.setAttribute('aria-expanded', 'false');
+        }
+      }
+      const seg = e.target.closest('.segmented .seg');
+      if (seg && seg.dataset.view) {
+        const id = seg.dataset.view;
+        if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+        showView(id);
+      }
+    });
+
+    // Mobile toggle
+    if (toggle && nav) {
+      toggle.addEventListener('click', () => {
+        const open = nav.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', String(open));
+      });
+    }
+
+    window.addEventListener('hashchange', initFromHash);
+    initFromHash();
+  })();
+</script>
 
   </body>
 </html>
