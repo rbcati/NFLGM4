@@ -1,13 +1,108 @@
 // Pro + Contracts & Picks build
 (function () {
+  const YEAR_START = 2025;
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const SAVE_KEY = "nflGM.league.contracts.picks";
 
-  const state = { league: null, prospects: [], freeAgents: [], playoffs: null };
+  const state = { league: null, prospects: [], freeAgents: [], playoffs: null, namesMode: 'fictional', onboarded: false, pendingOffers: [] };
 
   const POSITIONS = ["QB","RB","WR","TE","OL","DL","LB","CB","S","K"];
   const DEPTH_NEEDS = { QB:1, RB:1, WR:3, TE:1, OL:5, DL:4, LB:3, CB:2, S:2, K:1 };
+  
+  
+  // Official teams with abbreviations and accurate divisions
+  // conf: 0 = AFC, 1 = NFC; div: 0 = East, 1 = North, 2 = South, 3 = West
+  const TEAM_META_REAL = [
+    // AFC East
+    {abbr:"BUF", name:"Buffalo Bills", conf:0, div:0},
+    {abbr:"MIA", name:"Miami Dolphins", conf:0, div:0},
+    {abbr:"NE",  name:"New England Patriots", conf:0, div:0},
+    {abbr:"NYJ", name:"New York Jets", conf:0, div:0},
+    // AFC North
+    {abbr:"BAL", name:"Baltimore Ravens", conf:0, div:1},
+    {abbr:"CIN", name:"Cincinnati Bengals", conf:0, div:1},
+    {abbr:"CLE", name:"Cleveland Browns", conf:0, div:1},
+    {abbr:"PIT", name:"Pittsburgh Steelers", conf:0, div:1},
+    // AFC South
+    {abbr:"HOU", name:"Houston Texans", conf:0, div:2},
+    {abbr:"IND", name:"Indianapolis Colts", conf:0, div:2},
+    {abbr:"JAX", name:"Jacksonville Jaguars", conf:0, div:2},
+    {abbr:"TEN", name:"Tennessee Titans", conf:0, div:2},
+    // AFC West
+    {abbr:"DEN", name:"Denver Broncos", conf:0, div:3},
+    {abbr:"KC",  name:"Kansas City Chiefs", conf:0, div:3},
+    {abbr:"LV",  name:"Las Vegas Raiders", conf:0, div:3},
+    {abbr:"LAC", name:"Los Angeles Chargers", conf:0, div:3},
+    // NFC East
+    {abbr:"DAL", name:"Dallas Cowboys", conf:1, div:0},
+    {abbr:"NYG", name:"New York Giants", conf:1, div:0},
+    {abbr:"PHI", name:"Philadelphia Eagles", conf:1, div:0},
+    {abbr:"WAS", name:"Washington Commanders", conf:1, div:0},
+    // NFC North
+    {abbr:"CHI", name:"Chicago Bears", conf:1, div:1},
+    {abbr:"DET", name:"Detroit Lions", conf:1, div:1},
+    {abbr:"GB",  name:"Green Bay Packers", conf:1, div:1},
+    {abbr:"MIN", name:"Minnesota Vikings", conf:1, div:1},
+    // NFC South
+    {abbr:"ATL", name:"Atlanta Falcons", conf:1, div:2},
+    {abbr:"CAR", name:"Carolina Panthers", conf:1, div:2},
+    {abbr:"NO",  name:"New Orleans Saints", conf:1, div:2},
+    {abbr:"TB",  name:"Tampa Bay Buccaneers", conf:1, div:2},
+    // NFC West
+    {abbr:"ARI", name:"Arizona Cardinals", conf:1, div:3},
+    {abbr:"LAR", name:"Los Angeles Rams", conf:1, div:3},
+    {abbr:"SF",  name:"San Francisco 49ers", conf:1, div:3},
+    {abbr:"SEA", name:"Seattle Seahawks", conf:1, div:3}
+  ];
+
+  // Fictional teams (same order length, generic conf/div by index)
+  const TEAM_META_FICTIONAL = [
+    {abbr:"ARI",name:"Arizona Scorpions",conf:1,div:3},
+    {abbr:"ATL",name:"Atlanta Flight",conf:1,div:2},
+    {abbr:"BAL",name:"Baltimore Crabs",conf:0,div:1},
+    {abbr:"BUF",name:"Buffalo Blizzard",conf:0,div:0},
+    {abbr:"CAR",name:"Carolina Lynx",conf:1,div:2},
+    {abbr:"CHI",name:"Chicago Hammers",conf:1,div:1},
+    {abbr:"CIN",name:"Cincinnati Tigers",conf:0,div:1},
+    {abbr:"CLE",name:"Cleveland Dawgs",conf:0,div:1},
+    {abbr:"DAL",name:"Dallas Mustangs",conf:1,div:0},
+    {abbr:"DEN",name:"Denver Peaks",conf:0,div:3},
+    {abbr:"DET",name:"Detroit Motors",conf:1,div:1},
+    {abbr:"GB", name:"Green Bay Wolves",conf:1,div:1},
+    {abbr:"HOU",name:"Houston Comets",conf:0,div:2},
+    {abbr:"IND",name:"Indianapolis Racers",conf:0,div:2},
+    {abbr:"JAX",name:"Jacksonville Sharks",conf:0,div:2},
+    {abbr:"KC", name:"Kansas City Kings",conf:0,div:3},
+    {abbr:"LV", name:"Las Vegas Aces",conf:0,div:3},
+    {abbr:"LAC",name:"Los Angeles Lightning",conf:0,div:3},
+    {abbr:"LAR",name:"Los Angeles Guardians",conf:1,div:3},
+    {abbr:"MIA",name:"Miami Surge",conf:0,div:0},
+    {abbr:"MIN",name:"Minnesota North",conf:1,div:1},
+    {abbr:"NE", name:"New England Minutemen",conf:0,div:0},
+    {abbr:"NO", name:"New Orleans Spirits",conf:1,div:2},
+    {abbr:"NYG",name:"New York Giants*",conf:1,div:0},
+    {abbr:"NYJ",name:"New York Jets*",conf:0,div:0},
+    {abbr:"PHI",name:"Philadelphia Liberty",conf:1,div:0},
+    {abbr:"PIT",name:"Pittsburgh Iron",conf:0,div:1},
+    {abbr:"SEA",name:"Seattle Orcas",conf:1,div:3},
+    {abbr:"SF", name:"San Francisco Gold",conf:1,div:3},
+    {abbr:"TB", name:"Tampa Bay Cannons",conf:1,div:2},
+    {abbr:"TEN",name:"Tennessee Twang",conf:0,div:2},
+    {abbr:"WAS",name:"Washington Sentinels",conf:1,div:0}
+  ];
+
+  const TEAM_LIST_REAL = [
+    ["ARI","Arizona Cardinals"],["ATL","Atlanta Falcons"],["BAL","Baltimore Ravens"],["BUF","Buffalo Bills"],
+    ["CAR","Carolina Panthers"],["CHI","Chicago Bears"],["CIN","Cincinnati Bengals"],["CLE","Cleveland Browns"],
+    ["DAL","Dallas Cowboys"],["DEN","Denver Broncos"],["DET","Detroit Lions"],["GB","Green Bay Packers"],
+    ["HOU","Houston Texans"],["IND","Indianapolis Colts"],["JAX","Jacksonville Jaguars"],["KC","Kansas City Chiefs"],
+    ["LV","Las Vegas Raiders"],["LAC","Los Angeles Chargers"],["LAR","Los Angeles Rams"],["MIA","Miami Dolphins"],
+    ["MIN","Minnesota Vikings"],["NE","New England Patriots"],["NO","New Orleans Saints"],["NYG","New York Giants"],
+    ["NYJ","New York Jets"],["PHI","Philadelphia Eagles"],["PIT","Pittsburgh Steelers"],["SEA","Seattle Seahawks"],
+    ["SF","San Francisco 49ers"],["TB","Tampa Bay Buccaneers"],["TEN","Tennessee Titans"],["WAS","Washington Commanders"]
+  ];
+
   const TEAM_LIST = [
     ["ARI","Arizona Scorpions"],["ATL","Atlanta Flight"],["BAL","Baltimore Crabs"],["BUF","Buffalo Blizzard"],
     ["CAR","Carolina Lynx"],["CHI","Chicago Hammers"],["CIN","Cincinnati Tigers"],["CLE","Cleveland Dawgs"],
@@ -54,16 +149,23 @@
   const LAST=["Johnson","Smith","Williams","Brown","Jones","Miller","Davis","Garcia","Rodriguez","Wilson","Martinez","Anderson","Taylor","Thomas","Hernandez","Moore","Martin","Jackson","Thompson","White","Lopez","Lee","Gonzalez","Harris","Clark","Lewis","Robinson","Walker","Young","Allen","King","Wright","Scott","Torres","Reed","Cook","Bell","Perez","Hill","Green"];
 
   // League creation
-  function makeLeague(){
-    const teams = TEAM_LIST.map((t, idx) => ({
-      id: idx, abbr: t[0], name: t[1],
-      rating: rand(70, 88), roster: [], record: {w:0,l:0,t:0,pf:0,pa:0},
-      conf: Math.floor(idx/16), div: Math.floor((idx%16)/4),
-      capBook: {}, deadCapBook: {}, capRollover: 0,
-      capTotal: CAP_BASE,
-      picks: [],
-      strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 },
-    }));
+  function makeLeague(teamList){
+    const baseList = teamList || TEAM_LIST; const teams = baseList.map((t, idx) => {
+      const isArray = Array.isArray(t);
+      const abbr = isArray ? t[0] : t.abbr;
+      const name = isArray ? t[1] : t.name;
+      const conf = isArray ? Math.floor(idx/16) : t.conf;
+      const div  = isArray ? Math.floor((idx%16)/4) : t.div;
+      return {
+        id: idx, abbr, name,
+        rating: rand(70, 88), roster: [], record: {w:0,l:0,t:0,pf:0,pa:0},
+        conf, div,
+        capBook: {}, deadCapBook: {}, capRollover: 0,
+        capTotal: CAP_BASE,
+        picks: [],
+        strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 },
+      };
+    });
     for (const tm of teams){
       const roster = [];
       const template = {QB:2,RB:3,WR:5,TE:2,OL:7,DL:7,LB:5,CB:5,S:3,K:1};
@@ -78,12 +180,17 @@
       seedTeamPicks(tm, 1, YEARS_OF_PICKS);
       tm.rating = Math.round(0.6*avg(tm.roster.map(p=>p.ovr)) + 0.4*tm.rating);
     }
-    const schedule = make17GameSchedule(32);
+    const schedule = makeAccurateSchedule(L);
     const L = {
-      seed: rand(1, 999999), season: 1, week: 1,
+      seed: rand(1, 999999), season: 1, year: YEAR_START, week: 1,
       teams, schedule, resultsByWeek: {}, playoffsDone: false, champion: null
     };
     for (const t of teams) recalcCap(L, t);
+
+    // Seed lastDivisionRank based on current ratings for year 1
+    const tmpRanks = computeLastDivisionRanks(L);
+    L.teams.forEach((t,i)=>{ t.lastDivisionRank = tmpRanks[i]; });
+
     return L;
   }
 
@@ -168,18 +275,266 @@
   }
 
   // 17-game schedule with byes
-  function make17GameSchedule(N){
-    const weeks = 18;
-    const schedule = Array.from({length: weeks}, ()=>[]);
-    const teams = Array.from({length:N}, (_,i)=>i);
-    // byes weeks 6..14
-    const byeWeeks = [6,7,8,9,10,11,12,13,14];
-    let idx=0;
-    for (const w of byeWeeks){
-      for (let k=0;k<4;k++){
-        schedule[w-1].push({bye: teams[idx%N]});
-        idx++;
+  
+// ===== Accurate NFL-like schedule generation =====
+
+// Canonical 4x4 host grids for division-vs-division blocks.
+// 1 means the row division team hosts the column division team.
+// We use the same canonical grid for all pairings and flip on the next cycle.
+const HOST_GRID_CANON = [
+  [1,0,1,0],
+  [0,1,0,1],
+  [1,0,1,0],
+  [0,1,0,1],
+];
+
+function hostByGrid(aIndex, bIndex, flip){
+  const bit = HOST_GRID_CANON[aIndex][bIndex];
+  const h = flip ? (1-bit) : bit;
+  return h === 1;
+}
+
+function divisionTeamsByConf(league){
+  const by = {0:[[],[],[],[]], 1:[[],[],[],[]]};
+  league.teams.forEach((t,i)=>{ by[t.conf][t.div].push(i); });
+  return by;
+}
+
+function computeLastDivisionRanks(league){
+  const ranks = Array(league.teams.length).fill(0);
+  for (let conf=0; conf<2; conf++){
+    for (let dv=0; dv<4; dv++){
+      const idxs = league.teams.map((t,i)=>({i,t})).filter(x=>x.t.conf===conf && x.t.div===dv);
+      idxs.sort((a,b)=>{
+        const pa = pct(a.t.record), pb = pct(b.t.record);
+        if (pa!==pb) return pb - pa;
+        const pda = a.t.record.pf - a.t.record.pa;
+        const pdb = b.t.record.pf - b.t.record.pa;
+        if (pda!==pdb) return pdb - pda;
+        return (b.t.rating||0) - (a.t.rating||0);
+      });
+      idxs.forEach((x,rank)=>{ ranks[x.i] = rank; });
+    }
+  }
+  return ranks;
+}
+
+// 8-year inter-conference rotation: each division plays all 4 opposite-conference divisions twice in 8 years.
+// Host flips on the second pass.
+const INTER_ROT_8 = {
+  0: [0,1,2,3, 0,1,2,3], // East
+  1: [1,2,3,0, 1,2,3,0], // North
+  2: [2,3,0,1, 2,3,0,1], // South
+  3: [3,0,1,2, 3,0,1,2], // West
+};
+
+// 3-year intra-conference rotation embedded across 8 years (repeats 1,2,3,1,2,3,1,2). Host flips every repeat.
+const INTRA_ROT_8 = {
+  0: [1,2,3, 1,2,3, 1,2], // East
+  1: [2,3,0, 2,3,0, 2,3], // North
+  2: [3,0,1, 3,0,1, 3,0], // South
+  3: [0,1,2, 0,1,2, 0,1], // West
+};
+
+function makeAccurateSchedule(league){
+  const year = (league.year || (2025 + ((league.season||1)-1)));
+  const by = divisionTeamsByConf(league);
+  const lastRanks = computeLastDivisionRanks(league);
+  const y8 = (year - 2025) % 8;
+  const seventeenthHostConf = (year % 2 === 1) ? 0 : 1; // AFC hosts odd seasons
+
+  const games = [];
+  const keyset = new Set();
+  function addGame(home, away){
+    const k = home < away ? `${home}-${away}` : `${away}-${home}`;
+    if (keyset.has(k)) return;
+    keyset.add(k);
+    games.push({home, away});
+  }
+
+  // 1) Division home-and-away (6 each)
+  for (let conf=0; conf<2; conf++){
+    for (let dv=0; dv<4; dv++){
+      const teams = by[conf][dv];
+      for (let i=0; i<teams.length; i++){
+        for (let j=i+1; j<teams.length; j++){
+          const a = teams[i], b = teams[j];
+          games.push({home:a, away:b});
+          games.push({home:b, away:a});
+          keyset.add(`${Math.min(a,b)}-${Math.max(a,b)}`);
+        }
       }
+    }
+  }
+
+  // Host parity flags so the second pass flips home/away for divisional-cross slates
+  const intraHostFlip = (Math.floor((season-1)/3) % 2) ? 1 : 0;  // flips every time we repeat the 3-year cycle
+  const interHostFlip = (Math.floor((season-1)/4) % 2) ? 1 : 0;  // flips on second 4-year pass in the 8-year cycle
+
+  // 2) Intra-conference 4-game set vs rotated division (2 home / 2 away each team)
+  for (let conf=0; conf<2; conf++){
+    for (let dv=0; dv<4; dv++){
+      const targetDiv = INTRA_ROT_8[dv][y8];
+      const A = by[conf][dv], B = by[conf][targetDiv];
+      for (let i=0; i<4; i++){
+        for (let j=0; j<4; j++){
+          const a = A[i], b = B[j];
+          // Balanced 2H/2A: base pattern (i+j) even = A hosts. Flip on cycle repeats.
+          const hosts = hostByGrid(i, j, !!intraHostFlip);
+          const home = hosts ? a : b;
+          const away = hosts ? b : a;
+          addGame(home, away);
+        }
+      }
+    }
+  }
+
+  // 3) Inter-conference 4-game set vs rotated opposite division (2 home / 2 away each)
+  for (let conf=0; conf<2; conf++){
+    const other = conf===0 ? 1 : 0;
+    for (let dv=0; dv<4; dv++){
+      const targetDiv = INTER_ROT_8[dv][y8];
+      const A = by[conf][dv], B = by[other][targetDiv];
+      for (let i=0; i<4; i++){
+        for (let j=0; j<4; j++){
+          const a = A[i], b = B[j];
+          // Balanced, flip on second 4-year pass
+          const hosts = hostByGrid(i, j, !!interHostFlip);
+          const home = hosts ? a : b;
+          const away = hosts ? b : a;
+          addGame(home, away);
+        }
+      }
+    }
+  }
+
+  // Helper: get same-place team index
+  function samePlaceTeam(conf, div, rank){
+    const idxs = by[conf][div].slice().sort((x,y)=> lastRanks[x]-lastRanks[y]);
+    return idxs[Math.min(rank, idxs.length-1)];
+  }
+
+  // 4) Two intra-conference same-place games vs the two divisions not in the 4-game intra set
+  for (let conf=0; conf<2; conf++){
+    for (let dv=0; dv<4; dv++){
+      const A = by[conf][dv];
+      const targ = INTRA_ROT_8[dv][y8];
+      const otherDivs = [0,1,2,3].filter(x=>x!==dv && x!==targ);
+      for (const t of A){
+        const r = lastRanks[t];
+        for (let k=0; k<otherDivs.length; k++){
+          const od = otherDivs[k];
+          const opp = samePlaceTeam(conf, od, r);
+          if (t === opp) continue;
+          // Alternate H/A year-to-year so each year teams get 1H/1A across the two games
+          const home = ((year + k + r) % 2 === 0) ? t : opp;
+          const away = home===t ? opp : t;
+          addGame(home, away);
+        }
+      }
+    }
+  }
+
+  // 5) 17th cross-conference same-place vs next inter rotation division; AFC hosts odd seasons
+  for (let conf=0; conf<2; conf++){
+    const other = conf===0 ? 1 : 0;
+    for (let dv=0; dv<4; dv++){
+      const A = by[conf][dv];
+      const nextDiv = INTER_ROT_8[dv][(y8+1)%8];
+      for (const t of A){
+        const r = lastRanks[t];
+        const opp = samePlaceTeam(other, nextDiv, r);
+        if (t === opp) continue;
+        const home = (league.teams[t].conf === seventeenthHostConf) ? t : opp;
+        const away = home===t ? opp : t;
+        addGame(home, away);
+      }
+    }
+  }
+
+  // Build schedule by weeks with byes 6–14
+  const needed = Array(league.teams.length).fill(17);
+  const byes = assignByes(league.teams.length);
+  const weeks = Array.from({length:18}, ()=>[]);
+  const played = Array.from({length:18}, ()=>Array(league.teams.length).fill(false));
+
+  // Shuffle for dispersion
+  for (let i=games.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [games[i],games[j]]=[games[j],games[i]]; }
+
+  function canPlace(w,g){
+    const h=g.home, a=g.away;
+    if (byes[w] && (byes[w].has(h) || byes[w].has(a))) return false;
+    if (played[w][h] || played[w][a]) return false;
+    if (needed[h]<=0 || needed[a]<=0) return false;
+    return true;
+  }
+
+  for (const g of games){
+    if (needed[g.home]<=0 || needed[g.away]<=0) continue;
+    let placed=false;
+    for (let w=0; w<18; w++){
+      if (canPlace(w,g)){
+        weeks[w].push({home:g.home, away:g.away});
+        played[w][g.home]=true; played[w][g.away]=true;
+        needed[g.home]--; needed[g.away]--;
+        placed = true; break;
+      }
+    }
+    if (!placed){
+      // fallback ignoring byes
+      for (let w=0; w<18 && !placed; w++){
+        if (!played[w][g.home] && !played[w][g.away]){
+          weeks[w].push({home:g.home, away:g.away});
+          played[w][g.home]=true; played[w][g.away]=true;
+          needed[g.home]--; needed[g.away]--;
+          placed=true; break;
+        }
+      }
+    }
+  }
+
+  // Insert byes
+  for (let w=0; w<18; w++){
+    if (!byes[w]) continue;
+    for (const t of byes[w]) weeks[w].push({bye:t});
+  }
+
+  return weeks;
+}
+
+function assignByes(teamCount){
+  const quotas = [4,4,4,4,4,4,4,2,2]; // weeks 6..14
+  const weeks = Array(18).fill(null).map(()=>null);
+  const pool = Array.from({length:teamCount}, (_,i)=>i);
+  for (let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  let p=0;
+  for (let k=0;k<quotas.length;k++){
+    const w = 6 + k - 1;
+    const set = new Set();
+    for (let c=0;c<quotas[k] && p<pool.length;c++){ set.add(pool[p++]); }
+    weeks[w]=set;
+  }
+  return weeks;
+}
+(teamCount){
+  // Byes weeks 6..14. Quotas sum to 32.
+  const quotas = [4,4,4,4,4,4,4,2,2]; // 9 weeks
+  const weeks = Array(18).fill(null).map(()=>null);
+  const pool = Array.from({length:teamCount}, (_,i)=>i);
+  // Deterministic shuffle
+  for (let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  let p = 0;
+  for (let k=0;k<quotas.length;k++){
+    const weekIndex = 6 + k - 1; // weeks are 0-indexed
+    const set = new Set();
+    for (let c=0;c<quotas[k];c++){
+      if (p>=pool.length) break;
+      set.add(pool[p++]);
+    }
+    weeks[weekIndex] = set;
+  }
+  return weeks;
+}
     }
     // ensure all have a bye
     const byes = new Set();
@@ -206,7 +561,38 @@
   function shuffle(a){ for (let i=a.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
   function pairKey(a,b){ return a<b? `${a}-${b}` : `${b}-${a}`; }
 
-  // UI wiring
+  
+  function listByMode(mode){ return mode==='real' ? TEAM_META_REAL : TEAM_META_FICTIONAL; }
+  
+  function rebuildTeamLabels(mode){
+    const L = state.league;
+    const meta = listByMode(mode);
+    if (!L || !L.teams || L.teams.length !== meta.length) return;
+    L.teams.forEach((tm, i)=>{
+      tm.abbr = meta[i].abbr;
+      tm.name = meta[i].name;
+      tm.conf = meta[i].conf;
+      tm.div  = meta[i].div;
+    });
+    // Refresh selects
+    $$("select").forEach(sel=>{
+      if (sel.id==="onboardTeam") return;
+      const prev = sel.value;
+      sel.innerHTML = "";
+      L.teams.forEach((t, i)=>{
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        const conf = `${CONF_NAMES[t.conf]} ${DIV_NAMES[t.div]}`;
+        opt.textContent = `${t.abbr} — ${t.name} (${conf})`;
+        sel.appendChild(opt);
+      });
+      if (prev) sel.value = prev;
+    });
+    // Repaint key views
+    renderHub(); renderRoster(); renderStandings(); renderDraft();
+  }
+
+// UI wiring
   const routes = ["hub","roster","cap","schedule","standings","trade","freeagency","draft","playoffs","settings"];
   function show(route){
     routes.forEach(r => {
@@ -222,6 +608,7 @@
     if (route === "freeagency") renderFreeAgency();
     if (route === "draft") renderDraft();
     if (route === "playoffs") renderPlayoffs();
+    if (route === "settings") { const y = (state.league && state.league.year) ? state.league.year : YEAR_START; const el = document.getElementById("settingsYear"); if (el) el.value = y; }
   }
   window.addEventListener("hashchange", () => {
     const seg = location.hash.replace("#/","") || "hub";
@@ -237,10 +624,10 @@
   // Hub
   function renderHub(){
     const L = state.league;
-    $("#hubSeason").textContent = L.season;
+    $("#hubSeason").textContent = L.year;
     $("#hubWeek").textContent = L.week;
     $("#hubWeeks").textContent = L.schedule.length;
-    $("#seasonNow").textContent = L.season;
+    $("#seasonNow").textContent = L.year;
     const games = (L.schedule[L.week-1] || []).filter(g=>!g.bye);
     $("#hubGames").textContent = games.length;
     const res = L.resultsByWeek[L.week-1] || [];
@@ -341,7 +728,7 @@
     recalcCap(L, t);
     const years = [0,1,2];
     const tbl = $("#capTable");
-    tbl.innerHTML = `<thead><tr><th>Player</th>${years.map(y=>`<th>Y${L.season+y}</th>`).join("")}</tr></thead>`;
+    tbl.innerHTML = `<thead><tr><th>Player</th>${years.map(y=>`<th>Y${L.year+y}</th>`).join("")}</tr></thead>`;
     const tb = document.createElement("tbody");
     t.roster.forEach(p=>{
       const row = document.createElement("tr");
@@ -354,7 +741,7 @@
     tbl.appendChild(tb);
     const deadBox = $("#deadLedger"); deadBox.innerHTML="";
     years.forEach(y=>{
-      const yr = L.season + y;
+      const yr = L.year + y;
       const amt = t.deadCapBook[yr] || 0;
       const div = document.createElement("div");
       div.className = "row";
@@ -384,30 +771,73 @@
       const home = L.teams[g.home], away = L.teams[g.away];
       const div = document.createElement("div");
       div.className = "row";
-      div.innerHTML = `<div>Game ${idx+1}: ${away.abbr} at ${home.abbr}</div>`;
+      div.innerHTML = `<div>Game ${idx+1}: ${away.name} at ${home.name}</div>`;
       box.appendChild(div);
     });
   }
 
-  function renderStandings(){
-    const scope = $("#standingsScope").value || "league";
-    const wrap = $("#standingsWrap"); wrap.innerHTML="";
-    const groups = standingsRows(scope);
-    for (const group of groups){
-      const title = Object.keys(group)[0];
-      const rows = group[title];
+  
+function renderStandings(){
+  const L = state.league;
+  const scope = $("#standingsScope").value || "league";
+  const wrap = $("#standingsWrap"); wrap.innerHTML="";
+  if (scope==="leaders"){
+    const idxs = divisionLeaders(L);
+    const card = document.createElement("div"); card.className="card";
+    const tbl = document.createElement("table"); tbl.className="table";
+    tbl.innerHTML = `<thead><tr><th>Division</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th></tr></thead>`;
+    const tb = document.createElement("tbody");
+    idxs.forEach(i=>{
+      const t = L.teams[i];
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${CONF_NAMES[t.conf]} ${DIV_NAMES[t.div]}</td><td><strong>${t.name}</strong></td><td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td><td>${pct(t.record).toFixed(3)}</td>`;
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); card.appendChild(tbl); wrap.appendChild(card);
+    $("#standingsScope").onchange = renderStandings;
+    return;
+  }
+  if (scope==="picture"){
+    const pic = playoffPicture(L);
+    const mk = (label, arr)=>{
       const card = document.createElement("div"); card.className="card";
       const tbl = document.createElement("table"); tbl.className="table";
-      tbl.innerHTML = `<thead><tr><th>${title}</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>PF</th><th>PA</th><th>PD</th></tr></thead>`;
+      tbl.innerHTML = `<thead><tr><th>${label}</th><th>Seed</th><th>W</th><th>L</th><th>T</th><th>PCT</th></tr></thead>`;
       const tb = document.createElement("tbody");
-      rows.forEach(r=>{
-        const t = r.t; const pd = t.record.pf - t.record.pa;
+      arr.forEach((i,idx)=>{
+        const t = L.teams[i];
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${t.abbr}</td><td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td><td>${pct(t.record).toFixed(3)}</td><td>${t.record.pf}</td><td>${t.record.pa}</td><td>${pd}</td>`;
+        tr.innerHTML = `<td>${t.name}</td><td>${idx+1}</td><td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td><td>${pct(t.record).toFixed(3)}</td>`;
         tb.appendChild(tr);
       });
       tbl.appendChild(tb); card.appendChild(tbl); wrap.appendChild(card);
-    }
+    };
+    mk("AFC Seeds", pic.AFC);
+    mk("NFC Seeds", pic.NFC);
+    $("#standingsScope").onchange = renderStandings;
+    return;
+  }
+  const groups = standingsRows(scope);
+  for (const group of groups){
+    const title = Object.keys(group)[0];
+    const rows = group[title];
+    const card = document.createElement("div"); card.className="card";
+    const tbl = document.createElement("table"); tbl.className="table";
+    tbl.innerHTML = `<thead><tr><th>${title}</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>PF</th><th>PA</th><th>PD</th></tr></thead>`;
+    const tb = document.createElement("tbody");
+    rows.forEach(r=>{
+      const t = r.t; const pd = t.record.pf - t.record.pa;
+      const leaderSet = new Set(divisionLeaders(L));
+      const strong = leaderSet.has(L.teams.indexOf(t)) ? "<strong>" : "";
+      const end = leaderSet.has(L.teams.indexOf(t)) ? "</strong>" : "";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${strong}${t.abbr}${end}</td><td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td><td>${pct(t.record).toFixed(3)}</td><td>${t.record.pf}</td><td>${t.record.pa}</td><td>${pd}</td>`;
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb); card.appendChild(tbl); wrap.appendChild(card);
+  }
+  $("#standingsScope").onchange = renderStandings;
+}
     $("#standingsScope").onchange = renderStandings;
   }
   function pct(rec){ const g = rec.w + rec.l + rec.t; return g? (rec.w + 0.5*rec.t)/g : 0; }
@@ -431,7 +861,264 @@
     return Object.entries(groups).map(([k,v])=>({[k]:v}));
   }
 
-  // Trade UI with picks
+  
+// ===== Standings tiebreakers and playoff seeding =====
+function gameResultsBetween(L, i, j){
+  let w=0,l=0,t=0;
+  for (const wk in L.resultsByWeek){
+    const arr = L.resultsByWeek[wk] || [];
+    for (const g of arr){
+      if (g.bye) continue;
+      if ((g.home===i && g.away===j) || (g.home===j && g.away===i)){
+        const aIsHome = g.home===i;
+        const sI = aIsHome ? g.scoreHome : g.scoreAway;
+        const sJ = aIsHome ? g.scoreAway : g.scoreHome;
+        if (sI>sJ) w++; else if (sI<sJ) l++; else t++;
+      }
+    }
+  }
+  return {w,l,t};
+}
+
+function recordInDivision(L, i){
+  const me = L.teams[i];
+  let w=0,l=0,t=0;
+  for (const wk in L.resultsByWeek){
+    for (const g of L.resultsByWeek[wk]||[]){
+      if (g.bye) continue;
+      let opp=null, sMe=0, sOpp=0;
+      if (g.home===i){ opp=g.away; sMe=g.scoreHome; sOpp=g.scoreAway; }
+      if (g.away===i){ opp=g.home; sMe=g.scoreAway; sOpp=g.scoreHome; }
+      if (opp===null) continue;
+      const o = L.teams[opp];
+      if (o.conf===me.conf && o.div===me.div){
+        if (sMe>sOpp) w++; else if (sMe<sOpp) l++; else t++;
+      }
+    }
+  }
+  return {w,l,t};
+}
+
+function recordInConference(L, i){
+  const me = L.teams[i];
+  let w=0,l=0,t=0;
+  for (const wk in L.resultsByWeek){
+    for (const g of L.resultsByWeek[wk]||[]){
+      if (g.bye) continue;
+      let opp=null, sMe=0, sOpp=0;
+      if (g.home===i){ opp=g.away; sMe=g.scoreHome; sOpp=g.scoreAway; }
+      if (g.away===i){ opp=g.home; sMe=g.scoreAway; sOpp=g.scoreHome; }
+      if (opp===null) continue;
+      const o = L.teams[opp];
+      if (o.conf===me.conf){
+        if (sMe>sOpp) w++; else if (sMe<sOpp) l++; else t++;
+      }
+    }
+  }
+  return {w,l,t};
+}
+
+function winPct(rec){ const g = rec.w + rec.l + rec.t; return g? (rec.w + 0.5*rec.t)/g : 0; }
+
+function cmpWithTiebreakers(L, aIdx, bIdx, scope, groupIndices){
+  const a = L.teams[aIdx], b = L.teams[bIdx];
+  const pA = winPct(a.record), pB = winPct(b.record);
+  if (pA !== pB) return pB - pA;
+
+  // Head-to-head (only valid for two-team ties)
+  const twoTeamTie = groupIndices && groupIndices.length===2;
+  if (twoTeamTie){
+    const h2h = gameResultsBetween(L, aIdx, bIdx);
+    const pct = winPct(h2h);
+    if (pct>0.5) return -1;
+    if (pct<0.5) return 1;
+  }
+
+  // Division ties: division record
+  if (scope==="division"){
+    const dA = recordInDivision(L, aIdx), dB = recordInDivision(L, bIdx);
+    const pd = winPct(dB) - winPct(dA);
+    if (pd !== 0) return pd;
+  }
+
+  // Conference record
+  const cA = recordInConference(L, aIdx), cB = recordInConference(L, bIdx);
+  const pc = winPct(cB) - winPct(cA);
+  if (pc !== 0) return pc;
+
+  // Point differential
+  const pdA = a.record.pf - a.record.pa, pdB = b.record.pf - b.record.pa;
+  if (pdA !== pdB) return pdB - pdA;
+
+  // Last resort: rating as coin flip proxy
+  return (b.rating||0) - (a.rating||0);
+}
+
+function divisionLeaders(L){
+  const leaders = [];
+  for (let conf=0; conf<2; conf++){
+    for (let dv=0; dv<4; dv++){
+      const idxs = L.teams.map((t,i)=>i).filter(i=>L.teams[i].conf===conf && L.teams[i].div===dv);
+      idxs.sort((i,j)=>cmpWithTiebreakers(L, i, j, "division", idxs));
+      leaders.push(idxs[0]);
+    }
+  }
+  return leaders; // 8 team indices
+}
+
+function playoffSeedsByConference(L, conf){
+  // Get division winners
+  const winners = [];
+  for (let dv=0; dv<4; dv++){
+    const idxs = L.teams.map((t,i)=>i).filter(i=>L.teams[i].conf===conf && L.teams[i].div===dv);
+    idxs.sort((i,j)=>cmpWithTiebreakers(L, i, j, "division", idxs));
+    winners.push(idxs[0]);
+  }
+  // Rank winners 1-4
+  winners.sort((i,j)=>cmpWithTiebreakers(L, i, j, "conference", winners));
+  // Wildcards: best remaining 3 in conference
+  const pool = L.teams.map((t,i)=>i).filter(i=>L.teams[i].conf===conf && !winners.includes(i));
+  pool.sort((i,j)=>cmpWithTiebreakers(L, i, j, "conference", pool));
+  const wilds = pool.slice(0,3);
+  const seeds = winners.concat(wilds); // length 7
+  return seeds;
+}
+
+function playoffPicture(L){
+  return {
+    AFC: playoffSeedsByConference(L, 0),
+    NFC: playoffSeedsByConference(L, 1),
+  };
+}
+
+// Build Super Wild Card, Divisional (reseed), Conference, Super Bowl
+function buildPlayoffBracket(L){
+  const pic = playoffPicture(L);
+  const afc = pic.AFC, nfc = pic.NFC;
+  const round = { name: "Wild Card", afc: [], nfc: [] };
+
+  // Seed order: [1..7]; index 0 is seed1
+  // Super Wild Card: 7@2, 6@3, 5@4; seed1 bye
+  round.afc = [
+    {home: afc[1], away: afc[6], seedHome:2, seedAway:7},
+    {home: afc[2], away: afc[5], seedHome:3, seedAway:6},
+    {home: afc[3], away: afc[4], seedHome:4, seedAway:5},
+  ];
+  round.nfc = [
+    {home: nfc[1], away: nfc[6], seedHome:2, seedAway:7},
+    {home: nfc[2], away: nfc[5], seedHome:3, seedAway:6},
+    {home: nfc[3], away: nfc[4], seedHome:4, seedAway:5},
+  ];
+
+  return {
+    seeds: {AFC: afc, NFC: nfc},
+    rounds: [round],
+    nextRound: "Divisional",
+    afcBye: afc[0],
+    nfcBye: nfc[0],
+    done: false,
+    champion: null,
+  };
+}
+
+function simulatePlayoffGame(L, home, away, neutral){
+  // Simple model: rating + +2.5 home edge + randomness
+  const h = L.teams[home], a = L.teams[away];
+  const edge = (neutral ? 0 : 2.5);
+  const sH = Math.round(17 + (h.rating - 75) * 0.4 + edge + (Math.random()*10-5));
+  const sA = Math.round(17 + (a.rating - 75) * 0.4 + (Math.random()*10-5));
+  const homeWin = sH>=sA ? true : false;
+  return {home, away, scoreHome: sH, scoreAway: sA, homeWin};
+}
+
+function reseedNextRound(L, confName, prevRound, byeSeedTeam){
+  // prevRound: array of games results for that conf
+  const results = prevRound;
+  const winners = results.map(g=> g.homeWin ? g.home : g.away);
+
+  // Determine their seeds from initial seeds map
+  const seeds = (confName==="AFC" ? L.playoffState.seeds.AFC : L.playoffState.seeds.NFC);
+  const getSeedNum = (teamIdx)=> seeds.indexOf(teamIdx)+1;
+  const withSeeds = winners.map(t=>({t, seed:getSeedNum(t)})).sort((a,b)=>a.seed-b.seed);
+
+  // Add bye team into the pool now
+  withSeeds.push({t: byeSeedTeam, seed: 1});
+  withSeeds.sort((a,b)=>a.seed-b.seed);
+
+  // Reseed: 1 vs lowest, middle two play, higher seed hosts
+  const low = withSeeds[withSeeds.length-1];
+  const mid1 = withSeeds[1];
+  const mid2 = withSeeds[2];
+  return [
+    {home: withSeeds[0].t, away: low.t, seedHome:withSeeds[0].seed, seedAway:low.seed},
+    {home: Math.min(mid1.seed, mid2.seed)===mid1.seed ? mid1.t : mid2.t,
+     away: Math.min(mid1.seed, mid2.seed)===mid1.seed ? mid2.t : mid1.t,
+     seedHome: Math.min(mid1.seed, mid2.seed), seedAway: Math.max(mid1.seed, mid2.seed)},
+  ];
+}
+
+function advancePlayoffsOneRound(L){
+  const PS = L.playoffState;
+  if (!PS) return;
+
+  if (PS.rounds.length===1 && PS.nextRound==="Divisional"){
+    // Simulate Wild Card
+    const wc = PS.rounds[0];
+    wc.afc = wc.afc.map(g=>simulatePlayoffGame(L, g.home, g.away, false));
+    wc.nfc = wc.nfc.map(g=>simulatePlayoffGame(L, g.home, g.away, false));
+
+    // Build Divisional with reseeding
+    const div = { name: "Divisional", afc: reseedNextRound(L, "AFC", wc.afc, PS.afcBye), nfc: reseedNextRound(L, "NFC", wc.nfc, PS.nfcBye) };
+    PS.rounds.push(div);
+    PS.nextRound = "Conference";
+    return;
+  }
+
+  if (PS.rounds.length===2 && PS.nextRound==="Conference"){
+    // Simulate Divisional
+    const div = PS.rounds[1];
+    div.afc = div.afc.map(g=>simulatePlayoffGame(L, g.home, g.away, false));
+    div.nfc = div.nfc.map(g=>simulatePlayoffGame(L, g.home, g.away, false));
+
+    // Build Conference Championships: higher seed hosts based on seed numbers
+    function confChampGames(confName, res){
+      const seeds = (confName==="AFC" ? L.playoffState.seeds.AFC : L.playoffState.seeds.NFC);
+      const winners = res.map(g=> g.homeWin ? g.home : g.away);
+      const seeded = winners.map(t=>({t, seed: seeds.indexOf(t)+1})).sort((a,b)=>a.seed-b.seed);
+      return [{home: seeded[0].t, away: seeded[1].t, seedHome: seeded[0].seed, seedAway: seeded[1].seed}];
+    }
+    const cc = { name: "Conference", afc: confChampGames("AFC", div.afc), nfc: confChampGames("NFC", div.nfc) };
+    PS.rounds.push(cc);
+    PS.nextRound = "Super Bowl";
+    return;
+  }
+
+  if (PS.rounds.length===3 && PS.nextRound==="Super Bowl"){
+    // Simulate Conference Championships
+    const cc = PS.rounds[2];
+    cc.afc = cc.afc.map(g=>simulatePlayoffGame(L, g.home, g.away, false));
+    cc.nfc = cc.nfc.map(g=>simulatePlayoffGame(L, g.home, g.away, false));
+
+    // Super Bowl on neutral site
+    const afcChamp = cc.afc[0].homeWin ? cc.afc[0].home : cc.afc[0].away;
+    const nfcChamp = cc.nfc[0].homeWin ? cc.nfc[0].home : cc.nfc[0].away;
+    const sb = { name: "Super Bowl", game: simulatePlayoffGame(L, afcChamp, nfcChamp, true) };
+    PS.rounds.push(sb);
+    PS.nextRound = "Done";
+    return;
+  }
+
+  if (PS.rounds.length===4 && PS.nextRound==="Done"){
+    // Determine champion
+    const sb = PS.rounds[3].game;
+    const champ = sb.homeWin ? sb.home : sb.away;
+    L.champion = L.teams[champ].abbr;
+    PS.done = true;
+    return;
+  }
+}
+
+// Trade UI with picks
   function renderTradeUI(){
     const L = state.league;
     const selA = $("#tradeA"), selB = $("#tradeB");
@@ -470,7 +1157,7 @@
 
   function listPicks(rootSel, team, side){
     const root = $(rootSel); root.innerHTML = "";
-    const now = state.league.season;
+    const now = state.league.year;
     team.picks.slice().sort((a,b)=> a.year===b.year? a.round-b.round : a.year-b.year).forEach(pk=>{
       const row = document.createElement("label");
       row.className = "row";
@@ -599,7 +1286,7 @@
     const teamId = parseInt(sel.value || $("#userTeam").value || "0", 10);
     sel.value = teamId;
     const t = state.league.teams[teamId];
-    const now = state.league.season;
+    const now = state.league.year;
     const box = $("#draftPicks"); box.innerHTML="";
     t.picks.slice().sort((a,b)=> a.year===b.year? a.round-b.round : a.year-b.year).forEach(pk=>{
       const div = document.createElement("div");
@@ -647,29 +1334,73 @@
   }
 
   // Playoffs minimal, then offseason rollover
+  
   function startPlayoffs(){
-    state.playoffs = { round: "CHAMP", bracket: [], results: [] };
-    $("#btnSimRound").onclick = simulatePlayoffRound;
+    const L = state.league;
+    L.playoffState = buildPlayoffBracket(L);
+    renderPlayoffs();
   }
   function renderPlayoffs(){
-    const P = state.playoffs;
-    const rs = $("#playoffResults"); if (!rs) return;
-    rs.innerHTML = "";
-    (P?.results||[]).forEach(line=>{ const d = document.createElement("div"); d.textContent = line; rs.appendChild(d); });
+    const L = state.league;
+    const PS = L.playoffState;
+    const wrap = $("#playoffBracket"); if (!wrap) return;
+    const out = $("#playoffState"); if (out) out.textContent = PS ? (PS.nextRound || "Wild Card") : "Not started";
+    const res = $("#playoffResults"); if (res) res.innerHTML = "";
+    wrap.innerHTML = "";
+    if (!PS){ wrap.textContent = "Playoffs not started."; return; }
+
+    function renderRound(label, games){
+      const card = document.createElement("div"); card.className="card";
+      const title = document.createElement("div"); title.textContent = label; title.className="muted";
+      card.appendChild(title);
+      games.forEach(g=>{
+        const h = L.teams[g.home].abbr, a = L.teams[g.away].abbr;
+        const line = document.createElement("div"); line.className="row";
+        const scr = (g.scoreHome!=null) ? ` ${g.scoreAway} at ${g.scoreHome}` : "";
+        line.innerHTML = `<div>${a} at ${h}${scr}</div>`;
+        card.appendChild(line);
+      });
+      wrap.appendChild(card);
+    }
+
+    if (PS.rounds[0]){ renderRound("Super Wild Card — AFC", PS.rounds[0].afc); renderRound("Super Wild Card — NFC", PS.rounds[0].nfc); }
+    if (PS.rounds[1]){ renderRound("Divisional — AFC", PS.rounds[1].afc); renderRound("Divisional — NFC", PS.rounds[1].nfc); }
+    if (PS.rounds[2]){ renderRound("Conference Championships — AFC", PS.rounds[2].afc); renderRound("Conference Championships — NFC", PS.rounds[2].nfc); }
+    if (PS.rounds[3]){
+      const sb = PS.rounds[3].game;
+      const line = document.createElement("div");
+      line.textContent = `Super Bowl: ${L.teams[sb.away].abbr} at ${L.teams[sb.home].abbr} ${sb.scoreAway!=null? (sb.scoreAway + " - " + sb.scoreHome): ""}`;
+      wrap.appendChild(line);
+    }
   }
   function simulatePlayoffRound(){
     const L = state.league;
-    const champ = choice(L.teams);
-    state.playoffs.results.push(`Champion: ${champ.abbr}`);
-    runOffseason();
-    state.playoffs = null;
-    location.hash = "#/hub";
+    if (!L.playoffState){ startPlayoffs(); return; }
+    advancePlayoffsOneRound(L);
+    if (L.playoffState.done){
+      const champIdx = L.teams.findIndex(t=>t.abbr===L.champion);
+      const champName = champIdx>=0 ? L.teams[champIdx].name : L.champion;
+      setStatus(`Champion: ${champName}`);
+      runOffseason();
+      state.playoffs = null;
+      L.playoffState = null;
+      location.hash = "#/hub";
+    } else {
+      renderPlayoffs();
+    }
   }
+  
 
   // Offseason rollover and aging
   function runOffseason(){
     const L = state.league;
-    for (const t of L.teams){
+    const preTeamsLoop = true;
+
+    // Store last-season division rank for scheduling
+    const ranks = computeLastDivisionRanks(L);
+    L.teams.forEach((t,i)=>{ t.lastDivisionRank = ranks[i]; });
+
+for (const t of L.teams){
       // rollover
       recalcCap(L, t);
       const room = Math.max(0, t.capTotal - t.capUsed);
@@ -698,9 +1429,10 @@
       t.record = {w:0,l:0,t:0,pf:0,pa:0};
     }
     L.season += 1;
+    L.year = (L.year || YEAR_START) + 1;
     L.week = 1;
     L.resultsByWeek = {};
-    L.schedule = make17GameSchedule(32);
+    L.schedule = makeAccurateSchedule(L);
   }
 
   // Helpers
@@ -1075,9 +1807,87 @@ simulateWeek = function(){
   renderOffers();
 };
 
+
+  // Onboarding modal behavior
+  function openOnboard(){
+    const modal = $("#onboardModal"); if (!modal) return;
+    modal.hidden = false;
+    // Fill team list for current mode
+    const mode = state.namesMode || 'fictional';
+    const sel = $("#onboardTeam");
+    sel.innerHTML = "";
+    const base = listByMode(mode);
+    base.forEach((t,i)=>{
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = `${t.abbr} — ${t.name}`;
+      sel.appendChild(opt);
+    });
+  }
+  function closeOnboard(){ const m=$("#onboardModal"); if (m) m.hidden = true; }
+
+  document.addEventListener("click", (e)=>{
+    if (e.target && e.target.id==="onboardClose"){ closeOnboard(); }
+    if (e.target && e.target.id==="onboardRandom"){
+      const sel = $("#onboardTeam");
+      sel.value = String(Math.floor(Math.random()* (listByMode(state.namesMode).length)));
+    }
+    if (e.target && e.target.id==="onboardStart"){
+      const chosenMode = ($("input[name=namesMode]:checked")||{}).value || "fictional";
+      state.namesMode = chosenMode;
+      const teamList = listByMode(chosenMode);
+      // Start a fresh league using the chosen names
+      state.league = makeLeague(teamList);
+      state.league.year = YEAR_START;
+      state.onboarded = true;
+      // Set user's team
+      const teamIdx = parseInt($("#onboardTeam").value || "0", 10);
+      const userSel = $("#userTeam");
+      fillTeamSelect(userSel);
+      userSel.value = String(teamIdx);
+      // Apply names to labels
+      rebuildTeamLabels(chosenMode);
+      closeOnboard();
+      location.hash = "#/hub";
+      setStatus("Season started");
+      refreshAll();
+    }
+    if (e.target && e.target.id==="btnApplyNamesMode"){
+      const chosenMode = ($("input[name=settingsNamesMode]:checked")||{}).value || state.namesMode;
+      state.namesMode = chosenMode;
+      rebuildTeamLabels(chosenMode);
+      setStatus("Team names updated");
+    }
+  });
+
+
+  // Settings: Apply Year
+  document.addEventListener("click", (e)=>{
+    if (e.target && e.target.id === "btnApplyYear"){
+      const inp = document.getElementById("settingsYear");
+      const newY = clampYear(inp ? inp.value : YEAR_START);
+      if (!state.league){ setStatus("Start a league first."); return; }
+      if (!confirm("This will reseed the schedule and reset the current week. Continue?")) return;
+      const L = state.league;
+      L.year = newY;
+      // Reset week and schedule, keep rosters and records as-is
+      L.week = 1;
+      L.resultsByWeek = {};
+      // Rebuild schedule from the new calendar year
+      L.schedule = makeAccurateSchedule(L);
+      // Clear pending suggestion and offers
+      state.pendingSuggestion = null;
+      state.pendingOffers = [];
+      // Refresh UI
+      renderSchedule();
+      renderHub();
+      setStatus("Year applied and schedule reseeded.");
+    }
+  });
+
 // Boot
   $("#btnSave").onclick = ()=>{
-    const payload = JSON.stringify({league: state.league, prospects: state.prospects, freeAgents: state.freeAgents, playoffs: state.playoffs});
+    const payload = JSON.stringify({league: state.league, prospects: state.prospects, freeAgents: state.freeAgents, playoffs: state.playoffs, namesMode: state.namesMode});
     localStorage.setItem(SAVE_KEY, payload);
     setStatus("Saved");
   };
@@ -1090,7 +1900,7 @@ simulateWeek = function(){
     setStatus("Loaded");
   };
   $("#btnNewLeague").onclick = ()=>{
-    if (confirm("Start a new league, clears progress")){ startNew(); }
+    if (confirm("Start a new league, clears progress")){ state.onboarded=false; openOnboard(); }
   };
 
   function refreshAll(){
@@ -1104,8 +1914,8 @@ simulateWeek = function(){
     }
     renderHub(); renderRoster(); renderCap(); renderSchedule(); renderStandings(); renderTradeUI(); renderFreeAgency(); renderDraft(); renderPlayoffs();
   }
-  $("#btnSimWeek").onclick = () => simulateWeek();
-  $("#btnSimSeason").onclick = () => { for (let i=0;i<999;i++){ if (state.league.week > state.league.schedule.length) break; simulateWeek(); } };
+  $("#btnSimWeek").onclick = () => { if(!state.onboarded){ openOnboard(); return; } simulateWeek(); };
+  $("#btnSimSeason").onclick = () => { if(!state.onboarded){ openOnboard(); return; } for (let i=0;i<999;i++){ if (state.league.week > state.league.schedule.length) break; simulateWeek(); } };
   $("#btnSimRound")?.addEventListener("click", simulatePlayoffRound);
 
   function startNew(){
