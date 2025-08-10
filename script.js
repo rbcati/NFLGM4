@@ -1,6 +1,7 @@
 // script.js
-(function () {
+;(function () {
   'use strict';
+
 
   window.addEventListener('error', function (e) {
     try {
@@ -1650,12 +1651,55 @@ function runWeeklyTraining(league) {
     state.onboarded = !!obj.onboarded;
     state.pendingOffers = obj.pendingOffers || [];
 
-    var seg = location.hash.replace('#/','') || 'hub';
-    show(routes.indexOf(seg) >= 0 ? seg : 'hub');
+// Discover route ids from the DOM
+const __routeIds = Array.from(document.querySelectorAll('.view')).map(v => v.id);
+
+// Define show() if missing. Updates views and any nav pills.
+window.show ||= function show(id) {
+  const target = __routeIds.includes(id) ? id : 'hub';
+  document.querySelectorAll('.view').forEach(v => v.toggleAttribute('hidden', v.id !== target));
+  document.querySelectorAll('.nav-pill').forEach(a => {
+    a.setAttribute('aria-current', a.dataset.view === target ? 'page' : null);
+  });
+  document.querySelectorAll('.nav-item').forEach(a => {
+    a.setAttribute('aria-current', a.dataset.view === target ? 'page' : null);
+  });
+};
+
+// Initial route
+const seg = (location.hash || '#hub').replace(/^#\/?/, '');
+show(__routeIds.includes(seg) ? seg : 'hub');
+
 
     if (!state.onboarded) openOnboard();
     else refreshAll();
-  })();
+    ;(() => {
+  // Keep hash in sync and support clicking the pills
+  function initFromHash() {
+    const id = (location.hash || '#hub').replace(/^#\/?/, '');
+    show(id);
+  }
 
+  document.addEventListener('click', e => {
+    const pill = e.target.closest('.nav-pill,[data-view].nav-item');
+    if (!pill) return;
+    const id = pill.dataset.view;
+    if (!id) return;
+    e.preventDefault();
+    if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
+    show(id);
+    const pills = document.getElementById('site-nav');
+    const toggle = document.querySelector('.nav-toggle');
+    if (pills?.classList.contains('open')) {
+      pills.classList.remove('open');
+      toggle?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  window.addEventListener('hashchange', initFromHash);
+  initFromHash();
 })();
+
+
+
 
