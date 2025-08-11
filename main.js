@@ -12,10 +12,8 @@
     } catch (_) {}
   });
 
-  // This function is useful for refreshing the UI after loading a game
   function refreshAll() {
     fillTeamSelect($('#userTeam'));
-    // Make sure the dropdown reflects the loaded team
     if (state.league && currentTeam()) {
         $('#userTeam').value = (state.league.teams.findIndex(t => t.abbr === currentTeam().abbr) || 0);
     }
@@ -27,7 +25,6 @@
     updateCapSidebar();
   }
 
-  // --- Game State Management ---
   function saveGame() {
     const payload = JSON.stringify({
       league: state.league,
@@ -56,29 +53,24 @@
     setStatus('Loaded');
   }
 
-  // --- App Initialization ---
   function init() {
     const savedState = localStorage.getItem(SAVE_KEY);
-    // If a saved game exists and the user has completed onboarding, load it
     if (savedState && JSON.parse(savedState).onboarded) {
       loadGame();
     } else {
-      // Otherwise, show the new user setup
       openOnboard();
     }
-    // Set up all the button clicks and event handlers
     setupEventListeners();
-    // Show the correct view based on the URL hash
     const hash = location.hash.replace('#/','') || 'hub';
     show(routes.indexOf(hash) >= 0 ? hash : 'hub');
   }
 
-  // Make key functions globally available so they can be called from events.js
+  // Make key functions globally available
   window.saveGame = saveGame;
   window.loadGame = loadGame;
   window.refreshAll = refreshAll;
 
-  // Initial call to start the application
-  init();
+  // **THE FIX:** Wait for the DOM to be fully loaded before running the app
+  document.addEventListener('DOMContentLoaded', init);
 
 })();
