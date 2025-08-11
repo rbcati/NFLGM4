@@ -69,7 +69,7 @@
   window.loadGame = loadGame;
   window.refreshAll = refreshAll;
 
-  // Initial call to start the application
+  // This ensures 'init' is called only after the entire HTML page is loaded and ready.
   document.addEventListener('DOMContentLoaded', init);
 
 })();
