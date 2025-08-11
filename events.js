@@ -2,31 +2,38 @@
 'use strict';
 
 function setupEventListeners() {
-  // Use event delegation for all dynamic content
-  document.body.addEventListener('click', function(e) {
+  // Single, powerful event listener for the entire document
+  document.addEventListener('click', function(e) {
     const target = e.target;
+
+    // --- Navigation Pills ---
+    const navPill = target.closest('.nav-pill');
+    if (navPill) {
+      e.preventDefault(); // Stop the link from trying to navigate normally
+      const viewId = navPill.dataset.view;
+      if (viewId) {
+        // Update the URL hash to trigger the router
+        location.hash = `#/${viewId}`;
+      }
+      return; // Stop further processing
+    }
 
     // --- Onboarding Modal Buttons ---
     if (target.id === 'onboardStart') {
       const chosenMode = ($('input[name=namesMode]:checked') || {}).value || 'fictional';
       state.namesMode = chosenMode;
-      const startYear = clampYear($('#onboardYear').value || YEAR_START);
       state.league = makeLeague(listByMode(chosenMode));
-      state.league.year = startYear;
       state.onboarded = true;
       const teamIdx = parseInt($('#onboardTeam').value || '0', 10);
-      const userSel = $('#userTeam');
-      fillTeamSelect(userSel);
-      userSel.value = String(teamIdx);
+      fillTeamSelect($('#userTeam'));
+      $('#userTeam').value = String(teamIdx);
       rebuildTeamLabels(chosenMode);
       closeOnboard();
       location.hash = '#/hub';
       setStatus('Season started');
       refreshAll();
     }
-    if (target.id === 'onboardClose') {
-      closeOnboard();
-    }
+    if (target.id === 'onboardClose') closeOnboard();
     if (target.id === 'onboardRandom') {
       const sel = $('#onboardTeam');
       sel.value = String(Math.floor(Math.random() * (listByMode(state.namesMode).length)));
@@ -36,7 +43,7 @@ function setupEventListeners() {
     if (target.id === 'btnSave') saveGame();
     if (target.id === 'btnLoad') loadGame();
     if (target.id === 'btnNewLeague') {
-      if (confirm('Start a new league, clears progress')) {
+      if (confirm('Start a new league, clearing progress?')) {
         state.onboarded = false;
         openOnboard();
       }
@@ -47,23 +54,26 @@ function setupEventListeners() {
     }
 
     // --- Roster Buttons ---
-    if (target.id === 'btnRelease') {
-      releaseSelected();
-    }
-    if (target.id === 'btnSetTraining') {
-        setTrainingPlan();
-    }
-
-    // --- Trade Buttons ---
+    if (target.id === 'btnRelease') releaseSelected();
+    if (target.id === 'btnSetTraining') setTrainingPlan();
+    
+    // --- Free Agency & Trade Buttons ---
+    if (target.id === 'btnSignFA') signFreeAgent();
     if (target.id === 'tradeValidate') validateTrade();
     if (target.id === 'tradeExecute') executeTrade();
-    
-    // --- Free Agency Buttons ---
-    if(target.id === 'btnSignFA') signFreeAgent();
 
+    // --- Settings Buttons ---
+    if (target.id === 'btnApplyNamesMode') {
+        const mode = document.querySelector('input[name="settingsNamesMode"]:checked')?.value || 'fictional';
+        state.namesMode = mode;
+        rebuildTeamLabels(mode);
+        refreshAll();
+        setStatus('Team names updated to ' + mode);
+    }
   });
 
-  // --- Dropdown change events ---
+  // --- Dropdown 'change' events ---
+  // These are separate because they are not click events
   $('#userTeam').addEventListener('change', () => {
       renderHub();
       renderRoster();
@@ -74,7 +84,8 @@ function setupEventListeners() {
   $('#tradeB').addEventListener('change', renderTradeLists);
   $('#draftTeam').addEventListener('change', renderDraft);
 
-  // --- Main Navigation ---
+  // --- Main URL Router ---
+  // This listens for the hash change triggered by our nav pills
   window.addEventListener('hashchange', () => {
     const seg = location.hash.replace('#/', '') || 'hub';
     show(routes.indexOf(seg) >= 0 ? seg : 'hub');
