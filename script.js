@@ -235,8 +235,7 @@ return L;
 } // <-- if makeLeague was declared as `function makeLeague(...) {` keep this lone brace
 // }; // <-- if makeLeague was assigned like `const makeLeague = function(...) {`, then use `};` instead
 // end of makeLeague(...)
-return L;
-}   // or `};` if makeLeague was assigned
+
 
 /* Namesets */
 function listByMode(mode) {
