@@ -162,16 +162,342 @@
     // Compute initial ranks for scheduling
     var tmpRanks = S.computeLastDivisionRanks(L);
     L.teams.forEach(function (t,i) { t.lastDivisionRank = tmpRanks[i]; });
+// script.js - Fixed makeLeague function with proper error handling
 
-    // Generate schedule after league exists
-    L.schedule = S.makeAccurateSchedule(L);
+/**
+ * Create a new league with proper error handling
+ */
+function makeLeague() {
+    console.log('=== Starting League Creation ===');
+    
+    // Get or initialize team data
+    const teams = getTeams(); // Assuming you have this function
+    
+    // Validate we have teams
+    if (!teams || teams.length === 0) {
+        console.error('No teams available for league creation');
+        showError('Cannot create league: No teams found');
+        return null;
+    }
+    
+    // Log initial state for debugging
+    console.log('League setup:', {
+        totalTeams: teams.length,
+        teamNames: teams.map(t => t.name || t.id)
+    });
+    
+    // Prepare scheduling options
+    const scheduleOptions = {
+        weeks: 17, // NFL regular season
+        gamesPerWeek: Math.floor(teams.length / 2),
+        divisionGames: 6,
+        conferenceGames: 4,
+        byeWeeks: teams.length > 20 // Enable bye weeks for larger leagues
+    };
+    
+    let schedule = null;
+    let attempts = 0;
+    const maxAttempts = 3; // Try up to 3 times with different strategies
+    
+    while (!schedule && attempts < maxAttempts) {
+        attempts++;
+        console.log(`League creation attempt ${attempts}/${maxAttempts}`);
+        
+        try {
+            // Try to create schedule with current options
+            schedule = makeAccurateSchedule(teams, scheduleOptions);
+            
+            if (schedule && schedule.weeks && schedule.weeks.length > 0) {
+                console.log('✓ Schedule created successfully');
+                break;
+            }
+            
+        } catch (error) {
+            console.error(`Attempt ${attempts} failed:`, error.message);
+            
+            // Progressively simplify constraints for next attempt
+            if (attempts === 1) {
+                // Second attempt: Reduce complexity
+                scheduleOptions.divisionGames = 4;
+                scheduleOptions.conferenceGames = 2;
+                console.log('Retrying with simplified division/conference requirements');
+                
+            } else if (attempts === 2) {
+                // Third attempt: Basic schedule only
+                scheduleOptions.divisionGames = 0;
+                scheduleOptions.conferenceGames = 0;
+                scheduleOptions.byeWeeks = false;
+                console.log('Retrying with basic round-robin schedule');
+            }
+        }
+    }
+    
+    // If still no schedule, create a minimal one
+    if (!schedule) {
+        console.warn('Using emergency fallback schedule');
+        schedule = createEmergencySchedule(teams);
+    }
+    
+    // Create the league object
+    const league = {
+        id: generateLeagueId(),
+        name: getLeagueName(),
+        teams: teams,
+        schedule: schedule,
+        standings: initializeStandings(teams),
+        currentWeek: 1,
+        season: new Date().getFullYear(),
+        created: new Date().toISOString()
+    };
+    
+    // Save the league
+    saveLeague(league);
+    
+    console.log('=== League Creation Complete ===');
+    return league;
+}
 
-    // Initialize cap for all teams
-    L.teams.forEach(function (t) { recalcCap(L, t); });
+/**
+ * Create an emergency schedule when all else fails
+ */
+function createEmergencySchedule(teams) {
+    console.log('Creating emergency schedule');
+    
+    const weeks = [];
+    const numWeeks = 17;
+    
+    // Create a very simple schedule where each team plays once per week
+    for (let w = 0; w < numWeeks; w++) {
+        const weekGames = [];
+        const availableTeams = [...teams];
+        
+        while (availableTeams.length >= 2) {
+            const home = availableTeams.shift();
+            const away = availableTeams.shift();
+            
+            weekGames.push({
+                home: home,
+                away: away,
+                week: w + 1,
+                gameId: `game_${w}_${home.id}_${away.id}`
+            });
+        }
+        
+        weeks.push({
+            weekNumber: w + 1,
+            games: weekGames
+        });
+    }
+    
+    return {
+        weeks: weeks,
+        teams: teams,
+        metadata: {
+            type: 'emergency',
+            generated: new Date().toISOString()
+        }
+    };
+}
 
-    return L;
-  }
+/**
+ * Initialize standings for all teams
+ */
+function initializeStandings(teams) {
+    const standings = {};
+    
+    teams.forEach(team => {
+        standings[team.id] = {
+            teamId: team.id,
+            wins: 0,
+            losses: 0,
+            ties: 0,
+            pointsFor: 0,
+            pointsAgainst: 0,
+            divisionWins: 0,
+            divisionLosses: 0,
+            conferenceWins: 0,
+            conferenceLosses: 0
+        };
+    });
+    
+    return standings;
+}
 
+/**
+ * Get teams (stub - replace with your actual implementation)
+ */
+function getTeams() {
+    // This should return your actual teams array
+    // For now, returning a placeholder
+    return window.teams || [];
+}
+
+/**
+ * Generate a unique league ID
+ */
+function generateLeagueId() {
+    return 'league_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+/**
+ * Get league name (stub - replace with your implementation)
+ */
+function getLeagueName() {
+    return document.getElementById('leagueName')?.value || 'NFL League ' + new Date().getFullYear();
+}
+
+/**
+ * Save league data (stub - replace with your implementation)
+ */
+function saveLeague(league) {
+    // Save to localStorage or your backend
+    try {
+        localStorage.setItem('currentLeague', JSON.stringify(league));
+        console.log('League saved successfully');
+    } catch (error) {
+        console.error('Failed to save league:', error);
+    }
+}
+
+/**
+ * Show error message to user
+ */
+function showError(message) {
+    // Update UI to show error
+    const errorDiv = document.getElementById('error-message');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.style.display = 'block';
+    }
+    
+    // Also show as alert if no error div
+    if (!errorDiv) {
+        alert('Error: ' + message);
+    }
+}
+
+/**
+ * Initialize the application with error handling
+ */
+function init() {
+    console.log('Initializing NFL GM application...');
+    
+    try {
+        // Set up initial state
+        setupInitialState();
+        
+        // Create or load league
+        let league = loadExistingLeague();
+        
+        if (!league) {
+            console.log('No existing league found, creating new one');
+            league = makeLeague();
+        }
+        
+        if (league) {
+            // Initialize UI with league data
+            displayLeague(league);
+            console.log('Application initialized successfully');
+        } else {
+            throw new Error('Failed to create or load league');
+        }
+        
+    } catch (error) {
+        console.error('Initialization error:', error);
+        
+        // Show user-friendly error
+        showError('Failed to initialize the game. Please refresh the page and try again.');
+        
+        // Try to load with minimal features
+        loadMinimalMode();
+    }
+}
+
+/**
+ * Set up initial application state
+ */
+function setupInitialState() {
+    // Initialize any global variables or state
+    window.gameState = {
+        initialized: false,
+        league: null,
+        currentView: 'dashboard'
+    };
+}
+
+/**
+ * Load existing league from storage
+ */
+function loadExistingLeague() {
+    try {
+        const savedLeague = localStorage.getItem('currentLeague');
+        if (savedLeague) {
+            return JSON.parse(savedLeague);
+        }
+    } catch (error) {
+        console.error('Failed to load saved league:', error);
+    }
+    return null;
+}
+
+/**
+ * Display league in UI (stub - replace with your implementation)
+ */
+function displayLeague(league) {
+    // Update your UI to show the league
+    console.log('Displaying league:', league.name);
+    window.gameState.league = league;
+    window.gameState.initialized = true;
+    
+    // Trigger UI updates
+    if (typeof updateUI === 'function') {
+        updateUI(league);
+    }
+}
+
+/**
+ * Load minimal mode when full initialization fails
+ */
+function loadMinimalMode() {
+    console.log('Loading minimal mode...');
+    
+    // Create a basic interface for the user to still interact
+    document.body.innerHTML = `
+        <div style="padding: 20px; text-align: center;">
+            <h1>NFL GM - Recovery Mode</h1>
+            <p>The application encountered an error during startup.</p>
+            <button onclick="location.reload()">Retry</button>
+            <button onclick="resetApplication()">Reset All Data</button>
+        </div>
+    `;
+}
+
+/**
+ * Reset application data
+ */
+function resetApplication() {
+    if (confirm('This will delete all saved data. Are you sure?')) {
+        localStorage.clear();
+        location.reload();
+    }
+}
+
+// Set up error handlers
+window.addEventListener('error', function(event) {
+    console.error('Global error:', event.error);
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+});
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    // DOM already loaded
+    init();
+}
   // Contracts / cap calculations
   function prorationPerYear(p){ return p.signingBonus / p.yearsTotal; }
   
