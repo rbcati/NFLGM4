@@ -113,6 +113,23 @@ function renderTradeUI() {
     });
     
     renderTradeLists();
+  window.show = show;
+window.setStatus = setStatus;
+window.fillTeamSelect = fillTeamSelect;
+window.currentTeam = currentTeam;
+window.rebuildTeamLabels = rebuildTeamLabels;
+window.renderHub = renderHub;
+window.updateCapSidebar = updateCapSidebar;
+window.renderRoster = renderRoster;
+window.renderTradeUI = renderTradeUI;
+window.renderTradeLists = renderTradeLists;
+window.renderStandings = renderStandings;
+window.renderSchedule = renderSchedule;
+window.renderCap = renderCap;
+window.renderPlayoffs = renderPlayoffs;
+window.openOnboard = openOnboard;
+window.closeOnboard = closeOnboard;
+window.renderOffers = renderOffers;
 }
 
 
