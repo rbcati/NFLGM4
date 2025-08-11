@@ -3,410 +3,60 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NFL GM Simulator </title>
-    <link rel="stylesheet" href="style.css" />
- <!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NFL GM Simulator</title>
     <link rel="stylesheet" href="style.css" />
-  </head>
+    </head>
   <body>
-    <!-- your existing markup stays the same -->
-
-    <!-- Order matters. Load helpers first, then your app code. -->
-<script src="constants.js"></script>
-<script src="teams.js"></script>
-<script src="utils.js"></script>
-<script src="schedule.js"></script>
-
-<script src="state.js"></script>
-<script src="player.js"></script>
-<script src="cap.js"></script>
-<script src="picks.js"></script>
-<script src="league.js"></script>
-<script src="simulation.js"></script>
-<script src="playoffs.js"></script>
-<script src="trade.js"></script>
-<script src="freeAgency.js"></script>
-<script src="draft.js"></script>
-<script src="offseason.js"></script>
-<script src="training.js"></script>
-<script src="ui.js"></script>
-<script src="events.js"></script>
-<script src="main.js"></script>
-<header class="topbar" role="navigation">
-  <div class="brand">NFL GM</div>
-
-
-    function showView(id) {
-      views.forEach(v => v.toggleAttribute('hidden', v.id !== id));
-      document.querySelectorAll('.nav-pill').forEach(a => {
-        a.setAttribute('aria-current', a.dataset.view === id ? 'page' : null);
-      });
-    }
-
-    function initFromHash() {
-      const id = (location.hash || '#hub').slice(1);
-      showView(document.getElementById(id) ? id : 'hub');
-    }
-
-    document.addEventListener('click', e => {
-      const a = e.target.closest('.nav-pill');
-      if (a && a.dataset.view) {
-        e.preventDefault();
-        const id = a.dataset.view;
-        if (location.hash !== '#' + id) history.replaceState(null, '', '#' + id);
-        showView(id);
-        if (pills && pills.classList.contains('open')) {
-          pills.classList.remove('open');
-          toggle?.setAttribute('aria-expanded', 'false');
-        }
-      }
-    });
-
-    toggle?.addEventListener('click', () => {
-      const open = pills.classList.toggle('open');
-      toggle.setAttribute('aria-expanded', String(open));
-    });
-
-    window.addEventListener('hashchange', initFromHash);
-    initFromHash();
-  })();
-</script>
-
-<nav id="site-nav" class="nav-pills" aria-label="Primary">
-    <a href="#hub" class="nav-pill" data-view="hub" aria-label="Home" title="Home">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-      </svg>
-      <span class="label">Home</span>
-    </a>
-
-    <a href="#roster" class="nav-pill" data-view="roster" aria-label="Roster" title="Roster">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.095a1.23 1.23 0 00.41-1.412A9.994 9.994 0 0010 12c-2.31 0-4.438.784-6.131 2.095z" />
-      </svg>
-      <span class="label">Roster</span>
-    </a>
-
-    <a href="#trade" class="nav-pill" data-view="trade" aria-label="Trades" title="Trades">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path fill-rule="evenodd" d="M15.312 11.342a1.25 1.25 0 01.938 1.158v2.25h-1.5v-2.25a.25.25 0 00-.28-.248l-1.313.262a1.25 1.25 0 01-1.423-1.096l-.25-1.25a1.25 1.25 0 01.605-1.362l1.313-.657a.25.25 0 00.12-.224v-2.25h1.5v2.25a1.25 1.25 0 01-1.138 1.242l-1.313.263a.25.25 0 00-.285.22l.25 1.25a.25.25 0 00.285.22l1.313-.263a1.25 1.25 0 011.138 1.242zM4.688 8.658a1.25 1.25 0 01-.938-1.158V5.25h1.5v2.25a.25.25 0 00.28.248l1.313-.262a1.25 1.25 0 011.423 1.096l.25 1.25a1.25 1.25 0 01-.605 1.362l-1.313.657a.25.25 0 00-.12.224v2.25h-1.5v-2.25a1.25 1.25 0 011.138-1.242l1.313-.263a.25.25 0 00.285-.22l-.25-1.25a.25.25 0 00-.285-.22l-1.313.263A1.25 1.25 0 014.688 8.658z" clip-rule="evenodd" />
-      </svg>
-      <span class="label">Trades</span>
-    </a>
-
-    <a href="#standings" class="nav-pill" data-view="standings" aria-label="Standings" title="Standings">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path d="M2 3a1 1 0 00-1 1v1a1 1 0 001 1h16a1 1 0 001-1V4a1 1 0 00-1-1H2z" />
-        <path fill-rule="evenodd" d="M2 7.5A.5.5 0 012.5 7h15a.5.5 0 010 1h-15a.5.5 0 01-.5-.5zM2 11.5a.5.5 0 01.5-.5h15a.5.5 0 010 1h-15a.5.5 0 01-.5-.5zM2.5 15a.5.5 0 000 1h15a.5.5 0 000-1h-15z" clip-rule="evenodd" />
-      </svg>
-      <span class="label">Standings</span>
-    </a>
-
-    <a href="#freeagency" class="nav-pill" data-view="freeagency" aria-label="Free Agency" title="Free Agency">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-      </svg>
-      <span class="label">Free</span>
-    </a>
-
-    <a href="#draft" class="nav-pill" data-view="draft" aria-label="Draft" title="Draft">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM6.75 9.25a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5z" clip-rule="evenodd" />
-      </svg>
-      <span class="label">Draft</span>
-    </a>
-
-    <a href="#settings" class="nav-pill" data-view="settings" aria-label="Settings" title="Settings">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
-        <path fill-rule="evenodd" d="M11.078 2.25c-.217-.065-.434-.1-.652-.1-.218 0-.435.035-.652.1-.644.194-1.213.538-1.688 1.004l-.01.012-.008.01-.01.012-1.69 2.927a.75.75 0 00.211 1.05l1.09.63a.75.75 0 00.954-.083l.008-.012.01-.012.008-.012c.24-.42.64-.7 1.096-.819.21-.057.424-.084.638-.084.214 0 .428.027.638.084.456.118.857.398 1.096.819l.008.012.01.012.008.012a.75.75 0 00.954.083l1.09-.63a.75.75 0 00.211-1.05l-1.69-2.927-.01-.012-.008-.01-.01-.012A2.982 2.982 0 0011.078 2.25zM10 12.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd" />
-        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.25 5.25a.75.75 0 00-1.5 0v.161a3.76 3.76 0 01-1.341.637l-.01.005-.01.005-1.12 1.94a.75.75 0 00.422 1.32l1.37-.274a.75.75 0 00.67-.042l.01-.005.01-.005a2.26 2.26 0 011.894 0l.01.005.01.005a.75.75 0 00.67.042l1.37.274a.75.75 0 00.422-1.32l-1.12-1.94-.01-.005-.01-.005a3.76 3.76 0 01-1.341-.637V5.25z" />
-      </svg>
-      <span class="label">Settings</span>
-    </a>
-  </nav>
-</header>
-
-
-
+    <script src="constants.js"></script>
+    <script src="teams.js"></script>
+    <script src="utils.js"></script>
+    <script src="schedule.js"></script>
+    <script src="state.js"></script>
+    <script src="player.js"></script>
+    <script src="cap.js"></script>
+    <script src="picks.js"></script>
+    <script src="league.js"></script>
+    <script src="simulation.js"></script>
+    <script src="playoffs.js"></script>
+    <script src="trade.js"></script>
+    <script src="freeAgency.js"></script>
+    <script src="draft.js"></script>
+    <script src="offseason.js"></script>
+    <script src="training.js"></script>
+    <script src="ui.js"></script>
+    <script src="events.js"></script>
+    <script src="main.js"></script>
+    
+    <header class="topbar" role="navigation">
+      <div class="brand">NFL GM</div>
+      <nav id="site-nav" class="nav-pills" aria-label="Primary">
+          <a href="#hub" class="nav-pill" data-view="hub" aria-label="Home" title="Home">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
+            <span class="label">Home</span>
+          </a>
+          <a href="#settings" class="nav-pill" data-view="settings" aria-label="Settings" title="Settings">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="20" height="20">
+              <path fill-rule="evenodd" d="M11.078 2.25c-.217-.065-.434-.1-.652-.1-.218 0-.435.035-.652.1-.644.194-1.213.538-1.688 1.004l-.01.012-.008.01-.01.012-1.69 2.927a.75.75 0 00.211 1.05l1.09.63a.75.75 0 00.954-.083l.008-.012.01-.012.008-.012c.24-.42.64-.7 1.096-.819.21-.057.424-.084.638-.084.214 0 .428.027.638.084.456.118.857.398 1.096.819l.008.012.01.012.008.012a.75.75 0 00.954.083l1.09-.63a.75.75 0 00.211-1.05l-1.69-2.927-.01-.012-.008-.01-.01-.012A2.982 2.982 0 0011.078 2.25zM10 12.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clip-rule="evenodd" />
+              <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.25 5.25a.75.75 0 00-1.5 0v.161a3.76 3.76 0 01-1.341.637l-.01.005-.01.005-1.12 1.94a.75.75 0 00.422 1.32l1.37-.274a.75.75 0 00.67-.042l.01-.005.01-.005a2.26 2.26 0 011.894 0l.01.005.01.005a.75.75 0 00.67.042l1.37.274a.75.75 0 00.422-1.32l-1.12-1.94-.01-.005-.01-.005a3.76 3.76 0 01-1.341-.637V5.25z" />
+            </svg>
+            <span class="label">Settings</span>
+          </a>
+      </nav>
+      <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </header>
 
     <main class="layout">
-      <aside class="sidebar">
-        <div class="section">
-          <label for="userTeam">Your Team</label>
-          <select id="userTeam"></select>
-        </div>
-        <div class="section">
-          <div>Season <span id="seasonNow"></span></div>
-          <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
-          <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
-          <div class="muted small">Room: <span id="capRoom"></span></div>
-        </div>
-        <div class="section">
-          <button id="btnSave" class="btn">Save</button>
-          <button id="btnLoad" class="btn">Load</button>
-        </div>
-        <div class="section muted" id="statusMsg"></div>
-      </aside>
+      </main>
 
-      <section class="content">
-        <section id="hub" class="view">
-          <div class="card">
-            <div class="row">
-              <h2>League Hub</h2>
-              <div class="spacer"></div>
-              <div class="muted">Season <span id="hubSeason"></span></div>
-            </div>
-            <div class="grid two">
-              <div>
-                <div>Week <span id="hubWeek"></span> of <span id="hubWeeks"></span></div>
-                <div>Games this week: <span id="hubGames"></span></div>
-                <div class="actions">
-                  <button id="btnSimWeek" class="btn primary">Simulate Week</button>
-                  <button id="btnSimSeason" class="btn">Sim Season</button>
-                </div>
-              </div>
-              <div>
-                <h3>Power Ranking</h3>
-                <ol id="hubPower"></ol>
-              </div>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Last Week Results</h3>
-            <div id="hubResults" class="list"></div>
-          </div>
-          <div class="card">
-            <h3>Trade Offers</h3>
-            <div id="hubOffers" class="list"></div>
-          </div>
-
-        </section>
-
-        <section id="roster" class="view" hidden>
-          <div class="card">
-            <div class="row">
-              <h2 id="rosterTitle">Roster</h2>
-              <div class="spacer"></div>
-              <label for="rosterTeam">Team</label>
-              <select id="rosterTeam"></select>
-            </div>
-            <table class="table" id="rosterTable"></table>
-            <div class="row mt">
-              <label class="row"><input type="checkbox" id="postJune1"> Post June 1 release</label>
-              <div class="spacer"></div>
-              <button id="btnRelease" class="btn danger">Release Selected</button>
-            </div>
-          </div>
-          <div class="card">
-            <h3>Depth Chart</h3>
-            <div id="depthChart" class="list"></div>
-          </div>
-        </section>
-
-        <section id="cap" class="view" hidden>
-          <div class="card">
-            <h2>Cap Table</h2>
-            <div id="capSummary" class="muted"></div>
-            <table class="table" id="capTable"></table>
-          </div>
-          <div class="card">
-            <h3>Dead Cap Ledger</h3>
-            <div id="deadLedger" class="list"></div>
-          </div>
-        </section>
-
-        <section id="schedule" class="view" hidden>
-          <div class="card">
-            <div class="row">
-              <h2>Schedule</h2>
-              <div class="spacer"></div>
-              <button id="btnSimWeek2" class="btn primary">Simulate Week</button>
-            </div>
-            <div id="scheduleList" class="list"></div>
-          </div>
-        </section>
-
-        <section id="standings" class="view" hidden>
-          <div class="card">
-            <div class="row">
-              <h2>Standings</h2>
-              <div class="spacer"></div>
-              <select id="standingsScope">
-                <option value="league">League</option>
-                <option value="conference">Conference</option>
-                <option value="division">Division</option>
-              </select>
-            </div>
-              <div class="row mt">
-                <label class="row"><input type="checkbox" id="leadersOnly"> Leaders only</label>
-                <label class="row"><input type="checkbox" id="highlightLeaders" checked> Highlight leaders</label>
-                <div class="spacer"></div>
-                <button id="btnPlayoffPicture" class="btn">Playoff picture</button>
-              </div>
-
-            <div id="standingsWrap"></div>
-          <div class="card" id="playoffPicture" hidden>
-            <h3>Playoff picture</h3>
-            <div class="grid two">
-              <div>
-                <h4>AFC seeds</h4>
-                <ol id="seedsAFC"></ol>
-              </div>
-              <div>
-                <h4>NFC seeds</h4>
-                <ol id="seedsNFC"></ol>
-              </div>
-            </div>
-            <div class="muted small">Top seed in each conference has a bye. Wild Card round: 2v7, 3v6, 4v5.</div>
-          </div>
-
-          </div>
-        </section>
-
-        <section id="trade" class="view" hidden>
-          <div class="card">
-            <h2>Trade Center</h2>
-            <div class="grid two">
-              <div>
-                <label for="tradeA">Team A</label>
-                <select id="tradeA"></select>
-                <div class="small muted">Players</div>
-                <div id="tradeListA" class="list"></div>
-                <div class="small muted mt">Picks</div>
-                <div id="pickListA" class="list"></div>
-              </div>
-              <div>
-                <label for="tradeB">Team B</label>
-                <select id="tradeB"></select>
-                <div class="small muted">Players</div>
-                <div id="tradeListB" class="list"></div>
-                <div class="small muted mt">Picks</div>
-                <div id="pickListB" class="list"></div>
-              </div>
-            </div>
-            <div class="row mt">
-              <button id="btnSuggest" class="btn">Suggest trades for Team A</button>
-              <div class="spacer"></div>
-              <div id="tradeInfo" class="muted"></div>
-              <div class="spacer"></div>
-              <button id="tradeValidate" class="btn">Validate</button>
-              <button id="tradeExecute" class="btn primary" disabled>Execute</button>
-            </div>
-          </div>
-        </section>
-
-        <section id="freeagency" class="view" hidden>
-          <div class="card">
-            <div class="row">
-              <h2>Free Agency</h2>
-              <div class="spacer"></div>
-              <label for="faTeam">Sign to</label>
-              <select id="faTeam"></select>
-            </div>
-            <table class="table" id="faTable"></table>
-            <div class="row mt">
-              <button id="btnSignFA" class="btn primary" disabled>Sign Selected</button>
-            </div>
-          </div>
-        </section>
-
-        <section id="draft" class="view" hidden>
-          <div class="card">
-            <div class="row">
-              <h2>Draft Picks</h2>
-              <div class="spacer"></div>
-              <label for="draftTeam">Team</label>
-              <select id="draftTeam"></select>
-            </div>
-            <div id="draftPicks" class="list"></div>
-            <div class="muted small">The full multi round draft flow will be added next. Picks can already be traded.</div>
-          </div>
-        </section>
-
-        <section id="playoffs" class="view" hidden>
-          <div class="card">
-            <div class="row">
-              <h2>Playoffs</h2>
-              <div class="spacer"></div>
-              <button id="btnSimRound" class="btn primary">Simulate Next Round</button>
-            </div>
-            <div id="playoffState" class="muted"></div>
-            <div id="playoffBracket" class="list"></div>
-            <div id="playoffResults" class="list mt"></div>
-          </div>
-        </section>
-
-        <section id="settings" class="view" hidden>
-          <div class="card">
-            <h2>Settings</h2>
-            <div class="card">
-              <h3>League Year</h3>
-              <div class="row">
-                <label for="settingsYear">Year</label>
-                <input id="settingsYear" type="number" min="1930" max="9999" style="width:120px" />
-                <div class="spacer"></div>
-                <button id="btnApplyYear" class="btn danger">Apply Year</button>
-              </div>
-              <div class="muted small">Changing the year reseeds the schedule and resets the current week. Records and rosters remain.</div>
-            </div>
-    
-            <div class="card">
-              <h3>Teams & Names</h3>
-              <div class="row">
-                <label class="row"><input type="radio" name="settingsNamesMode" value="fictional"> Fictional names</label>
-                <label class="row"><input type="radio" name="settingsNamesMode" value="real"> Real names</label>
-                <div class="spacer"></div>
-                <button id="btnApplyNamesMode" class="btn">Apply</button>
-              </div>
-              <div class="muted small">Switching names keeps records and rosters. Abbreviations remain generic.</div>
-            </div>
-
-            <div class="row">
-              <button id="btnNewLeague" class="btn danger">Start New League</button>
-              <div class="spacer"></div>
-              <button class="btn" onclick="history.back()">Back</button>
-            </div>
-          </div>
-        </section>
-      </section>
-    </main>
-
-    
     <div id="onboardModal" class="modal" hidden>
-      <div class="modal-card">
-        <div class="row">
-          <h3>Start New League</h3>
-          <div class="spacer"></div>
-          <button id="onboardClose" class="btn">Close</button>
-        </div>
-        <div class="row mt">
-          <label class="row"><input type="radio" name="namesMode" value="fictional" checked> Fictional team names</label>
-          <label class="row"><input type="radio" name="namesMode" value="real"> Real NFL team names</label>
-        </div>
-        <div class="row mt">
-          <label for="onboardYear">Start Year</label>
-          <input id="onboardYear" type="number" min="1930" max="9999" value="2025" style="width:120px" />
-        </div>
-        <div class="row mt">
-          <label for="onboardTeam">Choose your team</label>
-          <select id="onboardTeam"></select>
-          <button id="onboardRandom" class="btn">Random</button>
-        </div>
-        <div class="row mt">
-          <button id="onboardStart" class="btn primary">Start Season</button>
-        </div>
-        <div class="muted small">You must pick a team before playing. Real names are text only, no logos.</div>
       </div>
-    </div>
 
     <footer class="footer">
       <div>Contracts 2.0 and pick trading are live. Rollover applies each offseason.</div>
     </footer>
-
   </body>
 </html>
