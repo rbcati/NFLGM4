@@ -114,4 +114,34 @@ html, body {
   box-shadow: var(--shadow-1);
 }
 .draft-pick-card .round { font-size: 1.2rem; font-weight: 600; }
-.draft-pick-card .details { font-size: 0.9rem; color: var(--text-muted); }
+.draft-pick-card .details { font-size: 0.9rem; color: var(--text-muted); 
+/* --- Trade & Results UI Styles --- */
+.trade-asset {
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s ease;
+}
+.trade-asset:hover {
+    background: var(--surface-strong);
+}
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 12px;
+}
+.result-card {
+    background: var(--surface);
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border-left: 3px solid var(--accent);
+}
+.result-card .game-winner {
+    font-weight: 500;
+}
+.result-card .game-score {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-top: 4px;
+}                          
+                          }
