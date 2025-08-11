@@ -33,7 +33,7 @@ function show(route) {
   if (route === 'standings') renderStandings();
   if (route === 'trade') renderTradeUI();
   if (route === 'freeagency') renderFreeAgency();
-  if (route === 'draft') renderDraft();
+
   if (route === 'playoffs') renderPlayoffs();
   if (route === 'settings') {
     const y = (state.league && state.league.year) ? state.league.year : YEAR_START;
