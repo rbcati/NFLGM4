@@ -5,16 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NFL GM Simulator</title>
     <link rel="stylesheet" href="style.css" />
-</head>
+    </head>
 <body>
-
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
-    
     <script src="state.js"></script>
     <script src="ui.js"></script>
-
     <script src="player.js"></script>
     <script src="cap.js"></script>
     <script src="picks.js"></script>
@@ -27,72 +24,53 @@
     <script src="draft.js"></script>
     <script src="offseason.js"></script>
     <script src="training.js"></script>
-    
     <script src="events.js"></script>
     <script src="main.js"></script>
 
     <header class="topbar" role="navigation">
         <div class="brand">NFL GM</div>
         <nav id="site-nav" class="nav-pills" aria-label="Primary">
-            <a href="#/hub" class="nav-pill" data-view="hub">Home</a>
-            <a href="#/roster" class="nav-pill" data-view="roster">Roster</a>
-            <a href="#/trade" class="nav-pill" data-view="trade">Trades</a>
-            <a href="#/standings" class="nav-pill" data-view="standings">Standings</a>
-            <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
-            <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
-            <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
-        </nav>
+            </nav>
         <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
     </header>
 
     <main class="layout">
         <aside class="sidebar">
-            <div class="section">
-                <label for="userTeam">Your Team</label>
-                <select id="userTeam"></select>
-            </div>
-            <div class="section">
-                <div>Season <span id="seasonNow"></span></div>
-                <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
-                <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
-                <div class="muted small">Room: <span id="capRoom"></span></div>
-            </div>
-            <div class="section">
-                <button id="btnSave" class="btn">Save</button>
-                <button id="btnLoad" class="btn">Load</button>
-                <button id="btnNewLeague" class="btn danger">New League</button>
-            </div>
-            <div id="statusMsg" class="section muted"></div>
-        </aside>
-
+            </aside>
         <section class="content">
-            <section id="hub" class="view" hidden>
-                <h2>League Hub</h2>
-                </section>
-            <section id="roster" class="view" hidden>
-                <h2>Roster</h2>
-                </section>
-             <section id="draft" class="view" hidden>
-                <div class="card">
-                    <div class="row">
-                    <h2>Draft Picks</h2>
-                    <div class="spacer"></div>
-                    <label for="draftTeam">Team</label>
-                    <select id="draftTeam"></select>
-                    </div>
-                    <div id="draftPicks" class="list"></div>
-                </div>
-            </section>
             </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
+      <div class="modal-card">
+        <div class="row">
+          <h3>Start New League</h3>
+          <div class="spacer"></div>
+          <button id="onboardClose" class="btn">Close</button>
         </div>
+        <div class="row mt">
+          <label class="row"><input type="radio" name="namesMode" value="fictional" checked> Fictional team names</label>
+          <label class="row"><input type="radio" name="namesMode" value="real"> Real NFL team names</label>
+        </div>
+        <div class="row mt">
+          <label for="onboardYear">Start Year</label>
+          <input id="onboardYear" type="number" min="1930" max="9999" value="2025" style="width:120px" />
+        </div>
+        <div class="row mt">
+          <label for="onboardTeam">Choose your team</label>
+          <select id="onboardTeam"></select>
+          <button id="onboardRandom" class="btn">Random</button>
+        </div>
+        <div class="row mt">
+          <button id="onboardStart" class="btn primary">Start Season</button>
+        </div>
+      </div>
+    </div>
 
     <footer class="footer">
-      <div>NFL GM Simulator - Built with HTML, CSS, and vanilla JS.</div>
+      <div>NFL GM Simulator</div>
     </footer>
 
 </body>
