@@ -15,7 +15,8 @@
   function refreshAll() {
     fillTeamSelect($('#userTeam'));
     if (state.league && state.userTeamId !== undefined) {
-        $('#userTeam').value = state.userTteamId;
+        // **THE FIX:** Corrected the typo from 'userTteamId' to 'userTeamId'
+        $('#userTeam').value = state.userTeamId;
     }
     rebuildTeamLabels(state.namesMode);
     renderHub();
@@ -68,7 +69,7 @@
   window.loadGame = loadGame;
   window.refreshAll = refreshAll;
 
-  // **THE FIX:** The event listener is now INSIDE the scope, so it can see 'init'.
+  // Initial call to start the application
   document.addEventListener('DOMContentLoaded', init);
 
 })();
