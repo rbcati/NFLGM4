@@ -99,25 +99,29 @@ function renderHub() {
   $('#seasonNow').textContent = L.year;
   $('#hubWeek').textContent = L.week;
   $('#hubWeeks').textContent = (L.schedule.weeks || L.schedule).length;
-  const games = ((L.schedule.weeks || L.schedule)[L.week - 1] || {}).games || [];
-  $('#hubGames').textContent = games.length;
-
-  const power = L.teams.map((t, i) => ({ i, score: t.rating + (t.record.pf - t.record.pa) / 20 }))
-    .sort((a, b) => b.score - a.score).slice(0, 10);
-  const ol = $('#hubPower');
-  ol.innerHTML = '';
-  power.forEach(row => {
-    const li = document.createElement('li');
-    li.textContent = L.teams[row.i].name;
-    ol.appendChild(li);
-  });
+  const gamesThisWeek = ((L.schedule.weeks || L.schedule)[L.week - 1] || {}).games || [];
+  $('#hubGames').textContent = gamesThisWeek.length;
 
   const res = L.resultsByWeek[L.week - 2] || [];
   const box = $('#hubResults');
   box.innerHTML = '';
+  const userTeamId = currentTeam().id;
+
+  let userGame = null;
+  let otherGames = [];
+  res.forEach(g => {
+      if (g.home === userTeamId || g.away === userTeamId) {
+          userGame = g;
+      } else {
+          otherGames.push(g);
+      }
+  });
+
   const resultsGrid = document.createElement('div');
   resultsGrid.className = 'results-grid';
-  res.forEach(g => {
+  const sortedGames = userGame ? [userGame, ...otherGames] : otherGames;
+
+  sortedGames.forEach(g => {
       if (g.bye) return;
       const home = L.teams[g.home];
       const away = L.teams[g.away];
@@ -135,9 +139,7 @@ function renderHub() {
       resultsGrid.appendChild(resultCard);
   });
   box.appendChild(resultsGrid);
-
   updateCapSidebar();
-  // renderOffers(); // You can uncomment this when offers are re-implemented
 }
 
 function updateCapSidebar() {
@@ -179,32 +181,40 @@ function renderRoster() {
 function renderStandings() {
     const L = state.league;
     if (!L) return;
+    const C = window.Constants;
     const wrap = $('#standingsWrap');
     wrap.innerHTML = '';
-    const allTeams = [...L.teams];
-    allTeams.sort((a, b) => {
-        if (a.record.w !== b.record.w) return b.record.w - a.record.w;
-        return (b.record.pf - b.record.pa) - (a.record.pf - a.record.pa);
-    });
 
-    let tableHtml = `<table class="table"><thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th><th>PCT</th><th>PF</th><th>PA</th><th>DIFF</th><th>STRK</th><th>DIV</th><th>HOME</th><th>AWAY</th></tr></thead><tbody>`;
-    allTeams.forEach(t => {
-        const pct = t.record.w + t.record.l + t.record.t === 0 ? '.000' : (t.record.w / (t.record.w + t.record.l + t.record.t)).toFixed(3).substring(1);
-        const diff = t.record.pf - t.record.pa;
-        tableHtml += `<tr>
-            <td>${t.name}</td>
-            <td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td>
-            <td>${pct}</td>
-            <td>${t.record.pf}</td><td>${t.record.pa}</td>
-            <td>${diff > 0 ? '+' : ''}${diff}</td>
-            <td>${t.record.streak > 0 ? 'W' : 'L'}${Math.abs(t.record.streak)}</td>
-            <td>${t.record.divW}-${t.record.divL}</td>
-            <td>${t.record.homeW}-${t.record.homeL}</td>
-            <td>${t.record.awayW}-${t.record.awayL}</td>
-        </tr>`;
-    });
-    tableHtml += '</tbody></table>';
-    wrap.innerHTML = tableHtml;
+    for (let conf = 0; conf < 2; conf++) {
+        const confContainer = document.createElement('div');
+        confContainer.className = 'conference-container';
+        const confName = C.CONF_NAMES[conf];
+        confContainer.innerHTML = `<h2>${confName}</h2>`;
+
+        for (let div = 0; div < 4; div++) {
+            const divName = C.DIV_NAMES[div];
+            const teamsInDiv = L.teams.filter(t => t.conf === conf && t.div === div);
+            
+            teamsInDiv.sort((a, b) => {
+                if (a.record.w !== b.record.w) return b.record.w - a.record.w;
+                return (b.record.pf - b.record.pa) - (a.record.pf - a.record.pa);
+            });
+
+            let tableHtml = `<div class="card"><h4>${divName}</h4><table class="table">
+                <thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th><th>PF</th><th>PA</th></tr></thead>
+                <tbody>`;
+            teamsInDiv.forEach(t => {
+                tableHtml += `<tr>
+                    <td>${t.name}</td>
+                    <td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td>
+                    <td>${t.record.pf}</td><td>${t.record.pa}</td>
+                </tr>`;
+            });
+            tableHtml += '</tbody></table></div>';
+            confContainer.innerHTML += tableHtml;
+        }
+        wrap.appendChild(confContainer);
+    }
 }
 
 function renderTradeUI() {
@@ -271,10 +281,10 @@ function listPicks(rootSel, team, side) {
     });
 }
 
-function renderOffers() { /* Stub */ }
-function renderSchedule() { /* Stub */ }
-function renderCap() { /* Stub */ }
-function renderPlayoffs() { /* Stub */ }
+function renderSchedule() { /* Stub for now */ }
+function renderOffers() { /* Stub for now */ }
+function renderCap() { /* Stub for now */ }
+function renderPlayoffs() { /* Stub for now */ }
 
 function openOnboard() {
     const modal = $('#onboardModal'); if (!modal) return;
