@@ -1,5 +1,4 @@
 // league.js
-// league.js
 'use strict';
 
 function makeLeague(teamList) {
@@ -31,7 +30,6 @@ function makeLeague(teamList) {
       abbr, name, conf, div,
       rating: U.rand(70, 88),
       roster,
-      // **THE FIX:** The record object now tracks all the new detailed stats.
       record: {w:0, l:0, t:0, pf:0, pa:0, streak:0, divW:0, divL:0, homeW:0, homeL:0, awayW:0, awayL:0},
       capBook: {},
       deadCapBook: {},
@@ -55,6 +53,9 @@ function makeLeague(teamList) {
     resultsByWeek: {},
     playoffsDone: false,
     champion: null,
+    history: {
+        superBowlWinners: []
+    },
     news: []
   };
 
