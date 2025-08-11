@@ -6,7 +6,7 @@ function renderDraft() {
   if (!L) return;
 
   const sel = $('#draftTeam');
-  if (!sel) return; // Add a guard clause in case the element doesn't exist yet
+  if (!sel) return;
 
   if (!sel.dataset.filled) {
     fillTeamSelect(sel);
@@ -30,5 +30,5 @@ function renderDraft() {
   });
 }
 
-// **THE FIX:** Make the renderDraft function globally available from ITS OWN file.
+// **THE FIX:** Make the renderDraft function globally available from this file.
 window.renderDraft = renderDraft;
