@@ -2,12 +2,10 @@
 'use strict';
 
 // This file is now dedicated to creating the league object.
-// We've moved the implementation from the old script.js here.
 
 function makeLeague(teamList) {
   const U = window.Utils;
   const C = window.Constants;
-  const T = window.Teams;
   const Scheduler = window.Scheduler;
 
   const baseList = teamList || listByMode(state.namesMode);
@@ -60,7 +58,9 @@ function makeLeague(teamList) {
     news: []
   };
 
-  L.schedule = Scheduler.makeAccurateSchedule(L);
+  // **THE FIX:** Pass the `teams` array to the scheduler, not the whole league object.
+  L.schedule = Scheduler.makeAccurateSchedule(L.teams);
+  
   L.teams.forEach(t => recalcCap(L, t));
 
   const tmpRanks = Scheduler.computeLastDivisionRanks ?
