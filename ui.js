@@ -188,7 +188,6 @@ window.renderRoster = renderRoster;
 window.renderTradeUI = renderTradeUI;
 window.renderTradeLists = renderTradeLists;
 window.renderStandings = renderStandings;
-window.renderFreeAgency = renderFreeAgency;
 window.renderSchedule = renderSchedule;
 window.renderCap = renderCap;
 window.renderPlayoffs = renderPlayoffs;
