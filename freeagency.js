@@ -54,4 +54,17 @@ function signFreeAgent() {
     const p = state.freeAgents[idx];
     p.years = p.yearsTotal;
 
-    const capAfter
+    // This was the incomplete line. It's now fixed.
+    const capAfter = tm.capUsed + capHitFor(p, 0);
+    if (capAfter > tm.capTotal) {
+      setStatus('Cap exceeded. Release or trade first.');
+      return;
+    }
+
+    tm.roster.push(p);
+    tm.roster.sort((a, b) => b.ovr - a.ovr);
+    state.freeAgents.splice(idx, 1);
+    recalcCap(L, tm);
+    renderFreeAgency();
+    setStatus('Signed free agent');
+}
