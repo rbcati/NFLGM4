@@ -1,5 +1,4 @@
 // draft.js
-'use strict';
 
 function renderDraft() {
   const L = state.league;
@@ -20,15 +19,23 @@ function renderDraft() {
 
   const box = $('#draftPicks');
   if (!box) return;
+
+  // Use a grid for better layout
+  box.className = 'draft-picks-grid'; 
   box.innerHTML = '';
+
   t.picks.slice().sort((a, b) => a.year === b.year ? a.round - b.round : a.year - b.year).forEach(pk => {
-    const div = document.createElement('div');
-    div.className = 'row';
+    const card = document.createElement('div');
+    card.className = 'draft-pick-card';
     const v = pickValue(pk);
-    div.innerHTML = `<div class="badge">Y${now + (pk.year - 1)} R${pk.round}</div><div class="spacer"></div><div class="muted">from ${pk.from}</div><div class="muted">value ${v.toFixed(1)}</div>`;
-    box.appendChild(div);
+    
+    card.innerHTML = `
+      <div class="round">Year ${now + (pk.year - 1)} - Round ${pk.round}</div>
+      <div class="details">
+        <div>Original Team: ${pk.from}</div>
+        <div>Trade Value: ${v.toFixed(1)}</div>
+      </div>
+    `;
+    box.appendChild(card);
   });
 }
-
-// **THE FIX:** Make the renderDraft function globally available from this file.
-window.renderDraft = renderDraft;
