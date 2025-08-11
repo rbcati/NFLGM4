@@ -69,25 +69,18 @@
               </section>
             <section id="roster" class="view" hidden>
               </section>
-            <section id="cap" class="view" hidden>
-                </section>
-            <section id="schedule" class="view" hidden>
-                </section>
-            <section id="standings" class="view" hidden>
-                </section>
             <section id="trade" class="view" hidden>
-                </section>
-            <section id="freeagency" class="view" hidden>
                 <div class="card">
-                    <div class="row">
-                      <h2>Free Agency</h2>
-                      <div class="spacer"></div>
-                      <label for="faTeam">Sign to</label>
-                      <select id="faTeam"></select>
-                    </div>
-                    <table class="table" id="faTable"></table>
-                    <div class="row mt">
-                      <button id="btnSignFA" class="btn primary" disabled>Sign Selected</button>
+                    <h2>Trade Center</h2>
+                    <div class="grid two">
+                        <div>
+                            <label for="tradeA">Team A</label>
+                            <select id="tradeA"></select>
+                            </div>
+                        <div>
+                            <label for="tradeB">Team B</label>
+                            <select id="tradeB"></select>
+                            </div>
                     </div>
                 </div>
             </section>
@@ -102,37 +95,11 @@
                     <div id="draftPicks" class="list"></div>
                 </div>
             </section>
-            <section id="playoffs" class="view" hidden>
-                </section>
-            <section id="settings" class="view" hidden>
-                </section>
-        </section>
+            </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
-      <div class="modal-card">
-        <div class="row">
-          <h3>Start New League</h3>
-          <button id="onboardClose" class="btn">Close</button>
-        </div>
-        <div class="row mt">
-          <label><input type="radio" name="namesMode" value="fictional" checked> Fictional names</label>
-          <label><input type="radio" name="namesMode" value="real"> Real names</label>
-        </div>
-        <div class="row mt">
-          <label for="onboardTeam">Choose your team</label>
-          <select id="onboardTeam"></select>
-          <button id="onboardRandom" class="btn">Random</button>
-        </div>
-        <div class="row mt">
-          <button id="onboardStart" class="btn primary">Start Season</button>
-        </div>
       </div>
-    </div>
-
-    <footer class="footer">
-      <div>NFL GM Simulator</div>
-    </footer>
 
 </body>
 </html>
