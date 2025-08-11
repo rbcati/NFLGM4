@@ -39,11 +39,7 @@
 <script src="main.js"></script>
 <header class="topbar" role="navigation">
   <div class="brand">NFL GM</div>
-  <script>
-  (function () {
-    const pills = document.getElementById('site-nav');
-    const toggle = document.querySelector('.nav-toggle');
-    const views = Array.from(document.querySelectorAll('.view'));
+
 
     function showView(id) {
       views.forEach(v => v.toggleAttribute('hidden', v.id !== id));
