@@ -34,37 +34,18 @@ function renderFreeAgency() {
   tbl.appendChild(tb);
 
   const sel = $('#faTeam');
-  if (!sel.dataset.filled) {
+  if (sel && !sel.dataset.filled) {
     fillTeamSelect(sel);
     sel.dataset.filled = '1';
   }
-  $('#btnSignFA').disabled = true;
-  tbl.addEventListener('change', function(e) {
-    if (e.target && e.target.name === 'fa') $('#btnSignFA').disabled = false;
-  }, { once: true });
+  if ($('#btnSignFA')) {
+    $('#btnSignFA').disabled = true;
+  }
+  if (tbl) {
+    tbl.addEventListener('change', function(e) {
+      if (e.target && e.target.name === 'fa' && $('#btnSignFA')) $('#btnSignFA').disabled = false;
+    }, { once: true });
+  }
 }
 
-function signFreeAgent() {
-    const idx = Number(($('input[name=fa]:checked') || {}).value);
-    if (Number.isNaN(idx)) return;
-
-    const L = state.league;
-    const teamId = parseInt($('#faTeam').value || $('#userTeam').value, 10);
-    const tm = L.teams[teamId];
-    const p = state.freeAgents[idx];
-    p.years = p.yearsTotal;
-
-    // This was the incomplete line. It's now fixed.
-    const capAfter = tm.capUsed + capHitFor(p, 0);
-    if (capAfter > tm.capTotal) {
-      setStatus('Cap exceeded. Release or trade first.');
-      return;
-    }
-
-    tm.roster.push(p);
-    tm.roster.sort((a, b) => b.ovr - a.ovr);
-    state.freeAgents.splice(idx, 1);
-    recalcCap(L, tm);
-    renderFreeAgency();
-    setStatus('Signed free agent');
-}
+function sign
