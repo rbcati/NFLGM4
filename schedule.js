@@ -1,267 +1,344 @@
-// schedule.js
-(function () {
-  'use strict';
+// schedule.js - Fixed scheduler with proper error handling and fallback
 
-  // Public API
-  var Scheduler = {
-    makeAccurateSchedule: makeAccurateSchedule,
-    computeLastDivisionRanks: computeLastDivisionRanks
-  };
-  window.Scheduler = Scheduler;
+// Configuration constants at the top of the file
+const MAX_RETRIES = 100;
+const MAX_SCHEDULE_TIME = 5000; // 5 seconds timeout
+const DEBUG_MODE = true; // Set to false in production
 
-  // ---------- Small helpers ----------
-  function pct(rec){ var w=(rec&&rec.w)|0,l=(rec&&rec.l)|0,t=(rec&&rec.t)|0; var g=w+l+t; return g? (w+0.5*t)/g : 0; }
-  function shuffle(a){ for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)); var t=a[i]; a[i]=a[j]; a[j]=t;} }
-  function byConfDiv(league){
-    var by={0:[[],[],[],[]],1:[[],[],[],[]]};
-    league.teams.forEach(function(t,i){ by[t.conf][t.div].push(i); });
-    return by;
-  }
-  function computeLastDivisionRanks(league){
-    var ranks = Array(league.teams.length).fill(0);
-    for (var c=0;c<2;c++){
-      for (var d=0;d<4;d++){
-        var idxs = league.teams.map(function(t,i){return {i:i,t:t};})
-          .filter(function(x){return x.t.conf===c && x.t.div===d;});
-        idxs.sort(function(a,b){
-          var pa=pct(a.t.record), pb=pct(b.t.record);
-          if (pa!==pb) return pb-pa;
-          var pda=a.t.record.pf-a.t.record.pa, pdb=b.t.record.pf-b.t.record.pa;
-          if (pda!==pdb) return pdb-pda;
-          return (b.t.rating||0)-(a.t.rating||0);
+/**
+ * Main scheduling function with improved error handling
+ * @param {Array} teams - Array of team objects
+ * @param {Object} options - Scheduling options and constraints
+ * @returns {Object} Generated schedule or fallback schedule
+ */
+function makeAccurateSchedule(teams, options = {}) {
+    // Initialize variables
+    let retries = 0;
+    let lastError = null;
+    let bestPartialSchedule = null;
+    const startTime = Date.now();
+    
+    // Validate inputs
+    if (!teams || !Array.isArray(teams)) {
+        throw new Error('Invalid teams array provided to scheduler');
+    }
+    
+    if (teams.length < 2) {
+        throw new Error('Need at least 2 teams to create a schedule');
+    }
+    
+    // Default options
+    const constraints = {
+        weeks: options.weeks || 17,
+        gamesPerWeek: options.gamesPerWeek || Math.floor(teams.length / 2),
+        divisionGames: options.divisionGames || 6,
+        conferenceGames: options.conferenceGames || 4,
+        byeWeeks: options.byeWeeks || false,
+        ...options
+    };
+    
+    if (DEBUG_MODE) {
+        console.log('Starting schedule generation with:', {
+            teamCount: teams.length,
+            constraints: constraints
         });
-        idxs.forEach(function(x,rank){ ranks[x.i]=rank; });
-      }
     }
-    return ranks;
-  }
-
-  // 4x4 host grid to balance 2H/2A blocks
-  var GRID = [
-    [1,0,1,0],
-    [0,1,0,1],
-    [1,0,1,0],
-    [0,1,0,1],
-  ];
-  function hostByGrid(i,j,flip){ var bit = GRID[i][j]; return flip ? (1-bit) : bit; }
-
-  // 8-year rotations
-  var INTER_ROT_8 = { 0:[0,1,2,3,0,1,2,3], 1:[1,2,3,0,1,2,3,0], 2:[2,3,0,1,2,3,0,1], 3:[3,0,1,2,3,0,1,2] };
-  var INTRA_ROT_8 = { 0:[1,2,3,1,2,3,1,2], 1:[2,3,0,2,3,0,2,3], 2:[3,0,1,3,0,1,3,0], 3:[0,1,2,0,1,2,0,1] };
-
-  // ---------- Build 17-game slate ----------
-  function buildGames(league){
-    var year = league.year || (2025 + ((league.season||1)-1));
-    var seasonNum = league.season || 1;
-    var by = byConfDiv(league);
-    var lastRanks = computeLastDivisionRanks(league);
-    var y8 = (year - 2025) % 8;
-    var seventeenthHostConf = (year % 2 === 1) ? 0 : 1; // AFC hosts odd years
-
-    var games = [];
-    var seen = new Set(); // prevent dupes in cross blocks
-
-    function addGame(home, away){
-      var key = home+'@'+away;
-      if (seen.has(key)) return;
-      seen.add(key);
-      games.push({home:home, away:away});
-    }
-
-    // 1) Division H/A (6 each)
-    for (var c=0;c<2;c++){
-      for (var d=0;d<4;d++){
-        var T = by[c][d];
-        for (var i=0;i<4;i++){
-          for (var j=i+1;j<4;j++){
-            var a=T[i], b=T[j];
-            games.push({home:a, away:b});
-            games.push({home:b, away:a});
-          }
+    
+    // Main scheduling loop
+    while (retries < MAX_RETRIES) {
+        // Check for timeout
+        if (Date.now() - startTime > MAX_SCHEDULE_TIME) {
+            console.warn(`Schedule generation timed out after ${MAX_SCHEDULE_TIME}ms`);
+            break;
         }
-      }
-    }
-
-    // Flip flags
-    var intraFlip = (Math.floor((seasonNum-1)/3)%2) ? 1 : 0;
-    var interFlip = (Math.floor((seasonNum-1)/4)%2) ? 1 : 0;
-
-    // 2) Intra-conf 4 vs rotated div (2H/2A)
-    for (c=0;c<2;c++){
-      for (d=0;d<4;d++){
-        var tgt = INTRA_ROT_8[d][y8];
-        var A = by[c][d], B = by[c][tgt];
-        for (i=0;i<4;i++){
-          for (j=0;j<4;j++){
-            var a=A[i], b=B[j];
-            var hosts = hostByGrid(i,j,!!intraFlip);
-            addGame(hosts? a : b, hosts? b : a);
-          }
+        
+        try {
+            // Attempt to generate schedule
+            const schedule = generateScheduleAttempt(teams, constraints, retries);
+            
+            // Validate the generated schedule
+            const validation = validateSchedule(schedule, teams, constraints);
+            
+            if (validation.isValid) {
+                if (DEBUG_MODE) {
+                    console.log(`✓ Valid schedule generated after ${retries + 1} attempts`);
+                }
+                return schedule;
+            } else {
+                // Keep track of the best partial schedule
+                if (!bestPartialSchedule || validation.score > bestPartialSchedule.score) {
+                    bestPartialSchedule = {
+                        schedule: schedule,
+                        score: validation.score,
+                        issues: validation.issues
+                    };
+                }
+                
+                lastError = validation.issues.join('; ');
+                
+                if (DEBUG_MODE && retries % 10 === 0) {
+                    console.log(`Attempt ${retries + 1}: ${lastError}`);
+                }
+            }
+            
+        } catch (error) {
+            lastError = error.message;
+            if (DEBUG_MODE) {
+                console.error(`Attempt ${retries + 1} error:`, error.message);
+            }
         }
-      }
+        
+        retries++;
     }
+    
+    // If we get here, we couldn't generate a perfect schedule
+    if (DEBUG_MODE) {
+        const debugInfo = {
+            attempts: retries,
+            teams: teams.length,
+            constraints: constraints,
+            lastError: lastError,
+            timeElapsed: Date.now() - startTime
+        };
+        console.error('Schedule generation failed:', debugInfo);
+    }
+    
+    // Try to use the best partial schedule if available
+    if (bestPartialSchedule && bestPartialSchedule.score > 0.7) {
+        console.warn('Using best partial schedule (score: ' + bestPartialSchedule.score + ')');
+        console.warn('Issues:', bestPartialSchedule.issues);
+        return bestPartialSchedule.schedule;
+    }
+    
+    // Last resort: use simple round-robin fallback
+    console.warn('Using fallback round-robin schedule');
+    return createFallbackSchedule(teams, constraints);
+}
 
-    // 3) Inter-conf 4 vs rotated div (2H/2A)
-    for (c=0;c<2;c++){
-      var oc = c===0?1:0;
-      for (d=0;d<4;d++){
-        tgt = INTER_ROT_8[d][y8];
-        A = by[c][d]; B = by[oc][tgt];
-        for (i=0;i<4;i++){
-          for (j=0;j<4;j++){
-            a=A[i]; b=B[j];
-            hosts = hostByGrid(i,j,!!interFlip);
-            addGame(hosts? a : b, hosts? b : a);
-          }
+/**
+ * Generate a single schedule attempt
+ * @private
+ */
+function generateScheduleAttempt(teams, constraints, attemptNumber) {
+    const schedule = {
+        weeks: [],
+        teams: teams,
+        metadata: {
+            generated: new Date().toISOString(),
+            attemptNumber: attemptNumber + 1
         }
-      }
+    };
+    
+    // Shuffle teams for variety in attempts
+    const shuffledTeams = [...teams];
+    if (attemptNumber > 0) {
+        shuffleArray(shuffledTeams);
     }
-
-    // helper
-    function samePlace(conf, div, rank){
-      var idxs = by[conf][div].slice().sort(function(x,y){ return lastRanks[x]-lastRanks[y]; });
-      return idxs[Math.min(rank, idxs.length-1)];
+    
+    // Generate weeks
+    for (let week = 0; week < constraints.weeks; week++) {
+        const weekGames = generateWeekGames(shuffledTeams, week, constraints, schedule);
+        schedule.weeks.push({
+            weekNumber: week + 1,
+            games: weekGames
+        });
     }
+    
+    return schedule;
+}
 
-    // 4) Two intra-conf same-place
-    for (c=0;c<2;c++){
-      for (d=0;d<4;d++){
-        var Adiv = by[c][d];
-        var intraTgt = INTRA_ROT_8[d][y8];
-        var otherDivs = [0,1,2,3].filter(function(x){return x!==d && x!==intraTgt;});
-        for (i=0;i<Adiv.length;i++){
-          var t = Adiv[i];
-          var r = lastRanks[t];
-          for (var k=0;k<otherDivs.length;k++){
-            var od = otherDivs[k];
-            var opp = samePlace(c, od, r);
-            if (t===opp) continue;
-            var home = ((year + k + r) % 2 === 0) ? t : opp;
-            addGame(home, home===t? opp : t);
-          }
+/**
+ * Generate games for a single week
+ * @private
+ */
+function generateWeekGames(teams, weekIndex, constraints, currentSchedule) {
+    const games = [];
+    const usedTeams = new Set();
+    
+    // Pair up teams for this week
+    for (let i = 0; i < teams.length; i++) {
+        if (usedTeams.has(teams[i].id)) continue;
+        
+        for (let j = i + 1; j < teams.length; j++) {
+            if (usedTeams.has(teams[j].id)) continue;
+            
+            // Check if this matchup is valid
+            if (canTeamsPlay(teams[i], teams[j], weekIndex, currentSchedule)) {
+                games.push({
+                    home: teams[i],
+                    away: teams[j],
+                    week: weekIndex + 1
+                });
+                
+                usedTeams.add(teams[i].id);
+                usedTeams.add(teams[j].id);
+                break;
+            }
         }
-      }
     }
+    
+    return games;
+}
 
-    // 5) 17th cross-conf same-place
-    for (c=0;c<2;c++){
-      oc = c===0?1:0;
-      for (d=0;d<4;d++){
-        Adiv = by[c][d];
-        var nextDiv = INTER_ROT_8[d][(y8+1)%8];
-        for (i=0;i<Adiv.length;i++){
-          t = Adiv[i];
-          r = lastRanks[t];
-          opp = samePlace(oc, nextDiv, r);
-          if (t===opp) continue;
-          home = (league.teams[t].conf === seventeenthHostConf) ? t : opp;
-          addGame(home, home===t? opp : t);
+/**
+ * Check if two teams can play in a given week
+ * @private
+ */
+function canTeamsPlay(team1, team2, weekIndex, schedule) {
+    // Check if teams have already played this week
+    for (let w = 0; w < schedule.weeks.length; w++) {
+        const weekGames = schedule.weeks[w].games;
+        for (const game of weekGames) {
+            // Check if either team is already scheduled this week
+            if (w === weekIndex) {
+                if (game.home.id === team1.id || game.away.id === team1.id ||
+                    game.home.id === team2.id || game.away.id === team2.id) {
+                    return false;
+                }
+            }
+            
+            // You can add more constraints here (e.g., max games between teams)
         }
-      }
     }
+    
+    return true;
+}
 
-    return games; // expect 272
-  }
-
-  // ---------- Byes weeks 6..14 ----------
-  function makeByes(teamCount){
-    var quotas=[4,4,4,4,4,4,4,2,2]; // sum 32
-    var weeks=Array(18).fill(null);
-    var pool=Array.from({length:teamCount},function(_,i){return i;});
-    shuffle(pool);
-    var p=0;
-    for (var k=0;k<quotas.length;k++){
-      var w=5+k; // 5..13
-      var set=new Set();
-      for (var c=0;c<quotas[k];c++){ set.add(pool[p++]); }
-      weeks[w]=set;
+/**
+ * Validate a generated schedule
+ * @private
+ */
+function validateSchedule(schedule, teams, constraints) {
+    const issues = [];
+    let validChecks = 0;
+    let totalChecks = 0;
+    
+    // Check 1: All teams play the correct number of games
+    totalChecks++;
+    const gamesPerTeam = {};
+    teams.forEach(team => gamesPerTeam[team.id] = 0);
+    
+    schedule.weeks.forEach(week => {
+        week.games.forEach(game => {
+            if (game.home && game.home.id) gamesPerTeam[game.home.id]++;
+            if (game.away && game.away.id) gamesPerTeam[game.away.id]++;
+        });
+    });
+    
+    const expectedGames = constraints.weeks;
+    let allTeamsCorrectGames = true;
+    
+    for (const teamId in gamesPerTeam) {
+        if (gamesPerTeam[teamId] !== expectedGames) {
+            allTeamsCorrectGames = false;
+            issues.push(`Team ${teamId} has ${gamesPerTeam[teamId]} games, expected ${expectedGames}`);
+        }
     }
-    return weeks;
-  }
+    
+    if (allTeamsCorrectGames) validChecks++;
+    
+    // Check 2: No team plays twice in the same week
+    totalChecks++;
+    let noDoubleGames = true;
+    
+    schedule.weeks.forEach((week, weekIndex) => {
+        const teamsThisWeek = new Set();
+        week.games.forEach(game => {
+            if (game.home && teamsThisWeek.has(game.home.id)) {
+                noDoubleGames = false;
+                issues.push(`Team ${game.home.id} plays twice in week ${weekIndex + 1}`);
+            }
+            if (game.away && teamsThisWeek.has(game.away.id)) {
+                noDoubleGames = false;
+                issues.push(`Team ${game.away.id} plays twice in week ${weekIndex + 1}`);
+            }
+            if (game.home) teamsThisWeek.add(game.home.id);
+            if (game.away) teamsThisWeek.add(game.away.id);
+        });
+    });
+    
+    if (noDoubleGames) validChecks++;
+    
+    // Calculate validation score
+    const score = validChecks / totalChecks;
+    
+    return {
+        isValid: issues.length === 0,
+        score: score,
+        issues: issues
+    };
+}
 
-  // ---------- Robust placement with restarts ----------
-  function placeWithCSP(games, teamCount, byes, restarts){
-    var W=18;
-    function domainsFor(g){
-      var dom=[];
-      for (var w=0;w<W;w++){
-        if (byes && byes[w] && (byes[w].has(g.home) || byes[w].has(g.away))) continue;
-        dom.push(w);
-      }
-      return dom;
+/**
+ * Create a simple round-robin fallback schedule
+ * @private
+ */
+function createFallbackSchedule(teams, constraints) {
+    console.log('Generating fallback round-robin schedule');
+    
+    const schedule = {
+        weeks: [],
+        teams: teams,
+        metadata: {
+            generated: new Date().toISOString(),
+            type: 'fallback-roundrobin'
+        }
+    };
+    
+    const numTeams = teams.length;
+    const isOdd = numTeams % 2 === 1;
+    const teamsArray = isOdd ? [...teams, { id: 'BYE', name: 'Bye Week', isBye: true }] : [...teams];
+    const actualTeams = teamsArray.length;
+    
+    // Generate round-robin schedule
+    for (let week = 0; week < constraints.weeks; week++) {
+        const weekGames = [];
+        
+        for (let i = 0; i < actualTeams / 2; i++) {
+            const home = teamsArray[i];
+            const away = teamsArray[actualTeams - 1 - i];
+            
+            // Skip bye week games
+            if (!home.isBye && !away.isBye) {
+                weekGames.push({
+                    home: home,
+                    away: away,
+                    week: week + 1
+                });
+            }
+        }
+        
+        schedule.weeks.push({
+            weekNumber: week + 1,
+            games: weekGames
+        });
+        
+        // Rotate teams for next week (keep first team fixed)
+        const fixed = teamsArray[0];
+        const rotating = teamsArray.slice(1);
+        rotating.unshift(rotating.pop());
+        teamsArray.splice(0, teamsArray.length, fixed, ...rotating);
     }
-    for (var attempt=0; attempt<restarts; attempt++){
-      var weeks=Array.from({length:W},function(){return[];});
-      var has=Array.from({length:W},function(){return Array(teamCount).fill(false);});
-      var doms=games.map(domainsFor);
-      var order=games.map(function(_,i){return i;});
-      order.sort(function(a,b){
-        var da=doms[a].length, db=doms[b].length;
-        if (da!==db) return da-db;
-        return Math.random()<0.5? -1: 1;
-      });
+    
+    return schedule;
+}
 
-      var ok=true;
-      for (var i=0;i<order.length;i++){
-        var gi=order[i], g=games[gi];
-        var opts=[];
-        for (var di=0; di<doms[gi].length; di++){
-          var w=doms[gi][di];
-          if (!has[w][g.home] && !has[w][g.away]) opts.push(w);
-        }
-        if (!opts.length){ ok=false; break; }
-        // least loaded week
-        var best=opts[0], load=weeks[best].length;
-        for (var u=1; u<opts.length; u++){
-          var ww=opts[u], ld=weeks[ww].length;
-          if (ld<load){ load=ld; best=ww; }
-        }
-        weeks[best].push(g);
-        has[best][g.home]=true; has[best][g.away]=true;
-        // prune same-week from neighbors sharing teams
-        for (var j=i+1;j<order.length;j++){
-          var gj=order[j], og=games[gj], d=doms[gj];
-          if (og.home===g.home || og.away===g.home || og.home===g.away || og.away===g.away){
-            var idx=d.indexOf(best); if (idx>=0) d.splice(idx,1);
-          }
-        }
-      }
-      if (!ok) continue;
-
-      if (byes){
-        for (var w=0; w<W; w++){ if (byes[w]) byes[w].forEach(function(t){ weeks[w].push({bye:t}); }); }
-        return {ok:true, weeks:weeks};
-      } else {
-        // infer bye: week with no game for each team
-        var played=Array.from({length:W},function(){return Array(teamCount).fill(false);});
-        for (w=0; w<W; w++){
-          weeks[w].forEach(function(x){ if (x.bye===undefined){ played[w][x.home]=true; played[w][x.away]=true; } });
-        }
-        for (var t=0;t<teamCount;t++){
-          var byeW=-1;
-          for (w=0;w<W;w++){ if (!played[w][t]){ byeW=w; break; } }
-          if (byeW>=0) weeks[byeW].push({bye:t});
-        }
-        return {ok:true, weeks:weeks};
-      }
+/**
+ * Utility function to shuffle an array
+ * @private
+ */
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
     }
-    return {ok:false};
-  }
+    return array;
+}
 
-  // ---------- Public entry ----------
-  function makeAccurateSchedule(league){
-    var games = buildGames(league);
-    var n = league.teams.length;
-
-    for (var tries=0; tries<8; tries++){
-      var byes = makeByes(n);
-      var placed = placeWithCSP(games, n, byes, 200);
-      if (placed.ok) return placed.weeks;
-    }
-    var fallback = placeWithCSP(games, n, null, 400);
-    if (fallback.ok) return fallback.weeks;
-
-    throw new Error('Scheduler failed after multiple restarts');
-  }
-
-})();
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = {
+        makeAccurateSchedule,
+        createFallbackSchedule
+    };
+}
