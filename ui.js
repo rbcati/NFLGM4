@@ -187,7 +187,6 @@ window.updateCapSidebar = updateCapSidebar;
 window.renderRoster = renderRoster;
 window.renderTradeUI = renderTradeUI;
 window.renderTradeLists = renderTradeLists;
-window.renderDraft = renderDraft;
 window.renderStandings = renderStandings;
 window.renderFreeAgency = renderFreeAgency;
 window.renderSchedule = renderSchedule;
