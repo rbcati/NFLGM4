@@ -1,18 +1,22 @@
 // main.js
-// main.js
 ;(function () {
   'use strict';
 
-  // (Global error handler remains the same)
-  // ...
+  // Global error handler
+  window.addEventListener('error', function (e) {
+    try {
+      const div = document.createElement('div');
+      div.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:9999;background:#3b0d0d;color:#fff;padding:8px 12px;font-family:system-ui;box-shadow:0 2px 6px rgba(0,0,0,.4)';
+      div.textContent = 'JS error: ' + (e.message || '') + ' @ ' + (e.filename || '') + ':' + (e.lineno || '');
+      document.body.appendChild(div);
+    } catch (_) {}
+  });
 
   function refreshAll() {
-    // **THE FIX:** The logic to set the dropdown is now simpler and correct.
     fillTeamSelect($('#userTeam'));
     if (state.league && state.userTeamId !== undefined) {
-        $('#userTeam').value = state.userTeamId;
+        $('#userTeam').value = state.userTteamId;
     }
-    
     rebuildTeamLabels(state.namesMode);
     renderHub();
     renderRoster();
@@ -23,13 +27,9 @@
 
   function saveGame() {
     const payload = JSON.stringify({
-      league: state.league,
-      freeAgents: state.freeAgents,
-      playoffs: state.playoffs,
-      namesMode: state.namesMode,
-      onboarded: state.onboarded,
-      pendingOffers: state.pendingOffers,
-      userTeamId: state.userTeamId // Save the user's team
+      league: state.league, freeAgents: state.freeAgents, playoffs: state.playoffs,
+      namesMode: state.namesMode, onboarded: state.onboarded,
+      pendingOffers: state.pendingOffers, userTeamId: state.userTeamId
     });
     localStorage.setItem(SAVE_KEY, payload);
     setStatus('Saved');
@@ -46,19 +46,29 @@
     state.namesMode = obj.namesMode || 'fictional';
     state.onboarded = !!obj.onboarded;
     state.pendingOffers = obj.pendingOffers || [];
-    state.userTeamId = obj.userTeamId || 0; // Load the user's team
+    state.userTeamId = obj.userTeamId || 0;
     refreshAll();
     setStatus('Loaded');
   }
 
-  // (init function remains the same)
-  // ...
-  
+  function init() {
+    const savedState = localStorage.getItem(SAVE_KEY);
+    if (savedState && JSON.parse(savedState).onboarded) {
+      loadGame();
+    } else {
+      openOnboard();
+    }
+    setupEventListeners();
+    const hash = location.hash.replace('#/','') || 'hub';
+    show(routes.indexOf(hash) >= 0 ? hash : 'hub');
+  }
+
   // Make key functions globally available
   window.saveGame = saveGame;
   window.loadGame = loadGame;
   window.refreshAll = refreshAll;
 
+  // **THE FIX:** The event listener is now INSIDE the scope, so it can see 'init'.
   document.addEventListener('DOMContentLoaded', init);
 
 })();
