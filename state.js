@@ -1,11 +1,12 @@
 // state.js
+'use strict';
 
-// App constants
+// App constants from script.js
 const YEAR_START = 2025;
 const SAVE_KEY = 'nflGM4.league';
 const routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings'];
 
-// State
+// State object
 let state = {
   league: null,
   freeAgents: [],
