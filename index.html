@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>NFL GM Simulator</title>
     <link rel="stylesheet" href="style.css" />
-    </head>
+</head>
 <body>
+
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
@@ -47,16 +48,11 @@
       <div class="modal-card">
         <div class="row">
           <h3>Start New League</h3>
-          <div class="spacer"></div>
           <button id="onboardClose" class="btn">Close</button>
         </div>
         <div class="row mt">
-          <label class="row"><input type="radio" name="namesMode" value="fictional" checked> Fictional team names</label>
-          <label class="row"><input type="radio" name="namesMode" value="real"> Real NFL team names</label>
-        </div>
-        <div class="row mt">
-          <label for="onboardYear">Start Year</label>
-          <input id="onboardYear" type="number" min="1930" max="9999" value="2025" style="width:120px" />
+          <label><input type="radio" name="namesMode" value="fictional" checked> Fictional names</label>
+          <label><input type="radio" name="namesMode" value="real"> Real names</label>
         </div>
         <div class="row mt">
           <label for="onboardTeam">Choose your team</label>
