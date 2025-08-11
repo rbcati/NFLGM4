@@ -234,17 +234,24 @@ L.teams.forEach(function (t,i) { t.lastDivisionRank = tmpRanks[i]; });
 return L;
 } // <-- if makeLeague was declared as `function makeLeague(...) {` keep this lone brace
 // }; // <-- if makeLeague was assigned like `const makeLeague = function(...) {`, then use `};` instead
+// end of makeLeague(...)
+return L;
+}   // or `};` if makeLeague was assigned
+
+/* Namesets */
+function listByMode(mode) {
+  var real = window.REAL_TEAMS_32 || window.TEAMS_REAL || (window.T && window.T.TEAM_META_REAL) || [];
+  var fict = window.FICTIONAL_TEAMS_32 || window.TEAMS || (window.T && window.T.TEAM_META_FICTIONAL) || [];
+  return mode === 'real' ? real : fict;
+}
+
+// expose globally only once
+if (!window.listByMode) window.listByMode = listByMode;
 
 /* ------------------------------------------------------------------ */
 /* Namesets and relabeling                                            */
 /* ------------------------------------------------------------------ */
 
-// Make listByMode duplicate-safe and expression-based (can’t break parsing)
-window.listByMode ||= function listByMode(mode) {
-  return mode === 'real'
-    ? (window.REAL_TEAMS_32 || window.TEAMS_REAL || [])
-    : (window.FICTIONAL_TEAMS_32 || window.TEAMS || []);
-};
 
 /* Names mode relabel */
 window.rebuildTeamLabels ??= function rebuildTeamLabels(mode) {
