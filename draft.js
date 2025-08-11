@@ -2,19 +2,24 @@
 'use strict';
 
 function renderDraft() {
+  const L = state.league;
+  if (!L) return;
+
   const sel = $('#draftTeam');
+  if (!sel) return; // Add a guard clause in case the element doesn't exist yet
+
   if (!sel.dataset.filled) {
     fillTeamSelect(sel);
     sel.dataset.filled = '1';
-    sel.addEventListener('change', renderDraft); // Re-render when team changes
   }
 
-  const teamId = parseInt(sel.value || $('#userTeam').value || '0', 10);
-  sel.value = teamId; // Ensure dropdown is synced
-  const t = state.league.teams[teamId];
-  const now = state.league.year;
+  const teamId = parseInt(sel.value || (currentTeam() ? currentTeam().id : '0'), 10);
+  sel.value = teamId;
+  const t = L.teams[teamId];
+  const now = L.year;
 
   const box = $('#draftPicks');
+  if (!box) return;
   box.innerHTML = '';
   t.picks.slice().sort((a, b) => a.year === b.year ? a.round - b.round : a.year - b.year).forEach(pk => {
     const div = document.createElement('div');
@@ -24,3 +29,6 @@ function renderDraft() {
     box.appendChild(div);
   });
 }
+
+// **THE FIX:** Make the renderDraft function globally available from ITS OWN file.
+window.renderDraft = renderDraft;
