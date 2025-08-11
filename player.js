@@ -11,18 +11,21 @@ function makePlayer(pos) {
   const baseAnnual = Math.round(0.42 * ovr * 10) / 10;
   const years = U.rand(1, 4);
   const signingBonus = Math.round((baseAnnual * years * (0.25 + Math.random() * 0.35)) * 10) / 10;
+  
   return {
     id: U.id(),
     name: U.choice(FIRST_NAMES) + ' ' + U.choice(LAST_NAMES),
     pos: pos,
-    age: U.rand(21, 34),
+    age: U.rand(21,34),
     speed, strength, agility, awareness, ovr,
     years, yearsTotal: years,
     baseAnnual, signingBonus,
     guaranteedPct: 0.5,
     injuryWeeks: 0,
     fatigue: 0,
-    abilities: []
+    abilities: [],
+    stats: { game: {}, season: {}, career: {} }, // Tracks stats for current game, season, and career
+    history: [] // Will store a snapshot of each completed season
   };
 }
 
