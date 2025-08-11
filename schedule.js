@@ -247,7 +247,13 @@
     }
     return {ok:false};
   }
-
+// Add logging before line 264 in schedule.js
+console.log('Schedule constraints:', {
+    teams: teams.length,
+    weeks: numWeeks,
+    gamesPerWeek: gamesPerWeek,
+    // Log other relevant constraints
+});
   // ---------- Public entry ----------
   function makeAccurateSchedule(league){
     var games = buildGames(league);
