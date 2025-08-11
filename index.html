@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
@@ -53,8 +52,6 @@
             <div class="section">
               <div>Season <span id="seasonNow"></span></div>
               <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
-              <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
-              <div class="muted small">Room: <span id="capRoom"></span></div>
             </div>
             <div class="section">
                 <button id="btnSave" class="btn">Save</button>
@@ -66,40 +63,47 @@
 
         <section class="content">
             <section id="hub" class="view">
-              </section>
+              <div class="card">
+                <div class="row"><h2>League Hub</h2><div class="spacer"></div><button id="btnSimWeek" class="btn primary">Simulate Week</button></div>
+              </div>
+            </section>
             <section id="roster" class="view" hidden>
-              </section>
+              <div class="card"><h2>Roster</h2><select id="rosterTeam"></select></div>
+            </section>
             <section id="trade" class="view" hidden>
                 <div class="card">
                     <h2>Trade Center</h2>
                     <div class="grid two">
-                        <div>
-                            <label for="tradeA">Team A</label>
-                            <select id="tradeA"></select>
-                            </div>
-                        <div>
-                            <label for="tradeB">Team B</label>
-                            <select id="tradeB"></select>
-                            </div>
+                        <div><label for="tradeA">Team A</label><select id="tradeA"></select></div>
+                        <div><label for="tradeB">Team B</label><select id="tradeB"></select></div>
                     </div>
                 </div>
             </section>
             <section id="draft" class="view" hidden>
                 <div class="card">
-                    <div class="row">
-                        <h2>Draft Picks</h2>
-                        <div class="spacer"></div>
-                        <label for="draftTeam">Team</label>
-                        <select id="draftTeam"></select>
-                    </div>
+                    <div class="row"><h2>Draft Picks</h2><div class="spacer"></div><label for="draftTeam">Team</label><select id="draftTeam"></select></div>
                     <div id="draftPicks" class="list"></div>
                 </div>
             </section>
+             <section id="freeagency" class="view" hidden>
+                <div class="card">
+                    <h2>Free Agency</h2>
+                    <table class="table" id="faTable"></table>
+                </div>
             </section>
+             <section id="standings" class="view" hidden>
+                <div class="card"><h2>Standings</h2></div>
+            </section>
+        </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
+      <div class="modal-card">
+        <h3>Start New League</h3>
+        <div><label><input type="radio" name="namesMode" value="fictional" checked> Fictional names</label><label><input type="radio" name="namesMode" value="real"> Real names</label></div>
+        <div><label for="onboardTeam">Choose your team</label><select id="onboardTeam"></select><button id="onboardRandom" class="btn">Random</button></div>
+        <div><button id="onboardStart" class="btn primary">Start Season</button></div>
       </div>
-
+    </div>
 </body>
 </html>
