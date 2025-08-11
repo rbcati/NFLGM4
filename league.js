@@ -1,7 +1,6 @@
 // league.js
+// league.js
 'use strict';
-
-// This file is now dedicated to creating the league object.
 
 function makeLeague(teamList) {
   const U = window.Utils;
@@ -32,7 +31,8 @@ function makeLeague(teamList) {
       abbr, name, conf, div,
       rating: U.rand(70, 88),
       roster,
-      record: { w: 0, l: 0, t: 0, pf: 0, pa: 0 },
+      // **THE FIX:** The record object now tracks all the new detailed stats.
+      record: {w:0, l:0, t:0, pf:0, pa:0, streak:0, divW:0, divL:0, homeW:0, homeL:0, awayW:0, awayL:0},
       capBook: {},
       deadCapBook: {},
       capRollover: 0,
@@ -58,7 +58,6 @@ function makeLeague(teamList) {
     news: []
   };
 
-  // **THE FIX:** Pass the `teams` array to the scheduler, not the whole league object.
   L.schedule = Scheduler.makeAccurateSchedule(L.teams);
   
   L.teams.forEach(t => recalcCap(L, t));
