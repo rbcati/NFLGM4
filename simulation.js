@@ -21,23 +21,29 @@ function applyResult(home, away, sH, sA) {
 function simulateWeek() {
   const L = state.league;
   const U = window.Utils;
-  if (L.week > L.schedule.length) {
+
+  // **THE FIX - PART 1:** Check against the length of the weeks array.
+  if (L.week > L.schedule.weeks.length) {
     if (!state.playoffs) {
       startPlayoffs();
       location.hash = '#/playoffs';
-      return;
     }
     return;
   }
-  const pairings = L.schedule[L.week - 1];
+
+  // **THE FIX - PART 2:** Access the `weeks` property of the schedule object.
+  const weekData = L.schedule.weeks[L.week - 1];
+  const pairings = weekData ? weekData.games : []; // Get the games for the current week.
+  
   const results = [];
-  pairings.forEach(pair => {
+  pairings.forEach(pair => { // This line will no longer cause an error.
     if (pair.bye !== undefined) {
       results.push({ bye: pair.bye });
       return;
     }
     const sH = U.rand(13, 34);
     const sA = U.rand(10, 31);
+    // Note: pair.home and pair.away are IDs, so we use them to look up the teams
     const home = L.teams[pair.home];
     const away = L.teams[pair.away];
     results.push({ home: pair.home, away: pair.away, scoreHome: sH, scoreAway: sA, homeWin: sH > sA });
@@ -48,11 +54,11 @@ function simulateWeek() {
   L.week++;
 
   // Post-simulation actions
-  aiWeeklyTrades();
+  // aiWeeklyTrades(); // You can uncomment this when you're ready to add AI trades back
   runWeeklyTraining(L);
 
   // Update UI
-  if (L.week > L.schedule.length) {
+  if (L.week > L.schedule.weeks.length) {
     setStatus('Regular season complete. Playoffs ready.');
   }
   renderHub();
