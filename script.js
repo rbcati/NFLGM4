@@ -197,45 +197,42 @@ const { makeLeague } = window.League;
   };
   L.schedule = S.makeAccurateSchedule(L);  // <-- call here, not before L
   // ...rest...
-  return L;
-    var baseList = teamList || listByMode(state.namesMode);
-    var teams = baseList.map(function (t, idx) {
-      var abbr = t.abbr || t[0];
-      var name = t.name || t[1];
-      var conf = typeof t.conf === 'number' ? t.conf : Math.floor(idx/16);
-      var div  = typeof t.div  === 'number' ? t.div  : Math.floor((idx%16)/4);
-      return {
-        id: idx,
-        abbr: abbr,
-        name: name,
-        rating: U.rand(70, 88),
-        roster: [],
-        record: {w:0,l:0,t:0,pf:0,pa:0},
-        conf: conf,
-        div: div,
-        capBook: {},
-        deadCapBook: {},
-        capRollover: 0,
-        capTotal: C.CAP_BASE,
-        picks: [],
-        strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 }
-      };
-    });
+  // ...rest...
+return L;
+  var baseList = teamList || listByMode(state.namesMode);
+  var teams = baseList.map(function (t, idx) {
+    var abbr = t.abbr || t[0];
+    var name = t.name || t[1];
+    var conf = typeof t.conf === 'number' ? t.conf : Math.floor(idx/16);
+    var div  = typeof t.div  === 'number' ? t.div  : Math.floor((idx%16)/4);
+    return {
+      id: idx,
+      abbr: abbr,
+      name: name,
+      rating: U.rand(70, 88),
+      roster: [],
+      record: {w:0,l:0,t:0,pf:0,pa:0},
+      conf: conf,
+      div: div,
+      capBook: {},
+      deadCapBook: {},
+      capRollover: 0,
+      capTotal: C.CAP_BASE,
+      picks: [],
+      strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random()*0.4 + 0.6 }
+    };
+  });
 // schedule after L exists
 L.schedule = S.makeAccurateSchedule(L);
-
 // cap setup
 L.teams.forEach(function (t) { recalcCap(L, t); });
-
 // stored initial ranks for scheduling next year
 var tmpRanks = S.computeLastDivisionRanks(L);
 L.teams.forEach(function (t,i) { t.lastDivisionRank = tmpRanks[i]; });
-
 return L;
 } // <-- if makeLeague was declared as `function makeLeague(...) {` keep this lone brace
 // }; // <-- if makeLeague was assigned like `const makeLeague = function(...) {`, then use `};` instead
 // end of makeLeague(...)
-
 
 /* Namesets */
 function listByMode(mode) {
@@ -243,7 +240,6 @@ function listByMode(mode) {
   var fict = window.FICTIONAL_TEAMS_32 || window.TEAMS || (window.T && window.T.TEAM_META_FICTIONAL) || [];
   return mode === 'real' ? real : fict;
 }
-
 // expose globally only once
 if (!window.listByMode) window.listByMode = listByMode;
 
@@ -251,14 +247,11 @@ if (!window.listByMode) window.listByMode = listByMode;
 /* Namesets and relabeling                                            */
 /* ------------------------------------------------------------------ */
 
-
 /* Names mode relabel */
 window.rebuildTeamLabels ??= function rebuildTeamLabels(mode) {
   const L = state && state.league;
   const meta = window.listByMode(mode);
-
   if (!L || !Array.isArray(L.teams) || !Array.isArray(meta) || L.teams.length !== meta.length) return;
-
   for (let i = 0; i < L.teams.length; i++) {
     const src = meta[i], dst = L.teams[i];
     dst.abbr = src.abbr;
@@ -275,9 +268,7 @@ document.getElementById('btnApplyNamesMode')?.addEventListener('click', () => {
   window.renderStandings && window.renderStandings();
   window.renderRoster && window.renderRoster();
   window.renderHub && window.renderHub();
-});
-
-
+  
   // Refresh selects
   var selects = document.querySelectorAll('select');
   selects.forEach(function (sel) {
@@ -293,31 +284,13 @@ document.getElementById('btnApplyNamesMode')?.addEventListener('click', () => {
     });
     if (prev) sel.value = prev;
   });
-
+  
   // Repaint key views
   renderHub();
   renderRoster();
   renderStandings();
   renderDraft();
-}
-
-    });
-    // refresh selects
-    $$('select').forEach(function(sel){
-      if (sel.id === 'onboardTeam') return;
-      var prev = sel.value;
-      sel.innerHTML = '';
-      L.teams.forEach(function(t, i){
-        var opt = document.createElement('option');
-        opt.value = String(i);
-        var confTxt = C.CONF_NAMES[t.conf] + ' ' + C.DIV_NAMES[t.div];
-        opt.textContent = t.abbr + ' — ' + t.name + ' (' + confTxt + ')';
-        sel.appendChild(opt);
-      });
-      if (prev) sel.value = prev;
-    });
-    renderHub(); renderRoster(); renderStandings(); renderDraft();
-  }
+});
 
   // UI routing
   function show(route){
