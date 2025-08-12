@@ -28,6 +28,15 @@
     <script src="events.js"></script>
     <script src="main.js"></script>
 
+ <!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NFL GM Simulator</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
     <header class="topbar" role="navigation">
         <div class="brand">NFL GM</div>
         <nav id="site-nav" class="nav-pills" aria-label="Primary">
@@ -38,11 +47,25 @@
             <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
             <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
             <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
+            <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
         </nav>
         <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
+            </button>
     </header>
+
+    <main class="layout">
+        <aside class="sidebar">
+            </aside>
+
+        <section class="content">
+            <section id="hallOfFame" class="view" hidden>
+                <div class="card">
+                    <h2>Hall of Fame</h2>
+                    <div id="hofList" class="hof-grid">
+                        </div>
+                </div>
+            </section>
+        </section>
 
     <main class="layout">
         <aside class="sidebar">
