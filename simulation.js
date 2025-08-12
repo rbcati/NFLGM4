@@ -6,7 +6,7 @@ function getStarters(team) {
     const starters = {};
     const positions = ['QB', 'RB', 'WR', 'TE', 'K'];
     positions.forEach(pos => {
-        starters[pos] = team.roster.filter(p => p.pos === pos).sort((a,b) => b.ovr - a.ovr)[0];
+        starters[pos] = team.roster.filter(p => p && p.pos === pos).sort((a,b) => b.ovr - a.ovr)[0];
     });
     return starters;
 }
@@ -16,29 +16,34 @@ function simGameStats(homeTeam, awayTeam) {
     const awayStarters = getStarters(awayTeam);
     const U = window.Utils;
 
-    // Reset game stats for all players
-    [...homeTeam.roster, ...awayTeam.roster].forEach(p => p.stats.game = {});
+    // Reset game stats for all players on both teams
+    [...homeTeam.roster, ...awayTeam.roster].forEach(p => {
+        if (p) p.stats.game = {};
+    });
 
-    // --- Simulate Offense ---
+    // --- Simulate a team's offensive drives for a whole game ---
     function simDrive(offense, defense, starters) {
         let score = 0;
         if (starters.QB) {
-            const passYards = U.rand(150, 400);
-            const passTD = Math.floor(passYards / 120);
-            starters.QB.stats.game.passYd = (starters.QB.stats.game.passYd || 0) + passYards;
-            starters.QB.stats.game.passTD = (starters.QB.stats.game.passTD || 0) + passTD;
+            const passAttempts = U.rand(25, 45);
+            const completions = Math.floor(passAttempts * (U.rand(55, 80) + starters.QB.ovr / 10) / 100);
+            const passYards = completions * U.rand(8, 15);
+            const passTD = Math.max(0, U.rand(0, 5) + Math.floor((starters.QB.ovr - 80) / 5));
+            starters.QB.stats.game.passYd = passYards;
+            starters.QB.stats.game.passTD = passTD;
             score += passTD * 6;
         }
         if (starters.RB) {
-            const rushYards = U.rand(40, 150);
-            const rushTD = Math.floor(rushYards / 70);
-            starters.RB.stats.game.rushYd = (starters.RB.stats.game.rushYd || 0) + rushYards;
-            starters.RB.stats.game.rushTD = (starters.RB.stats.game.rushTD || 0) + rushTD;
+            const rushAttempts = U.rand(15, 30);
+            const rushYards = Math.floor(rushAttempts * (U.rand(3, 6) + starters.RB.ovr / 20));
+            const rushTD = Math.max(0, U.rand(0, 3) + Math.floor((starters.RB.ovr - 85) / 5));
+            starters.RB.stats.game.rushYd = rushYards;
+            starters.RB.stats.game.rushTD = rushTD;
             score += rushTD * 6;
         }
         if (starters.K) {
-            const fg = U.rand(0, 3);
-            starters.K.stats.game.fgMade = (starters.K.stats.game.fgMade || 0) + fg;
+            const fg = U.rand(0, 4);
+            starters.K.stats.game.fgMade = fg;
             score += fg * 3;
         }
         return score;
@@ -89,9 +94,9 @@ function simulateWeek() {
     const pairings = weekData ? weekData.games : [];
     const results = [];
 
-    pairings.forEach(pair => {
+    pairings.forEach((pair, index) => {
         if (pair.bye !== undefined) {
-            results.push({ bye: pair.bye });
+            results.push({ id: `w${L.week}b${pair.bye}`, bye: pair.bye });
             return;
         }
         const home = L.teams[pair.home];
@@ -101,7 +106,16 @@ function simulateWeek() {
         const sH = gameScores.homeScore;
         const sA = gameScores.awayScore;
 
-        results.push({ home: pair.home, away: pair.away, scoreHome: sH, scoreAway: sA, homeWin: sH > sA });
+        // Add game stats to season totals for every player
+        [...home.roster, ...away.roster].forEach(p => {
+            if (p) {
+                for (const key in p.stats.game) {
+                    p.stats.season[key] = (p.stats.season[key] || 0) + p.stats.game[key];
+                }
+            }
+        });
+
+        results.push({ id: `w${L.week}g${index}`, home: pair.home, away: pair.away, scoreHome: sH, scoreAway: sA, homeWin: sH > sA });
         applyResult(home, away, sH, sA);
     });
 
