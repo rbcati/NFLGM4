@@ -1,7 +1,5 @@
 /*
- * NFLGM4 "Liquid Glass" Theme - Restored
- * Apple-inspired, MD3-aware tokens
- * Author: Ricky B (rev by Gemini)
+ * NFLGM4 "Liquid Glass" Theme - Restored & Upgraded
 */
 
 /* Reset and Base */
@@ -10,30 +8,25 @@
 :root {
   /* Core Palette (dark) */
   --bg: #0a0c10;
-  --surface: rgba(255,255,255,0.06);
-  --surface-strong: rgba(255,255,255,0.12);
-  --surface-elevated: rgba(255,255,255,0.18);
-  --hairline: rgba(255,255,255,0.12);
-  --hairline-strong: rgba(255,255,255,0.20);
+  --surface: rgba(22, 27, 34, 0.75);
+  --surface-strong: rgba(30, 36, 44, 0.85);
+  --hairline: rgba(255, 255, 255, 0.1);
   --text: #E6EDF3;
   --text-muted: #9FB0C2;
-  --text-dimmed: #6B7280;
   --accent: #0A84FF;
-  --accent-muted: rgba(10,132,255,0.6);
   --danger: #FF453A;
 
   /* Spacing and Radius */
-  --space-4: 8px; --space-6: 12px; --space-8: 16px; --space-10: 24px;
-  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
+  --space-4: 8px; --space-8: 16px; --space-10: 24px;
+  --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
 
-  /* Enhanced shadows for glass effect */
-  --shadow-1: 0 8px 20px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.15);
-  --shadow-2: 0 12px 30px rgba(0,0,0,0.45), 0 4px 8px rgba(0,0,0,0.20);
-  --glass-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 8px 24px rgba(0,0,0,0.4), 0 2px 6px rgba(0,0,0,0.2);
+  /* Shadows */
+  --shadow-1: 0 4px 12px rgba(0,0,0,0.3);
+  --shadow-3: 0 12px 40px rgba(0,0,0,0.5);
 
   /* Motion */
-  --ease: cubic-bezier(0.2, 0.6, 0.2, 1);
-  --dur: 220ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur: 200ms;
 }
 
 html, body {
@@ -45,143 +38,61 @@ html, body {
   line-height: 1.5;
 }
 
-/* Enhanced glass material */
-.glass {
-  background: var(--surface);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: saturate(180%) blur(25px);
-  backdrop-filter: saturate(180%) blur(25px);
-}
-
 /* Layout */
 .layout { display: grid; grid-template-columns: 280px 1fr; gap: var(--space-10); padding: var(--space-10); }
-.sidebar { position: sticky; top: var(--space-10); height: fit-content; padding: var(--space-8); }
-.card { padding: var(--space-8); margin-bottom: var(--space-8); }
+.sidebar { position: sticky; top: var(--space-10); height: fit-content; }
+.card { padding: var(--space-8); margin-bottom: var(--space-8); background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--hairline); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
 .section { margin-bottom: var(--space-8); }
-.row { display: flex; gap: var(--space-6); align-items: center; }
+.row { display: flex; gap: var(--space-8); align-items: center; }
 .spacer { flex: 1; }
 .muted { color: var(--text-muted); }
 .mt { margin-top: var(--space-8); }
+.grid.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
 
 /* Top Bar & Navigation */
-.topbar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--space-8); padding: var(--space-6) var(--space-8); }
-.brand { font-weight: 700; }
+.topbar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: var(--space-4) var(--space-8); }
+.brand { font-weight: 700; font-size: 1.1rem; }
 .nav-pills { display: flex; gap: var(--space-4); justify-content: center; }
 .nav-pill {
   display: inline-flex; align-items: center; gap: var(--space-4);
-  height: 40px; padding: 0 var(--space-8); border-radius: var(--radius-pill);
-  border: 1px solid var(--hairline); color: var(--text);
-  background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
-  box-shadow: var(--shadow-1);
-  text-decoration: none; font-weight: 500;
+  height: 36px; padding: 0 var(--space-8); border-radius: var(--radius-pill);
+  color: var(--text-muted); text-decoration: none; font-weight: 500;
   transition: all var(--dur) var(--ease);
 }
-.nav-pill:hover { background: var(--surface-strong); box-shadow: var(--shadow-2); }
-.nav-pill[aria-current="page"] {
-  border-color: rgba(10,132,255,0.6);
-  background: linear-gradient(135deg, rgba(10,132,255,0.3), rgba(10,132,255,0.15));
-  box-shadow: 0 12px 32px rgba(10,132,255,0.4);
-}
+.nav-pill:hover { color: var(--text); background: var(--surface); }
+.nav-pill[aria-current="page"] { color: var(--text); background: var(--surface-strong); }
 
-/* Buttons */
+/* Buttons & Forms */
 .btn {
   padding: var(--space-4) var(--space-8); border-radius: var(--radius-md);
   border: 1px solid var(--hairline); background: var(--surface); color: var(--text);
-  font-weight: 500; box-shadow: var(--shadow-1);
-  cursor: pointer; transition: all var(--dur) var(--ease);
+  font-weight: 500; cursor: pointer; transition: all var(--dur) var(--ease);
 }
-.btn:hover { background: var(--surface-strong); box-shadow: var(--shadow-2); }
-.btn:active { transform: translateY(1px) scale(0.98); }
+.btn:hover { background: var(--surface-strong); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+select, input {
+    background: var(--surface); border: 1px solid var(--hairline); color: var(--text);
+    padding: var(--space-4); border-radius: var(--radius-md);
+}
 
-/* --- Improved Draft Page Styles --- */
-.draft-picks-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+/* Modal Styles */
+.modal {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.6); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); z-index: 1000;
 }
-.draft-pick-card {
-  background: var(--surface-strong);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: var(--shadow-1);
+.modal-card {
+  background: var(--bg); border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg); padding: var(--space-10);
+  box-shadow: var(--shadow-3); width: 100%; max-width: 500px;
+  display: flex; flex-direction: column; gap: var(--space-8);
 }
-.draft-pick-card .round { font-size: 1.2rem; font-weight: 600; }
-.draft-pick-card .details { font-size: 0.9rem; color: var(--text-muted); 
-/* --- Trade & Results UI Styles --- */
-.trade-asset {
-    padding: 4px 8px;
-    border-radius: 4px;
-    transition: background 0.2s ease;
+
+/* Results & Draft Styles */
+.results-grid, .scouting-grid, .hof-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;
 }
-.trade-asset:hover {
-    background: var(--surface-strong);
-}
-.results-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 12px;
-}
-.result-card {
-    background: var(--surface);
-    padding: 12px;
-    border-radius: var(--radius-md);
+.result-card, .rookie-card, .hof-card {
+    background: var(--surface); padding: 12px; border-radius: var(--radius-md);
     border-left: 3px solid var(--accent);
 }
-.result-card .game-winner {
-    font-weight: 500;
-}
-.result-card .game-score {
-    font-size: 1.2rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    margin-top: 4px;
-}         /* --- Hall of Fame Styles --- */
-.hof-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 16px;
-  margin-top: 16px;
-}
-.hof-card {
-  background: var(--surface-strong);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius-md);
-  padding: 16px;
-}
-.hof-name { font-size: 1.2rem; font-weight: 600; }
-.hof-details { color: var(--text-muted); margin-bottom: 12px; }
-.hof-career { font-size: 0.9rem; }                 
-                        /* --- Modal Styles --- */
-.modal {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6); /* Semi-transparent overlay */
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  z-index: 1000;
-}
-
-.modal-card {
-  /* This gives the modal its own solid background */
-  background: var(--bg);
-  border: 1px solid var(--hairline-strong);
-  border-radius: var(--radius-lg);
-  padding: var(--space-10);
-  box-shadow: var(--shadow-3);
-  width: 100%;
-  max-width: 500px;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-8);
-}  }
