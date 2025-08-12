@@ -3,17 +3,13 @@
 
 function checkHOFEligibility(player) {
     let legacyScore = 0;
-    // Simple scoring: 1 point for every 1000 passing yards, 5 for a championship, etc.
     const career = player.stats.career;
     if (career.passYd) legacyScore += Math.floor(career.passYd / 1000);
     if (career.rushYd) legacyScore += Math.floor(career.rushYd / 500);
-    
     player.awards.forEach(award => {
         if (award.award === 'Super Bowl Champion') legacyScore += 5;
-        // In the future, you could add points for MVP, etc.
     });
-
-    return legacyScore > 30; // Set a threshold for HOF induction
+    return legacyScore > 30;
 }
 
 function handleRetirementsAndHOF(league) {
@@ -21,12 +17,11 @@ function handleRetirementsAndHOF(league) {
     league.teams.forEach(team => {
         const remainingRoster = [];
         team.roster.forEach(player => {
-            // Simple retirement logic: chance increases with age
             const retirementChance = player.age > 34 ? (player.age - 34) * 0.25 : 0;
             if (Math.random() < retirementChance) {
-                retiringPlayers.push(player); // Player retires
+                retiringPlayers.push(player);
             } else {
-                remainingRoster.push(player); // Player stays
+                remainingRoster.push(player);
             }
         });
         team.roster = remainingRoster;
@@ -42,23 +37,32 @@ function handleRetirementsAndHOF(league) {
 
 function runOffseason() {
   const L = state.league;
-  
-  // New Step 1: Handle retirements and Hall of Fame inductions
+  const U = window.Utils;
+
   handleRetirementsAndHOF(L);
 
-  // Existing offseason logic follows...
-  L.teams.forEach(t => {
-    // ... (age players, decrement contracts, etc.)
-    
-    // Accumulate season stats into career stats before clearing
-    t.roster.forEach(p => {
-        for (const key in p.stats.season) {
-            p.stats.career[key] = (p.stats.career[key] || 0) + p.stats.season[key];
-        }
-        p.history.push({ year: L.year, stats: p.stats.season, ovr: p.ovr });
-        p.stats.season = {}; // Reset for new season
+  L.teams.forEach(team => {
+    team.roster.forEach(p => {
+      p.history.push({ year: L.year, team: team.abbr, stats: { ...p.stats.season }, ovr: p.ovr });
+      for (const key in p.stats.season) {
+          p.stats.career[key] = (p.stats.career[key] || 0) + p.stats.season[key];
+      }
+      p.stats.season = {};
+      
+      p.age++;
+      const progression = U.rand(-3, 3) + Math.floor((90 - p.ovr) / 10) - Math.floor(Math.max(0, p.age - 29) / 2);
+      p.ovr = U.clamp(p.ovr + progression, 40, 99);
+      p.years--;
     });
+    team.roster = team.roster.filter(p => p.years > 0);
   });
+  
+  state.draftClass = generateDraftClass(L.year + 1);
 
-  // ... (the rest of the offseason logic to reset the league for a new year)
+  L.year++;
+  L.week = 1;
+  L.resultsByWeek = {};
+  L.teams.forEach(t => {
+      t.record = {w:0, l:0, t:0, pf:0, pa:0, streak:0, divW:0, divL:0, homeW:0, homeL:0, awayW:0, awayL:0};
+  });
 }
