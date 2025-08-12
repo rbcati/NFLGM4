@@ -5,7 +5,7 @@
   function refreshAll() {
     fillTeamSelect($('#userTeam'));
     if (state.league && state.userTeamId !== undefined) {
-        $('#userTeam').value = state.userTeamId; // Corrected typo
+        $('#userTeam').value = state.userTeamId; // Correct variable
     }
     rebuildTeamLabels(state.namesMode);
     renderHub();
