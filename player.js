@@ -25,7 +25,7 @@ function makePlayer(pos) {
     fatigue: 0,
     abilities: [],
     stats: { game: {}, season: {}, career: {} }, // Tracks stats for current game, season, and career
-    history: [] // Will store a snapshot of each completed season
+    history: [],   awards: [] // Will store a snapshot of each completed season
   };
 }
 
