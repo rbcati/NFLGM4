@@ -54,7 +54,8 @@ function makeLeague(teamList) {
     playoffsDone: false,
     champion: null,
     history: {
-        superBowlWinners: []
+        superBowlWinners: []  },
+    hallOfFame: []
     },
     news: []
   };
