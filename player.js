@@ -26,7 +26,7 @@ function makePlayer(pos) {
     abilities: [],
     // **THE FIX:** Every new player is now created with these objects ready to go.
     stats: { game: {}, season: {}, career: {} },
-    history: [],
+    history: [], // Will store a snapshot of each completed season (OVR, stats, awards)
     awards: []
   };
 }
