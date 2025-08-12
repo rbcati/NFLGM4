@@ -1,10 +1,9 @@
 // state.js
 'use strict';
-
 // App constants from script.js
 const YEAR_START = 2025;
 const SAVE_KEY = 'nflGM4.league';
-const routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings'];
+const routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame'];
 
 // State object
 let state = {
@@ -14,7 +13,8 @@ let state = {
   namesMode: 'fictional',
   onboarded: false,
   pendingOffers: [],
-  trainingPlan: null
+  trainingPlan: null,
+  userTeamId: 0
 };
 
 // **THE FIX: Massively expanded name banks for huge variety**
