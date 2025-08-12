@@ -47,16 +47,15 @@ function makeLeague(teamList) {
     seed: Math.floor(Math.random() * 1e6),
     season: 1,
     year: YEAR_START,
-    week: 1,
     teams: teams,
     schedule: [],
     resultsByWeek: {},
     playoffsDone: false,
     champion: null,
     history: {
-        superBowlWinners: []  },
-    hallOfFame: []
+        superBowlWinners: []
     },
+    hallOfFame: [],
     news: []
   };
 
@@ -72,3 +71,6 @@ function makeLeague(teamList) {
 
   return L;
 }
+
+// **THE FIX:** Make the makeLeague function globally available to other scripts.
+window.makeLeague = makeLeague;
