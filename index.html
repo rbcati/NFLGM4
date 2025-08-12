@@ -7,14 +7,14 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<script src="constants.js"></script>
+
+    <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
     <script src="state.js"></script>
     <script src="ui.js"></script>
     <script src="player.js"></script>
-    <script src="staff.js"></script>
-    <script src="rookies.js"></script>
+    <script src="staff.js"></script> <script src="rookies.js"></script>
     <script src="cap.js"></script>
     <script src="picks.js"></script>
     <script src="schedule.js"></script>
@@ -28,62 +28,24 @@
     <script src="training.js"></script>
     <script src="events.js"></script>
     <script src="main.js"></script>
-    
-    ```
 
-And that's it! You've successfully built the entire backend for staff management. Your coaches now have a real, tangible impact on how your players develop season over season. The next step will be to build the UI to actually see and interact with your staff, but the core mechanics are now officially in the game.
     <header class="topbar" role="navigation">
-        <div class="brand">NFL GM</div>
-        <nav id="site-nav" class="nav-pills" aria-label="Primary">
-            <a href="#/hub" class="nav-pill" data-view="hub">Home</a>
-            <a href="#/roster" class="nav-pill" data-view="roster">Roster</a>
-            <a href="#/trade" class="nav-pill" data-view="trade">Trades</a>
-            <a href="#/standings" class="nav-pill" data-view="standings">Standings</a>
-            <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
-            <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
-            <a href="#/scouting" class="nav-pill" data-view="scouting">Scouting</a>
-            <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
-            <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
-        </nav>
-        <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-            </button>
-    </header>
+        </header>
 
     <main class="layout">
         <aside class="sidebar">
+            <div class="section">
+                <label for="userTeam">Your Team</label>
+                <select id="userTeam"></select>
+            </div>
             </aside>
 
         <section class="content">
-            <section id="scouting" class="view" hidden>
-                <div class="card">
-                    <h2>Upcoming Draft Class (<span id="draftYear"></span>)</h2>
-                    <p class="muted">Spend scouting points to reveal the true potential of these prospects.</p>
-                    <div id="scoutingList" class="scouting-grid"></div>
-                </div>
             </section>
-            
-            <section id="hallOfFame" class="view" hidden>
-                <div class="card">
-                    <h2>Hall of Fame</h2>
-                    <div id="hofList" class="hof-grid"></div>
-                </div>
-            </section>
-        </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
         </div>
     
-    <div id="boxScoreModal" class="modal" hidden>
-        <div class="modal-card">
-            <div class="row">
-                <h3 id="boxScoreTitle">Game Recap</h3>
-                <div class="spacer"></div>
-                <button id="boxScoreClose" class="btn">Close</button>
-            </div>
-            <div id="boxScoreContent" class="box-score-grid"></div>
-        </div>
-    </div>
-
 </body>
 </html>
