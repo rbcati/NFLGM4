@@ -123,32 +123,41 @@ function simPlayoffGame(homeIdx, awayIdx) {
 }
 
 function simulatePlayoffRound() {
-  const P = state.playoffs; if (!P) return;
-  const L = state.league;
-  if (P.round === 'WC' || P.round === 'DIV' || P.round === 'CONF') {
-    const nextWinners = { AFC: [], NFC: [] };
-    ['AFC', 'NFC'].forEach(key => {
-      P.series[key].forEach(g => {
+    const P = state.playoffs; if (!P) return;
+    const L = state.league;
+
+    if (P.round === 'WC' || P.round === 'DIV' || P.round === 'CONF') {
+        const nextWinners = { AFC: [], NFC: [] };
+        ['AFC', 'NFC'].forEach(key => {
+            P.series[key].forEach(g => {
+                const res = simPlayoffGame(g.home, g.away);
+                const winner = res.scoreHome > res.scoreAway ? g.home : g.away;
+                P.results.push(`${L.teams[res.away].abbr} ${res.scoreAway} @ ${L.teams[res.home].abbr} ${res.scoreHome} — ${L.teams[winner].abbr} advance`);
+                nextWinners[key].push(winner);
+            });
+        });
+        P.lastWinners = nextWinners;
+        if (P.round === 'WC') P.round = 'DIV';
+        else if (P.round === 'DIV') P.round = 'CONF';
+        else if (P.round === 'CONF') P.round = 'SB';
+        buildRoundPairings();
+    } else if (P.round === 'SB') {
+        const g = P.series.SB[0];
         const res = simPlayoffGame(g.home, g.away);
-        const winner = res.scoreHome > res.scoreAway ? g.home : g.away;
-        P.results.push(`${L.teams[res.away].abbr} ${res.scoreAway} @ ${L.teams[res.home].abbr} ${res.scoreHome} — ${L.teams[winner].abbr} advance`);
-        nextWinners[key].push(winner);
-      });
-    });
-    P.lastWinners = nextWinners;
-    if (P.round === 'WC') P.round = 'DIV';
-    else if (P.round === 'DIV') P.round = 'CONF';
-    else if (P.round === 'CONF') P.round = 'SB';
-    buildRoundPairings();
-  } else if (P.round === 'SB') {
-    const g = P.series.SB[0];
-    const res = simPlayoffGame(g.home, g.away);
-    const winner = res.scoreHome > res.scoreAway ? g.home : g.away;
-    P.results.push(`Super Bowl: ${L.teams[res.away].abbr} ${res.scoreAway} @ ${L.teams[res.home].abbr} ${res.scoreHome} — Champion ${L.teams[winner].name}`);
-    state.playoffs = null;
-    runOffseason();
-    location.hash = '#/hub';
-    return;
-  }
-  renderPlayoffs();
+        const winnerId = res.scoreHome > res.scoreAway ? g.home : g.away;
+        const winnerTeam = L.teams[winnerId];
+
+        winnerTeam.roster.forEach(player => {
+            player.awards.push({ year: L.year, award: 'Super Bowl Champion' });
+        });
+
+        P.results.push(`Super Bowl: ${L.teams[res.away].abbr} ${res.scoreAway} @ ${L.teams[res.home].abbr} ${res.scoreHome} — Champion ${winnerTeam.name}`);
+        
+        state.playoffs = null;
+        runOffseason();
+        location.hash = '#/hub';
+        return;
+    }
+    
+    renderPlayoffs();
 }
