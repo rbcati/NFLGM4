@@ -323,3 +323,48 @@ window.renderCap = renderCap;
 window.renderPlayoffs = renderPlayoffs;
 window.openOnboard = openOnboard;
 window.closeOnboard = closeOnboard;
+
+function show(route) {
+  // ... (logic to hide/show views)
+  if (route === 'hallOfFame') renderHallOfFame();
+  // ... (other view render calls)
+}
+
+// ...
+
+function renderHallOfFame() {
+    const L = state.league;
+    if (!L) return;
+    const box = $('#hofList');
+    box.innerHTML = '';
+
+    if (L.hallOfFame.length === 0) {
+        box.innerHTML = '<p class="muted">The Hall of Fame is currently empty.</p>';
+        return;
+    }
+
+    L.hallOfFame.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
+        const card = document.createElement('div');
+        card.className = 'hof-card';
+
+        const championships = player.awards.filter(a => a.award === 'Super Bowl Champion').length;
+        
+        card.innerHTML = `
+            <div class="hof-name">${player.name}</div>
+            <div class="hof-details">${player.pos}</div>
+            <div class="hof-career">
+                <strong>Career Highlights:</strong>
+                <div>Pass Yds: ${player.stats.career.passYd || 0}</div>
+                <div>Rush Yds: ${player.stats.career.rushYd || 0}</div>
+                <div>Championships: ${championships}</div>
+            </div>
+        `;
+        box.appendChild(card);
+    });
+}
+
+
+// --- Make functions globally available ---
+// (The full export block at the bottom of the file)
+window.renderHallOfFame = renderHallOfFame;
+// ... (all other window.function assignments)
