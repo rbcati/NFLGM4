@@ -41,6 +41,8 @@ function show(route) {
   if (route === 'trade') renderTradeUI();
   if (route === 'freeagency') renderFreeAgency();
   if (route === 'draft') renderDraft();
+  if (route === 'scouting') renderScouting();
+  if (route === 'hallOfFame') renderHallOfFame();
   if (route === 'settings') {
     const y = (state.league && state.league.year) ? state.league.year : YEAR_START;
     const el = $('#settingsYear');
@@ -131,7 +133,8 @@ function renderHub() {
       const loserScore = g.homeWin ? g.scoreAway : g.scoreHome;
 
       const resultCard = document.createElement('div');
-      resultCard.className = 'result-card';
+      resultCard.className = 'result-card clickable';
+      resultCard.dataset.gameId = g.id;
       resultCard.innerHTML = `
           <div class="game-winner"><strong>${winner.name}</strong> defeated ${loser.name}</div>
           <div class="game-score">${winnerScore} - ${loserScore}</div>
@@ -286,6 +289,82 @@ function renderOffers() { /* Stub for now */ }
 function renderCap() { /* Stub for now */ }
 function renderPlayoffs() { /* Stub for now */ }
 
+function renderScouting() {
+    $('#draftYear').textContent = state.draftClass[0].year;
+    const box = $('#scoutingList');
+    box.innerHTML = '';
+    state.draftClass.forEach(rookie => {
+        const card = document.createElement('div');
+        card.className = 'rookie-card';
+        const ovrDisplay = rookie.scouted ? rookie.ovr : rookie.potentialRange;
+        card.innerHTML = `
+            <div class="rookie-name">${rookie.name}</div>
+            <div class="rookie-details">${rookie.pos} | Age: ${rookie.age}</div>
+            <div class="rookie-potential">Potential: ${ovrDisplay}</div>
+            <button class="btn scout-btn" data-player-id="${rookie.id}" ${rookie.scouted ? 'disabled' : ''}>
+                ${rookie.scouted ? 'Scouted' : 'Scout (1pt)'}
+            </button>
+        `;
+        box.appendChild(card);
+    });
+}
+
+function renderHallOfFame() {
+    const L = state.league;
+    if (!L) return;
+    const box = $('#hofList');
+    box.innerHTML = '';
+
+    if (L.hallOfFame.length === 0) {
+        box.innerHTML = '<p class="muted">The Hall of Fame is currently empty.</p>';
+        return;
+    }
+
+    L.hallOfFame.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
+        const card = document.createElement('div');
+        card.className = 'hof-card';
+        const championships = player.awards.filter(a => a.award === 'Super Bowl Champion').length;
+        card.innerHTML = `
+            <div class="hof-name">${player.name}</div>
+            <div class="hof-details">${player.pos}</div>
+            <div class="hof-career">
+                <strong>Career Highlights:</strong>
+                <div>Pass Yds: ${player.stats.career.passYd || 0}</div>
+                <div>Rush Yds: ${player.stats.career.rushYd || 0}</div>
+                <div>Championships: ${championships}</div>
+            </div>
+        `;
+        box.appendChild(card);
+    });
+}
+
+function showBoxScore(gameId) {
+    const L = state.league;
+    const game = L.resultsByWeek[L.week - 2].find(g => g.id === gameId);
+    if (!game) return;
+
+    const home = L.teams[game.home];
+    const away = L.teams[game.away];
+    
+    $('#boxScoreTitle').textContent = `${away.name} @ ${home.name}`;
+    const content = $('#boxScoreContent');
+    content.innerHTML = `
+        <div>
+            <h4>${away.name} Passing</h4>
+            <p>${away.roster.find(p=>p.stats.game.passYd)?.name || 'N/A'}: ${away.roster.find(p=>p.stats.game.passYd)?.stats.game.passYd || 0} yds, ${away.roster.find(p=>p.stats.game.passTD)?.stats.game.passTD || 0} TD</p>
+            <h4>Rushing</h4>
+            <p>${away.roster.find(p=>p.stats.game.rushYd)?.name || 'N/A'}: ${away.roster.find(p=>p.stats.game.rushYd)?.stats.game.rushYd || 0} yds, ${away.roster.find(p=>p.stats.game.rushTD)?.stats.game.rushTD || 0} TD</p>
+        </div>
+        <div>
+            <h4>${home.name} Passing</h4>
+            <p>${home.roster.find(p=>p.stats.game.passYd)?.name || 'N/A'}: ${home.roster.find(p=>p.stats.game.passYd)?.stats.game.passYd || 0} yds, ${home.roster.find(p=>p.stats.game.passTD)?.stats.game.passTD || 0} TD</p>
+            <h4>Rushing</h4>
+            <p>${home.roster.find(p=>p.stats.game.rushYd)?.name || 'N/A'}: ${home.roster.find(p=>p.stats.game.rushYd)?.stats.game.rushYd || 0} yds, ${home.roster.find(p=>p.stats.game.rushTD)?.stats.game.rushTD || 0} TD</p>
+        </div>
+    `;
+    $('#boxScoreModal').hidden = false;
+}
+
 function openOnboard() {
     const modal = $('#onboardModal'); if (!modal) return;
     modal.hidden = false;
@@ -323,48 +402,6 @@ window.renderCap = renderCap;
 window.renderPlayoffs = renderPlayoffs;
 window.openOnboard = openOnboard;
 window.closeOnboard = closeOnboard;
-
-function show(route) {
-  // ... (logic to hide/show views)
-  if (route === 'hallOfFame') renderHallOfFame();
-  // ... (other view render calls)
-}
-
-// ...
-
-function renderHallOfFame() {
-    const L = state.league;
-    if (!L) return;
-    const box = $('#hofList');
-    box.innerHTML = '';
-
-    if (L.hallOfFame.length === 0) {
-        box.innerHTML = '<p class="muted">The Hall of Fame is currently empty.</p>';
-        return;
-    }
-
-    L.hallOfFame.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
-        const card = document.createElement('div');
-        card.className = 'hof-card';
-
-        const championships = player.awards.filter(a => a.award === 'Super Bowl Champion').length;
-        
-        card.innerHTML = `
-            <div class="hof-name">${player.name}</div>
-            <div class="hof-details">${player.pos}</div>
-            <div class="hof-career">
-                <strong>Career Highlights:</strong>
-                <div>Pass Yds: ${player.stats.career.passYd || 0}</div>
-                <div>Rush Yds: ${player.stats.career.rushYd || 0}</div>
-                <div>Championships: ${championships}</div>
-            </div>
-        `;
-        box.appendChild(card);
-    });
-}
-
-
-// --- Make functions globally available ---
-// (The full export block at the bottom of the file)
+window.renderScouting = renderScouting;
 window.renderHallOfFame = renderHallOfFame;
-// ... (all other window.function assignments)
+window.showBoxScore = showBoxScore;
