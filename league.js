@@ -52,11 +52,14 @@ function makeLeague(teamList) {
     resultsByWeek: {},
     playoffsDone: false,
     champion: null,
-    history: {
-        superBowlWinners: []
+   history: {
+        superBowlWinners: [],
+        awards: {} // Store yearly awards like MVP
     },
     hallOfFame: [],
     news: []
+  };
+
   };
 
   L.schedule = Scheduler.makeAccurateSchedule(L.teams);
