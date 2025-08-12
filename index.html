@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
@@ -28,15 +27,6 @@
     <script src="events.js"></script>
     <script src="main.js"></script>
 
- <!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NFL GM Simulator</title>
-    <link rel="stylesheet" href="style.css" />
-</head>
-<body>
     <header class="topbar" role="navigation">
         <div class="brand">NFL GM</div>
         <nav id="site-nav" class="nav-pills" aria-label="Primary">
@@ -50,22 +40,9 @@
             <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
         </nav>
         <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-            </button>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
     </header>
-
-    <main class="layout">
-        <aside class="sidebar">
-            </aside>
-
-        <section class="content">
-            <section id="hallOfFame" class="view" hidden>
-                <div class="card">
-                    <h2>Hall of Fame</h2>
-                    <div id="hofList" class="hof-grid">
-                        </div>
-                </div>
-            </section>
-        </section>
 
     <main class="layout">
         <aside class="sidebar">
@@ -76,8 +53,6 @@
             <div class="section">
               <div>Season <span id="seasonNow"></span></div>
               <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
-              <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
-              <div class="muted small">Room: <span id="capRoom"></span></div>
             </div>
             <div class="section">
                 <button id="btnSave" class="btn">Save</button>
@@ -88,69 +63,15 @@
         </aside>
 
         <section class="content">
-            <section id="hub" class="view">
-              <div class="card">
-                <div class="row"><h2>League Hub</h2><div class="spacer"></div><div class="muted">Season <span id="hubSeason"></span></div></div>
-                <div class="grid two">
-                  <div>
-                    <div>Week <span id="hubWeek"></span> of <span id="hubWeeks"></span></div>
-                    <div>Games this week: <span id="hubGames"></span></div>
-                    <div class="actions mt"><button id="btnSimWeek" class="btn primary">Simulate Week</button></div>
-                  </div>
-                  <div><h3>Power Ranking</h3><ol id="hubPower"></ol></div>
-                </div>
-              </div>
-              <div class="card"><h3>Last Week Results</h3><div id="hubResults" class="list"></div></div>
             </section>
-            <section id="roster" class="view" hidden>
-              <div class="card">
-                <div class="row"><h2 id="rosterTitle">Roster</h2><div class="spacer"></div><label for="rosterTeam">Team</label><select id="rosterTeam"></select></div>
-                <table class="table" id="rosterTable"></table>
-              </div>
-            </section>
-            <section id="standings" class="view" hidden>
-                <div class="card">
-                    <h2>Standings</h2>
-                    <div id="standingsWrap"></div>
-                </div>
-            </section>
-            <section id="settings" class="view" hidden>
-                <div class="card">
-                    <h2>Settings</h2>
-                    <div class="row"><label class="row"><input type="radio" name="settingsNamesMode" value="fictional"> Fictional names</label><label class="row"><input type="radio" name="settingsNamesMode" value="real"> Real names</label><div class="spacer"></div><button id="btnApplyNamesMode" class="btn">Apply</button></div>
-                </div>
-            </section>
-            <section id="trade" class="view" hidden>
-                <div class="card">
-                    <h2>Trade Center</h2>
-                    <div class="grid two">
-                        <div><label for="tradeA">Team A</label><select id="tradeA"></select><div id="tradeListA" class="list"></div><div id="pickListA" class="list"></div></div>
-                        <div><label for="tradeB">Team B</label><select id="tradeB"></select><div id="tradeListB" class="list"></div><div id="pickListB" class="list"></div></div>
-                    </div>
-                    <div class="row mt"><button id="tradeValidate" class="btn">Validate</button><div class="spacer"></div><div id="tradeInfo"></div><div class="spacer"></div><button id="tradeExecute" class="btn primary" disabled>Execute</button></div>
-                </div>
-            </section>
-            <section id="freeagency" class="view" hidden>
-                <div class="card">
-                    <h2>Free Agency</h2>
-                    <table class="table" id="faTable"></table>
-                </div>
-            </section>
-            <section id="draft" class="view" hidden>
-                <div class="card">
-                    <div class="row"><h2>Draft Picks</h2><div class="spacer"></div><label for="draftTeam">Team</label><select id="draftTeam"></select></div>
-                    <div id="draftPicks" class="list"></div>
-                </div>
-            </section>
-        </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
       <div class="modal-card">
         <h3>Start New League</h3>
-        <div><label><input type="radio" name="namesMode" value="fictional" checked> Fictional names</label><label><input type="radio" name="namesMode" value="real"> Real names</label></div>
-        <div><label for="onboardTeam">Choose your team</label><select id="onboardTeam"></select><button id="onboardRandom" class="btn">Random</button></div>
-        <div><button id="onboardStart" class="btn primary">Start Season</button></div>
+        <div><label><input type="radio" name="namesMode" value="fictional" checked> Fictional</label> <label><input type="radio" name="namesMode" value="real"> Real</label></div>
+        <div class="mt"><label for="onboardTeam">Choose your team</label><select id="onboardTeam"></select><button id="onboardRandom" class="btn">Random</button></div>
+        <div class="mt"><button id="onboardStart" class="btn primary">Start Season</button></div>
       </div>
     </div>
 </body>
