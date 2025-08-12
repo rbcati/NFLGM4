@@ -1,4 +1,4 @@
-/// events.js
+// events.js
 'use strict';
 
 function setupEventListeners() {
@@ -24,15 +24,13 @@ function setupEventListeners() {
       const chosenMode = ($('input[name=namesMode]:checked') || {}).value || 'fictional';
       const teamIdx = parseInt($('#onboardTeam').value || '0', 10);
       
-      // **THE FIX:** Remember the chosen team ID in our global state
       state.userTeamId = teamIdx;
-
       state.namesMode = chosenMode;
       state.league = makeLeague(listByMode(chosenMode));
       state.onboarded = true;
       
       fillTeamSelect($('#userTeam'));
-      $('#userTeam').value = String(teamIdx); // Set the dropdown to the chosen team
+      $('#userTeam').value = String(teamIdx);
       
       rebuildTeamLabels(chosenMode);
       closeOnboard();
