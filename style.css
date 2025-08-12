@@ -159,4 +159,29 @@ html, body {
 .hof-name { font-size: 1.2rem; font-weight: 600; }
 .hof-details { color: var(--text-muted); margin-bottom: 12px; }
 .hof-career { font-size: 0.9rem; }                 
-                          }
+                        /* --- Modal Styles --- */
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6); /* Semi-transparent overlay */
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+}
+
+.modal-card {
+  /* This gives the modal its own solid background */
+  background: var(--bg);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--space-10);
+  box-shadow: var(--shadow-3);
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}  }
