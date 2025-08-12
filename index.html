@@ -7,7 +7,6 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
@@ -98,6 +97,7 @@
             <section id="scouting" class="view" hidden>
                 <div class="card">
                     <h2>Upcoming Draft Class (<span id="draftYear"></span>)</h2>
+                    <p class="muted">Spend scouting points to reveal the true potential of these prospects.</p>
                     <div id="scoutingList" class="scouting-grid"></div>
                 </div>
             </section>
@@ -109,6 +109,12 @@
             </section>
             <section id="trade" class="view" hidden>
               <div class="card"><h2>Trade Center</h2><div class="grid two"><div><label for="tradeA">Team A</label><select id="tradeA"></select><div id="tradeListA" class="list"></div><div id="pickListA" class="list"></div></div><div><label for="tradeB">Team B</label><select id="tradeB"></select><div id="tradeListB" class="list"></div><div id="pickListB" class="list"></div></div></div><div class="row mt"><button id="tradeValidate" class="btn">Validate</button><div id="tradeInfo" class="spacer"></div><button id="tradeExecute" class="btn primary" disabled>Execute</button></div></div>
+            </section>
+            <section id="freeagency" class="view" hidden>
+                <div class="card">
+                  <div class="row"><h2>Free Agency</h2><div class="spacer"></div><label for="faTeam">Sign to</label><select id="faTeam"></select></div>
+                  <table class="table" id="faTable"></table>
+                </div>
             </section>
         </section>
     </main>
