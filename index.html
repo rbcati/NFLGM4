@@ -14,7 +14,8 @@
     <script src="state.js"></script>
     <script src="ui.js"></script>
     <script src="player.js"></script>
-    <script src="staff.js"></script> <script src="rookies.js"></script>
+    <script src="staff.js"></script>
+    <script src="rookies.js"></script>
     <script src="cap.js"></script>
     <script src="picks.js"></script>
     <script src="schedule.js"></script>
@@ -30,7 +31,22 @@
     <script src="main.js"></script>
 
     <header class="topbar" role="navigation">
-        </header>
+        <div class="brand">NFL GM</div>
+        <nav id="site-nav" class="nav-pills" aria-label="Primary">
+            <a href="#/hub" class="nav-pill" data-view="hub">Home</a>
+            <a href="#/roster" class="nav-pill" data-view="roster">Roster</a>
+            <a href="#/trade" class="nav-pill" data-view="trade">Trades</a>
+            <a href="#/standings" class="nav-pill" data-view="standings">Standings</a>
+            <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
+            <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
+            <a href="#/scouting" class="nav-pill" data-view="scouting">Scouting</a>
+            <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
+            <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
+        </nav>
+        <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+    </header>
 
     <main class="layout">
         <aside class="sidebar">
@@ -38,14 +54,64 @@
                 <label for="userTeam">Your Team</label>
                 <select id="userTeam"></select>
             </div>
-            </aside>
+            <div class="section">
+              <div>Season <span id="seasonNow"></span></div>
+              <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
+              <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
+              <div class="muted small">Room: <span id="capRoom"></span></div>
+            </div>
+            <div class="section">
+                <button id="btnSave" class="btn">Save</button>
+                <button id="btnLoad" class="btn">Load</button>
+                <button id="btnNewLeague" class="btn danger">New League</button>
+            </div>
+            <div id="statusMsg" class="section muted"></div>
+        </aside>
 
         <section class="content">
+            <section id="hub" class="view">
+              <div class="card">
+                <div class="row"><h2>League Hub</h2><div class="spacer"></div><div class="muted">Season <span id="hubSeason"></span></div></div>
+                <div class="grid two">
+                  <div>
+                    <div>Week <span id="hubWeek"></span> of <span id="hubWeeks"></span></div>
+                    <div>Games this week: <span id="hubGames"></span></div>
+                    <div class="actions mt"><button id="btnSimWeek" class="btn primary">Simulate Week</button></div>
+                  </div>
+                  <div><h3>Power Ranking</h3><ol id="hubPower"></ol></div>
+                </div>
+              </div>
+              <div class="card"><h3>Last Week Results</h3><div id="hubResults" class="list"></div></div>
+            </section>
+            <section id="roster" class="view" hidden>
+              <div class="card">
+                <div class="row"><h2 id="rosterTitle">Roster</h2><div class="spacer"></div><label for="rosterTeam">Team</label><select id="rosterTeam"></select></div>
+                <table class="table" id="rosterTable"></table>
+              </div>
+            </section>
+            <section id="standings" class="view" hidden>
+                <div class="card">
+                    <h2>Standings</h2>
+                    <div id="standingsWrap"></div>
+                </div>
+            </section>
+            <section id="scouting" class="view" hidden>
+                <div class="card">
+                    <h2>Upcoming Draft Class (<span id="draftYear"></span>)</h2>
+                    <p class="muted">Spend scouting points to reveal the true potential of these prospects.</p>
+                    <div id="scoutingList" class="scouting-grid"></div>
+                </div>
+            </section>
+            <section id="hallOfFame" class="view" hidden>
+                <div class="card">
+                    <h2>Hall of Fame</h2>
+                    <div id="hofList" class="hof-grid"></div>
+                </div>
+            </section>
             </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
         </div>
-    
 </body>
 </html>
