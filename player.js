@@ -16,7 +16,7 @@ function makePlayer(pos) {
     id: U.id(),
     name: U.choice(FIRST_NAMES) + ' ' + U.choice(LAST_NAMES),
     pos: pos,
-    age: U.rand(21,34),
+    age: U.rand(21, 34),
     speed, strength, agility, awareness, ovr,
     years, yearsTotal: years,
     baseAnnual, signingBonus,
@@ -24,8 +24,10 @@ function makePlayer(pos) {
     injuryWeeks: 0,
     fatigue: 0,
     abilities: [],
-    stats: { game: {}, season: {}, career: {} }, // Tracks stats for current game, season, and career
-    history: [],   awards: [] // Will store a snapshot of each completed season
+    // **THE FIX:** Every new player is now created with these objects ready to go.
+    stats: { game: {}, season: {}, career: {} },
+    history: [],
+    awards: []
   };
 }
 
