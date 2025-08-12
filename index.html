@@ -98,7 +98,6 @@
             <section id="scouting" class="view" hidden>
                 <div class="card">
                     <h2>Upcoming Draft Class (<span id="draftYear"></span>)</h2>
-                    <p class="muted">Spend scouting points to reveal the true potential of these prospects.</p>
                     <div id="scoutingList" class="scouting-grid"></div>
                 </div>
             </section>
@@ -108,10 +107,19 @@
                     <div id="hofList" class="hof-grid"></div>
                 </div>
             </section>
+            <section id="trade" class="view" hidden>
+              <div class="card"><h2>Trade Center</h2><div class="grid two"><div><label for="tradeA">Team A</label><select id="tradeA"></select><div id="tradeListA" class="list"></div><div id="pickListA" class="list"></div></div><div><label for="tradeB">Team B</label><select id="tradeB"></select><div id="tradeListB" class="list"></div><div id="pickListB" class="list"></div></div></div><div class="row mt"><button id="tradeValidate" class="btn">Validate</button><div id="tradeInfo" class="spacer"></div><button id="tradeExecute" class="btn primary" disabled>Execute</button></div></div>
             </section>
+        </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
-        </div>
+      <div class="modal-card">
+        <h3>Start New League</h3>
+        <div><label><input type="radio" name="namesMode" value="fictional" checked> Fictional</label> <label><input type="radio" name="namesMode" value="real"> Real</label></div>
+        <div class="mt"><label for="onboardTeam">Choose your team</label><select id="onboardTeam"></select><button id="onboardRandom" class="btn">Random</button></div>
+        <div class="mt"><button id="onboardStart" class="btn primary">Start Season</button></div>
+      </div>
+    </div>
 </body>
 </html>
