@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
@@ -63,7 +64,29 @@
         </aside>
 
         <section class="content">
+            <section id="hub" class="view">
+              <div class="card">
+                <div class="row"><h2>League Hub</h2><div class="spacer"></div><div class="muted">Season <span id="hubSeason"></span></div></div>
+                <div class="grid two">
+                  <div>
+                    <div>Week <span id="hubWeek"></span> of <span id="hubWeeks"></span></div>
+                    <div>Games this week: <span id="hubGames"></span></div>
+                    <div class="actions mt"><button id="btnSimWeek" class="btn primary">Simulate Week</button></div>
+                  </div>
+                  <div><h3>Power Ranking</h3><ol id="hubPower"></ol></div>
+                </div>
+              </div>
+              <div class="card"><h3>Last Week Results</h3><div id="hubResults" class="list"></div></div>
             </section>
+            
+            <section id="roster" class="view" hidden></section>
+            <section id="standings" class="view" hidden></section>
+            <section id="trade" class="view" hidden></section>
+            <section id="freeagency" class="view" hidden></section>
+            <section id="draft" class="view" hidden></section>
+            <section id="settings" class="view" hidden></section>
+            <section id="hallOfFame" class="view" hidden></section>
+        </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
