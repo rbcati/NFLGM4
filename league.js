@@ -25,20 +25,26 @@ function makeLeague(teamList) {
     });
     roster.sort((a, b) => b.ovr - a.ovr);
 
-    const team = {
+      const team = {
       id: idx,
-      abbr, name, conf, div,
+      abbr: t.abbr || t[0],
+      name: t.name || t[1],
+      conf: typeof t.conf === 'number' ? t.conf : Math.floor(idx / 16),
+      div: typeof t.div === 'number' ? t.div : Math.floor((idx % 16) / 4),
       rating: U.rand(70, 88),
-      roster,
+      roster: [], // Roster is populated below
+      // **THE UPGRADE:** Each team now gets a full staff
+      staff: generateInitialStaff(),
       record: {w:0, l:0, t:0, pf:0, pa:0, streak:0, divW:0, divL:0, homeW:0, homeL:0, awayW:0, awayL:0},
       capBook: {},
       deadCapBook: {},
       capRollover: 0,
       capTotal: C.CAP_BASE,
       picks: [],
-      strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0, coachSkill: Math.random() * 0.4 + 0.6 }
+      strategy: { passBias: 0.5, tempo: 1.0, aggression: 1.0 } // Coach skill is now on the coach
     };
 
+    
     seedTeamPicks(team, 1, C.YEARS_OF_PICKS || 3);
     return team;
   });
