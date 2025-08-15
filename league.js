@@ -77,3 +77,17 @@ function makeLeague(teamList) {
 
 // Make the function globally available to other scripts
 window.makeLeague = makeLeague;
+// ADD: After makeLeague function (~line 60)
+class Team {
+    constructor(data) {
+        this.rosterMap = new Map(); // id -> player for O(1) lookups
+        this.roster = [];
+    }
+    addPlayer(player) {
+        this.roster.push(player);
+        this.rosterMap.set(player.id, player);
+    }
+    findPlayer(id) {
+        return this.rosterMap.get(id); // O(1) instead of O(n)
+    }
+}
