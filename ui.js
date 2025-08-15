@@ -5,12 +5,12 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-class UIManager {
-    static showLoading(message = 'Loading...') {
-        const loader = document.createElement('div');
-        loader.className = 'loading-overlay';
 // Team name mode helper
 function listByMode(mode) {
+  if (!window.Teams) {
+    console.error("Teams data has not loaded yet!");
+    return [];
+  }
   const T = window.Teams;
   const real = T.TEAM_META_REAL || [];
   const fict = T.TEAM_META_FICTIONAL || [];
@@ -61,8 +61,7 @@ function setStatus(msg) {
   setTimeout(() => { el.textContent = ''; }, 2000);
 }
 
-function fillTeamSelect(sel) { 
-  if (sel.dataset.cached === L.season) return;
+function fillTeamSelect(sel) {
   if (!state.league || !sel) return;
   const L = state.league;
   const C = window.Constants;
@@ -160,12 +159,6 @@ function updateCapSidebar() {
   $('#capRoom').textContent = `${(t.capTotal - t.capUsed).toFixed(1)} M`;
 }
 
-
-
-  // ui.js
-
-// ... (other functions)
-
 function renderRoster() {
   const L = state.league;
   if (!L) return;
@@ -180,50 +173,17 @@ function renderRoster() {
 
   $('#rosterTitle').textContent = `Roster — ${tm.name} (${tm.abbr})`;
   const tbl = $('#rosterTable');
-  tbl.innerHTML = '<thead><tr><th></th><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Cap Hit</th><th>Years</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Cap Hit</th><th>Years</th></tr></thead>';
   const tb = document.createElement('tbody');
   tm.roster.sort((a,b) => b.ovr - a.ovr).forEach(p => {
-    // **THE UPGRADE:** Check if the player can be controlled by the user's current role.
-    const isOffensive = Constants.OFFENSIVE_POSITIONS.includes(p.pos);
-    const canControl = state.playerRole === 'GM' || 
-                       (state.playerRole === 'OC' && isOffensive) || 
-                       (state.playerRole === 'DC' && !isOffensive);
-    const disabledAttribute = canControl ? '' : 'disabled';
-
     const cap = capHitFor(p, 0);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td><input type="checkbox" data-player-id="${p.id}" ${disabledAttribute}></td><td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td><td>${cap.toFixed(1)}M</td><td>${p.years}</td>`;
+    tr.innerHTML = `<td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td><td>${cap.toFixed(1)}M</td><td>${p.years}</td>`;
     tb.appendChild(tr);
   });
   tbl.appendChild(tb);
   updateCapSidebar();
 }
-
-function renderFreeAgency() {
-  ensureFA();
-  const L = state.league;
-  const tbl = $('#faTable');
-  tbl.innerHTML = '<thead><tr><th></th><th>Name</th><th>POS</th><th>OVR</th><th>Age</th></tr></thead>';
-  const tb = document.createElement('tbody');
-  state.freeAgents.forEach((p, i) => {
-    // **THE UPGRADE:** Check if the player can be signed by the user's current role.
-    const isOffensive = Constants.OFFENSIVE_POSITIONS.includes(p.pos);
-    const canControl = state.playerRole === 'GM' || 
-                       (state.playerRole === 'OC' && isOffensive) || 
-                       (state.playerRole === 'DC' && !isOffensive);
-    const disabledAttribute = canControl ? '' : 'disabled title="Your role cannot sign this player."';
-
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td><input type="radio" name="fa" value="${i}" ${disabledAttribute}></td><td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td>`;
-    tb.appendChild(tr);
-  });
-  tbl.appendChild(tb);
-
-  // ... (rest of the function remains the same)
-}
-
-// ... (other functions and window exports)
-
 
 function renderStandings() {
     const L = state.league;
@@ -332,6 +292,7 @@ function renderSchedule() { /* Stub for now */ }
 function renderOffers() { /* Stub for now */ }
 function renderCap() { /* Stub for now */ }
 function renderPlayoffs() { /* Stub for now */ }
+function renderFreeAgency() { /* Stub for now */ }
 
 function renderScouting() {
     $('#draftYear').textContent = state.draftClass[0].year;
@@ -353,9 +314,7 @@ function renderScouting() {
     });
 }
 
-function renderHallOfFame() { 
-     const sortBy = $('#hofSort')?.value || 'name';
-    const filtered = filterHOF(L.hallOfFame, filters);
+function renderHallOfFame() {
     const L = state.league;
     if (!L) return;
     const box = $('#hofList');
@@ -411,52 +370,25 @@ function showBoxScore(gameId) {
     $('#boxScoreModal').hidden = false;
 }
 
-
-function closeOnboard() {
-    const modal = $('#onboardModal');
-    if (modal) modal.hidden = true;
-}
-// Replace the existing openOnboard function (around line 200):
-
 function openOnboard() {
-    const modal = $('#onboardModal');
-    if (!modal) return;
-    
+    const modal = $('#onboardModal'); if (!modal) return;
     modal.hidden = false;
-    
-    // Make sure we have a default names mode
-    if (!state.namesMode) {
-        state.namesMode = 'fictional';
-    }
-    
-    // Set the radio button to match current state
-    const radioToCheck = $(`input[name="namesMode"][value="${state.namesMode}"]`);
-    if (radioToCheck) {
-        radioToCheck.checked = true;
-    }
-    
-    // Populate the team dropdown
     const sel = $('#onboardTeam');
     if (!sel) return;
-    
     sel.innerHTML = '';
-    const teams = listByMode(state.namesMode);
-    
-    if (!teams || teams.length === 0) {
-        console.error('No teams found for mode:', state.namesMode);
-        return;
-    }
-    
-    teams.forEach((t, i) => {
+    listByMode(state.namesMode).forEach((t, i) => {
         const opt = document.createElement('option');
         opt.value = String(i);
         opt.textContent = `${t.abbr} — ${t.name}`;
         sel.appendChild(opt);
     });
-    
-    // Set a default selection
-    sel.value = '0';
 }
+
+function closeOnboard() {
+    const modal = $('#onboardModal');
+    if (modal) modal.hidden = true;
+}
+
 // --- Make functions globally available ---
 window.show = show;
 window.setStatus = setStatus;
@@ -478,3 +410,5 @@ window.closeOnboard = closeOnboard;
 window.renderScouting = renderScouting;
 window.renderHallOfFame = renderHallOfFame;
 window.showBoxScore = showBoxScore;
+window.renderFreeAgency = renderFreeAgency;
+window.renderDraft = renderDraft;
