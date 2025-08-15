@@ -10,3 +10,28 @@
 
   global.Utils = { rand, choice, clamp, id, avg, pct };
 })(window);
+function generateChecksum(obj) {
+    const str = JSON.stringify(obj);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash;
+    }
+    return hash.toString(36);
+}
+
+function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
+}
+
+function throttle(func, delay) {
+    let timeoutId;
+    let lastExecTime = 0;
+    return function (...args) {
+        const currentTime = Date.now();
+        if (currentTime - lastExecTime > delay) {
+            func.apply(this, args);
+            lastExecTime = currentTime;
+        }
+    };
+}
