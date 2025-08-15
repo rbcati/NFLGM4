@@ -12,8 +12,13 @@ function seedTeamPicks(team, startSeason, count) {
 }
 
 function pickValue(pick) {
+  const TRADE_VALUE_CHART = {
+    1: { 1: 3000, 2: 2600, 3: 2200 /* ... */ },
+    2: { 1: 1800, 2: 1600, 3: 1400 /* ... */ },
   const base = { 1: 25, 2: 15, 3: 8, 4: 5, 5: 3, 6: 2, 7: 1 }[pick.round] || 1;
   const yearsOut = pick.year - state.league.season;
   const discount = Math.pow(0.8, yearsOut);
   return base * discount;
+                function getPickValue(round, pick) {
+    return TRADE_VALUE_CHART[round]?.[pick] || 1;
 }
