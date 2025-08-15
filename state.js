@@ -6,7 +6,7 @@ const SAVE_KEY = 'nflGM4.league';
 const routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame'];
 
 // State object
-let state = {
+const state = new GameState();
   league: null,
   freeAgents: [],
   playoffs: null,
@@ -16,8 +16,16 @@ let state = {
   trainingPlan: null,
   userTeamId: 0
 };
+// ADD: Proper state management class (new addition to file)
+class GameState {
+    constructor() {
+        this.listeners = new Set();
+        this.state = { /* existing state object */ };
+    }
+    setState(updates) { /* ... */ }
+    subscribe(callback) { /* ... */ }
+}
 
-// **THE FIX: Massively expanded name banks for huge variety**
 const FIRST_NAMES = [
   'James', 'Michael', 'John', 'Robert', 'David', 'William', 'Richard', 'Joseph', 'Thomas', 'Christopher',
   'Charles', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Steven', 'Donald', 'Andrew', 'Joshua', 'Paul',
