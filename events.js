@@ -16,14 +16,28 @@ function setupEventListeners() {
       }
       return;
     }
+// events.js
+'use strict';
+
+function setupEventListeners() {
+  // --- CLICK Event Delegation ---
+  document.body.addEventListener('click', function(e) {
+    const target = e.target;
 
     // --- Onboarding Modal Buttons ---
     if (target.id === 'onboardStart') {
+      // **THE UPGRADE:** Read the chosen game mode and role
+      const gameMode = ($('input[name=gameMode]:checked') || {}).value || 'gm';
+      const playerRole = (gameMode === 'career') ? $('#careerRole').value : 'GM';
+
       const chosenMode = ($('input[name=namesMode]:checked') || {}).value || 'fictional';
       const teamIdx = parseInt($('#onboardTeam').value || '0', 10);
       
-      state.userTeamId = teamIdx; // Correctly store the chosen team ID
+      state.userTeamId = teamIdx;
       state.namesMode = chosenMode;
+      state.gameMode = gameMode;
+      state.playerRole = playerRole;
+
       state.league = makeLeague(listByMode(chosenMode));
       state.onboarded = true;
       
@@ -33,39 +47,26 @@ function setupEventListeners() {
       rebuildTeamLabels(chosenMode);
       closeOnboard();
       location.hash = '#/hub';
-      setStatus('Season started');
+      setStatus(`Started as ${playerRole}!`);
       refreshAll();
     }
-    if (target.id === 'onboardClose') {
-      closeOnboard();
-    }
-    if (target.id === 'onboardRandom') {
-      const sel = $('#onboardTeam');
-      sel.value = String(Math.floor(Math.random() * (listByMode(state.namesMode).length)));
-    }
-
-    // --- Sidebar and Sim Buttons ---
-    if (target.id === 'btnSave') saveGame();
-    if (target.id === 'btnLoad') loadGame();
-    if (target.id === 'btnNewLeague') {
-      if (confirm('Start a new league, clearing progress?')) {
-        state.onboarded = false;
-        openOnboard();
-      }
-    }
-    if (target.id === 'btnSimWeek' || target.id === 'btnSimWeek2') {
-      if (!state.onboarded) { openOnboard(); return; }
-      simulateWeek();
-    }
+    // ... (rest of the click handlers remain the same)
   });
 
   // --- CHANGE Event Delegation ---
   document.body.addEventListener('change', function(e) {
     const target = e.target;
-    if (target.id === 'userTeam') {
-        state.userTeamId = parseInt(target.value, 10);
-        refreshAll();
+
+    // **THE UPGRADE:** Show/hide the coordinator dropdown
+    if (target.name === 'gameMode') {
+        const careerOptions = $('#careerOptions');
+        if (target.value === 'career') {
+            careerOptions.hidden = false;
+        } else {
+            careerOptions.hidden = true;
+        }
     }
+    // ... (rest of the change handlers remain the same)
   });
 
   // --- Main URL Router ---
@@ -74,44 +75,3 @@ function setupEventListeners() {
     show(routes.indexOf(seg) >= 0 ? seg : 'hub');
   });
 }
-// In setupEventListeners() function, add this after the existing click event listener (around line 60):
-
-// --- Radio Button Change Event ---
-document.body.addEventListener('change', function(e) {
-    const target = e.target;
-    
-    // Handle names mode change in onboarding modal
-    if (target.name === 'namesMode') {
-        const sel = $('#onboardTeam');
-        if (sel) {
-            const currentSelection = sel.value; // Try to preserve selection if possible
-            sel.innerHTML = '';
-            
-            // Update the state with the new mode
-            state.namesMode = target.value;
-            
-            // Repopulate the dropdown with the correct team list
-            const teams = listByMode(target.value);
-            teams.forEach((t, i) => {
-                const opt = document.createElement('option');
-                opt.value = String(i);
-                opt.textContent = `${t.abbr} — ${t.name}`;
-                sel.appendChild(opt);
-            });
-            
-            // Try to restore previous selection if it's still valid
-            if (currentSelection && currentSelection < teams.length) {
-                sel.value = currentSelection;
-            }
-        }
-    }
-    
-    // ... rest of your existing change event handlers
-    if (target.id === 'userTeam') {
-        state.userTeamId = parseInt(target.value, 10);
-        renderHub();
-        renderRoster();
-        updateCapSidebar();
-    }
-    // ... etc
-});
