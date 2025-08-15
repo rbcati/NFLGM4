@@ -1,12 +1,13 @@
 // state.js
 'use strict';
-// App constants from script.js
+
+// App constants
 const YEAR_START = 2025;
 const SAVE_KEY = 'nflGM4.league';
-const routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame'];
+const routes = ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame', 'scouting'];
 
 // State object
-const state = new GameState();
+let state = {
   league: null,
   freeAgents: [],
   playoffs: null,
@@ -14,17 +15,13 @@ const state = new GameState();
   onboarded: false,
   pendingOffers: [],
   trainingPlan: null,
-  userTeamId: 0
+  userTeamId: 0,
+  draftClass: [], // Holds the generated scoutable rookies
+  // **THE UPGRADE:** New properties to track career mode
+  gameMode: 'gm', // 'gm' or 'career'
+  playerRole: 'GM' // 'GM', 'OC', or 'DC'
 };
-// ADD: Proper state management class (new addition to file)
-class GameState {
-    constructor() {
-        this.listeners = new Set();
-        this.state = { /* existing state object */ };
-    }
-    setState(updates) { /* ... */ }
-    subscribe(callback) { /* ... */ }
-}
+
 
 const FIRST_NAMES = [
   'James', 'Michael', 'John', 'Robert', 'David', 'William', 'Richard', 'Joseph', 'Thomas', 'Christopher',
