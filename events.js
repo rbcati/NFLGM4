@@ -3,7 +3,6 @@
 
 function setupEventListeners() {
   // --- CLICK Event Delegation ---
-  // This single, powerful listener handles all clicks on the page
   document.body.addEventListener('click', function(e) {
     const target = e.target;
 
@@ -23,7 +22,7 @@ function setupEventListeners() {
       const chosenMode = ($('input[name=namesMode]:checked') || {}).value || 'fictional';
       const teamIdx = parseInt($('#onboardTeam').value || '0', 10);
       
-      state.userTeamId = teamIdx;
+      state.userTeamId = teamIdx; // Correctly store the chosen team ID
       state.namesMode = chosenMode;
       state.league = makeLeague(listByMode(chosenMode));
       state.onboarded = true;
@@ -58,26 +57,6 @@ function setupEventListeners() {
       if (!state.onboarded) { openOnboard(); return; }
       simulateWeek();
     }
-    
-    // --- Box Score Modal ---
-    const resultCard = target.closest('.result-card');
-    if(resultCard && resultCard.dataset.gameId) {
-        showBoxScore(resultCard.dataset.gameId);
-    }
-    if(target.id === 'boxScoreClose') {
-        $('#boxScoreModal').hidden = true;
-    }
-
-    // --- Scouting ---
-    const scoutBtn = target.closest('.scout-btn');
-    if (scoutBtn && !scoutBtn.disabled) {
-        const playerId = scoutBtn.dataset.playerId;
-        const rookie = state.draftClass.find(r => r.id === playerId);
-        if (rookie) {
-            rookie.scouted = true;
-            renderScouting(); // Re-render to show the revealed OVR
-        }
-    }
   });
 
   // --- CHANGE Event Delegation ---
@@ -87,13 +66,6 @@ function setupEventListeners() {
         state.userTeamId = parseInt(target.value, 10);
         refreshAll();
     }
-    if (target.id === 'rosterTeam' || target.id === 'draftTeam') {
-        const view = location.hash.replace('#/', '');
-        show(view);
-    }
-    if (target.id === 'tradeA' || target.id === 'tradeB') {
-        renderTradeLists();
-    }
   });
 
   // --- Main URL Router ---
@@ -101,7 +73,4 @@ function setupEventListeners() {
     const seg = location.hash.replace('#/', '') || 'hub';
     show(routes.indexOf(seg) >= 0 ? seg : 'hub');
   });
-  
-// IMPROVEMENT: Add cleanup for event listeners
-const clickHandler = new WeakMap(); // Store handlers for cleanup
 }
