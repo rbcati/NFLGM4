@@ -2,6 +2,12 @@
 'use strict';
 
 function checkHOFEligibility(player) {
+        const criteria = {
+        minYears: 5,
+        statsThresholds: {
+            QB: { passYd: 30000, passTD: 200 },
+            RB: { rushYd: 8000, rushTD: 60 },
+            WR: { recYd: 10000, recTD: 65 }
     let legacyScore = 0;
     // Simple scoring: 1 point for every 1000 passing yards, 5 for a championship, etc.
     const career = player.stats.career;
@@ -43,7 +49,12 @@ function handleRetirementsAndHOF(league) {
     });
 }
 
-function runOffseason() {
+function runOffseason() {  
+    conductDraft(L);
+    processRetirements(L);
+    renewContracts(L);
+    generateRookies(L);
+}
   const L = state.league;
   const U = window.Utils;
 
