@@ -13,6 +13,10 @@ function calculateOvr(pos, ratings) {
 }
 
 function makePlayer(pos) {
+       const positionProfiles = {
+        'QB': { speed: [50, 90], strength: [60, 85], awareness: [70, 95] },
+        'WR': { speed: [80, 99], strength: [50, 85], awareness: [60, 90] },
+        'OL': { speed: [40, 65], strength: [85, 99], awareness: [70, 90] }
   const U = window.Utils;
   
   // Generate a full spectrum of detailed ratings
@@ -69,7 +73,13 @@ function makePlayer(pos) {
 function tagAbilities(p) {
     p.abilities = []; // Reset abilities
     const r = p.ratings;
-
+    
+function developPlayer(player, age) {
+    // Young players improve, older decline
+    const peak = { QB: 28, RB: 25, WR: 27, OL: 29 };
+    const ageDiff = age - peak[player.pos];
+    // ... development logic
+    
     // QB Abilities
     if (p.pos === 'QB') {
         if (r.throwPower > 95) p.abilities.push('Cannon Arm');
