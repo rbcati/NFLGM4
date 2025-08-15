@@ -3,7 +3,32 @@
   'use strict';
   
   const POSITIONS = ["QB","RB","WR","TE","OL","DL","LB","CB","S","K","P"];
+  // constants.js
+(function (global) {
+  'use strict';
   
+  const POSITIONS = ["QB","RB","WR","TE","OL","DL","LB","CB","S","K","P"];
+  
+  // **THE UPGRADE:** We now have a clear definition for each side of the ball.
+  const OFFENSIVE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'K'];
+  const DEFENSIVE_POSITIONS = ['DL', 'LB', 'CB', 'S', 'P'];
+
+  // ... (the rest of your constants like OVR_WEIGHTS, SCHEMES, etc., remain the same)
+
+  global.Constants = { 
+    POSITIONS, 
+    OFFENSIVE_POSITIONS, 
+    DEFENSIVE_POSITIONS,
+    OVR_WEIGHTS, 
+    OFFENSIVE_SCHEMES, 
+    DEFENSIVE_SCHEMES, 
+    CAP_BASE, 
+    YEARS_OF_PICKS, 
+    CONF_NAMES, 
+    DIV_NAMES 
+  };
+})(window);
+
   // Defines which new, detailed stats are most important for each position's OVR rating
   const OVR_WEIGHTS = {
     QB: { throwPower: 0.2, throwAccuracy: 0.3, awareness: 0.3, speed: 0.1, intelligence: 0.1 },
