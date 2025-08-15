@@ -160,4 +160,11 @@ function simulatePlayoffRound() {
     }
     
     renderPlayoffs();
+  function runOffseason() {
+    // Currently in offseason.js but should be called here
+    handleRetirementsAndHOF(L);
+    handleDraft(L);
+    handleFreeAgency(L);
+    // Reset for new season
+}
 }
