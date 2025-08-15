@@ -1,7 +1,8 @@
 // freeAgency.js
 'use strict';
 
-function ensureFA() {
+function ensureFA() {   const positions = getPositionalNeeds(); // Smarter FA pool
+}
   if (state.freeAgents.length) return;
   const C = window.Constants;
   const U = window.Utils;
@@ -48,6 +49,11 @@ function renderFreeAgency() {
 }
 
 function signFreeAgent() {
+  class ContractNegotiator {
+    static negotiate(player, team) {
+        const marketValue = calculateMarketValue(player);
+        const teamCap = team.capTotal - team.capUsed;
+        // ... negotiation logic
     const idx = Number(($('input[name=fa]:checked') || {}).value);
     if (Number.isNaN(idx)) return;
 
