@@ -412,3 +412,103 @@ window.renderHallOfFame = renderHallOfFame;
 window.showBoxScore = showBoxScore;
 window.renderFreeAgency = renderFreeAgency;
 window.renderDraft = renderDraft;
+
+
+// ui.js
+'use strict';
+
+// DOM helpers
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+// Team name mode helper
+function listByMode(mode) {
+  if (!window.Teams) { return []; }
+  const T = window.Teams;
+  const real = T.TEAM_META_REAL || [];
+  const fict = T.TEAM_META_FICTIONAL || [];
+  return mode === 'real' ? real : fict;
+}
+
+// --- Core UI functions ---
+
+function show(route) {
+  document.querySelectorAll('.view').forEach(v => { v.hidden = true; });
+  const viewToShow = document.getElementById(route);
+  if (viewToShow) { viewToShow.hidden = false; }
+  document.querySelectorAll('.nav-pill').forEach(a => { a.setAttribute('aria-current', a.dataset.view === route ? 'page' : null); });
+
+  if (route === 'hub') renderHub();
+  if (route === 'roster') renderRoster();
+  if (route === 'standings') renderStandings();
+  // ... etc. for all views
+}
+
+function setStatus(msg) {
+  const el = $('#statusMsg');
+  if (el) el.textContent = msg;
+  setTimeout(() => { if (el) el.textContent = ''; }, 2000);
+}
+
+function fillTeamSelect(sel) {
+  if (!state.league || !sel) return;
+  const L = state.league;
+  const C = window.Constants;
+  sel.innerHTML = '';
+  L.teams.forEach((t, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i);
+    const confTxt = (C.CONF_NAMES[t.conf] || '') + ' ' + (C.DIV_NAMES[t.div] || '');
+    opt.textContent = `${t.abbr} — ${t.name} (${confTxt.trim()})`;
+    sel.appendChild(opt);
+  });
+}
+
+function currentTeam() {
+    if (!state.league) return null;
+    const teamId = state.userTeamId !== undefined ? state.userTeamId : 0;
+    return state.league.teams[teamId];
+}
+
+function rebuildTeamLabels(mode) {
+    // ... function content
+}
+
+function renderHub() { /* ... function content ... */ }
+function updateCapSidebar() { /* ... function content ... */ }
+function renderRoster() { /* ... function content ... */ }
+function renderStandings() { /* ... function content ... */ }
+
+function openOnboard() {
+    const modal = $('#onboardModal'); if (!modal) return;
+    modal.hidden = false;
+    const sel = $('#onboardTeam');
+    if (!sel) return;
+    sel.innerHTML = '';
+    const teams = listByMode(state.namesMode);
+    teams.forEach((t, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `${t.abbr} — ${t.name}`;
+        sel.appendChild(opt);
+    });
+}
+
+function closeOnboard() {
+    const modal = $('#onboardModal');
+    if (modal) modal.hidden = true;
+}
+
+// **THE FIX:** The complete export block to make all functions public.
+window.show = show;
+window.setStatus = setStatus;
+window.fillTeamSelect = fillTeamSelect;
+window.currentTeam = currentTeam;
+window.rebuildTeamLabels = rebuildTeamLabels;
+window.renderHub = renderHub;
+window.updateCapSidebar = updateCapSidebar;
+window.renderRoster = renderRoster;
+window.renderStandings = renderStandings;
+// ... Add ALL other render functions here
+window.openOnboard = openOnboard;
+window.closeOnboard = closeOnboard;
