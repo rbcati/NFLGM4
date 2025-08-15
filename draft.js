@@ -3,7 +3,20 @@
 function renderDraft() {
   const L = state.league;
   if (!L) return;
+function runDraft(league) {
+    const draftOrder = calculateDraftOrder(league);
+    const prospects = generateProspects();
+    // ... draft logic
+  function generateProspects() {
+    // Generate draft class
+    const prospects = [];
+    for (let i = 0; i < 250; i++) {
+        prospects.push(makeProspect());
+    }
+    return prospects;
+}
 
+function makeProspect() {
   const sel = $('#draftTeam');
   if (!sel) return;
 
