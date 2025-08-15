@@ -74,3 +74,44 @@ function setupEventListeners() {
     show(routes.indexOf(seg) >= 0 ? seg : 'hub');
   });
 }
+// In setupEventListeners() function, add this after the existing click event listener (around line 60):
+
+// --- Radio Button Change Event ---
+document.body.addEventListener('change', function(e) {
+    const target = e.target;
+    
+    // Handle names mode change in onboarding modal
+    if (target.name === 'namesMode') {
+        const sel = $('#onboardTeam');
+        if (sel) {
+            const currentSelection = sel.value; // Try to preserve selection if possible
+            sel.innerHTML = '';
+            
+            // Update the state with the new mode
+            state.namesMode = target.value;
+            
+            // Repopulate the dropdown with the correct team list
+            const teams = listByMode(target.value);
+            teams.forEach((t, i) => {
+                const opt = document.createElement('option');
+                opt.value = String(i);
+                opt.textContent = `${t.abbr} — ${t.name}`;
+                sel.appendChild(opt);
+            });
+            
+            // Try to restore previous selection if it's still valid
+            if (currentSelection && currentSelection < teams.length) {
+                sel.value = currentSelection;
+            }
+        }
+    }
+    
+    // ... rest of your existing change event handlers
+    if (target.id === 'userTeam') {
+        state.userTeamId = parseInt(target.value, 10);
+        renderHub();
+        renderRoster();
+        updateCapSidebar();
+    }
+    // ... etc
+});
