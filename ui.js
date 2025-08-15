@@ -372,25 +372,52 @@ function showBoxScore(gameId) {
     $('#boxScoreModal').hidden = false;
 }
 
-function openOnboard() {
-    const modal = $('#onboardModal'); if (!modal) return;
-    modal.hidden = false;
-    const sel = $('#onboardTeam');
-    if (!sel) return;
-    sel.innerHTML = '';
-    listByMode(state.namesMode).forEach((t, i) => {
-        const opt = document.createElement('option');
-        opt.value = String(i);
-        opt.textContent = `${t.abbr} — ${t.name}`;
-        sel.appendChild(opt);
-    });
-}
 
 function closeOnboard() {
     const modal = $('#onboardModal');
     if (modal) modal.hidden = true;
 }
+// Replace the existing openOnboard function (around line 200):
 
+function openOnboard() {
+    const modal = $('#onboardModal');
+    if (!modal) return;
+    
+    modal.hidden = false;
+    
+    // Make sure we have a default names mode
+    if (!state.namesMode) {
+        state.namesMode = 'fictional';
+    }
+    
+    // Set the radio button to match current state
+    const radioToCheck = $(`input[name="namesMode"][value="${state.namesMode}"]`);
+    if (radioToCheck) {
+        radioToCheck.checked = true;
+    }
+    
+    // Populate the team dropdown
+    const sel = $('#onboardTeam');
+    if (!sel) return;
+    
+    sel.innerHTML = '';
+    const teams = listByMode(state.namesMode);
+    
+    if (!teams || teams.length === 0) {
+        console.error('No teams found for mode:', state.namesMode);
+        return;
+    }
+    
+    teams.forEach((t, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `${t.abbr} — ${t.name}`;
+        sel.appendChild(opt);
+    });
+    
+    // Set a default selection
+    sel.value = '0';
+}
 // --- Make functions globally available ---
 window.show = show;
 window.setStatus = setStatus;
