@@ -15,13 +15,7 @@
     updateCapSidebar();
   }
 
-  function function saveGame() {
-    const saveData = {
-        version: '1.0.0',
-        timestamp: Date.now(),
-        data: state,
-        checksum: generateChecksum(state)
-    };
+  function saveGame() {
     const payload = JSON.stringify({
       league: state.league, freeAgents: state.freeAgents, playoffs: state.playoffs,
       namesMode: state.namesMode, onboarded: state.onboarded,
@@ -31,11 +25,7 @@
     setStatus('Saved');
   }
 
-  function loadGame() {   const raw = localStorage.getItem(SAVE_KEY);
-    const saveData = JSON.parse(raw);
-    if (saveData.version !== CURRENT_VERSION) {
-        migrateData(saveData);
-    }
+  function loadGame() {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) { setStatus('Nothing to load'); return; }
     let obj = {};
