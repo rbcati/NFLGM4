@@ -45,50 +45,27 @@
     {abbr:"SEA", name:"Seattle Seahawks", conf:1, div:3}
   ];
 
-  // Optional fictional set if you still support it
   var TEAM_META_FICTIONAL = [
-    {abbr:"ARI",name:"Arizona Scorpions",conf:1,div:3},
-    {abbr:"ATL",name:"Atlanta Flight",conf:1,div:2},
-    {abbr:"BAL",name:"Baltimore Crabs",conf:0,div:1},
-    {abbr:"BUF",name:"Buffalo Blizzard",conf:0,div:0},
-    {abbr:"CAR",name:"Carolina Lynx",conf:1,div:2},
-    {abbr:"CHI",name:"Chicago Hammers",conf:1,div:1},
-    {abbr:"CIN",name:"Cincinnati Tigers",conf:0,div:1},
-    {abbr:"CLE",name:"Cleveland Dawgs",conf:0,div:1},
-    {abbr:"DAL",name:"Dallas Mustangs",conf:1,div:0},
-    {abbr:"DEN",name:"Denver Peaks",conf:0,div:3},
-    {abbr:"DET",name:"Detroit Motors",conf:1,div:1},
-    {abbr:"GB", name:"Green Bay Wolves",conf:1,div:1},
-    {abbr:"HOU",name:"Houston Comets",conf:0,div:2},
-    {abbr:"IND",name:"Indianapolis Racers",conf:0,div:2},
-    {abbr:"JAX",name:"Jacksonville Sharks",conf:0,div:2},
-    {abbr:"KC", name:"Kansas City Kings",conf:0,div:3},
-    {abbr:"LV", name:"Las Vegas Aces",conf:0,div:3},
-    {abbr:"LAC",name:"Los Angeles Lightning",conf:0,div:3},
-    {abbr:"LAR",name:"Los Angeles Guardians",conf:1,div:3},
-    {abbr:"MIA",name:"Miami Surge",conf:0,div:0},
-    {abbr:"MIN",name:"Minnesota North",conf:1,div:1},
-    {abbr:"NE", name:"New England Minutemen",conf:0,div:0},
-    {abbr:"NO", name:"New Orleans Spirits",conf:1,div:2},
-    {abbr:"NYG",name:"New York Giants*",conf:1,div:0},
-    {abbr:"NYJ",name:"New York Jets*",conf:0,div:0},
-    {abbr:"PHI",name:"Philadelphia Liberty",conf:1,div:0},
-    {abbr:"PIT",name:"Pittsburgh Iron",conf:0,div:1},
-    {abbr:"SEA",name:"Seattle Orcas",conf:1,div:3},
-    {abbr:"SF", name:"San Francisco Gold",conf:1,div:3},
-    {abbr:"TB", name:"Tampa Bay Cannons",conf:1,div:2},
-    {abbr:"TEN",name:"Tennessee Twang",conf:0,div:2},
-    {abbr:"WAS",name:"Washington Sentinels",conf:1,div:0}
+    {abbr:"ARI",name:"Arizona Scorpions",conf:1,div:3}, {abbr:"ATL",name:"Atlanta Flight",conf:1,div:2},
+    {abbr:"BAL",name:"Baltimore Crabs",conf:0,div:1}, {abbr:"BUF",name:"Buffalo Blizzard",conf:0,div:0},
+    {abbr:"CAR",name:"Carolina Lynx",conf:1,div:2}, {abbr:"CHI",name:"Chicago Hammers",conf:1,div:1},
+    {abbr:"CIN",name:"Cincinnati Tigers",conf:0,div:1}, {abbr:"CLE",name:"Cleveland Dawgs",conf:0,div:1},
+    {abbr:"DAL",name:"Dallas Mustangs",conf:1,div:0}, {abbr:"DEN",name:"Denver Peaks",conf:0,div:3},
+    {abbr:"DET",name:"Detroit Motors",conf:1,div:1}, {abbr:"GB", name:"Green Bay Wolves",conf:1,div:1},
+    {abbr:"HOU",name:"Houston Comets",conf:0,div:2}, {abbr:"IND",name:"Indianapolis Racers",conf:0,div:2},
+    {abbr:"JAX",name:"Jacksonville Sharks",conf:0,div:2}, {abbr:"KC", name:"Kansas City Kings",conf:0,div:3},
+    {abbr:"LV", name:"Las Vegas Aces",conf:0,div:3}, {abbr:"LAC",name:"Los Angeles Lightning",conf:0,div:3},
+    {abbr:"LAR",name:"Los Angeles Guardians",conf:1,div:3}, {abbr:"MIA",name:"Miami Surge",conf:0,div:0},
+    {abbr:"MIN",name:"Minnesota North",conf:1,div:1}, {abbr:"NE", name:"New England Minutemen",conf:0,div:0},
+    {abbr:"NO", name:"New Orleans Spirits",conf:1,div:2}, {abbr:"NYG",name:"New York Giants*",conf:1,div:0},
+    {abbr:"NYJ",name:"New York Jets*",conf:0,div:0}, {abbr:"PHI",name:"Philadelphia Liberty",conf:1,div:0},
+    {abbr:"PIT",name:"Pittsburgh Iron",conf:0,div:1}, {abbr:"SEA",name:"Seattle Orcas",conf:1,div:3},
+    {abbr:"SF", name:"San Francisco Gold",conf:1,div:3}, {abbr:"TB", name:"Tampa Bay Cannons",conf:1,div:2},
+    {abbr:"TEN",name:"Tennessee Twang",conf:0,div:2}, {abbr:"WAS",name:"Washington Sentinels",conf:1,div:0}
   ];
-
-  // Simple lists if you populate selects from arrays
-  var TEAM_LIST_REAL = TEAM_META_REAL.map(function(t){ return [t.abbr, t.name]; });
-  var TEAM_LIST_FICTIONAL = TEAM_META_FICTIONAL.map(function(t){ return [t.abbr, t.name]; });
 
   global.Teams = {
     TEAM_META_REAL,
-    TEAM_META_FICTIONAL,
-    TEAM_LIST_REAL,
-    TEAM_LIST_FICTIONAL
+    TEAM_META_FICTIONAL
   };
 })(window);
