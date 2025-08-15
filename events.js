@@ -101,4 +101,7 @@ function setupEventListeners() {
     const seg = location.hash.replace('#/', '') || 'hub';
     show(routes.indexOf(seg) >= 0 ? seg : 'hub');
   });
+  
+// IMPROVEMENT: Add cleanup for event listeners
+const clickHandler = new WeakMap(); // Store handlers for cleanup
 }
