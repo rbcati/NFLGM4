@@ -12,6 +12,12 @@ function getStarters(team) {
 }
 
 function simGameStats(homeTeam, awayTeam) {
+       const factors = {
+        homeAdvantage: 2.5,
+        fatigue: calculateFatigue(homeTeam, awayTeam),
+        injuries: getInjuryImpact(homeTeam, awayTeam),
+        weather: getWeatherImpact()
+    };
     const homeStarters = getStarters(homeTeam);
     const awayStarters = getStarters(awayTeam);
     const U = window.Utils;
@@ -93,7 +99,7 @@ function simulateWeek() {
     const weekData = L.schedule.weeks[L.week - 1];
     const pairings = weekData ? weekData.games : [];
     const results = [];
-
+function simulateDrive(offense, defense, gameState) {
     pairings.forEach((pair, index) => {
         if (pair.bye !== undefined) {
             results.push({ id: `w${L.week}b${pair.bye}`, bye: pair.bye });
