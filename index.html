@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+
     <script src="constants.js"></script>
     <script src="teams.js"></script>
     <script src="utils.js"></script>
@@ -109,33 +110,22 @@
             <section id="trade" class="view" hidden>
               <div class="card"><h2>Trade Center</h2><div class="grid two"><div><label for="tradeA">Team A</label><select id="tradeA"></select><div id="tradeListA" class="list"></div><div id="pickListA" class="list"></div></div><div><label for="tradeB">Team B</label><select id="tradeB"></select><div id="tradeListB" class="list"></div><div id="pickListB" class="list"></div></div></div><div class="row mt"><button id="tradeValidate" class="btn">Validate</button><div id="tradeInfo" class="spacer"></div><button id="tradeExecute" class="btn primary" disabled>Execute</button></div></div>
             </section>
+            <section id="freeagency" class="view" hidden>
+                <div class="card">
+                  <div class="row"><h2>Free Agency</h2><div class="spacer"></div><label for="faTeam">Sign to</label><select id="faTeam"></select></div>
+                  <table class="table" id="faTable"></table>
+                </div>
+            </section>
         </section>
     </main>
 
     <div id="onboardModal" class="modal" hidden>
       <div class="modal-card">
-        <h3>Start Your Legacy</h3>
-
-        <div class="row">
-            <label><input type="radio" name="gameMode" value="gm" checked> GM Mode</label>
-            <label><input type="radio" name="gameMode" value="career"> Career Mode</label>
-        </div>
-
-        <div id="careerOptions" hidden>
-            <label for="careerRole">Choose your starting role:</label>
-            <select id="careerRole">
-                <option value="OC">Offensive Coordinator</option>
-                <option value="DC">Defensive Coordinator</option>
-            </select>
-        </div>
-        
-        <hr>
-
+        <h3>Start New League</h3>
         <div><label><input type="radio" name="namesMode" value="fictional" checked> Fictional</label> <label><input type="radio" name="namesMode" value="real"> Real</label></div>
         <div class="mt"><label for="onboardTeam">Choose your team</label><select id="onboardTeam"></select><button id="onboardRandom" class="btn">Random</button></div>
         <div class="mt"><button id="onboardStart" class="btn primary">Start Season</button></div>
       </div>
     </div>
-
 </body>
 </html>
