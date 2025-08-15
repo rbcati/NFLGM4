@@ -5,6 +5,10 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+class UIManager {
+    static showLoading(message = 'Loading...') {
+        const loader = document.createElement('div');
+        loader.className = 'loading-overlay';
 // Team name mode helper
 function listByMode(mode) {
   const T = window.Teams;
@@ -57,7 +61,8 @@ function setStatus(msg) {
   setTimeout(() => { el.textContent = ''; }, 2000);
 }
 
-function fillTeamSelect(sel) {
+function fillTeamSelect(sel) { 
+  if (sel.dataset.cached === L.season) return;
   if (!state.league || !sel) return;
   const L = state.league;
   const C = window.Constants;
@@ -309,7 +314,9 @@ function renderScouting() {
     });
 }
 
-function renderHallOfFame() {
+function renderHallOfFame() { 
+     const sortBy = $('#hofSort')?.value || 'name';
+    const filtered = filterHOF(L.hallOfFame, filters);
     const L = state.league;
     if (!L) return;
     const box = $('#hofList');
