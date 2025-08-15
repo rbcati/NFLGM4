@@ -81,6 +81,12 @@ function pickAITarget(team) {
 
 // Resolves the outcome of a training plan
 function resolveTrainingFor(team, plan) {
+      const trainingTypes = {
+        'strength': { max: 99, rate: 0.7 },
+        'speed': { max: 95, rate: 0.5 },
+        'agility': { max: 95, rate: 0.6 },
+        'awareness': { max: 99, rate: 0.8 },
+        'technique': { max: 99, rate: 0.4 } // NEW
   if (!plan) return null;
   const p = team.roster.find(x => x.id === plan.playerId);
   if (!p || p.injuryWeeks > 0 || (p[plan.stat] || 0) >= 99) return { ok: false };
