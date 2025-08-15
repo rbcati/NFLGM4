@@ -160,6 +160,12 @@ function updateCapSidebar() {
   $('#capRoom').textContent = `${(t.capTotal - t.capUsed).toFixed(1)} M`;
 }
 
+
+
+  // ui.js
+
+// ... (other functions)
+
 function renderRoster() {
   const L = state.league;
   if (!L) return;
@@ -174,17 +180,50 @@ function renderRoster() {
 
   $('#rosterTitle').textContent = `Roster — ${tm.name} (${tm.abbr})`;
   const tbl = $('#rosterTable');
-  tbl.innerHTML = '<thead><tr><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Cap Hit</th><th>Years</th></tr></thead>';
+  tbl.innerHTML = '<thead><tr><th></th><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Cap Hit</th><th>Years</th></tr></thead>';
   const tb = document.createElement('tbody');
   tm.roster.sort((a,b) => b.ovr - a.ovr).forEach(p => {
+    // **THE UPGRADE:** Check if the player can be controlled by the user's current role.
+    const isOffensive = Constants.OFFENSIVE_POSITIONS.includes(p.pos);
+    const canControl = state.playerRole === 'GM' || 
+                       (state.playerRole === 'OC' && isOffensive) || 
+                       (state.playerRole === 'DC' && !isOffensive);
+    const disabledAttribute = canControl ? '' : 'disabled';
+
     const cap = capHitFor(p, 0);
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td><td>${cap.toFixed(1)}M</td><td>${p.years}</td>`;
+    tr.innerHTML = `<td><input type="checkbox" data-player-id="${p.id}" ${disabledAttribute}></td><td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td><td>${cap.toFixed(1)}M</td><td>${p.years}</td>`;
     tb.appendChild(tr);
   });
   tbl.appendChild(tb);
   updateCapSidebar();
 }
+
+function renderFreeAgency() {
+  ensureFA();
+  const L = state.league;
+  const tbl = $('#faTable');
+  tbl.innerHTML = '<thead><tr><th></th><th>Name</th><th>POS</th><th>OVR</th><th>Age</th></tr></thead>';
+  const tb = document.createElement('tbody');
+  state.freeAgents.forEach((p, i) => {
+    // **THE UPGRADE:** Check if the player can be signed by the user's current role.
+    const isOffensive = Constants.OFFENSIVE_POSITIONS.includes(p.pos);
+    const canControl = state.playerRole === 'GM' || 
+                       (state.playerRole === 'OC' && isOffensive) || 
+                       (state.playerRole === 'DC' && !isOffensive);
+    const disabledAttribute = canControl ? '' : 'disabled title="Your role cannot sign this player."';
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><input type="radio" name="fa" value="${i}" ${disabledAttribute}></td><td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td>`;
+    tb.appendChild(tr);
+  });
+  tbl.appendChild(tb);
+
+  // ... (rest of the function remains the same)
+}
+
+// ... (other functions and window exports)
+
 
 function renderStandings() {
     const L = state.league;
