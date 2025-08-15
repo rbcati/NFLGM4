@@ -10,13 +10,12 @@ function setupEventListeners() {
     // --- Navigation Pills ---
     const navPill = target.closest('.nav-pill');
     if (navPill) {
-      e.preventDefault(); // Stop the link from trying to navigate normally
+      e.preventDefault();
       const viewId = navPill.dataset.view;
       if (viewId) {
-        // Update the URL hash, which our router will listen for
         location.hash = `#/${viewId}`;
       }
-      return; // Stop further processing for this click
+      return;
     }
 
     // --- Onboarding Modal Buttons ---
@@ -60,47 +59,44 @@ function setupEventListeners() {
       simulateWeek();
     }
     
-    // --- Roster, Trade, and Free Agency Buttons ---
-    if (target.id === 'btnRelease') releaseSelected();
-    if (target.id === 'btnSetTraining') setTrainingPlan();
-    if (target.id === 'btnSignFA') signFreeAgent();
-    if (target.id === 'tradeValidate') validateTrade();
-    if (target.id === 'tradeExecute') executeTrade();
+    // --- Box Score Modal ---
+    const resultCard = target.closest('.result-card');
+    if(resultCard && resultCard.dataset.gameId) {
+        showBoxScore(resultCard.dataset.gameId);
+    }
+    if(target.id === 'boxScoreClose') {
+        $('#boxScoreModal').hidden = true;
+    }
 
-    // --- Settings Button ---
-    if (target.id === 'btnApplyNamesMode') {
-        const mode = document.querySelector('input[name="settingsNamesMode"]:checked')?.value || 'fictional';
-        state.namesMode = mode;
-        rebuildTeamLabels(mode);
-        refreshAll();
-        setStatus('Team names updated to ' + mode);
+    // --- Scouting ---
+    const scoutBtn = target.closest('.scout-btn');
+    if (scoutBtn && !scoutBtn.disabled) {
+        const playerId = scoutBtn.dataset.playerId;
+        const rookie = state.draftClass.find(r => r.id === playerId);
+        if (rookie) {
+            rookie.scouted = true;
+            renderScouting(); // Re-render to show the revealed OVR
+        }
     }
   });
 
   // --- CHANGE Event Delegation ---
-  // This single listener handles all dropdown changes
   document.body.addEventListener('change', function(e) {
     const target = e.target;
-
     if (target.id === 'userTeam') {
-        state.userTeamId = parseInt(target.value, 10); // Remember the new selection
-        renderHub();
-        renderRoster();
-        updateCapSidebar();
+        state.userTeamId = parseInt(target.value, 10);
+        refreshAll();
     }
-    if (target.id === 'rosterTeam') {
-        renderRoster();
+    if (target.id === 'rosterTeam' || target.id === 'draftTeam') {
+        const view = location.hash.replace('#/', '');
+        show(view);
     }
     if (target.id === 'tradeA' || target.id === 'tradeB') {
         renderTradeLists();
     }
-    if (target.id === 'draftTeam') {
-        renderDraft();
-    }
   });
 
   // --- Main URL Router ---
-  // This listens for the hash change triggered by our nav pills
   window.addEventListener('hashchange', () => {
     const seg = location.hash.replace('#/', '') || 'hub';
     show(routes.indexOf(seg) >= 0 ? seg : 'hub');
