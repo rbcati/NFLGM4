@@ -15,6 +15,11 @@ function addDead(team, season, amount) {
 }
 
 function recalcCap(league, team) {
+  function calculateRollover(team, league) {
+    const unused = team.capTotal - team.capUsed;
+    const maxRollover = 10; // NFL rule: max $10M
+    return Math.min(unused, maxRollover);
+}
   const C = window.Constants;
   const active = team.roster.reduce((s, p) => s + capHitFor(p, 0), 0);
   const dead = team.deadCapBook[league.season] || 0;
@@ -25,6 +30,7 @@ function recalcCap(league, team) {
 }
 
 function releaseWithProration(league, team, p, isPostJune1) {
+   if (canRestructure(p)) {
   const pr = prorationPerYear(p);
   const yearsLeft = p.years;
   if (yearsLeft <= 0) return;
