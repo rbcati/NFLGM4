@@ -1,135 +1,93 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NFL GM Simulator</title>
-    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- Replace your existing <script> tags with this EXACT order: -->
-<script src="constants.js"></script>
-<script src="teams.js"></script>
-<script src="utils.js"></script>
-<script src="state.js"></script>
-<script src="missing-functions.js"></script>
-<script src="ui.js"></script>
-<script src="player.js"></script>
-<script src="staff.js"></script>
-<script src="rookies.js"></script>
-<script src="cap.js"></script>
-<script src="picks.js"></script>
-<script src="schedule.js"></script>
-<script src="league.js"></script>
-<script src="simulation.js"></script>
-<script src="playoffs.js"></script>
-<script src="trade.js"></script>
-<script src="freeAgency.js"></script>
-<script src="draft.js"></script>
-<script src="offseason.js"></script>
-<script src="training.js"></script>
-<script src="events.js"></script>
-<script src="debug-helper.js"></script>
-<script src="main.js"></script>
-    <header class="topbar" role="navigation">
-        <div class="brand">NFL GM</div>
-        <nav id="site-nav" class="nav-pills" aria-label="Primary">
-            <a href="#/hub" class="nav-pill" data-view="hub">Home</a>
-            <a href="#/roster" class="nav-pill" data-view="roster">Roster</a>
-            <a href="#/trade" class="nav-pill" data-view="trade">Trades</a>
-            <a href="#/standings" class="nav-pill" data-view="standings">Standings</a>
-            <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
-            <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
-            <a href="#/scouting" class="nav-pill" data-view="scouting">Scouting</a>
-            <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
-            <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
+    <!-- Main App Layout -->
+    <div id="sidebar">
+        <h1>NFL GM</h1>
+        <nav id="main-nav">
+            <ul>
+                <li><a id="nav-hub" href="#/hub" class="active">Hub</a></li>
+                <li><a id="nav-roster" href="#/roster">Roster</a></li>
+                <li><a id="nav-standings" href="#/standings">Standings</a></li>
+                <li><a id="nav-schedule" href="#/schedule">Schedule</a></li>
+                <li><a id="nav-freeagency" href="#/freeagency">Free Agency</a></li>
+                <li><a id="nav-draft" href="#/draft">Draft</a></li>
+                <li><a id="nav-scouting" href="#/scouting">Scouting</a></li>
+            </ul>
         </nav>
-        <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </button>
-    </header>
+        <div id="sidebar-actions">
+            <button id="btnSimWeek" class="btn primary">Sim Week</button>
+        </div>
+    </div>
 
-    <main class="layout">
-        <aside class="sidebar">
-            <div class="section">
-                <label for="userTeam">Your Team</label>
-                <select id="userTeam"></select>
+    <div id="main-content">
+        <!-- Pages will be rendered here by the router -->
+        <div id="pageHub" class="page active">
+            <div id="hubTeamHeader">
+                <h2 id="hubTeamName">Your Team</h2>
+                <p id="hubTeamInfo">Year: 2025 | Week: 1</p>
             </div>
-            <div class="section">
-              <div>Season <span id="seasonNow"></span></div>
-              <div>Cap Used: <span id="capUsed"></span> / <span id="capTotal"></span></div>
-              <div class="muted small">Dead Cap: <span id="deadCap"></span></div>
-              <div class="muted small">Room: <span id="capRoom"></span></div>
-            </div>
-            <div class="section">
-                <button id="btnSave" class="btn">Save</button>
-                <button id="btnLoad" class="btn">Load</button>
-                <button id="btnNewLeague" class="btn danger">New League</button>
-            </div>
-            <div id="statusMsg" class="section muted"></div>
-        </aside>
+            <div id="hubSchedule" class="hub-card"></div>
+            <div id="hubStandings" class="hub-card"></div>
+        </div>
+        <div id="pageRoster" class="page"></div>
+        <div id="pageStandings" class="page"></div>
+        <div id="pageSchedule" class="page"></div>
+        <div id="pageFreeAgency" class="page"></div>
+        <div id="pageDraft" class="page"></div>
+        <div id="pageScouting" class="page"></div>
+    </div>
 
-        <section class="content">
-            <section id="hub" class="view">
-              <div class="card">
-                <div class="row"><h2>League Hub</h2><div class="spacer"></div><div class="muted">Season <span id="hubSeason"></span></div></div>
-                <div class="grid two">
-                  <div>
-                    <div>Week <span id="hubWeek"></span> of <span id="hubWeeks"></span></div>
-                    <div>Games this week: <span id="hubGames"></span></div>
-                    <div class="actions mt"><button id="btnSimWeek" class="btn primary">Simulate Week</button></div>
-                  </div>
-                  <div><h3>Power Ranking</h3><ol id="hubPower"></ol></div>
-                </div>
-              </div>
-              <div class="card"><h3>Last Week Results</h3><div id="hubResults" class="list"></div></div>
-            </section>
-            <section id="roster" class="view" hidden>
-              <div class="card">
-                <div class="row"><h2 id="rosterTitle">Roster</h2><div class="spacer"></div><label for="rosterTeam">Team</label><select id="rosterTeam"></select></div>
-                <table class="table" id="rosterTable"></table>
-              </div>
-            </section>
-            <section id="standings" class="view" hidden>
-                <div class="card">
-                    <h2>Standings</h2>
-                    <div id="standingsWrap"></div>
-                </div>
-            </section>
-            <section id="scouting" class="view" hidden>
-                <div class="card">
-                    <h2>Upcoming Draft Class (<span id="draftYear"></span>)</h2>
-                    <div id="scoutingList" class="scouting-grid"></div>
-                </div>
-            </section>
-            <section id="hallOfFame" class="view" hidden>
-                <div class="card">
-                    <h2>Hall of Fame</h2>
-                    <div id="hofList" class="hof-grid"></div>
-                </div>
-            </section>
-            <section id="trade" class="view" hidden>
-              <div class="card"><h2>Trade Center</h2><div class="grid two"><div><label for="tradeA">Team A</label><select id="tradeA"></select><div id="tradeListA" class="list"></div><div id="pickListA" class="list"></div></div><div><label for="tradeB">Team B</label><select id="tradeB"></select><div id="tradeListB" class="list"></div><div id="pickListB" class="list"></div></div></div><div class="row mt"><button id="tradeValidate" class="btn">Validate</button><div id="tradeInfo" class="spacer"></div><button id="tradeExecute" class="btn primary" disabled>Execute</button></div></div>
-            </section>
-            <section id="freeagency" class="view" hidden>
-                <div class="card">
-                  <div class="row"><h2>Free Agency</h2><div class="spacer"></div><label for="faTeam">Sign to</label><select id="faTeam"></select></div>
-                  <table class="table" id="faTable"></table>
-                </div>
-            </section>
-        </section>
-    </main>
+    <!-- Onboarding Modal -->
+    <div id="onboardModal" class="modal-backdrop" style="display: none;">
+        <div class="modal-content">
+            <h2>Welcome to NFL GM</h2>
+            <p>Choose your settings to begin your career.</p>
+            <label for="onboardMode">Team Names:</label>
+            <select id="onboardMode">
+                <option value="fictional">Fictional</option>
+                <option value="real">Real NFL</option>
+            </select>
+            <br><br>
+            <label for="onboardTeam">Choose Your Team:</label>
+            <select id="onboardTeam"></select>
+            <br><br>
+            <button id="onboardStart" class="btn primary">Start Season</button>
+        </div>
+    </div>
 
-    <div id="onboardModal" class="modal" hidden>
-      <div class="modal-card">
-        <h3>Start New League</h3>
-        <div><label><input type="radio" name="namesMode" value="fictional" checked> Fictional</label> <label><input type="radio" name="namesMode" value="real"> Real</label></div>
-        <div class="mt"><label for="onboardTeam">Choose your team</label><select id="onboardTeam"></select><button id="onboardRandom" class="btn">Random</button></div>
-        <div class="mt"><button id="onboardStart" class="btn primary">Start Season</button></div>
-      </div>
+    <!-- Player Details Modal -->
+    <div id="playerModal" class="modal-backdrop" style="display: none;">
+        <div id="playerModalContent" class="modal-content">
+            <!-- Content is injected by ui.js -->
+        </div>
     </div>
 
 
+    <!-- Core Game Scripts (Order is CRITICAL) -->
+    <script src="constants.js"></script>
+    <script src="teams.js"></script>
+    <script src="utils.js"></script>
+    <script src="state.js"></script>
+    <script src="player.js"></script>
+    <script src="missing-functions.js"></script> 
+    <script src="schedule.js"></script>
+    <script src="league.js"></script>
+    <script src="simulation.js"></script>
+    <script src="ui.js"></script>
+    <script src="events.js"></script>
+    <script src="main.js"></script>
+
 </body>
 </html>
+
