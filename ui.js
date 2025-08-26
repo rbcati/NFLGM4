@@ -1,538 +1,338 @@
-// ui.js - Consolidated and Fixed
 'use strict';
 
-// DOM helpers
-const $ = (sel) => document.querySelector(sel);
-const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+// --- UTILITY FUNCTIONS ---
+const $ = (id) => document.getElementById(id);
+const show = (id) => $(id).style.display = 'block';
+const hide = (id) => $(id).style.display = 'none';
 
-// Team name mode helper
-function listByMode(mode) {
-  if (!window.Teams) {
-    console.error("Teams data has not loaded yet!");
-    return [];
-  }
-  const T = window.Teams;
-  const real = T.TEAM_META_REAL || [];
-  const fict = T.TEAM_META_FICTIONAL || [];
-  return mode === 'real' ? real : fict;
-}
-
-function clampYear(v) {
-  let y = parseInt(v, 10);
-  if (!Number.isFinite(y)) y = window.Constants?.GAME_CONFIG?.YEAR_START || 2025;
-  return Math.max(1930, Math.min(9999, y));
-}
-
-// --- Core UI functions ---
-
-function show(route) {
-  try {
-    document.querySelectorAll('.view').forEach(v => {
-      v.hidden = true;
-    });
-
-    const viewToShow = document.getElementById(route);
-    if (viewToShow) {
-      viewToShow.hidden = false;
-    }
-
-    document.querySelectorAll('.nav-pill').forEach(a => {
-      a.setAttribute('aria-current', a.dataset.view === route ? 'page' : null);
-    });
-
-    // Route-specific rendering
-    const renderActions = {
-      hub: renderHub,
-      roster: renderRoster, 
-      standings: renderStandings,
-      trade: renderTradeUI,
-      freeagency: renderFreeAgency,
-      draft: renderDraft,
-      scouting: renderScouting,
-      hallOfFame: renderHallOfFame,
-      settings: renderSettings
-    };
-
-    const renderFn = renderActions[route];
-    if (renderFn) {
-      renderFn();
-    }
-  } catch (error) {
-    console.error(`Error showing route ${route}:`, error);
-    setStatus(`Error loading ${route} view`);
-  }
-}
-
-function setStatus(msg) {
-  const el = $('#statusMsg');
-  if (!el) return;
-  el.textContent = msg;
-  setTimeout(() => { 
-    if (el) el.textContent = ''; 
-  }, 2000);
-}
-
-function fillTeamSelect(sel) {
-  if (!state.league || !sel) return;
-  const L = state.league;
-  const C = window.Constants;
-  sel.innerHTML = '';
-  
-  L.teams.forEach((t, i) => {
-    const opt = document.createElement('option');
-    opt.value = String(i);
-    const confTxt = (C.CONF_NAMES[t.conf] || '') + ' ' + (C.DIV_NAMES[t.div] || '');
-    opt.textContent = `${t.abbr} — ${t.name} (${confTxt.trim()})`;
-    sel.appendChild(opt);
-  });
-}
-
-function currentTeam() {
-  if (!state.league) return null;
-  const teamId = state.userTeamId !== undefined ? state.userTeamId : 0;
-  return state.league.teams[teamId];
-}
-
-function rebuildTeamLabels(mode) {
-  const L = state.league;
-  const meta = listByMode(mode);
-  if (!L || !L.teams || !meta || L.teams.length !== meta.length) return;
-  
-  for (let i = 0; i < L.teams.length; i++) {
-    const src = meta[i], dst = L.teams[i];
-    if(src && dst) {
-      dst.abbr = src.abbr;
-      dst.name = src.name;
-      dst.conf = src.conf;
-      dst.div  = src.div;
-    }
-  }
-}
-
-// --- View Rendering Functions ---
-
+/**
+ * Renders the main hub view with schedule, standings, and team info.
+ */
 function renderHub() {
-  const L = state.league;
-  if (!L) return;
-  
-  try {
-    $('#hubSeason').textContent = L.year;
-    $('#seasonNow').textContent = L.year;
-    $('#hubWeek').textContent = L.week;
-    $('#hubWeeks').textContent = (L.schedule.weeks || L.schedule).length;
-    
-    const gamesThisWeek = ((L.schedule.weeks || L.schedule)[L.week - 1] || {}).games || [];
-    $('#hubGames').textContent = gamesThisWeek.length;
+    const L = state.league;
+    const playerTeam = L.teams[state.player.teamId];
+    const currentWeek = L.week;
 
-    const res = L.resultsByWeek[L.week - 2] || [];
-    const box = $('#hubResults');
-    if (!box) return;
-    
-    box.innerHTML = '';
-    const userTeamId = currentTeam()?.id;
+    // Render Team Header
+    $('hubTeamName').innerText = `${playerTeam.name} (${playerTeam.wins}-${playerTeam.losses}${playerTeam.ties > 0 ? `-${playerTeam.ties}` : ''})`;
+    $('hubTeamInfo').innerText = `Year: ${L.year} | Week: ${currentWeek}`;
 
-    let userGame = null;
-    let otherGames = [];
-    res.forEach(g => {
-      if (g.home === userTeamId || g.away === userTeamId) {
-        userGame = g;
-      } else {
-        otherGames.push(g);
-      }
-    });
+    // Render Current Week's Matchup
+    const scheduleWeeks = L.schedule.weeks || L.schedule;
+    const weekIndex = currentWeek - 1;
+    const scheduleContainer = $('hubSchedule');
+    scheduleContainer.innerHTML = '<h3>This Week</h3>';
 
-    const resultsGrid = document.createElement('div');
-    resultsGrid.className = 'results-grid';
-    const sortedGames = userGame ? [userGame, ...otherGames] : otherGames;
+    if (weekIndex < scheduleWeeks.length) {
+        const weeklyGames = scheduleWeeks[weekIndex].games;
+        const playerGame = weeklyGames.find(g => g.home === state.player.teamId || g.away === state.player.teamId);
 
-    sortedGames.forEach(g => {
-      if (g.bye) return;
-      const home = L.teams[g.home];
-      const away = L.teams[g.away];
-      if (!home || !away) return;
-      
-      const winner = g.homeWin ? home : away;
-      const loser = g.homeWin ? away : home;
-      const winnerScore = g.homeWin ? g.scoreHome : g.scoreAway;
-      const loserScore = g.homeWin ? g.scoreAway : g.scoreHome;
-
-      const resultCard = document.createElement('div');
-      resultCard.className = 'result-card clickable';
-      resultCard.dataset.gameId = g.id;
-      resultCard.innerHTML = `
-        <div class="game-winner"><strong>${winner.name}</strong> defeated ${loser.name}</div>
-        <div class="game-score">${winnerScore} - ${loserScore}</div>
-      `;
-      resultsGrid.appendChild(resultCard);
-    });
-    
-    box.appendChild(resultsGrid);
-    updateCapSidebar();
-  } catch (error) {
-    console.error('Error rendering hub:', error);
-  }
-}
-
-function updateCapSidebar() {
-  try {
-    const t = currentTeam();
-    if (!t || !window.recalcCap) return;
-    
-    window.recalcCap(state.league, t);
-    const safeGet = (id, fallback = '0.0') => {
-      const el = $(id);
-      return el ? el : { textContent: fallback };
-    };
-    
-    safeGet('#capUsed').textContent = `${t.capUsed.toFixed(1)} M`;
-    safeGet('#capTotal').textContent = `${t.capTotal.toFixed(1)} M`;
-    safeGet('#deadCap').textContent = `${(t.deadCap || 0).toFixed(1)} M`;
-    safeGet('#capRoom').textContent = `${(t.capTotal - t.capUsed).toFixed(1)} M`;
-  } catch (error) {
-    console.error('Error updating cap sidebar:', error);
-  }
-}
-
-function renderRoster() {
-  const L = state.league;
-  if (!L) return;
-  
-  try {
-    const sel = $('#rosterTeam');
-    if (sel && !sel.dataset.filled) {
-      fillTeamSelect(sel);
-      sel.value = state.userTeamId;
-      sel.dataset.filled = '1';
+        if (playerGame) {
+            const opponentId = playerGame.home === state.player.teamId ? playerGame.away : playerGame.home;
+            const opponent = L.teams[opponentId];
+            const isHome = playerGame.home === state.player.teamId;
+            scheduleContainer.innerHTML += `<div class="game-card">
+                <div class="team-abbr">${L.teams[playerGame.away].abbr}</div> 
+                <div class="game-info">@</div>
+                <div class="team-abbr">${L.teams[playerGame.home].abbr}</div>
+            </div>`;
+        } else {
+            scheduleContainer.innerHTML += `<div class="game-card"><p>BYE WEEK</p></div>`;
+        }
+    } else {
+        scheduleContainer.innerHTML += `<div class="game-card"><p>Season Over</p></div>`;
     }
-    
-    const teamId = parseInt(sel?.value || '0', 10);
-    const tm = L.teams[teamId];
-    if (!tm) return;
 
-    const title = $('#rosterTitle');
-    if (title) title.textContent = `Roster — ${tm.name} (${tm.abbr})`;
-    
-    const tbl = $('#rosterTable');
-    if (!tbl) return;
-    
-    tbl.innerHTML = '<thead><tr><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Cap Hit</th><th>Years</th></tr></thead>';
-    const tb = document.createElement('tbody');
-    
-    tm.roster.sort((a,b) => b.ovr - a.ovr).forEach(p => {
-      const cap = window.capHitFor ? window.capHitFor(p, 0) : 0;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${p.name}</td><td>${p.pos}</td><td>${p.ovr}</td><td>${p.age}</td><td>${cap.toFixed(1)}M</td><td>${p.years}</td>`;
-      tb.appendChild(tr);
-    });
-    
-    tbl.appendChild(tb);
-    updateCapSidebar();
-  } catch (error) {
-    console.error('Error rendering roster:', error);
-  }
+    // Render Mini Standings
+    renderMiniStandings('hubStandings');
 }
 
+
+/**
+ * Renders a compact version of the standings for the hub.
+ * @param {string} targetId - The ID of the element to render into.
+ */
+function renderMiniStandings(targetId) {
+    const L = state.league;
+    const playerTeam = L.teams[state.player.teamId];
+    const teamsInDiv = L.teams.filter(t => t.conf === playerTeam.conf && t.div === playerTeam.div);
+
+    // Sort by wins, then points differential
+    teamsInDiv.sort((a, b) => {
+        if (b.wins !== a.wins) return b.wins - a.wins;
+        return (b.ptsFor - b.ptsAgainst) - (a.ptsFor - a.ptsAgainst);
+    });
+
+    const container = $(targetId);
+    container.innerHTML = '<h3>Division Standings</h3>';
+    const table = document.createElement('table');
+    table.className = 'standings-table mini-standings';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Team</th>
+                <th>W</th>
+                <th>L</th>
+                <th>T</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${teamsInDiv.map(t => `
+                <tr class="${t.id === state.player.teamId ? 'player-team' : ''}">
+                    <td>${t.name}</td>
+                    <td>${t.wins}</td>
+                    <td>${t.losses}</td>
+                    <td>${t.ties}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+    container.appendChild(table);
+}
+
+
+/**
+ * Renders the full league standings page.
+ */
 function renderStandings() {
-  const L = state.league;
-  if (!L) return;
-  
-  try {
-    const C = window.Constants;
-    const wrap = $('#standingsWrap');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-
-    for (let conf = 0; conf < 2; conf++) {
-      const confContainer = document.createElement('div');
-      confContainer.className = 'conference-container';
-      const confName = C.CONF_NAMES[conf];
-      confContainer.innerHTML = `<h2>${confName}</h2>`;
-
-      for (let div = 0; div < 4; div++) {
-        const divName = C.DIV_NAMES[div];
-        const teamsInDiv = L.teams.filter(t => t.conf === conf && t.div === div);
-        
-        teamsInDiv.sort((a, b) => {
-          if (a.record.w !== b.record.w) return b.record.w - a.record.w;
-          return (b.record.pf - b.record.pa) - (a.record.pf - a.record.pa);
-        });
-
-        let tableHtml = `<div class="card"><h4>${divName}</h4><table class="table">
-          <thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th><th>PF</th><th>PA</th></tr></thead>
-          <tbody>`;
-          
-        teamsInDiv.forEach(t => {
-          tableHtml += `<tr>
-            <td>${t.name}</td>
-            <td>${t.record.w}</td><td>${t.record.l}</td><td>${t.record.t}</td>
-            <td>${t.record.pf}</td><td>${t.record.pa}</td>
-          </tr>`;
-        });
-        
-        tableHtml += '</tbody></table></div>';
-        confContainer.innerHTML += tableHtml;
-      }
-      wrap.appendChild(confContainer);
-    }
-  } catch (error) {
-    console.error('Error rendering standings:', error);
-  }
-}
-
-function renderTradeUI() {
-  const L = state.league;
-  if (!L) return;
-  
-  try {
-    const selA = $('#tradeA'), selB = $('#tradeB');
-    const userTeam = currentTeam();
-    if (!userTeam || !selA || !selB) return;
-
-    fillTeamSelect(selA);
-    selA.value = userTeam.id;
-    selA.disabled = true;
-
-    selB.innerHTML = '';
-    L.teams.forEach(t => {
-      if (t.id !== userTeam.id) {
-        const opt = document.createElement('option');
-        opt.value = t.id;
-        opt.textContent = t.name;
-        selB.appendChild(opt);
-      }
-    });
-    
-    renderTradeLists();
-  } catch (error) {
-    console.error('Error rendering trade UI:', error);
-  }
-}
-
-function renderTradeLists() {
-  try {
     const L = state.league;
     if (!L) return;
-    
-    const teamA_id = parseInt($('#tradeA')?.value || '0', 10);
-    const teamB_id = parseInt($('#tradeB')?.value || '0', 10);
-    const teamA = L.teams[teamA_id];
-    const teamB = L.teams[teamB_id];
 
-    if (!teamA || !teamB) return;
+    const container = $('pageStandings');
+    container.innerHTML = '<h2>League Standings</h2>';
 
-    listPlayers('#tradeListA', teamA, 'A');
-    listPicks('#pickListA', teamA, 'A');
-    listPlayers('#tradeListB', teamB, 'B');
-    listPicks('#pickListB', teamB, 'B');
+    const conferences = [
+        { name: 'AFC', teams: L.teams.filter(t => t.conf === 0) },
+        { name: 'NFC', teams: L.teams.filter(t => t.conf === 1) }
+    ];
 
-    const executeBtn = $('#tradeExecute');
-    const infoDiv = $('#tradeInfo');
-    if (executeBtn) executeBtn.disabled = true;
-    if (infoDiv) infoDiv.textContent = 'Select assets, validate, and execute.';
-  } catch (error) {
-    console.error('Error rendering trade lists:', error);
-  }
-}
+    conferences.forEach(conf => {
+        const confContainer = document.createElement('div');
+        confContainer.className = 'conference-container';
+        confContainer.innerHTML = `<h3>${conf.name}</h3>`;
 
-function listPlayers(rootSel, team, side) {
-  const root = $(rootSel);
-  if (!root || !team.roster) return;
-  
-  root.innerHTML = '';
-  team.roster.forEach(p => {
-    const row = document.createElement('label');
-    row.className = 'row trade-asset';
-    row.innerHTML = `<input type="checkbox" data-side="${side}" data-type="player" data-id="${p.id}" /> <span>${p.name} (${p.pos}, ${p.ovr})</span>`;
-    root.appendChild(row);
-  });
-}
+        for (let i = 0; i < 4; i++) { // 4 divisions per conference
+            const divTeams = conf.teams.filter(t => t.div === i);
+            
+            // Sort by wins, then points differential
+            divTeams.sort((a, b) => {
+                if (b.wins !== a.wins) return b.wins - a.wins;
+                return (b.ptsFor - b.ptsAgainst) - (a.ptsFor - a.ptsAgainst);
+            });
 
-function listPicks(rootSel, team, side) {
-  const root = $(rootSel);
-  if (!root || !team.picks) return;
-  
-  root.innerHTML = '';
-  team.picks.sort((a,b) => a.year - b.year || a.round - b.round).forEach(pk => {
-    const row = document.createElement('label');
-    row.className = 'row trade-asset';
-    row.innerHTML = `<input type="checkbox" data-side="${side}" data-type="pick" data-id="${pk.id}" /> <span>${pk.year} Round ${pk.round} (from ${pk.from})</span>`;
-    root.appendChild(row);
-  });
-}
-
-function renderSettings() {
-  const y = (state.league && state.league.year) ? state.league.year : window.Constants?.GAME_CONFIG?.YEAR_START || 2025;
-  const el = $('#settingsYear');
-  if (el) el.value = y;
-}
-
-function renderScouting() {
-  try {
-    if (!state.draftClass || state.draftClass.length === 0) return;
-    
-    $('#draftYear').textContent = state.draftClass[0]?.year || 'TBD';
-    const box = $('#scoutingList');
-    if (!box) return;
-    
-    box.innerHTML = '';
-    state.draftClass.forEach(rookie => {
-      const card = document.createElement('div');
-      card.className = 'rookie-card';
-      const ovrDisplay = rookie.scouted ? rookie.ovr : rookie.potentialRange;
-      card.innerHTML = `
-        <div class="rookie-name">${rookie.name}</div>
-        <div class="rookie-details">${rookie.pos} | Age: ${rookie.age}</div>
-        <div class="rookie-potential">Potential: ${ovrDisplay}</div>
-        <button class="btn scout-btn" data-player-id="${rookie.id}" ${rookie.scouted ? 'disabled' : ''}>
-          ${rookie.scouted ? 'Scouted' : 'Scout (1pt)'}
-        </button>
-      `;
-      box.appendChild(card);
+            const divContainer = document.createElement('div');
+            divContainer.className = 'division-container';
+            const table = document.createElement('table');
+            table.className = 'standings-table';
+            table.innerHTML = `
+                <caption>${Constants.DIVISIONS[i]}</caption>
+                <thead>
+                    <tr>
+                        <th>Team</th>
+                        <th>W</th>
+                        <th>L</th>
+                        <th>T</th>
+                        <th>PF</th>
+                        <th>PA</th>
+                        <th>Diff</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${divTeams.map(t => `
+                        <tr class="${t.id === state.player.teamId ? 'player-team' : ''}">
+                            <td>${t.name}</td>
+                            <td>${t.wins}</td>
+                            <td>${t.losses}</td>
+                            <td>${t.ties}</td>
+                            <td>${t.ptsFor}</td>
+                            <td>${t.ptsAgainst}</td>
+                            <td>${t.ptsFor - t.ptsAgainst}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            `;
+            divContainer.appendChild(table);
+            confContainer.appendChild(divContainer);
+        }
+        container.appendChild(confContainer);
     });
-  } catch (error) {
-    console.error('Error rendering scouting:', error);
-  }
 }
 
-function renderHallOfFame() {
-  try {
-    const L = state.league;
-    if (!L) return;
-    
-    const box = $('#hofList');
-    if (!box) return;
-    box.innerHTML = '';
 
-    if (!L.hallOfFame || L.hallOfFame.length === 0) {
-      box.innerHTML = '<p class="muted">The Hall of Fame is currently empty.</p>';
-      return;
-    }
+/**
+ * Renders the team roster page.
+ */
+function renderRoster() {
+    const playerTeam = state.league.teams[state.player.teamId];
+    const container = $('pageRoster');
+    container.innerHTML = `<h2>${playerTeam.name} Roster</h2>`;
 
-    L.hallOfFame.sort((a,b) => a.name.localeCompare(b.name)).forEach(player => {
-      const card = document.createElement('div');
-      card.className = 'hof-card';
-      const championships = player.awards?.filter(a => a.award === 'Super Bowl Champion').length || 0;
-      card.innerHTML = `
-        <div class="hof-name">${player.name}</div>
-        <div class="hof-details">${player.pos}</div>
-        <div class="hof-career">
-          <strong>Career Highlights:</strong>
-          <div>Pass Yds: ${player.stats?.career?.passYd || 0}</div>
-          <div>Rush Yds: ${player.stats?.career?.rushYd || 0}</div>
-          <div>Championships: ${championships}</div>
+    const table = document.createElement('table');
+    table.className = 'roster-table';
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Pos</th>
+                <th>Age</th>
+                <th>OVR</th>
+                <th>Pot</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${playerTeam.roster.map((p, index) => `
+                <tr data-player-id="${index}">
+                    <td>${p.name}</td>
+                    <td>${p.pos}</td>
+                    <td>${p.age}</td>
+                    <td>${p.ovr}</td>
+                    <td>${p.pot}</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+    container.appendChild(table);
+
+    // Add click listeners to each player row
+    table.querySelectorAll('tbody tr').forEach(row => {
+        row.addEventListener('click', () => {
+            const playerId = row.dataset.playerId;
+            showPlayerModal(playerTeam.roster[playerId]);
+        });
+    });
+}
+
+/**
+ * Shows a modal with detailed player information.
+ * @param {object} player - The player object to display.
+ */
+function showPlayerModal(player) {
+    const modal = $('playerModal');
+    const content = $('playerModalContent');
+
+    content.innerHTML = `
+        <div class="player-modal-header">
+            <h3>${player.name}</h3>
+            <span class="close-button" id="closePlayerModal">&times;</span>
         </div>
-      `;
-      box.appendChild(card);
+        <div class="player-modal-body">
+            <div class="player-info">
+                <p><strong>Position:</strong> ${player.pos}</p>
+                <p><strong>Age:</strong> ${player.age}</p>
+                <p><strong>Overall:</strong> ${player.ovr}</p>
+                <p><strong>Potential:</strong> ${player.pot}</p>
+            </div>
+            <h4>Attributes</h4>
+            <div class="player-attributes">
+                ${Object.entries(player.ratings).map(([key, value]) => `
+                    <div class="attribute">
+                        <span class="name">${key.replace(/([A-Z])/g, ' $1').toUpperCase()}</span>
+                        <span class="value">${value}</span>
+                    </div>
+                `).join('')}
+            </div>
+             <h4>Season Stats</h4>
+            <div class="player-stats">
+                ${player.stats && player.stats.season ? 
+                    Object.entries(player.stats.season).map(([key, value]) => `
+                    <div class="attribute">
+                        <span class="name">${key.replace(/([A-Z])/g, ' $1').toUpperCase()}</span>
+                        <span class="value">${value}</span>
+                    </div>
+                `).join('') : '<p>No stats recorded yet.</p>'}
+            </div>
+        </div>
+    `;
+
+    show('playerModal');
+
+    $('closePlayerModal').addEventListener('click', () => hide('playerModal'));
+    window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            hide('playerModal');
+        }
     });
-  } catch (error) {
-    console.error('Error rendering hall of fame:', error);
-  }
 }
 
-// Stub implementations for missing render functions
-function renderSchedule() { console.log('Schedule rendering not yet implemented'); }
-function renderOffers() { console.log('Offers rendering not yet implemented'); }
-function renderCap() { console.log('Cap rendering not yet implemented'); }
-function renderPlayoffs() { console.log('Playoffs rendering not yet implemented'); }
-function renderFreeAgency() { 
-  console.log('Free agency rendering not yet implemented'); 
+
+/**
+ * Renders the free agency page.
+ */
+function renderFreeAgency() {
+    const container = $('pageFreeAgency');
+    container.innerHTML = `<h2>Free Agents</h2>`;
+
+    // Sort free agents by overall rating
+    state.freeAgents.sort((a, b) => b.ovr - a.ovr);
+
+    const table = document.createElement('table');
+    table.className = 'roster-table'; // Reuse roster table style
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Pos</th>
+                <th>Age</th>
+                <th>OVR</th>
+                <th>Asking</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${state.freeAgents.slice(0, 100).map(p => `
+                <tr>
+                    <td>${p.name}</td>
+                    <td>${p.pos}</td>
+                    <td>${p.age}</td>
+                    <td>${p.ovr}</td>
+                    <td>$${(p.demand / 1000000).toFixed(1)}M</td>
+                </tr>
+            `).join('')}
+        </tbody>
+    `;
+    container.appendChild(table);
 }
+
+
+/**
+ * Renders the draft page (placeholder).
+ */
 function renderDraft() {
-  console.log('Draft rendering not yet implemented'); 
-  
-  // Basic draft implementation to avoid infinite recursion
-  const draftView = document.getElementById('draft');
-  if (draftView) {
-    draftView.innerHTML = '<div class="card"><h2>Draft</h2><p>Draft functionality coming soon...</p></div>';
-  }
+    const container = $('pageDraft');
+    container.innerHTML = `
+        <h2>NFL Draft</h2>
+        <p class="placeholder-text">The draft functionality is currently under construction. Check back soon!</p>
+    `;
 }
 
-// Modal functions
+/**
+ * Renders the scouting page (placeholder).
+ */
+function renderScouting() {
+    const container = $('pageScouting');
+    container.innerHTML = `
+        <h2>Scouting</h2>
+        <p class="placeholder-text">Scouting functionality is currently under construction. Check back soon!</p>
+    `;
+}
+
+
+// --- ONBOARDING ---
 function openOnboard() {
-  try {
-    const modal = $('#onboardModal'); 
-    if (!modal) return;
-    modal.hidden = false;
-    
-    const sel = $('#onboardTeam');
-    if (!sel) return;
-    
-    sel.innerHTML = '';
-    const teams = listByMode(state.namesMode);
-    teams.forEach((t, i) => {
-      const opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = `${t.abbr} — ${t.name}`;
-      sel.appendChild(opt);
-    });
-  } catch (error) {
-    console.error('Error opening onboard modal:', error);
-  }
+    const teamSelect = $('onboardTeam');
+    const teamsByMode = listByMode(state.namesMode);
+    teamSelect.innerHTML = teamsByMode.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
+    show('onboardModal');
 }
 
-function closeOnboard() {
-  const modal = $('#onboardModal');
-  if (modal) modal.hidden = true;
-}
-
-function showBoxScore(gameId) {
-  try {
-    const L = state.league;
-    if (!L || !L.resultsByWeek) return;
-    
-    const game = L.resultsByWeek[L.week - 2]?.find(g => g.id === gameId);
-    if (!game) return;
-
-    const home = L.teams[game.home];
-    const away = L.teams[game.away];
-    if (!home || !away) return;
-    
-    const titleEl = $('#boxScoreTitle');
-    if (titleEl) titleEl.textContent = `${away.name} @ ${home.name}`;
-    
-    const content = $('#boxScoreContent');
-    if (content) {
-      content.innerHTML = `
-        <div>
-          <h4>${away.name} Stats</h4>
-          <p>Passing: ${away.roster.find(p => p.stats?.game?.passYd)?.stats?.game?.passYd || 0} yds</p>
-          <p>Rushing: ${away.roster.find(p => p.stats?.game?.rushYd)?.stats?.game?.rushYd || 0} yds</p>
-        </div>
-        <div>
-          <h4>${home.name} Stats</h4>
-          <p>Passing: ${home.roster.find(p => p.stats?.game?.passYd)?.stats?.game?.passYd || 0} yds</p>
-          <p>Rushing: ${home.roster.find(p => p.stats?.game?.rushYd)?.stats?.game?.rushYd || 0} yds</p>
-        </div>
-      `;
-    }
-    
-    const modal = $('#boxScoreModal');
-    if (modal) modal.hidden = false;
-  } catch (error) {
-    console.error('Error showing box score:', error);
-  }
-}
-
-// Export all functions to global scope
-window.show = show;
-window.setStatus = setStatus;
-window.fillTeamSelect = fillTeamSelect;
-window.currentTeam = currentTeam;
-window.rebuildTeamLabels = rebuildTeamLabels;
-window.renderHub = renderHub;
-window.updateCapSidebar = updateCapSidebar;
-window.renderRoster = renderRoster;
-window.renderStandings = renderStandings;
-window.renderTradeUI = renderTradeUI;
-window.renderTradeLists = renderTradeLists;
-window.renderSchedule = renderSchedule;
-window.renderOffers = renderOffers;
-window.renderCap = renderCap;
-window.renderPlayoffs = renderPlayoffs;
-window.renderFreeAgency = renderFreeAgency;
-window.renderDraft = renderDraft;
-window.renderScouting = renderScouting;
-window.renderHallOfFame = renderHallOfFame;
-window.openOnboard = openOnboard;
-window.closeOnboard = closeOnboard;
-window.showBoxScore = showBoxScore;
+// --- INITIALIZATION ---
+window.UI = {
+    renderHub,
+    renderRoster,
+    renderStandings,
+    renderFreeAgency,
+    renderDraft,
+    renderScouting,
+    openOnboard,
+    show,
+    hide
+};
