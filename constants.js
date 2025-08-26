@@ -189,3 +189,4 @@
     POSITION_VALUES
   };
 })(window);
+window.constants = Constants;
