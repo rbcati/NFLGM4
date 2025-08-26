@@ -381,3 +381,137 @@ window.debugNFLGM = {
 const styleSheet = document.createElement('style');
 styleSheet.textContent = debugCSS;
 document.head.appendChild(styleSheet);
+
+// Add this to your debug-helper.js file or run in console
+
+// Debug team selection issues
+window.debugNFLGM.testTeamSelection = function() {
+  console.log('🏈 Testing Team Selection...');
+  console.log('==========================================');
+  
+  // Test 1: Check if Teams data exists
+  if (!window.Teams) {
+    console.error('❌ Teams object not found');
+    return false;
+  }
+  
+  console.log('✅ Teams object found');
+  console.log('Teams.TEAM_META_REAL:', window.Teams.TEAM_META_REAL ? window.Teams.TEAM_META_REAL.length : 'missing');
+  console.log('Teams.TEAM_META_FICTIONAL:', window.Teams.TEAM_META_FICTIONAL ? window.Teams.TEAM_META_FICTIONAL.length : 'missing');
+  
+  // Test 2: Check listByMode function
+  if (!window.listByMode) {
+    console.error('❌ listByMode function not found');
+    return false;
+  }
+  
+  console.log('✅ listByMode function found');
+  
+  // Test fictional teams
+  const fictional = window.listByMode('fictional');
+  console.log('📋 Fictional teams:', fictional.length);
+  if (fictional.length > 0) {
+    console.log('Sample fictional:', fictional.slice(0, 3).map(t => `${t.abbr} - ${t.name}`));
+  }
+  
+  // Test real teams
+  const real = window.listByMode('real');
+  console.log('📋 Real teams:', real.length);
+  if (real.length > 0) {
+    console.log('Sample real:', real.slice(0, 3).map(t => `${t.abbr} - ${t.name}`));
+  }
+  
+  // Test 3: Check modal elements
+  const modal = document.getElementById('onboardModal');
+  const teamSelect = document.getElementById('onboardTeam');
+  const fictionalRadio = document.querySelector('input[name="namesMode"][value="fictional"]');
+  const realRadio = document.querySelector('input[name="namesMode"][value="real"]');
+  
+  console.log('🎭 Modal elements:');
+  console.log('Modal found:', !!modal);
+  console.log('Team select found:', !!teamSelect);
+  console.log('Fictional radio found:', !!fictionalRadio);
+  console.log('Real radio found:', !!realRadio);
+  
+  // Test 4: Test team dropdown population
+  if (teamSelect && fictional.length > 0) {
+    console.log('🧪 Testing team dropdown population...');
+    
+    teamSelect.innerHTML = '';
+    fictional.forEach((team, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `${team.abbr} — ${team.name}`;
+      teamSelect.appendChild(option);
+    });
+    
+    console.log('✅ Team dropdown populated with', teamSelect.options.length, 'options');
+  }
+  
+  // Test 5: Check functions
+  const functions = [
+    'openOnboard',
+    'populateTeamDropdown', 
+    'handleGameStart',
+    'setupOnboardEventListeners'
+  ];
+  
+  console.log('🔧 Function availability:');
+  functions.forEach(fn => {
+    console.log(`${window[fn] ? '✅' : '❌'} ${fn}`);
+  });
+  
+  console.log('==========================================');
+  console.log('💡 To test manually:');
+  console.log('1. window.openOnboard() - Open the modal');
+  console.log('2. Change radio buttons and see if teams update');
+  console.log('3. window.testTeamSelection() - Run this test again');
+  
+  return fictional.length > 0 && real.length > 0;
+};
+
+// Quick fix function
+window.debugNFLGM.quickFixTeamSelection = function() {
+  console.log('🔧 Quick fixing team selection...');
+  
+  const teamSelect = document.getElementById('onboardTeam');
+  if (!teamSelect) {
+    console.error('Team select not found');
+    return;
+  }
+  
+  // Force populate with fictional teams
+  const fictional = window.listByMode('fictional');
+  if (fictional.length === 0) {
+    console.error('No fictional teams found');
+    return;
+  }
+  
+  teamSelect.innerHTML = '';
+  fictional.forEach((team, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `${team.abbr} — ${team.name}`;
+    teamSelect.appendChild(option);
+  });
+  
+  console.log('✅ Quick fix applied -', teamSelect.options.length, 'teams added');
+  
+  // Also set up the radio button events
+  const radios = document.querySelectorAll('input[name="namesMode"]');
+  radios.forEach(radio => {
+    radio.addEventListener('change', function() {
+      console.log('Mode changed to:', this.value);
+      const teams = window.listByMode(this.value);
+      teamSelect.innerHTML = '';
+      teams.forEach((team, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = `${team.abbr} — ${team.name}`;
+        teamSelect.appendChild(option);
+      });
+    });
+  });
+  
+  console.log('✅ Event listeners added');
+};
