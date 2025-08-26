@@ -229,7 +229,154 @@ const debugCSS = `
   align-items: center !important;
 }
 `;
+// Add this to debug-helper.js
 
+window.debugNFLGM = {
+  ...window.debugNFLGM, // Keep existing debug functions
+  
+  // New simulation debugging function
+  checkSimulation() {
+    console.log('🏈 Checking simulation setup...');
+    console.log('==========================================');
+    
+    const L = state.league;
+    if (!L) {
+      console.error('❌ No league found');
+      return false;
+    }
+    
+    console.log('✅ League found:', L.year, 'Week', L.week);
+    
+    // Check schedule
+    if (!L.schedule) {
+      console.error('❌ No schedule found');
+      return false;
+    }
+    
+    const scheduleWeeks = L.schedule.weeks || L.schedule;
+    if (!Array.isArray(scheduleWeeks)) {
+      console.error('❌ Schedule is not an array:', typeof scheduleWeeks);
+      return false;
+    }
+    
+    console.log('✅ Schedule found:', scheduleWeeks.length, 'weeks');
+    
+    // Check current week
+    const currentWeekIndex = L.week - 1;
+    if (currentWeekIndex >= scheduleWeeks.length) {
+      console.log('⚠️ Current week beyond schedule (season over?)');
+      return false;
+    }
+    
+    const currentWeek = scheduleWeeks[currentWeekIndex];
+    if (!currentWeek || !currentWeek.games) {
+      console.error('❌ Current week has no games:', currentWeek);
+      return false;
+    }
+    
+    console.log('✅ Current week games:', currentWeek.games.length);
+    
+    // Check teams
+    if (!L.teams || !Array.isArray(L.teams)) {
+      console.error('❌ No teams array found');
+      return false;
+    }
+    
+    console.log('✅ Teams found:', L.teams.length);
+    
+    // Check first few games
+    console.log('📋 Sample games for current week:');
+    currentWeek.games.slice(0, 3).forEach((game, i) => {
+      if (game.bye !== undefined) {
+        console.log(`  Game ${i + 1}: Team ${game.bye} has BYE`);
+      } else {
+        const home = L.teams[game.home];
+        const away = L.teams[game.away];
+        if (home && away) {
+          console.log(`  Game ${i + 1}: ${away.name} @ ${home.name}`);
+        } else {
+          console.error(`  Game ${i + 1}: Invalid teams - home: ${game.home}, away: ${game.away}`);
+        }
+      }
+    });
+    
+    // Check simulation functions
+    const requiredFunctions = ['simGameStats', 'applyResult', 'simulateWeek'];
+    const missingFunctions = requiredFunctions.filter(fn => !window[fn]);
+    
+    if (missingFunctions.length > 0) {
+      console.error('❌ Missing simulation functions:', missingFunctions);
+      return false;
+    }
+    
+    console.log('✅ All simulation functions available');
+    
+    // Test game simulation (dry run)
+    try {
+      const testGame = currentWeek.games.find(g => g.bye === undefined);
+      if (testGame) {
+        const home = L.teams[testGame.home];
+        const away = L.teams[testGame.away];
+        if (home && away) {
+          console.log('🧪 Testing game simulation...');
+          const result = window.simGameStats(home, away);
+          console.log('✅ Test simulation result:', result);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Simulation test failed:', error);
+      return false;
+    }
+    
+    console.log('==========================================');
+    console.log('✅ Simulation setup looks good!');
+    console.log('💡 Try running: debugNFLGM.forceSimulate()');
+    
+    return true;
+  },
+  
+  // Force simulate current week with detailed logging
+  forceSimulate() {
+    console.log('🚀 Force simulating week...');
+    
+    if (!this.checkSimulation()) {
+      console.error('❌ Simulation check failed');
+      return;
+    }
+    
+    try {
+      window.simulateWeek();
+      console.log('✅ Simulation completed');
+    } catch (error) {
+      console.error('❌ Simulation failed:', error);
+    }
+  },
+  
+  // Check current league state
+  checkLeagueState() {
+    console.log('📊 League State:');
+    const L = state.league;
+    if (!L) {
+      console.log('❌ No league');
+      return;
+    }
+    
+    console.log('Year:', L.year);
+    console.log('Week:', L.week);
+    console.log('Teams:', L.teams?.length || 0);
+    console.log('Schedule weeks:', L.schedule?.weeks?.length || L.schedule?.length || 0);
+    console.log('Results stored:', Object.keys(L.resultsByWeek || {}).length, 'weeks');
+    
+    // Show team records
+    console.log('📋 Team Records (top 5):');
+    if (L.teams) {
+      const sortedTeams = [...L.teams].sort((a, b) => b.record.w - a.record.w);
+      sortedTeams.slice(0, 5).forEach((team, i) => {
+        console.log(`  ${i + 1}. ${team.name}: ${team.record.w}-${team.record.l}-${team.record.t}`);
+      });
+    }
+  }
+};
 // Inject debug CSS
 const styleSheet = document.createElement('style');
 styleSheet.textContent = debugCSS;
