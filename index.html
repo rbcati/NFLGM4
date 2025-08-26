@@ -25,8 +25,9 @@
                 <li><a id="nav-scouting" href="#/scouting">Scouting</a></li>
             </ul>
         </nav>
-        <div id="sidebar-actions">
+        <div class="sidebar-bottom">
             <button id="btnSimWeek" class="btn primary">Sim Week</button>
+            <button id="btnThemeToggle" class="btn">Toggle Theme</button>
         </div>
     </div>
 
@@ -53,15 +54,17 @@
         <div class="modal-content">
             <h2>Welcome to NFL GM</h2>
             <p>Choose your settings to begin your career.</p>
-            <label for="onboardMode">Team Names:</label>
-            <select id="onboardMode">
-                <option value="fictional">Fictional</option>
-                <option value="real">Real NFL</option>
-            </select>
-            <br><br>
-            <label for="onboardTeam">Choose Your Team:</label>
-            <select id="onboardTeam"></select>
-            <br><br>
+            <div class="form-group">
+                <label for="onboardMode">Team Names:</label>
+                <select id="onboardMode">
+                    <option value="fictional">Fictional</option>
+                    <option value="real">Real NFL</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="onboardTeam">Choose Your Team:</label>
+                <select id="onboardTeam"></select>
+            </div>
             <button id="onboardStart" class="btn primary">Start Season</button>
         </div>
     </div>
