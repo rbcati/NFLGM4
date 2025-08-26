@@ -1,110 +1,118 @@
-// player.js
 'use strict';
 
-function calculateOvr(pos, ratings) {
-    const weights = Constants.OVR_WEIGHTS[pos];
-    if (!weights) return U.rand(50, 75); // Fallback for positions without specific weights
+// Player object definition
+const Player = {
+    // Generate a new player with specified position and type
+    generate: function(pos, type = 'standard') {
+        const C = window.Constants;
+        const U = window.Utils;
 
-    let weightedSum = 0;
-    for (const stat in weights) {
-        weightedSum += (ratings[stat] || 50) * weights[stat];
-    }
-    return Math.round(weightedSum);
-}
+        const age = U.rand(C.PLAYER_AGE_MIN, C.PLAYER_AGE_MAX);
+        const potential = U.rand(C.PLAYER_POTENTIAL_MIN, C.PLAYER_POTENTIAL_MAX);
+        const ratings = this.generateRatings(pos, type);
+        const ovr = this.calculateOvr(ratings, pos);
 
-function makePlayer(pos) {
-       const positionProfiles = {
-        'QB': { speed: [50, 90], strength: [60, 85], awareness: [70, 95] },
-        'WR': { speed: [80, 99], strength: [50, 85], awareness: [60, 90] },
-        'OL': { speed: [40, 65], strength: [85, 99], awareness: [70, 90] }
-  const U = window.Utils;
-  
-  // Generate a full spectrum of detailed ratings
-  const ratings = {
-      throwPower: U.rand(50, 99),
-      throwAccuracy: U.rand(50, 99),
-      awareness: U.rand(40, 99),
-      catching: U.rand(40, 99),
-      catchInTraffic: U.rand(40, 99),
-      acceleration: U.rand(60, 99),
-      speed: U.rand(60, 99),
-      agility: U.rand(60, 99),
-      trucking: U.rand(40, 99),
-      juking: U.rand(40, 99),
-      passRushSpeed: U.rand(40, 99),
-      passRushPower: U.rand(40, 99),
-      runStop: U.rand(40, 99),
-      coverage: U.rand(40, 99),
-      runBlock: U.rand(50, 99),
-      passBlock: U.rand(50, 99),
-      intelligence: U.rand(40, 99),
-      kickPower: U.rand(60, 99),
-      kickAccuracy: U.rand(60, 99),
-      height: U.rand(68, 80) // in inches
-  };
+        return {
+            name: `${U.randItem(C.FIRST_NAMES)} ${U.randItem(C.LAST_NAMES)}`,
+            pos: pos,
+            age: age,
+            ovr: ovr,
+            pot: potential,
+            ratings: ratings,
+            stats: { game: {}, season: {} },
+            contract: this.generateContract(ovr, age),
+            status: 'healthy',
+            morale: U.rand(70, 95)
+        };
+    },
 
-  const ovr = calculateOvr(pos, ratings);
-  const baseAnnual = Math.round(0.42 * ovr * 10) / 10;
-  const years = U.rand(1, 4);
-  const signingBonus = Math.round((baseAnnual * years * (0.25 + Math.random() * 0.35)) * 10) / 10;
-  
-  const player = {
-    id: U.id(),
-    name: U.choice(FIRST_NAMES) + ' ' + U.choice(LAST_NAMES),
-    pos: pos,
-    age: U.rand(21, 34),
-    ratings: ratings, // Store all detailed ratings here
-    ovr: ovr, // The calculated overall rating
-    years, yearsTotal: years,
-    baseAnnual, signingBonus,
-    guaranteedPct: 0.5,
-    injuryWeeks: 0,
-    fatigue: 0,
-    abilities: [],
-    stats: { game: {}, season: {}, career: {} },
-    history: [],
-    awards: []
-  };
+    // Generate ratings based on position and type
+    generateRatings: function(pos, type) {
+        const C = window.Constants;
+        const U = window.Utils;
+        const ratings = {};
+        const ratingRanges = C.POS_RATING_RANGES[pos] || {};
 
-  tagAbilities(player); // Add abilities based on new ratings
-  return player;
-}
+        for (const key in ratingRanges) {
+            ratings[key] = U.rand(ratingRanges[key][0], ratingRanges[key][1]);
+        }
+        return ratings;
+    },
 
-function tagAbilities(p) {
-    p.abilities = []; // Reset abilities
-    const r = p.ratings;
-    
-function developPlayer(player, age) {
-    // Young players improve, older decline
-    const peak = { QB: 28, RB: 25, WR: 27, OL: 29 };
-    const ageDiff = age - peak[player.pos];
-    // ... development logic
-    
-    // QB Abilities
-    if (p.pos === 'QB') {
-        if (r.throwPower > 95) p.abilities.push('Cannon Arm');
-        if (r.throwAccuracy > 95) p.abilities.push('Deadeye');
-        if (r.speed > 88) p.abilities.push('Escape Artist');
+    // Calculate overall rating based on position-specific weights
+    calculateOvr: function(ratings, pos) {
+        const C = window.Constants;
+        const weights = C.OVR_WEIGHTS[pos];
+        if (!weights) return 65; // Default for unweighted positions
+
+        let weightedSum = 0;
+        let weightTotal = 0;
+
+        for (const key in weights) {
+            if (ratings[key]) {
+                weightedSum += ratings[key] * weights[key];
+                weightTotal += weights[key];
+            }
+        }
+
+        return Math.round(weightedSum / weightTotal);
+    },
+
+    // Generate a contract for a player
+    generateContract: function(ovr, age) {
+        const U = window.Utils;
+        const years = U.rand(1, 5);
+        const ageFactor = Math.max(0.5, (35 - age) / 10);
+        const salary = Math.round((Math.pow(ovr, 3) / 1000 + 500) * ageFactor) * 1000;
+        return { years: years, salary: salary };
+    },
+
+    // Player progression during offseason
+    progress: function(player) {
+        const U = window.Utils;
+        const C = window.Constants;
+
+        // Age progression
+        player.age++;
+        if (player.age > C.PLAYER_RETIREMENT_AGE_MAX) {
+            // Retirement logic placeholder
+            return;
+        }
+
+        // Rating progression/regression
+        const devRoll = U.rand(1, 100);
+        if (devRoll <= player.pot) {
+            const points = U.rand(1, 5);
+            for (let i = 0; i < points; i++) {
+                const ratingToInc = U.randItem(Object.keys(player.ratings));
+                if (player.ratings[ratingToInc] < 99) {
+                    player.ratings[ratingToInc]++;
+                }
+            }
+        } else {
+            // Regression for older players
+            if (player.age > 30) {
+                const points = U.rand(1, 3);
+                for (let i = 0; i < points; i++) {
+                    const ratingToDec = U.randItem(Object.keys(player.ratings));
+                    if (player.ratings[ratingToDec] > 40) {
+                        player.ratings[ratingToDec]--;
+                    }
+                }
+            }
+        }
+
+        // Recalculate OVR
+        player.ovr = this.calculateOvr(player.ratings, player.pos);
+        return player;
     }
-    // RB Abilities
-    if (p.pos === 'RB') {
-        if (r.trucking > 95) p.abilities.push('Bruiser');
-        if (r.juking > 95) p.abilities.push('Ankle Breaker');
-        if (r.catching > 85) p.abilities.push('Mismatch Nightmare');
-    }
-    // WR/TE Abilities
-    if (p.pos === 'WR' || p.pos === 'TE') {
-        if (r.speed > 96) p.abilities.push('Deep Threat');
-        if (r.catchInTraffic > 95) p.abilities.push('Possession Specialist');
-        if (r.catching > 95) p.abilities.push('Sure Hands');
-    }
-    // Defensive Abilities
-    if (p.pos === 'DL' || p.pos === 'LB') {
-        if (r.passRushPower > 95) p.abilities.push('Bull Rush');
-        if (r.passRushSpeed > 95) p.abilities.push('Edge Threat');
-    }
-    if (p.pos === 'CB' || p.pos === 'S') {
-        if (r.coverage > 95 && r.intelligence > 90) p.abilities.push('Shutdown Corner');
-        if (r.runStop > 90) p.abilities.push('Enforcer');
-    }
-}
+};
+
+// --- CRITICAL ---
+// This makes the entire Player object, including its `generate` method,
+// available to the rest of the application.
+window.Player = Player;
+
+// Also create a global alias for the main generation function for convenience,
+// as other files like freeagency.js were trying to call it directly.
+window.generatePlayer = Player.generate.bind(Player);
