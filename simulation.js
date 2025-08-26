@@ -3,7 +3,34 @@
 function simGameStats(home, away) {
   const C = window.Constants.SIMULATION;
   const U = window.Utils;
+  
+function applyResult(game, homeScore, awayScore) {
+  const home = game.home;
+  const away = game.away;
 
+  // Update game scores
+  game.homeScore = homeScore;
+  game.awayScore = awayScore;
+  game.played = true;
+
+  // Update team records
+  if (homeScore > awayScore) {
+    home.wins++;
+    away.losses++;
+  } else if (awayScore > homeScore) {
+    away.wins++;
+    home.losses++;
+  } else {
+    home.ties++;
+    away.ties++;
+  }
+
+  // Update points for and against
+  home.ptsFor += homeScore;
+  home.ptsAgainst += awayScore;
+  away.ptsFor += awayScore;
+  away.ptsAgainst += homeScore;
+}
   // Basic team strength from overall ratings
   const homeStrength = home.roster.reduce((acc, p) => acc + p.ovr, 0) / home.roster.length;
   const awayStrength = away.roster.reduce((acc, p) => acc + p.ovr, 0) / away.roster.length;
