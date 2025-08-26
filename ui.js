@@ -435,17 +435,15 @@ function renderOffers() { console.log('Offers rendering not yet implemented'); }
 function renderCap() { console.log('Cap rendering not yet implemented'); }
 function renderPlayoffs() { console.log('Playoffs rendering not yet implemented'); }
 function renderFreeAgency() { 
-  if (window.renderFreeAgency) {
-    window.renderFreeAgency();
-  } else {
-    console.log('Free agency rendering not yet implemented'); 
-  }
+  console.log('Free agency rendering not yet implemented'); 
 }
 function renderDraft() {
-  if (window.renderDraft) {
-    window.renderDraft();
-  } else {
-    console.log('Draft rendering not yet implemented'); 
+  console.log('Draft rendering not yet implemented'); 
+  
+  // Basic draft implementation to avoid infinite recursion
+  const draftView = document.getElementById('draft');
+  if (draftView) {
+    draftView.innerHTML = '<div class="card"><h2>Draft</h2><p>Draft functionality coming soon...</p></div>';
   }
 }
 
@@ -538,169 +536,3 @@ window.renderHallOfFame = renderHallOfFame;
 window.openOnboard = openOnboard;
 window.closeOnboard = closeOnboard;
 window.showBoxScore = showBoxScore;
-
-// Add this to ui.js - Fixed onboarding functions
-
-/**
- * Opens the onboarding modal and populates it with teams
- */
-function openOnboard() {
-  console.log('Opening onboarding modal...');
-  
-  try {
-    const modal = document.getElementById('onboardModal');
-    if (!modal) {
-      console.error('Onboard modal not found in DOM');
-      // Create the modal if it doesn't exist
-      createOnboardModal();
-      return;
-    }
-    
-    // Show the modal
-    modal.hidden = false;
-    modal.style.display = 'flex';
-    console.log('Modal should now be visible');
-    
-    // Populate the team select
-    const teamSelect = document.getElementById('onboardTeam');
-    if (!teamSelect) {
-      console.error('Team select not found');
-      return;
-    }
-    
-    // Clear existing options
-    teamSelect.innerHTML = '';
-    
-    // Get teams based on current mode
-    const currentMode = state.namesMode || 'fictional';
-    console.log('Current names mode:', currentMode);
-    
-    if (!window.listByMode) {
-      console.error('listByMode function not available');
-      return;
-    }
-    
-    const teams = window.listByMode(currentMode);
-    console.log('Teams loaded:', teams.length);
-    
-    if (teams.length === 0) {
-      console.error('No teams found for mode:', currentMode);
-      teamSelect.innerHTML = '<option value="0">No teams available</option>';
-      return;
-    }
-    
-    // Populate team options
-    teams.forEach((team, i) => {
-      const opt = document.createElement('option');
-      opt.value = String(i);
-      opt.textContent = `${team.abbr} — ${team.name}`;
-      teamSelect.appendChild(opt);
-    });
-    
-    // Set default selection
-    teamSelect.selectedIndex = 0;
-    
-    // Ensure the correct names mode is selected
-    const fictionalRadio = document.querySelector('input[name="namesMode"][value="fictional"]');
-    const realRadio = document.querySelector('input[name="namesMode"][value="real"]');
-    
-    if (currentMode === 'fictional' && fictionalRadio) {
-      fictionalRadio.checked = true;
-    } else if (currentMode === 'real' && realRadio) {
-      realRadio.checked = true;
-    }
-    
-    console.log('Onboarding modal opened successfully');
-    
-  } catch (error) {
-    console.error('Error opening onboarding modal:', error);
-    window.setStatus('Error opening team selection');
-  }
-}
-
-/**
- * Closes the onboarding modal
- */
-function closeOnboard() {
-  console.log('Closing onboarding modal...');
-  
-  const modal = document.getElementById('onboardModal');
-  if (modal) {
-    modal.hidden = true;
-    modal.style.display = 'none';
-  }
-}
-
-/**
- * Creates the onboarding modal if it doesn't exist
- */
-function createOnboardModal() {
-  console.log('Creating onboarding modal...');
-  
-  const modal = document.createElement('div');
-  modal.id = 'onboardModal';
-  modal.className = 'modal';
-  modal.innerHTML = `
-    <div class="modal-card">
-      <h3>Start New League</h3>
-      
-      <div class="section">
-        <h4>Team Names</h4>
-        <label><input type="radio" name="namesMode" value="fictional" checked> Fictional Teams</label>
-        <label><input type="radio" name="namesMode" value="real"> Real NFL Teams</label>
-      </div>
-      
-      <div class="section">
-        <h4>Game Mode</h4>
-        <label><input type="radio" name="gameMode" value="gm" checked> General Manager</label>
-        <label><input type="radio" name="gameMode" value="career"> Coordinator Career</label>
-        
-        <div id="careerOptions" class="mt" hidden>
-          <label for="careerRole">Role:</label>
-          <select id="careerRole">
-            <option value="GM">General Manager</option>
-            <option value="OC">Offensive Coordinator</option>
-            <option value="DC">Defensive Coordinator</option>
-          </select>
-        </div>
-      </div>
-      
-      <div class="section">
-        <label for="onboardTeam">Choose your team:</label>
-        <div class="row">
-          <select id="onboardTeam" style="flex: 1;"></select>
-          <button id="onboardRandom" class="btn" type="button">Random</button>
-        </div>
-      </div>
-      
-      <div class="section">
-        <button id="onboardStart" class="btn primary" type="button">Start Season</button>
-      </div>
-    </div>
-  `;
-  
-  // Add to body
-  document.body.appendChild(modal);
-  
-  // Now call openOnboard again
-  setTimeout(() => openOnboard(), 100);
-}
-
-/**
- * Enhanced error handling wrapper for critical functions
- */
-function safeExecute(funcName, func, ...args) {
-  try {
-    return func(...args);
-  } catch (error) {
-    console.error(`Error in ${funcName}:`, error);
-    window.setStatus(`Error in ${funcName}: ${error.message}`);
-    return null;
-  }
-}
-
-// Update the existing functions with better error handling
-window.openOnboard = openOnboard;
-window.closeOnboard = closeOnboard;
-window.createOnboardModal = createOnboardModal;
-window.safeExecute = safeExecute;
