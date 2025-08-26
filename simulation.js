@@ -1,6 +1,42 @@
 // simulation.js - Fixed simulateWeek function
 'use strict';
+function simGameStats(home, away) {
+  const C = window.Constants.SIMULATION;
+  const U = window.Utils;
 
+  // Basic team strength from overall ratings
+  const homeStrength = home.roster.reduce((acc, p) => acc + p.ovr, 0) / home.roster.length;
+  const awayStrength = away.roster.reduce((acc, p) => acc + p.ovr, 0) / away.roster.length;
+
+  // Add home advantage
+  const strengthDiff = (homeStrength - awayStrength) + C.HOME_ADVANTAGE;
+
+  // Simulate scores
+  let homeScore = U.rand(C.BASE_SCORE_MIN, C.BASE_SCORE_MAX) + Math.round(strengthDiff / 5);
+  let awayScore = U.rand(C.BASE_SCORE_MIN, C.BASE_SCORE_MAX) - Math.round(strengthDiff / 5);
+
+  // Add some randomness
+  homeScore += U.rand(0, C.SCORE_VARIANCE);
+  awayScore += U.rand(0, C.SCORE_VARIANCE);
+
+  // Ensure scores are non-negative
+  homeScore = Math.max(0, homeScore);
+  awayScore = Math.max(0, awayScore);
+
+  // Simulate basic player stats (you can expand on this)
+  [home, away].forEach((team, isHome) => {
+    const score = isHome ? homeScore : awayScore;
+    const qb = team.roster.find(p => p.pos === 'QB');
+    if (qb) {
+      const passYd = Math.round(score * U.rand(8, 12));
+      const passTD = Math.floor(score / 10);
+      qb.stats.game = { passYd, passTD };
+    }
+  });
+
+
+  return { homeScore, awayScore };
+}
 function simulateWeek() {
   const L = state.league;
   
