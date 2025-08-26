@@ -252,3 +252,19 @@ window.ensureFA = ensureFA;
 window.renderFreeAgency = renderFreeAgency;
 window.signFreeAgent = signFreeAgent;
 window.generateBasicName = generateBasicName;
+
+// Add this to the END of your freeAgency.js file
+
+/**
+ * Alternative name for ensureFA function (for compatibility)
+ * @returns {Array} Generated free agents
+ */
+function generateFreeAgents() {
+  console.log('generateFreeAgents called - delegating to ensureFA');
+  ensureFA();
+  return state.freeAgents || [];
+}
+
+// Make sure both function names are available globally
+window.generateFreeAgents = generateFreeAgents;
+window.ensureFA = ensureFA;
