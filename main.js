@@ -6,7 +6,7 @@ console.log('Main.js loading...');
 let state = {};
 
 /**
- * Refreshes all primary UI components.
+ * Refreshes all primary UI components after a state change.
  */
 function refreshAllViews() {
     console.log('Refreshing all views...');
@@ -14,7 +14,7 @@ function refreshAllViews() {
         if (state.onboarded) {
             UI.renderHub();
             UI.renderRoster();
-            UI.renderStandings(); // Ensure standings are rendered
+            UI.renderStandings();
             UI.renderFreeAgency();
             UI.renderDraft();
             UI.renderScouting();
@@ -26,60 +26,37 @@ function refreshAllViews() {
     }
 }
 
-
 /**
- * Initializes a new game state.
- * @param {object} options - Onboarding options.
+ * Initializes a new game state based on user's onboarding choices.
+ * @param {object} options - The choices from the onboarding modal.
  */
 function initNewGame(options) {
     console.log('Initializing new game...');
-    state = window.State.init(); // Reset state
+    state = window.State.init(); // Reset state to a fresh copy
     state.onboarded = true;
     state.player.teamId = parseInt(options.teamIdx, 10);
     state.namesMode = options.chosenMode;
 
-    // Create the league
-    const league = makeLeague(state.namesMode);
-    state.league = league;
+    // Create the league with teams and schedule
+    state.league = makeLeague(state.namesMode);
 
-    // Generate free agents
+    // Generate initial pool of free agents
     state.freeAgents = generateFreeAgents(150);
 
     saveState();
-    hide('onboardModal');
+    UI.hide('onboardModal');
     refreshAllViews();
-    location.hash = '#/hub'; // Go to hub after setup
+    location.hash = '#/hub'; // Navigate to the main hub
 }
 
-// --- ROUTING ---
-const routes = {
-    '#/hub': 'pageHub',
-    '#/roster': 'pageRoster',
-    '#/standings': 'pageStandings',
-    '#/schedule': 'pageSchedule',
-    '#/freeagency': 'pageFreeAgency',
-    '#/draft': 'pageDraft',
-    '#/scouting': 'pageScouting'
-};
-
-function router() {
-    const path = location.hash || '#/hub';
-    const pageId = routes[path];
-
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('#main-nav a').forEach(a => a.classList.remove('active'));
-
-    if (pageId) {
-        const page = $(pageId);
-        const navLink = $(`nav-${path.substring(2)}`);
-        if (page) page.classList.add('active');
-        if (navLink) navLink.classList.add('active');
-    }
-}
-
-// --- MAIN GAME LOGIC ---
+/**
+ * The main game loop/entry point.
+ */
 function init() {
     console.log('Initializing game...');
+    
+    // Apply the user's saved theme (light/dark) first
+    UI.applySavedTheme(); 
     
     // Load game state from localStorage
     const savedState = loadState();
@@ -87,46 +64,44 @@ function init() {
     if (savedState && savedState.onboarded) {
         console.log('Valid save found, loading game...');
         state = savedState;
-        // Ensure all necessary properties exist
+        // Backwards compatibility checks for older save files
         if (!state.player) state.player = { teamId: 0 };
         if (!state.freeAgents) state.freeAgents = [];
         
         refreshAllViews();
-        router(); // Route to the correct page
+        router(); // Route to the correct page based on hash
     } else {
         console.log('No valid save found, starting new game...');
         state = window.State.init(); // Initialize a clean state
         UI.openOnboard();
     }
 
-    // Set up event listeners
-    window.addEventListener('hashchange', router);
+    // Set up all event listeners for the app
     setupEventListeners();
 }
 
 /**
- * A wrapper to simulate a week and then update the UI.
+ * A wrapper function to simulate a week and then update the UI.
  */
 function simulateWeekAndUpdate() {
     simulateWeek(); // This function is from simulation.js
     
-    // After simulation, refresh the data-driven views
+    // After simulation, refresh the views that depend on game results
     UI.renderHub();
     UI.renderStandings();
     
-    saveState(); // Save progress
+    saveState(); // Save progress after the week is done
 }
 
-
 // --- DOMContentLoaded ---
+// This ensures the script runs only after the entire page is loaded.
 document.addEventListener('DOMContentLoaded', () => {
-    // Dependency check
-    const dependencies = ['State', 'Constants', 'Teams', 'makeLeague', 'UI', 'generateFreeAgents', 'simulateWeek'];
+    // Critical dependency check to prevent the game from starting in a broken state.
+    const dependencies = ['State', 'Constants', 'Teams', 'makeLeague', 'UI', 'generateFreeAgents', 'simulateWeek', 'listByMode', 'setupEventListeners', 'saveState', 'loadState'];
     const missing = dependencies.filter(dep => typeof window[dep] === 'undefined');
 
     if (missing.length > 0) {
         console.error('FATAL: Missing critical dependencies:', missing);
-        // Display a user-friendly error message on the screen
         document.body.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">
             <h1>Error</h1>
             <p>Could not load essential game files. Please check the console for details. Missing: ${missing.join(', ')}</p>
@@ -139,3 +114,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 console.log('Main.js loaded');
+
