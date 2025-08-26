@@ -8,13 +8,14 @@ function router() {
 
     // Hide all pages
     document.querySelectorAll('.page').forEach(p => {
-        p.style.display = 'none';
+        p.classList.remove('active');
     });
 
     // Show active page
-    const activePage = document.querySelector(path.replace('#', '#page'));
+    const pageId = `page${path.charAt(2).toUpperCase() + path.slice(3)}`;
+    const activePage = document.getElementById(pageId);
     if (activePage) {
-        activePage.style.display = 'block';
+        activePage.classList.add('active');
     }
 
     // Update nav link styles
@@ -26,7 +27,6 @@ function router() {
         }
     });
 
-    // Log route change
     console.log(`Route change: ${path.substring(2)}`);
 }
 
@@ -35,7 +35,7 @@ function router() {
 
 // Set status message
 function setStatus(msg, duration = 3000) {
-    const el = document.getElementById('status-bar');
+    const el = document.getElementById('status-bar'); // Assuming you have a status bar element
     if (el) {
         el.textContent = msg;
         el.style.display = 'block';
@@ -51,7 +51,7 @@ function showNews(newsItem) {
     if (modal) {
         document.getElementById('newsModalTitle').textContent = newsItem.title;
         document.getElementById('newsModalContent').textContent = newsItem.content;
-        modal.style.display = 'block';
+        modal.style.display = 'flex';
     }
 }
 
@@ -70,85 +70,66 @@ function setupEventListeners() {
     // Delegated event listener for the entire body
     document.body.addEventListener('click', e => {
         const target = e.target;
+        const targetId = target.id;
         const classList = target.classList;
-        console.log('Click detected on:', target.id || classList.toString());
+        console.log('Click detected on:', targetId || classList.toString());
 
-        // --- THE FIX IS HERE ---
-        // Onboarding "Start Season" button
-        if (target.id === 'onboardStart') {
-            console.log('Onboard start clicked');
-            const options = {
-                gameMode: 'gm',
-                playerRole: 'GM',
-                chosenMode: document.getElementById('onboardMode').value,
-                teamIdx: document.getElementById('onboardTeam').value
-            };
-            console.log('Starting game:', options);
-            if (window.initNewGame) {
-                initNewGame(options);
-            } else {
-                console.error('initNewGame function not found!');
-            }
-            return; // Stop further processing
+        // --- ONBOARDING, SIM, AND THEME BUTTONS ---
+        switch (targetId) {
+            case 'onboardStart':
+                console.log('Onboard start clicked');
+                const options = {
+                    gameMode: 'gm',
+                    playerRole: 'GM',
+                    chosenMode: document.getElementById('onboardMode').value,
+                    teamIdx: document.getElementById('onboardTeam').value
+                };
+                if (window.initNewGame) initNewGame(options);
+                return; // Stop further processing
+
+            case 'btnSimWeek':
+                console.log('Simulating week...');
+                if (window.simulateWeekAndUpdate) simulateWeekAndUpdate();
+                return;
+
+            case 'btnThemeToggle':
+                console.log('Toggling theme...');
+                if (UI.toggleTheme) UI.toggleTheme();
+                return;
         }
-        // --- END FIX ---
 
-        // Simulation buttons
-        if (classList.contains('btnSimWeek')) {
-            console.log('Simulating week...');
-            if (window.simulateWeekAndUpdate) {
-                simulateWeekAndUpdate();
-            } else {
-                console.error('simulateWeekAndUpdate function not found!');
-            }
-        } else if (classList.contains('btnSimSeason')) {
-            // Placeholder for sim season functionality
+        // --- OTHER CLICK ACTIONS FROM YOUR ORIGINAL FILE ---
+        if (classList.contains('btnSimSeason')) {
             console.log('Sim season clicked (not implemented)');
             setStatus('Simulate season not yet implemented.');
         }
-
-        // Navigation links (handled by hashchange)
-
-        // Player actions
         else if (classList.contains('btnSignPlayer')) {
             const playerId = target.dataset.playerId;
             console.log(`Sign player ${playerId} clicked`);
-            // Placeholder for signing logic
-        } else if (classList.contains('btnReleasePlayer')) {
+        }
+        else if (classList.contains('btnReleasePlayer')) {
             const playerId = target.dataset.playerId;
             console.log(`Release player ${playerId} clicked`);
-            // Placeholder for release logic
         }
-
-        // Trade actions
         else if (classList.contains('btnProposeTrade')) {
             console.log('Propose trade clicked');
-            // Placeholder for trade logic
         }
-
-        // Staff actions
         else if (classList.contains('btnHireStaff')) {
             const staffId = target.dataset.staffId;
             console.log(`Hire staff ${staffId} clicked`);
-            // Placeholder for hiring logic
         }
-
-        // Draft actions
         else if (classList.contains('btnMakePick')) {
             console.log('Make draft pick clicked');
-            // Placeholder for draft logic
         }
-
-        // Modal close buttons
-        else if (classList.contains('close-modal')) {
-            const modal = target.closest('.modal');
+        else if (classList.contains('close-modal') || classList.contains('close-button')) {
+            const modal = target.closest('.modal-backdrop');
             if (modal) {
                 modal.style.display = 'none';
             }
         }
     });
 
-    // Specific listeners for non-delegated events
+    // --- SPECIFIC LISTENERS ---
 
     // Team mode selection (real vs. fictional)
     const onboardModeSelect = document.getElementById('onboardMode');
@@ -162,7 +143,12 @@ function setupEventListeners() {
 
     // Handle initial route and hash changes for navigation
     window.addEventListener('hashchange', router);
-    window.addEventListener('DOMContentLoaded', router);
+    // Call router on initial load as well
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', router);
+    } else {
+        router();
+    }
 
     console.log('Event listeners set up successfully');
 }
