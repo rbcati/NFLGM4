@@ -1,11 +1,18 @@
-// training.js
+// training.js - Updated to use constants instead of magic numbers
 'use strict';
 
-// Renders the training UI card in the Roster view
+/**
+ * Renders the training UI card in the Roster view
+ * @param {Object} team - Team object to render training for
+ */
 function renderTrainingUI(team) {
+  if (!team || !team.roster) return;
+  
   let root = $('#trainingCard');
   if (!root) {
     const rosterView = $('#roster');
+    if (!rosterView) return;
+    
     root = document.createElement('div');
     root.className = 'card';
     root.id = 'trainingCard';
@@ -16,7 +23,8 @@ function renderTrainingUI(team) {
     return `<option value="${p.id}">${p.name} • ${p.pos} • OVR ${p.ovr}</option>`;
   }).join('');
 
-  root.innerHTML = `<h3>Weekly Training</h3>
+  root.innerHTML = `
+    <h3>Weekly Training</h3>
     <div class="row">
       <label for="trainPlayer">Player</label>
       <select id="trainPlayer" style="min-width:240px">${optsPlayers}</select>
@@ -27,104 +35,375 @@ function renderTrainingUI(team) {
         <option value="strength">Strength</option>
         <option value="agility">Agility</option>
         <option value="awareness">Awareness</option>
+        <option value="intelligence">Intelligence</option>
+        <option value="acceleration">Acceleration</option>
+        <option value="catching">Catching</option>
       </select>
       <div class="spacer"></div>
       <button id="btnSetTraining" class="btn">Set For This Week</button>
     </div>
-    <div class="muted small">One player per team per week. Success chance scales with coach skill, age, and current rating. Results apply after you simulate the week.</div>`;
+    <div class="muted small">
+      One player per team per week. Success chance: ${Math.round(window.Constants?.TRAINING?.SUCCESS_BASE_RATE * 100 || 55)}% base rate, 
+      modified by coach skill, player age, and current rating. Results apply after simulating the week.
+    </div>
+  `;
 
-  $('#btnSetTraining').onclick = setTrainingPlan;
-}
-
-// Sets the user's training plan for the week
-function setTrainingPlan() {
-    const teamIdx = parseInt($('#rosterTeam').value || $('#userTeam').value || '0', 10);
-    const team = state.league.teams[teamIdx];
-    const pid = $('#trainPlayer').value;
-    const stat = $('#trainStat').value;
-    state.trainingPlan = { teamIdx, playerId: pid, stat, week: state.league.week };
-    const playerName = (team.roster.find(p => p.id === pid) || { name: 'player' }).name;
-    setStatus(`Training scheduled: ${stat} for ${playerName}`);
-}
-
-// AI logic to pick a training target
-function pickAITarget(team) {
-  const C = window.Constants;
-  const byPos = {};
-  C.POSITIONS.forEach(pos => { byPos[pos] = []; });
-  team.roster.forEach(p => { byPos[p.pos].push(p); });
-  C.POSITIONS.forEach(pos => { byPos[pos].sort((a, b) => b.ovr - a.ovr); });
-
-  let starters = [];
-  Object.keys(C.DEPTH_NEEDS).forEach(pos => {
-    starters = starters.concat(byPos[pos].slice(0, Math.max(1, C.DEPTH_NEEDS[pos])));
-  });
-
-  let best = null, bestScore = -1, bestStat = 'awareness';
-  const stats = ['speed', 'strength', 'agility', 'awareness'];
-
-  starters.forEach(p => {
-    if (p.injuryWeeks > 0) return;
-    stats.forEach(st => {
-      const cur = p[st] || 0;
-      const score = Math.max(0, 99 - cur) - Math.max(0, p.age - 27) * 0.8 + (p.pos === 'QB' && st === 'awareness' ? 3 : 0);
-      if (score > bestScore) {
-        bestScore = score;
-        best = p;
-        bestStat = st;
-      }
-    });
-  });
-
-  return best ? { playerId: best.id, stat: bestStat } : null;
-}
-
-// Resolves the outcome of a training plan
-function resolveTrainingFor(team, plan) {
-      const trainingTypes = {
-        'strength': { max: 99, rate: 0.7 },
-        'speed': { max: 95, rate: 0.5 },
-        'agility': { max: 95, rate: 0.6 },
-        'awareness': { max: 99, rate: 0.8 },
-        'technique': { max: 99, rate: 0.4 } // NEW
-  if (!plan) return null;
-  const p = team.roster.find(x => x.id === plan.playerId);
-  if (!p || p.injuryWeeks > 0 || (p[plan.stat] || 0) >= 99) return { ok: false };
-
-  const stat = plan.stat;
-  const cur = p[stat];
-  const coach = (team.strategy && team.strategy.coachSkill) || 0.7;
-  const successP = Math.max(0.15, Math.min(0.85, 0.55 + 0.15 * (coach - 0.7) - Math.max(0, cur - 70) * 0.01 - Math.max(0, p.age - 27) * 0.015));
-
-  if (Math.random() < successP) {
-    const bump = 1 + Math.floor(Math.random() * Math.max(1, (stat === 'awareness' ? 4 : 3) - Math.floor((cur - 75) / 10)));
-    p[stat] = Math.min(99, cur + bump);
-    if (stat === 'awareness' || stat === 'agility') p.ovr = Math.min(99, p.ovr + 1);
-    p.fatigue = (p.fatigue || 0) + 2;
-    return { ok: true, success: true, stat, before: cur, after: p[stat] };
-  } else {
-    p.fatigue = (p.fatigue || 0) + 1;
-    return { ok: true, success: false, stat, before: cur };
+  const btnSetTraining = $('#btnSetTraining');
+  if (btnSetTraining) {
+    btnSetTraining.onclick = setTrainingPlan;
   }
 }
 
-// Runs the training process for all teams for the week
+/**
+ * Sets the user's training plan for the current week
+ */
+function setTrainingPlan() {
+  if (!state.league) return;
+  
+  try {
+    const teamIdx = parseInt($('#rosterTeam')?.value || $('#userTeam')?.value || '0', 10);
+    const team = state.league.teams[teamIdx];
+    
+    if (!team) {
+      window.setStatus('Invalid team selected.');
+      return;
+    }
+    
+    const pid = $('#trainPlayer')?.value;
+    const stat = $('#trainStat')?.value;
+    
+    if (!pid || !stat) {
+      window.setStatus('Please select both a player and skill to train.');
+      return;
+    }
+    
+    const player = team.roster.find(p => p.id === pid);
+    if (!player) {
+      window.setStatus('Selected player not found.');
+      return;
+    }
+    
+    // Validate training target
+    const validationResult = validateTrainingTarget(player, stat);
+    if (!validationResult.valid) {
+      window.setStatus(validationResult.message);
+      return;
+    }
+    
+    state.trainingPlan = { 
+      teamIdx, 
+      playerId: pid, 
+      stat, 
+      week: state.league.week 
+    };
+    
+    const playerName = player.name;
+    window.setStatus(`Training scheduled: ${stat} for ${playerName}`);
+    
+  } catch (error) {
+    console.error('Error setting training plan:', error);
+    window.setStatus('Error setting training plan.');
+  }
+}
+
+/**
+ * Validates whether a player can be trained in a specific stat
+ * @param {Object} player - Player object
+ * @param {string} stat - Stat to train
+ * @returns {Object} Validation result
+ */
+function validateTrainingTarget(player, stat) {
+  const C = window.Constants;
+  
+  if (!player) {
+    return { valid: false, message: 'Invalid player' };
+  }
+  
+  if (player.injuryWeeks && player.injuryWeeks > 0) {
+    return { valid: false, message: 'Injured players cannot train' };
+  }
+  
+  const currentRating = player.ratings?.[stat] || player[stat] || 0;
+  
+  if (currentRating >= C.PLAYER_CONFIG.MAX_OVR) {
+    return { valid: false, message: `${stat} already at maximum (${C.PLAYER_CONFIG.MAX_OVR})` };
+  }
+  
+  if (currentRating < C.PLAYER_CONFIG.MIN_OVR) {
+    return { valid: false, message: `Invalid current ${stat} rating` };
+  }
+  
+  return { valid: true, message: 'Valid training target' };
+}
+
+/**
+ * AI logic to pick a training target for a team
+ * @param {Object} team - Team object
+ * @returns {Object|null} Training plan object or null if no good target
+ */
+function pickAITarget(team) {
+  if (!team || !team.roster) return null;
+  
+  const C = window.Constants;
+  
+  try {
+    // Group players by position and sort by overall
+    const byPos = {};
+    C.POSITIONS.forEach(pos => { byPos[pos] = []; });
+    
+    team.roster.forEach(p => { 
+      if (p && byPos[p.pos]) {
+        byPos[p.pos].push(p); 
+      }
+    });
+    
+    C.POSITIONS.forEach(pos => { 
+      byPos[pos].sort((a, b) => b.ovr - a.ovr); 
+    });
+
+    // Focus on starters (top players at each position)
+    let starters = [];
+    Object.keys(C.DEPTH_NEEDS).forEach(pos => {
+      const needed = Math.max(1, C.DEPTH_NEEDS[pos]);
+      starters = starters.concat(byPos[pos].slice(0, needed));
+    });
+
+    let bestPlayer = null;
+    let bestScore = -1;
+    let bestStat = 'awareness';
+
+    const trainableStats = ['speed', 'strength', 'agility', 'awareness', 'intelligence', 'acceleration'];
+
+    starters.forEach(p => {
+      if (!p || (p.injuryWeeks && p.injuryWeeks > 0)) return;
+      
+      trainableStats.forEach(stat => {
+        const currentRating = p.ratings?.[stat] || p[stat] || 0;
+        
+        // Skip if already at max
+        if (currentRating >= C.PLAYER_CONFIG.MAX_OVR) return;
+        
+        // Calculate training priority score
+        const improvementPotential = Math.max(0, C.PLAYER_CONFIG.MAX_OVR - currentRating);
+        const agePenalty = Math.max(0, p.age - (C.PLAYER_CONFIG.PEAK_AGES[p.pos] || 27)) * 0.8;
+        const positionBonus = getPositionStatBonus(p.pos, stat);
+        
+        const score = improvementPotential - agePenalty + positionBonus;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestPlayer = p;
+          bestStat = stat;
+        }
+      });
+    });
+
+    return bestPlayer ? { playerId: bestPlayer.id, stat: bestStat } : null;
+    
+  } catch (error) {
+    console.error('Error in pickAITarget:', error);
+    return null;
+  }
+}
+
+/**
+ * Gets bonus score for training a specific stat for a position
+ * @param {string} position - Player position
+ * @param {string} stat - Stat being trained
+ * @returns {number} Bonus score
+ */
+function getPositionStatBonus(position, stat) {
+  const C = window.Constants;
+  const weights = C.OVR_WEIGHTS[position] || {};
+  
+  // Higher bonus for stats that matter more for the position
+  const weight = weights[stat] || 0;
+  return weight * 10; // Scale bonus based on importance
+}
+
+/**
+ * Resolves the outcome of a training plan
+ * @param {Object} team - Team object
+ * @param {Object} plan - Training plan object
+ * @returns {Object|null} Training result
+ */
+function resolveTrainingFor(team, plan) {
+  if (!plan || !team) return null;
+  
+  const C = window.Constants;
+  
+  try {
+    const player = team.roster.find(x => x.id === plan.playerId);
+    if (!player) return { ok: false, message: 'Player not found' };
+    
+    // Validate training target
+    const validation = validateTrainingTarget(player, plan.stat);
+    if (!validation.valid) {
+      return { ok: false, message: validation.message };
+    }
+    
+    const stat = plan.stat;
+    const currentRating = player.ratings?.[stat] || player[stat] || 0;
+    
+    // Calculate success probability using constants
+    const baseRate = C.TRAINING.SUCCESS_BASE_RATE;
+    const coachSkill = (team.staff?.headCoach?.playerDevelopment || 75) / 100;
+    const coachModifier = (coachSkill - 0.75) * C.TRAINING.COACH_SKILL_MODIFIER;
+    const agePenalty = Math.max(0, player.age - (C.PLAYER_CONFIG.PEAK_AGES[player.pos] || 27)) * C.TRAINING.AGE_PENALTY_PER_YEAR;
+    const ratingPenalty = Math.max(0, currentRating - 70) * C.TRAINING.HIGH_RATING_PENALTY;
+    
+    const successProbability = Math.max(
+      C.TRAINING.SUCCESS_MIN_RATE, 
+      Math.min(
+        C.TRAINING.SUCCESS_MAX_RATE, 
+        baseRate + coachModifier - agePenalty - ratingPenalty
+      )
+    );
+
+    const success = Math.random() < successProbability;
+
+    if (success) {
+      // Calculate improvement amount
+      const maxImprovement = stat === 'awareness' ? C.TRAINING.MAX_RATING_IMPROVEMENT : 3;
+      const improvementPenalty = Math.floor((currentRating - 75) / 10);
+      const actualImprovement = Math.max(1, maxImprovement - improvementPenalty);
+      const improvement = 1 + Math.floor(Math.random() * actualImprovement);
+      
+      const newRating = Math.min(C.PLAYER_CONFIG.MAX_OVR, currentRating + improvement);
+      
+      // Update the rating
+      if (player.ratings && player.ratings[stat] !== undefined) {
+        player.ratings[stat] = newRating;
+      } else {
+        player[stat] = newRating;
+      }
+      
+      // Update overall rating for key stats
+      if (['awareness', 'agility', 'intelligence'].includes(stat)) {
+        player.ovr = Math.min(C.PLAYER_CONFIG.MAX_OVR, player.ovr + 1);
+      }
+      
+      // Add fatigue
+      player.fatigue = (player.fatigue || 0) + C.TRAINING.FATIGUE_GAIN_SUCCESS;
+      
+      return { 
+        ok: true, 
+        success: true, 
+        stat, 
+        before: currentRating, 
+        after: newRating,
+        improvement: improvement
+      };
+      
+    } else {
+      // Training failed but player still gets tired
+      player.fatigue = (player.fatigue || 0) + C.TRAINING.FATIGUE_GAIN_FAIL;
+      
+      return { 
+        ok: true, 
+        success: false, 
+        stat, 
+        before: currentRating 
+      };
+    }
+    
+  } catch (error) {
+    console.error('Error in resolveTrainingFor:', error);
+    return { ok: false, message: 'Training resolution error' };
+  }
+}
+
+/**
+ * Runs the training process for all teams for the week
+ * @param {Object} league - League object
+ */
 function runWeeklyTraining(league) {
   if (!league || !league.teams) return;
-  const weekJustCompleted = league.week - 1;
-  const userPlan = (state.trainingPlan && state.trainingPlan.week === weekJustCompleted) ? state.trainingPlan : null;
+  
+  try {
+    const weekJustCompleted = league.week - 1;
+    const userTeamId = parseInt($('#userTeam')?.value || '0', 10);
+    const userPlan = (state.trainingPlan && state.trainingPlan.week === weekJustCompleted) ? 
+                     state.trainingPlan : null;
 
-  league.teams.forEach((team, idx) => {
-    const plan = (idx === parseInt($('#userTeam').value || '0', 10) && userPlan) ? userPlan : pickAITarget(team);
-    const res = resolveTrainingFor(team, plan);
-    if (!res || !res.ok) return;
+    league.teams.forEach((team, idx) => {
+      const plan = (idx === userTeamId && userPlan) ? userPlan : pickAITarget(team);
+      const result = resolveTrainingFor(team, plan);
+      
+      if (!result || !result.ok) return;
 
-    const tAbbr = team.abbr || `T${idx}`;
-    const logMsg = res.success ?
-      `Week ${weekJustCompleted}: ${tAbbr} trained ${res.stat} from ${res.before} to ${res.after}` :
-      `Week ${weekJustCompleted}: ${tAbbr} training on ${res.stat} did not improve`;
-    league.news.push(logMsg);
-  });
+      const teamAbbr = team.abbr || `T${idx}`;
+      const player = team.roster.find(p => p.id === plan.playerId);
+      const playerName = player ? player.name : 'Unknown';
+      
+      let logMsg;
+      if (result.success) {
+        logMsg = `Week ${weekJustCompleted}: ${teamAbbr} - ${playerName} improved ${result.stat} from ${result.before} to ${result.after} (+${result.improvement})`;
+      } else {
+        logMsg = `Week ${weekJustCompleted}: ${teamAbbr} - ${playerName}'s ${result.stat} training showed no improvement`;
+      }
+      
+      if (!league.news) league.news = [];
+      league.news.push(logMsg);
+      
+      // Keep news from getting too long
+      if (league.news.length > 100) {
+        league.news = league.news.slice(-50);
+      }
+    });
 
-  if (userPlan) state.trainingPlan = null; // Consume the plan
+    // Clear user training plan after use
+    if (userPlan) {
+      state.trainingPlan = null;
+    }
+    
+  } catch (error) {
+    console.error('Error in runWeeklyTraining:', error);
+  }
 }
+
+/**
+ * Gets training success rate preview for a player/stat combination
+ * @param {Object} player - Player object
+ * @param {string} stat - Stat to train
+ * @param {Object} team - Team object (for coach skill)
+ * @returns {number} Success rate as percentage (0-100)
+ */
+function getTrainingSuccessRate(player, stat, team) {
+  if (!player || !stat) return 0;
+  
+  const C = window.Constants;
+  
+  try {
+    const currentRating = player.ratings?.[stat] || player[stat] || 0;
+    const baseRate = C.TRAINING.SUCCESS_BASE_RATE;
+    const coachSkill = (team?.staff?.headCoach?.playerDevelopment || 75) / 100;
+    const coachModifier = (coachSkill - 0.75) * C.TRAINING.COACH_SKILL_MODIFIER;
+    const agePenalty = Math.max(0, player.age - (C.PLAYER_CONFIG.PEAK_AGES[player.pos] || 27)) * C.TRAINING.AGE_PENALTY_PER_YEAR;
+    const ratingPenalty = Math.max(0, currentRating - 70) * C.TRAINING.HIGH_RATING_PENALTY;
+    
+    const successRate = Math.max(
+      C.TRAINING.SUCCESS_MIN_RATE, 
+      Math.min(
+        C.TRAINING.SUCCESS_MAX_RATE, 
+        baseRate + coachModifier - agePenalty - ratingPenalty
+      )
+    );
+    
+    return Math.round(successRate * 100);
+    
+  } catch (error) {
+    console.error('Error calculating training success rate:', error);
+    return 0;
+  }
+}
+
+// Make functions globally available
+window.renderTrainingUI = renderTrainingUI;
+window.setTrainingPlan = setTrainingPlan;
+window.validateTrainingTarget = validateTrainingTarget;
+window.pickAITarget = pickAITarget;
+window.getPositionStatBonus = getPositionStatBonus;
+window.resolveTrainingFor = resolveTrainingFor;
+window.runWeeklyTraining = runWeeklyTraining;
+window.getTrainingSuccessRate = getTrainingSuccessRate;
