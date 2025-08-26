@@ -2,45 +2,52 @@
 
 // --- UTILITY FUNCTIONS ---
 const $ = (id) => document.getElementById(id);
-const show = (id) => $(id).style.display = 'flex'; // Use flex for modal centering
-const hide = (id) => $(id).style.display = 'none';
+const show = (id) => {
+    const el = $(id);
+    if (el) {
+        // Use flex for modals to enable centering
+        if (el.classList.contains('modal-backdrop')) {
+            el.style.display = 'flex';
+        } else {
+            el.style.display = 'block';
+        }
+    }
+};
+const hide = (id) => {
+    const el = $(id);
+    if (el) el.style.display = 'none';
+};
 
-/**
- * Toggles the theme between light and dark mode.
- */
+// --- THEME MANAGEMENT ---
 function toggleTheme() {
     const body = document.body;
     body.classList.toggle('dark-mode');
-    // Save the user's preference
-    if (body.classList.contains('dark-mode')) {
-        localStorage.setItem('theme', 'dark');
-    } else {
-        localStorage.setItem('theme', 'light');
-    }
+    localStorage.setItem('theme', body.classList.contains('dark-mode') ? 'dark' : 'light');
 }
 
-/**
- * Applies the saved theme on page load.
- */
 function applySavedTheme() {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
+    if (localStorage.getItem('theme') === 'dark') {
         document.body.classList.add('dark-mode');
     }
 }
 
-// --- VIEW RENDERING ---
+
+// --- VIEW RENDERING (Your Original Functions Restored) ---
 
 function renderHub() {
     const L = state.league;
+    if (!L || !state.player) return;
     const playerTeam = L.teams[state.player.teamId];
     const currentWeek = L.week;
-    $('hubTeamName').innerText = `${playerTeam.name} (${playerTeam.wins}-${playerTeam.losses}${player-team.ties > 0 ? `-${player-team.ties}` : ''})`;
+
+    $('hubTeamName').innerText = `${playerTeam.name} (${playerTeam.wins}-${playerTeam.losses}${playerTeam.ties > 0 ? `-${playerTeam.ties}` : ''})`;
     $('hubTeamInfo').innerText = `Year: ${L.year} | Week: ${currentWeek}`;
+
     const scheduleWeeks = L.schedule.weeks || L.schedule;
     const weekIndex = currentWeek - 1;
     const scheduleContainer = $('hubSchedule');
-    scheduleContainer.innerHTML = '<h3>This Week</h3>';
+    scheduleContainer.innerHTML = '<h3 class="hub-card-title">This Week</h3>';
+
     if (weekIndex < scheduleWeeks.length) {
         const weeklyGames = scheduleWeeks[weekIndex].games;
         const playerGame = weeklyGames.find(g => g.home === state.player.teamId || g.away === state.player.teamId);
@@ -61,12 +68,14 @@ function renderMiniStandings(targetId) {
     const L = state.league;
     const playerTeam = L.teams[state.player.teamId];
     const teamsInDiv = L.teams.filter(t => t.conf === playerTeam.conf && t.div === playerTeam.div);
+    
     teamsInDiv.sort((a, b) => {
         if (b.wins !== a.wins) return b.wins - a.wins;
         return (b.ptsFor - b.ptsAgainst) - (a.ptsFor - a.ptsAgainst);
     });
+
     const container = $(targetId);
-    container.innerHTML = '<h3>Division Standings</h3>';
+    container.innerHTML = '<h3 class="hub-card-title">Division Standings</h3>';
     const table = document.createElement('table');
     table.className = 'standings-table mini-standings';
     table.innerHTML = `<thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th></tr></thead>
@@ -80,6 +89,7 @@ function renderStandings() {
     const container = $('pageStandings');
     container.innerHTML = '<h2>League Standings</h2>';
     const conferences = [{ name: 'AFC', teams: L.teams.filter(t => t.conf === 0) }, { name: 'NFC', teams: L.teams.filter(t => t.conf === 1) }];
+    
     conferences.forEach(conf => {
         const confContainer = document.createElement('div');
         confContainer.className = 'conference-container';
@@ -130,8 +140,6 @@ function showPlayerModal(player) {
             <h4>Season Stats</h4><div class="player-stats">${player.stats && player.stats.season ? Object.entries(player.stats.season).map(([key, value]) => `<div class="attribute"><span class="name">${key.replace(/([A-Z])/g, ' $1').toUpperCase()}</span><span class="value">${value}</span></div>`).join('') : '<p>No stats recorded yet.</p>'}</div>
         </div>`;
     show('playerModal');
-    $('closePlayerModal').addEventListener('click', () => hide('playerModal'));
-    window.addEventListener('click', (event) => { if (event.target === modal) { hide('playerModal'); } });
 }
 
 function renderFreeAgency() {
@@ -160,7 +168,7 @@ function openOnboard() {
     show('onboardModal');
 }
 
-// --- INITIALIZATION ---
+// --- GLOBAL UI OBJECT ---
 window.UI = {
     renderHub, renderRoster, renderStandings, renderFreeAgency, renderDraft, renderScouting,
     openOnboard, show, hide, toggleTheme, applySavedTheme
