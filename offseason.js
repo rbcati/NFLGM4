@@ -1,111 +1,248 @@
-// offseason.js
+// cap.js - Updated to use constants instead of magic numbers
 'use strict';
 
-function checkHOFEligibility(player) {
-        const criteria = {
-        minYears: 5,
-        statsThresholds: {
-            QB: { passYd: 30000, passTD: 200 },
-            RB: { rushYd: 8000, rushTD: 60 },
-            WR: { recYd: 10000, recTD: 65 }
-    let legacyScore = 0;
-    // Simple scoring: 1 point for every 1000 passing yards, 5 for a championship, etc.
-    const career = player.stats.career;
-    if (career.passYd) legacyScore += Math.floor(career.passYd / 1000);
-    if (career.rushYd) legacyScore += Math.floor(career.rushYd / 500);
+/**
+ * Calculates the prorated signing bonus amount per year
+ * @param {Object} p - Player object
+ * @returns {number} Prorated amount per year
+ */
+function prorationPerYear(p) { 
+  return p.signingBonus / p.yearsTotal; 
+}
+
+/**
+ * Calculates the cap hit for a player in a given season
+ * @param {Object} p - Player object  
+ * @param {number} relSeason - Season relative to current (0 = current season)
+ * @returns {number} Cap hit in millions, rounded to 1 decimal
+ */
+function capHitFor(p, relSeason) {
+  if (!p || p.years <= 0 || relSeason >= p.years) return 0;
+  
+  const base = p.baseAnnual;
+  const pr = prorationPerYear(p);
+  return Math.round((base + pr) * 10) / 10;
+}
+
+/**
+ * Adds dead money to a team's cap book for a specific season
+ * @param {Object} team - Team object
+ * @param {number} season - Season to add dead money to
+ * @param {number} amount - Amount of dead money to add
+ */
+function addDead(team, season, amount) {
+  if (!team.deadCapBook) team.deadCapBook = {};
+  team.deadCapBook[season] = Math.round(((team.deadCapBook[season] || 0) + amount) * 10) / 10;
+}
+
+/**
+ * Calculates rollover cap space from previous season
+ * @param {Object} team - Team object
+ * @param {Object} league - League object  
+ * @returns {number} Rollover amount (capped at maximum)
+ */
+function calculateRollover(team, league) {
+  if (!team || !league) return 0;
+  
+  const C = window.Constants;
+  const unused = team.capTotal - team.capUsed;
+  const maxRollover = C.SALARY_CAP.MAX_ROLLOVER;
+  return Math.min(Math.max(0, unused), maxRollover);
+}
+
+/**
+ * Recalculates and updates a team's salary cap situation
+ * @param {Object} league - League object
+ * @param {Object} team - Team object to recalculate
+ */
+function recalcCap(league, team) {
+  if (!league || !team || !team.roster) {
+    console.error('Invalid parameters for recalcCap');
+    return;
+  }
+  
+  const C = window.Constants;
+  
+  try {
+    // Calculate active player cap hits
+    const active = team.roster.reduce((sum, p) => {
+      return sum + (p ? capHitFor(p, 0) : 0);
+    }, 0);
     
-    player.awards.forEach(award => {
-        if (award.award === 'Super Bowl Champion') legacyScore += 5;
-        // In the future, you could add points for MVP, etc.
-    });
-
-    // A higher overall rating gives a boost
-    legacyScore += Math.floor(Math.max(0, player.ovr - 85) / 2);
-
-    return legacyScore > 30; // Set a threshold for HOF induction
+    // Get dead money for current season
+    const dead = team.deadCapBook[league.season] || 0;
+    
+    // Calculate total cap with rollover
+    const capTotal = C.SALARY_CAP.BASE + (team.capRollover || 0);
+    
+    // Update team cap values
+    team.capTotal = Math.round(capTotal * 10) / 10;
+    team.capUsed = Math.round((active + dead) * 10) / 10;
+    team.deadCap = Math.round(dead * 10) / 10;
+    team.capRoom = Math.round((team.capTotal - team.capUsed) * 10) / 10;
+    
+  } catch (error) {
+    console.error('Error in recalcCap:', error);
+  }
 }
 
-function handleRetirementsAndHOF(league) {
-    const retiringPlayers = [];
-    league.teams.forEach(team => {
-        const remainingRoster = [];
-        team.roster.forEach(player => {
-            // Simple retirement logic: chance increases significantly with age
-            const retirementChance = player.age > 33 ? (player.age - 33) * 0.20 : 0;
-            if (player.age > 38 || Math.random() < retirementChance) {
-                retiringPlayers.push(player); // Player retires
-            } else {
-                remainingRoster.push(player); // Player stays
-            }
-        });
-        team.roster = remainingRoster;
-    });
-
-    retiringPlayers.forEach(player => {
-        if (checkHOFEligibility(player)) {
-            league.hallOfFame.push(player);
-            league.news.push(`${player.name} (${player.pos}) has been inducted into the Hall of Fame!`);
-        }
-    });
-}
-
-function runOffseason() {  
-    conductDraft(L);
-    processRetirements(L);
-    renewContracts(L);
-    generateRookies(L);
-}
-  const L = state.league;
-  const U = window.Utils;
-
-  // Step 1: Handle retirements and Hall of Fame inductions
-  handleRetirementsAndHOF(L);
-
-  // Step 2: Player Progression, History Archiving, and Contract Expiration
-  L.teams.forEach(team => {
-    // Get the head coach's development rating (default to 75 if no coach)
-    const devBoost = (team.staff.headCoach.playerDevelopment || 75) / 25; // A number between ~2 and 4
-
-    const nextSeasonRoster = [];
-    team.roster.forEach(p => {
-      // Archive last season's stats into history and add to career totals
-      p.history.push({ year: L.year, team: team.abbr, stats: { ...p.stats.season }, ovr: p.ovr });
-      for (const key in p.stats.season) {
-          p.stats.career[key] = (p.stats.career[key] || 0) + p.stats.season[key];
-      }
-      p.stats.season = {}; // Reset for new season
-      
-      // Age players
-      p.age++;
-      
-      // Progress/regress players based on age, potential, and coach skill
-      const progression = U.rand(-2, 2) + Math.floor((95 - p.ovr) / 10) - Math.floor(Math.max(0, p.age - 28)) + devBoost;
-      p.ovr = U.clamp(p.ovr + Math.round(progression), 40, 99);
-      
-      // Decrement contract years
-      p.years--;
-      if(p.years > 0){
-          nextSeasonRoster.push(p);
-      } else {
-          // Player's contract has expired, they become a free agent (or will in a future step)
-          state.freeAgents.push(p);
-      }
-    });
-    team.roster = nextSeasonRoster;
-  });
+/**
+ * Releases a player with proper salary cap implications
+ * @param {Object} league - League object
+ * @param {Object} team - Team releasing the player
+ * @param {Object} p - Player being released
+ * @param {boolean} isPostJune1 - Whether this is a post-June 1st release
+ */
+function releaseWithProration(league, team, p, isPostJune1) {
+  if (!canRestructure || !canRestructure(p)) {
+    console.warn('Cannot release player:', p.name);
+    return;
+  }
   
-  // Step 3: Generate the new scoutable draft class for the upcoming season
-  state.draftClass = generateDraftClass(L.year + 1);
-
-  // Step 4: Reset league state for the new season
-  L.year++;
-  L.week = 1;
-  L.resultsByWeek = {};
-  L.teams.forEach(t => {
-      // Reset team records for the new season
-      t.record = {w:0, l:0, t:0, pf:0, pa:0, streak:0, divW:0, divL:0, homeW:0, homeL:0, awayW:0, awayL:0};
-  });
+  if (!league || !team || !p) {
+    console.error('Invalid parameters for releaseWithProration');
+    return;
+  }
   
-  // Create a new schedule for the new season
-  L.schedule = Scheduler.makeAccurateSchedule(L.teams);
+  const C = window.Constants;
+  
+  try {
+    const pr = prorationPerYear(p);
+    const yearsLeft = p.years;
+    
+    if (yearsLeft <= 0) return;
+
+    const currentSeason = league.season;
+    const guaranteedAmount = p.baseAnnual * (p.guaranteedPct || C.SALARY_CAP.GUARANTEED_PCT_DEFAULT);
+    const remainingProration = pr * yearsLeft;
+
+    // Handle post-June 1st vs regular release
+    if (isPostJune1 && yearsLeft > 1) {
+      // Spread dead money over two years
+      addDead(team, currentSeason, pr + guaranteedAmount);
+      addDead(team, currentSeason + 1, remainingProration - pr);
+    } else {
+      // All dead money hits immediately  
+      addDead(team, currentSeason, remainingProration + guaranteedAmount);
+    }
+
+    // Remove player from roster
+    const idx = team.roster.findIndex(x => x.id === p.id);
+    if (idx >= 0) {
+      team.roster.splice(idx, 1);
+    }
+    
+    // Clear player's contract
+    p.years = 0;
+    p.yearsTotal = 0;
+    
+    // Add to free agent pool if it exists
+    if (window.state && window.state.freeAgents) {
+      // Reset contract for free agency
+      p.baseAnnual = Math.round(p.baseAnnual * C.FREE_AGENCY.CONTRACT_DISCOUNT * 10) / 10;
+      p.years = C.FREE_AGENCY.DEFAULT_YEARS;
+      p.yearsTotal = C.FREE_AGENCY.DEFAULT_YEARS;
+      p.signingBonus = Math.round((p.baseAnnual * p.yearsTotal * 0.3) * 10) / 10;
+      
+      window.state.freeAgents.push(p);
+    }
+    
+    // Recalculate team cap
+    recalcCap(league, team);
+    
+  } catch (error) {
+    console.error('Error in releaseWithProration:', error);
+  }
 }
+
+/**
+ * Validates that a team can afford to sign a player
+ * @param {Object} team - Team attempting to sign player
+ * @param {Object} player - Player to be signed
+ * @returns {Object} Validation result with success flag and message
+ */
+function validateSigning(team, player) {
+  if (!team || !player) {
+    return { success: false, message: 'Invalid team or player' };
+  }
+  
+  const C = window.Constants;
+  const capHit = capHitFor(player, 0);
+  const capAfter = team.capUsed + capHit;
+  
+  if (capAfter > team.capTotal) {
+    const overage = capAfter - team.capTotal;
+    return { 
+      success: false, 
+      message: `Signing would exceed salary cap by $${overage.toFixed(1)}M` 
+    };
+  }
+  
+  // Check roster limits
+  const positionCount = team.roster.filter(p => p.pos === player.pos).length;
+  const maxAtPosition = C.DEPTH_NEEDS[player.pos] || 6; // Default max if not defined
+  
+  if (positionCount >= maxAtPosition * 1.5) { // Allow some flexibility
+    return {
+      success: false,
+      message: `Too many players at ${player.pos} position`
+    };
+  }
+  
+  return { 
+    success: true, 
+    message: `Can sign ${player.name} for $${capHit.toFixed(1)}M cap hit` 
+  };
+}
+
+/**
+ * Processes salary cap rollover at end of season
+ * @param {Object} league - League object
+ * @param {Object} team - Team to process rollover for
+ */
+function processCapRollover(league, team) {
+  if (!league || !team) return;
+  
+  const C = window.Constants;
+  const rollover = calculateRollover(team, league);
+  
+  if (rollover > 0) {
+    team.capRollover = rollover;
+    
+    // Add to league news if significant rollover
+    if (rollover >= C.SALARY_CAP.MAX_ROLLOVER * 0.5 && league.news) {
+      league.news.push(
+        `${team.abbr} rolls over $${rollover.toFixed(1)}M in unused cap space`
+      );
+    }
+  }
+}
+
+/**
+ * Gets a summary of team's salary cap situation
+ * @param {Object} team - Team object
+ * @returns {Object} Cap summary with key metrics
+ */
+function getCapSummary(team) {
+  if (!team) return null;
+  
+  return {
+    total: team.capTotal || 0,
+    used: team.capUsed || 0,
+    room: (team.capTotal || 0) - (team.capUsed || 0),
+    dead: team.deadCap || 0,
+    rollover: team.capRollover || 0,
+    utilization: team.capTotal ? (team.capUsed / team.capTotal) : 0
+  };
+}
+
+// Make functions available globally
+window.prorationPerYear = prorationPerYear;
+window.capHitFor = capHitFor;
+window.addDead = addDead;
+window.calculateRollover = calculateRollover;
+window.recalcCap = recalcCap;
+window.releaseWithProration = releaseWithProration;
+window.validateSigning = validateSigning;
+window.processCapRollover = processCapRollover;
+window.getCapSummary = getCapSummary;
