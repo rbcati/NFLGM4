@@ -1,246 +1,141 @@
-// main.js - Fixed Initialization
-;(function () {
-  'use strict';
+'use strict';
 
-  console.log('Main.js loading...');
+console.log('Main.js loading...');
 
-  function refreshAll() {
+// --- GLOBAL STATE & INITIALIZATION ---
+let state = {};
+
+/**
+ * Refreshes all primary UI components.
+ */
+function refreshAllViews() {
     console.log('Refreshing all views...');
     try {
-      if (window.fillTeamSelect) {
-        const userTeamSelect = document.getElementById('userTeam');
-        if (userTeamSelect) {
-          window.fillTeamSelect(userTeamSelect);
-          if (state.userTeamId !== undefined) {
-            userTeamSelect.value = String(state.userTeamId);
-          }
+        if (state.onboarded) {
+            UI.renderHub();
+            UI.renderRoster();
+            UI.renderStandings(); // Ensure standings are rendered
+            UI.renderFreeAgency();
+            UI.renderDraft();
+            UI.renderScouting();
+            // Add other view updates here as they are built
         }
-      }
-
-      if (window.rebuildTeamLabels) {
-        window.rebuildTeamLabels(state.namesMode);
-      }
-
-      // Render all views
-      if (window.renderHub) window.renderHub();
-      if (window.renderRoster) window.renderRoster();
-      if (window.renderStandings) window.renderStandings();
-      if (window.renderDraft) window.renderDraft();
-      if (window.updateCapSidebar) window.updateCapSidebar();
-      
-      console.log('All views refreshed successfully');
+        console.log('All views refreshed successfully');
     } catch (error) {
-      console.error('Error refreshing views:', error);
+        console.error('Error refreshing views:', error);
     }
-  }
+}
 
-  function saveGame() {
-    console.log('Saving game...');
-    try {
-      const C = window.Constants;
-      const saveKey = C?.GAME_CONFIG?.SAVE_KEY || 'nflGM4.league';
-      
-      const payload = JSON.stringify({
-        league: state.league,
-        freeAgents: state.freeAgents,
-        playoffs: state.playoffs,
-        namesMode: state.namesMode,
-        onboarded: state.onboarded,
-        pendingOffers: state.pendingOffers,
-        userTeamId: state.userTeamId,
-        gameMode: state.gameMode,
-        playerRole: state.playerRole,
-        draftClass: state.draftClass,
-        trainingPlan: state.trainingPlan,
-        version: '1.0',
-        timestamp: Date.now()
-      });
-      
-      localStorage.setItem(saveKey, payload);
-      window.setStatus('Game saved successfully');
-      console.log('Game saved successfully');
-    } catch (error) {
-      console.error('Error saving game:', error);
-      window.setStatus('Error saving game');
-    }
-  }
 
-  function loadGame() {
-    console.log('Loading game...');
-    try {
-      const C = window.Constants;
-      const saveKey = C?.GAME_CONFIG?.SAVE_KEY || 'nflGM4.league';
-      const raw = localStorage.getItem(saveKey);
-      
-      if (!raw) { 
-        window.setStatus('No saved game found'); 
-        return false;
-      }
-      
-      let obj = {};
-      try { 
-        obj = JSON.parse(raw) || {}; 
-      } catch (e) { 
-        console.error('Error parsing saved data:', e);
-        window.setStatus('Error loading saved game - corrupted data');
-        return false;
-      }
-      
-      // Load saved data with fallbacks
-      state.league = obj.league || null;
-      state.freeAgents = obj.freeAgents || [];
-      state.playoffs = obj.playoffs || null;
-      state.namesMode = obj.namesMode || 'fictional';
-      state.onboarded = !!obj.onboarded;
-      state.pendingOffers = obj.pendingOffers || [];
-      state.userTeamId = obj.userTeamId !== undefined ? obj.userTeamId : 0;
-      state.gameMode = obj.gameMode || 'gm';
-      state.playerRole = obj.playerRole || 'GM';
-      state.draftClass = obj.draftClass || [];
-      state.trainingPlan = obj.trainingPlan || null;
-      
-      // Validate loaded data
-      if (state.league && state.league.teams) {
-        console.log(`Loaded league: Year ${state.league.year}, Week ${state.league.week}`);
-        refreshAll();
-        window.setStatus('Game loaded successfully');
-        return true;
-      } else {
-        console.warn('Invalid league data in save file');
-        state.onboarded = false;
-        return false;
-      }
-    } catch (error) {
-      console.error('Error loading game:', error);
-      window.setStatus('Error loading game');
-      state.onboarded = false;
-      return false;
-    }
-  }
-
-  function checkDependencies() {
-    const requiredObjects = [
-      'Constants', 'Teams', 'Utils', 'makeLeague', 'listByMode', 
-      'show', 'setStatus', 'openOnboard', 'closeOnboard'
-    ];
-    
-    const missing = [];
-    requiredObjects.forEach(obj => {
-      if (!window[obj]) {
-        missing.push(obj);
-      }
-    });
-    
-    if (missing.length > 0) {
-      console.error('Missing required objects:', missing);
-      return false;
-    }
-    
-    return true;
-  }
-
-  function initializeNewGame() {
+/**
+ * Initializes a new game state.
+ * @param {object} options - Onboarding options.
+ */
+function initNewGame(options) {
     console.log('Initializing new game...');
-    
-    // Reset state to defaults
-    state.league = null;
-    state.freeAgents = [];
-    state.playoffs = null;
-    state.namesMode = 'fictional';
-    state.onboarded = false;
-    state.pendingOffers = [];
-    state.userTeamId = 0;
-    state.gameMode = 'gm';
-    state.playerRole = 'GM';
-    state.draftClass = [];
-    state.trainingPlan = null;
-    
-    // Show onboarding modal
-    window.openOnboard();
-  }
+    state = window.State.init(); // Reset state
+    state.onboarded = true;
+    state.player.teamId = parseInt(options.teamIdx, 10);
+    state.namesMode = options.chosenMode;
 
-  function init() {
+    // Create the league
+    const league = makeLeague(state.namesMode);
+    state.league = league;
+
+    // Generate free agents
+    state.freeAgents = generateFreeAgents(150);
+
+    saveState();
+    hide('onboardModal');
+    refreshAllViews();
+    location.hash = '#/hub'; // Go to hub after setup
+}
+
+// --- ROUTING ---
+const routes = {
+    '#/hub': 'pageHub',
+    '#/roster': 'pageRoster',
+    '#/standings': 'pageStandings',
+    '#/schedule': 'pageSchedule',
+    '#/freeagency': 'pageFreeAgency',
+    '#/draft': 'pageDraft',
+    '#/scouting': 'pageScouting'
+};
+
+function router() {
+    const path = location.hash || '#/hub';
+    const pageId = routes[path];
+
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('#main-nav a').forEach(a => a.classList.remove('active'));
+
+    if (pageId) {
+        const page = $(pageId);
+        const navLink = $(`nav-${path.substring(2)}`);
+        if (page) page.classList.add('active');
+        if (navLink) navLink.classList.add('active');
+    }
+}
+
+// --- MAIN GAME LOGIC ---
+function init() {
     console.log('Initializing game...');
     
-    // Wait for all dependencies to load
-    let checkCount = 0;
-    const maxChecks = 50; // 5 seconds max wait time
+    // Load game state from localStorage
+    const savedState = loadState();
+
+    if (savedState && savedState.onboarded) {
+        console.log('Valid save found, loading game...');
+        state = savedState;
+        // Ensure all necessary properties exist
+        if (!state.player) state.player = { teamId: 0 };
+        if (!state.freeAgents) state.freeAgents = [];
+        
+        refreshAllViews();
+        router(); // Route to the correct page
+    } else {
+        console.log('No valid save found, starting new game...');
+        state = window.State.init(); // Initialize a clean state
+        UI.openOnboard();
+    }
+
+    // Set up event listeners
+    window.addEventListener('hashchange', router);
+    setupEventListeners();
+}
+
+/**
+ * A wrapper to simulate a week and then update the UI.
+ */
+function simulateWeekAndUpdate() {
+    simulateWeek(); // This function is from simulation.js
     
-    function waitForDependencies() {
-      checkCount++;
-      
-      if (checkDependencies()) {
-        console.log('All dependencies loaded, proceeding with initialization');
-        proceedWithInit();
-      } else if (checkCount < maxChecks) {
-        console.log(`Waiting for dependencies... (${checkCount}/${maxChecks})`);
-        setTimeout(waitForDependencies, 100);
-      } else {
-        console.error('Timeout waiting for dependencies');
-        document.body.innerHTML = '<div style="padding: 20px; color: red;">Error: Game failed to load properly. Please refresh the page.</div>';
-      }
+    // After simulation, refresh the data-driven views
+    UI.renderHub();
+    UI.renderStandings();
+    
+    saveState(); // Save progress
+}
+
+
+// --- DOMContentLoaded ---
+document.addEventListener('DOMContentLoaded', () => {
+    // Dependency check
+    const dependencies = ['State', 'Constants', 'Teams', 'makeLeague', 'UI', 'generateFreeAgents', 'simulateWeek'];
+    const missing = dependencies.filter(dep => typeof window[dep] === 'undefined');
+
+    if (missing.length > 0) {
+        console.error('FATAL: Missing critical dependencies:', missing);
+        // Display a user-friendly error message on the screen
+        document.body.innerHTML = `<div style="padding: 20px; text-align: center; color: red;">
+            <h1>Error</h1>
+            <p>Could not load essential game files. Please check the console for details. Missing: ${missing.join(', ')}</p>
+        </div>`;
+        return;
     }
     
-    waitForDependencies();
-  }
-
-  function proceedWithInit() {
-    try {
-      // Set up event listeners
-      if (window.setupEventListeners) {
-        window.setupEventListeners();
-      }
-
-      // Try to load existing save
-      const C = window.Constants;
-      const saveKey = C?.GAME_CONFIG?.SAVE_KEY || 'nflGM4.league';
-      const savedState = localStorage.getItem(saveKey);
-      
-      if (savedState) {
-        console.log('Found saved game, attempting to load...');
-        try {
-          const parsed = JSON.parse(savedState);
-          if (parsed && parsed.onboarded && parsed.league) {
-            console.log('Valid save found, loading...');
-            if (loadGame()) {
-              // Successfully loaded, go to hub
-              const hash = location.hash.replace('#/','') || 'hub';
-              const validRoutes = C?.GAME_CONFIG?.ROUTES || 
-                                 ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame', 'scouting'];
-              const route = validRoutes.indexOf(hash) >= 0 ? hash : 'hub';
-              window.show(route);
-              console.log('Game loaded and UI initialized');
-              return;
-            }
-          }
-        } catch (e) {
-          console.warn('Error parsing saved game:', e);
-        }
-      }
-      
-      // No valid save found, start new game
-      console.log('No valid save found, starting new game...');
-      initializeNewGame();
-      
-    } catch (error) {
-      console.error('Error in init:', error);
-      document.body.innerHTML = '<div style="padding: 20px; color: red;">Error initializing game: ' + error.message + '</div>';
-    }
-  }
-
-  // Make functions globally available
-  window.saveGame = saveGame;
-  window.loadGame = loadGame;
-  window.refreshAll = refreshAll;
-  window.initializeNewGame = initializeNewGame;
-
-  // Start initialization when DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    // DOM is already ready
+    console.log('All dependencies loaded, proceeding with initialization');
     init();
-  }
+});
 
-  console.log('Main.js loaded');
-})();
+console.log('Main.js loaded');
