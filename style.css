@@ -1,6 +1,7 @@
-/* --- ORIGINAL LIQUID GLASS THEME --- */
+/* --- THEME VARIABLES --- */
 :root {
     --bg-color: #e0e0e0;
+    --bg-gradient: linear-gradient(to bottom right, #f0f2f5, #d6d8db);
     --primary-color: #0d47a1;
     --secondary-color: #d50000;
     --text-color: #121212;
@@ -12,15 +13,27 @@
     --font-family: 'Roboto', sans-serif;
 }
 
+body.dark-mode {
+    --bg-color: #121212;
+    --bg-gradient: linear-gradient(to bottom right, #1f1f1f, #121212);
+    --text-color: #e0e0e0;
+    --text-muted-color: #a0a0a0;
+    --glass-bg: rgba(30, 30, 30, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.1);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* --- GLOBAL & TYPOGRAPHY --- */
 body {
     font-family: var(--font-family);
     background-color: var(--bg-color);
-    background-image: linear-gradient(to bottom right, #f0f2f5, #d6d8db);
+    background-image: var(--bg-gradient);
     color: var(--text-color);
     margin: 0;
     display: flex;
     height: 100vh;
     overflow: hidden;
+    transition: background-color 0.3s, color 0.3s;
 }
 
 h1, h2, h3 {
@@ -41,6 +54,14 @@ h1, h2, h3 {
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     border-right: 1px solid var(--glass-border);
+    transition: background-color 0.3s;
+}
+
+.sidebar-bottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 
 #main-content {
@@ -65,7 +86,7 @@ h1, h2, h3 {
     font-weight: 500;
 }
 #main-nav li a:hover {
-    background-color: rgba(255, 255, 255, 0.5);
+    background-color: rgba(255, 255, 255, 0.2);
     color: var(--text-color);
 }
 #main-nav li a.active {
@@ -83,9 +104,9 @@ h1, h2, h3 {
     cursor: pointer;
     font-weight: 700;
     transition: all 0.2s ease;
-    background: linear-gradient(145deg, rgba(255,255,255,0.9), rgba(255,255,255,0.4));
-    color: var(--primary-color);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.7);
+    background: var(--glass-bg);
+    color: var(--text-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1), inset 0 1px 1px rgba(255,255,255,0.2);
 }
 .btn.primary {
     background: var(--primary-color);
@@ -120,11 +141,12 @@ h1, h2, h3 {
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
 }
 .modal-content h2 { margin-top: 0; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; margin-bottom: 6px; font-weight: 500; }
+.form-group select { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--glass-border); background: rgba(255,255,255,0.5); }
 
 
-/* --- NEW & IMPROVED STYLES --- */
-
-/* --- TABLES (Styled for Glass Theme) --- */
+/* --- TABLES, HUB, PLAYER MODAL, etc. (Merged Styles) --- */
 .standings-table, .roster-table {
     width: 100%;
     border-collapse: collapse;
@@ -146,24 +168,16 @@ h1, h2, h3 {
     padding: 12px;
     border-bottom: 1px solid var(--glass-border);
 }
-.standings-table tbody tr:last-child td, .roster-table tbody tr:last-child td {
-    border-bottom: none;
-}
-.standings-table tbody tr:hover, .roster-table tbody tr:hover {
-    background-color: rgba(255, 255, 255, 0.4);
-}
+.standings-table tbody tr:last-child td, .roster-table tbody tr:last-child td { border-bottom: none; }
+.standings-table tbody tr:hover, .roster-table tbody tr:hover { background-color: rgba(255, 255, 255, 0.2); }
 .roster-table tbody tr { cursor: pointer; }
 
-/* --- HIGHLIGHT PLAYER TEAM --- */
 .player-team {
     background-color: rgba(98, 0, 238, 0.1) !important;
     font-weight: 700;
 }
-.player-team td:first-child {
-    border-left: 4px solid var(--highlight-color);
-}
+.player-team td:first-child { border-left: 4px solid var(--highlight-color); }
 
-/* --- HUB VIEW --- */
 #pageHub { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
 #hubTeamHeader { grid-column: 1 / -1; }
 .hub-card {
@@ -177,18 +191,16 @@ h1, h2, h3 {
 .game-card { text-align: center; font-size: 1.2rem; display: flex; justify-content: center; align-items: center; gap: 20px; padding: 16px; }
 .team-abbr { font-weight: bold; font-size: 1.5rem; }
 
-/* Player Modal Specifics */
 #playerModalContent { max-width: 600px; }
 .player-modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 12px; margin-bottom: 16px; }
 .close-button { font-size: 1.8rem; font-weight: bold; cursor: pointer; color: var(--text-muted-color); }
 .close-button:hover { color: var(--text-color); }
 .player-modal-body h4 { margin-top: 20px; border-bottom: 1px solid var(--glass-border); padding-bottom: 8px; }
 .player-attributes, .player-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
-.attribute { background: rgba(255,255,255,0.4); padding: 8px; border-radius: 4px; display: flex; justify-content: space-between; border: 1px solid var(--glass-border); }
+.attribute { background: rgba(255,255,255,0.2); padding: 8px; border-radius: 4px; display: flex; justify-content: space-between; border: 1px solid var(--glass-border); }
 .attribute .name { font-size: 0.8rem; color: var(--text-muted-color); }
 .attribute .value { font-weight: bold; }
 
-/* --- MISC --- */
 .placeholder-text {
     background: var(--glass-bg);
     padding: 20px;
