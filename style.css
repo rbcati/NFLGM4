@@ -1,132 +1,257 @@
-/*
- * NFLGM4 "Liquid Glass" Theme - Restored & Upgraded
-*/
-
-/* Reset and Base */
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
+/* --- GLOBAL & TYPOGRAPHY --- */
 :root {
-  /* Core Palette (dark) */
-  --bg: #0a0c10;
-  --surface: rgba(22, 27, 34, 0.75);
-  --surface-strong: rgba(30, 36, 44, 0.85);
-  --hairline: rgba(255, 255, 255, 0.1);
-  --text: #E6EDF3;
-  --text-muted: #9FB0C2;
-  --accent: #0A84FF;
-  --danger: #FF453A;
-
-  /* Spacing and Radius */
-  --space-4: 8px; --space-8: 16px; --space-10: 24px;
-  --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
-
-  /* Shadows */
-  --shadow-1: 0 4px 12px rgba(0,0,0,0.3);
-  --shadow-3: 0 12px 40px rgba(0,0,0,0.5);
-
-  /* Motion */
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --dur: 200ms;
+    --primary-color: #0d47a1; /* NFL Blue */
+    --secondary-color: #d50000; /* NFL Red */
+    --background-color: #121212;
+    --surface-color: #1e1e1e;
+    --text-color: #e0e0e0;
+    --text-muted-color: #a0a0a0;
+    --border-color: #333;
+    --highlight-color: #bb86fc;
+    --font-family: 'Roboto', sans-serif;
 }
 
-html, body {
-  background: radial-gradient(1400px 1400px at 15% -15%, rgba(20,35,60,0.3), transparent 65%),
-              radial-gradient(1000px 1000px at 85% 15%, rgba(0,120,255,0.08), transparent 55%),
-              var(--bg);
-  color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-}
-
-/* Layout */
-.layout { display: grid; grid-template-columns: 280px 1fr; gap: var(--space-10); padding: var(--space-10); }
-.sidebar { position: sticky; top: var(--space-10); height: fit-content; }
-.card { padding: var(--space-8); margin-bottom: var(--space-8); background: var(--surface); border-radius: var(--radius-lg); border: 1px solid var(--hairline); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
-.section { margin-bottom: var(--space-8); }
-.row { display: flex; gap: var(--space-8); align-items: center; }
-.spacer { flex: 1; }
-.muted { color: var(--text-muted); }
-.mt { margin-top: var(--space-8); }
-.grid.two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
-
-/* Top Bar & Navigation */
-.topbar { display: grid; grid-template-columns: auto 1fr auto; align-items: center; padding: var(--space-4) var(--space-8); }
-.brand { font-weight: 700; font-size: 1.1rem; }
-.nav-pills { display: flex; gap: var(--space-4); justify-content: center; }
-.nav-pill {
-  display: inline-flex; align-items: center; gap: var(--space-4);
-  height: 36px; padding: 0 var(--space-8); border-radius: var(--radius-pill);
-  color: var(--text-muted); text-decoration: none; font-weight: 500;
-  transition: all var(--dur) var(--ease);
-}
-.nav-pill:hover { color: var(--text); background: var(--surface); }
-.nav-pill[aria-current="page"] { color: var(--text); background: var(--surface-strong); }
-
-/* Buttons & Forms */
-.btn {
-  padding: var(--space-4) var(--space-8); border-radius: var(--radius-md);
-  border: 1px solid var(--hairline); background: var(--surface); color: var(--text);
-  font-weight: 500; cursor: pointer; transition: all var(--dur) var(--ease);
-}
-.btn:hover { background: var(--surface-strong); }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
-select, input {
-    background: var(--surface); border: 1px solid var(--hairline); color: var(--text);
-    padding: var(--space-4); border-radius: var(--radius-md);
-}
-
-/* Modal Styles */
-.modal {
-  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, 0.6); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); z-index: 1000;
-}
-.modal-card {
-  background: var(--bg); border: 1px solid var(--hairline);
-  border-radius: var(--radius-lg); padding: var(--space-10);
-  box-shadow: var(--shadow-3); width: 100%; max-width: 500px;
-  display: flex; flex-direction: column; gap: var(--space-8);
-}
-
-/* Results & Draft Styles */
-.results-grid, .scouting-grid, .hof-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;
-}
-.result-card, .rookie-card, .hof-card {
-    background: var(--surface); padding: 12px; border-radius: var(--radius-md);
-    border-left: 3px solid var(--accent);
-}
-/* ADD: Loading overlay styles */
-/* LINE: After line ~200 */
-.loading-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.8);
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
     display: flex;
-    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+}
+
+h1, h2, h3 {
+    font-weight: 700;
+    color: var(--text-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+    margin-top: 0;
+}
+
+/* --- LAYOUT --- */
+#sidebar {
+    width: 220px;
+    background-color: var(--surface-color);
+    padding: 20px;
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+}
+
+#main-content {
+    flex-grow: 1;
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.page {
+    display: none; /* Hidden by default, shown by router */
+}
+.page.active {
+    display: block;
+}
+
+/* --- NAVIGATION --- */
+#main-nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#main-nav li a {
+    display: block;
+    padding: 12px 16px;
+    color: var(--text-muted-color);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background-color 0.2s, color 0.2s;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+#main-nav li a:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-color);
+}
+
+#main-nav li a.active {
+    background-color: var(--primary-color);
+    color: #fff;
+    font-weight: 700;
+}
+
+/* --- BUTTONS --- */
+.btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+
+.btn.primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+.btn.primary:hover {
+    background-color: #1565c0; /* Darker blue */
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+}
+
+/* --- TABLES (STANDINGS, ROSTER, FREE AGENCY) --- */
+.standings-table, .roster-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: var(--surface-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.standings-table th, .roster-table th {
+    background-color: rgba(13, 71, 161, 0.5); /* Semi-transparent primary */
+    padding: 12px;
+    text-align: left;
+    font-weight: 700;
+    color: var(--text-color);
+}
+
+.standings-table td, .roster-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.standings-table tbody tr:last-child td, .roster-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.standings-table tbody tr:hover, .roster-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.roster-table tbody tr {
+    cursor: pointer;
+}
+
+/* --- HIGHLIGHT PLAYER TEAM --- */
+.player-team {
+    background-color: rgba(187, 134, 252, 0.15) !important; /* Highlight color with transparency */
+    font-weight: 700;
+}
+
+.player-team td:first-child {
+    border-left: 4px solid var(--highlight-color);
+}
+
+
+/* --- HUB VIEW --- */
+#pageHub {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+}
+#hubTeamHeader {
+    grid-column: 1 / -1;
+}
+.game-card {
+    background: var(--surface-color);
+    padding: 16px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 1.2rem;
+    display: flex;
     justify-content: center;
-    z-index: 9999;
+    align-items: center;
+    gap: 20px;
+}
+.team-abbr {
+    font-weight: bold;
+    font-size: 1.5rem;
 }
 
-.spinner {
-    width: 50px; height: 50px;
-    border: 3px solid var(--hairline);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
+/* --- MODALS (ONBOARDING & PLAYER) --- */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.modal-content {
+    background-color: var(--surface-color);
+    padding: 24px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
 }
 
-/* ADD: Better responsive design */
-/* LINE: After line ~300 */
-@media (max-width: 768px) {
-    .layout {
-        grid-template-columns: 1fr;
-    }
-    .sidebar {
-        position: relative;
-    }
+.modal-content h2 {
+    margin-top: 0;
+}
+
+/* Player Modal Specifics */
+#playerModalContent {
+    max-width: 600px;
+}
+.player-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+}
+.close-button {
+    font-size: 1.8rem;
+    font-weight: bold;
+    cursor: pointer;
+    color: var(--text-muted-color);
+}
+.close-button:hover {
+    color: var(--text-color);
+}
+.player-modal-body h4 {
+    margin-top: 20px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+.player-attributes, .player-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+.attribute {
+    background: var(--background-color);
+    padding: 8px;
+    border-radius: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+.attribute .name {
+    font-size: 0.8rem;
+    color: var(--text-muted-color);
+}
+.attribute .value {
+    font-weight: bold;
+}
+
+/* --- MISC --- */
+.placeholder-text {
+    background-color: var(--surface-color);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+    color: var(--text-muted-color);
+    border-left: 4px solid var(--secondary-color);
 }
