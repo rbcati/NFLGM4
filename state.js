@@ -437,9 +437,8 @@ window.getTeamsByConference = getTeamsByConference;
 window.getTeamsByDivision = getTeamsByDivision;
 window.fillTeamSelect = fillTeamSelect;
 window.initializeGlobalState = initializeGlobalState;
-
 // Also provide legacy aliases for compatibility
 window.saveGame = saveState;
 window.loadGame = loadState;
 
-console.log('State.js loaded - State object:', !!window.State, 'Global state:', !!window.sta
+console.log('State.js loaded - State object:', !!window.State, 'Global state:', !!window.state);
