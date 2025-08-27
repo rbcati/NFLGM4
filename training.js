@@ -322,7 +322,7 @@ function runWeeklyTraining(league) {
   
   try {
     const weekJustCompleted = league.week - 1;
-    const userTeamId = parseInt($('#userTeam')?.value || '0', 10);
+  const userTeamId = parseInt($('#userTeam').val() || '0', 10);
     const userPlan = (state.trainingPlan && state.trainingPlan.week === weekJustCompleted) ? 
                      state.trainingPlan : null;
 
