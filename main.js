@@ -179,10 +179,22 @@ function simulateWeekAndUpdate() {
         if (window.simulateWeek) {
             window.simulateWeek();
         } else {
-            window.setStatus('Simulation function not available');
+            if (window.setStatus) {
+                window.setStatus('Simulation function not available');
+            } else {
+                console.error('Simulation function not available');
+            }
             return;
         }
-        
+    } catch (e) {
+        if (window.setStatus) {
+            window.setStatus('Error during simulation');
+        }
+        console.error('Error during simulation:', e);
+        // Optionally return or continue based on application needs
+    }
+}
+
         // Refresh UI after simulation
         refreshAll();
         
