@@ -174,3 +174,80 @@ window.UI = {
     openOnboard, show, hide, toggleTheme, applySavedTheme
 };
 
+// UI FIX - Add this to the bottom of ui.js
+
+// Enhanced renderHub function with null checks
+window.renderHub = function() {
+  const L = state.league;
+  if (!L) return;
+  
+  const userTeam = window.currentTeam() || L.teams[state.userTeamId || 0];
+  if (!userTeam) return;
+  
+  // Update season (try multiple element IDs)
+  ['hubSeason', 'seasonNow'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = L.year || '2025';
+  });
+  
+  // Update week
+  const weekEl = document.getElementById('hubWeek');
+  if (weekEl) weekEl.textContent = L.week || '1';
+  
+  // Update games count
+  const gamesEl = document.getElementById('hubGames');
+  if (gamesEl) {
+    const scheduleWeeks = L.schedule?.weeks || L.schedule || [];
+    const currentWeek = scheduleWeeks[L.week - 1];
+    gamesEl.textContent = currentWeek?.games?.length || '0';
+  }
+  
+  // Update power rankings
+  const powerEl = document.getElementById('hubPower');
+  if (powerEl && L.teams) {
+    const sortedTeams = [...L.teams].sort((a, b) => {
+      const aWins = a.record?.w || a.wins || 0;
+      const bWins = b.record?.w || b.wins || 0;
+      if (aWins !== bWins) return bWins - aWins;
+      
+      const aPF = a.record?.pf || a.ptsFor || 0;
+      const aPA = a.record?.pa || a.ptsAgainst || 0;
+      const bPF = b.record?.pf || b.ptsFor || 0;
+      const bPA = b.record?.pa || b.ptsAgainst || 0;
+      
+      return (bPF - bPA) - (aPF - aPA);
+    });
+    
+    powerEl.innerHTML = sortedTeams.slice(0, 10).map((team, i) => {
+      const wins = team.record?.w || team.wins || 0;
+      const losses = team.record?.l || team.losses || 0;
+      const ties = team.record?.t || team.ties || 0;
+      return `<li>${i + 1}. ${team.name} (${wins}-${losses}${ties > 0 ? `-${ties}` : ''})</li>`;
+    }).join('');
+  }
+  
+  console.log('✅ Hub rendered successfully');
+};
+
+// Enhanced cap sidebar update
+window.updateCapSidebar = function() {
+  try {
+    const team = window.currentTeam();
+    if (!team) return;
+    
+    const capUsedEl = document.getElementById('capUsed');
+    const capTotalEl = document.getElementById('capTotal');
+    const capRoomEl = document.getElementById('capRoom');
+    const deadCapEl = document.getElementById('deadCap');
+    
+    if (capUsedEl) capUsedEl.textContent = `$${(team.capUsed || 0).toFixed(1)}M`;
+    if (capTotalEl) capTotalEl.textContent = `$${(team.capTotal || 220).toFixed(1)}M`;
+    if (capRoomEl) capRoomEl.textContent = `$${(team.capRoom || 0).toFixed(1)}M`;
+    if (deadCapEl) deadCapEl.textContent = `$${(team.deadCap || 0).toFixed(1)}M`;
+    
+  } catch (error) {
+    console.error('Error updating cap sidebar:', error);
+  }
+};
+
+console.log('🎉 UI fixes loaded!');
