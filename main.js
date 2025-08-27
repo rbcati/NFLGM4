@@ -142,7 +142,8 @@ function initNewGame(options) {
             window.setStatus('Error: League creation functions not available');
             return;
         }
-
+ if (!state.league) state.league = {};
+    state.league.teams = teams;
         // Generate initial free agents
         if (window.ensureFA) {
             window.ensureFA();
