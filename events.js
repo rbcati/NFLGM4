@@ -1,160 +1,335 @@
 'use strict';
 
 // --- ROUTING ---
-// Basic hash-based router
 function router() {
-    // Default route
     const path = location.hash || '#/hub';
-
-    // Hide all pages
-    document.querySelectorAll('.page').forEach(p => {
-        p.classList.remove('active');
-    });
-
-    // Show active page
-    const pageId = `page${path.charAt(2).toUpperCase() + path.slice(3)}`;
-    const activePage = document.getElementById(pageId);
-    if (activePage) {
-        activePage.classList.add('active');
+    
+    // Hide all views
+    document.querySelectorAll('.view').forEach(v => v.hidden = true);
+    
+    // Show active view
+    const viewName = path.slice(2); // Remove #/
+    const activeView = document.getElementById(viewName);
+    if (activeView) {
+        activeView.hidden = false;
     }
-
-    // Update nav link styles
-    document.querySelectorAll('#main-nav a').forEach(a => {
-        if (a.href.endsWith(path)) {
-            a.classList.add('active');
-        } else {
-            a.classList.remove('active');
+    
+    // Update nav
+    document.querySelectorAll('.nav-pill').forEach(a => {
+        const isActive = a.getAttribute('href') === path;
+        a.setAttribute('aria-current', isActive ? 'page' : null);
+    });
+    
+    console.log('Route change:', viewName);
+    
+    // Render the appropriate view
+    if (state.league && state.onboarded) {
+        switch(viewName) {
+            case 'hub':
+                if (window.renderHub) window.renderHub();
+                break;
+            case 'roster':
+                if (window.renderRoster) window.renderRoster();
+                break;
+            case 'standings':
+                if (window.renderStandings) window.renderStandings();
+                break;
+            case 'freeagency':
+                if (window.renderFreeAgency) window.renderFreeAgency();
+                break;
         }
-    });
-
-    console.log(`Route change: ${path.substring(2)}`);
+    }
 }
 
-
-// --- EVENT LISTENERS ---
-
-// Set status message
+// --- STATUS MANAGEMENT ---
 function setStatus(msg, duration = 3000) {
-    const el = document.getElementById('status-bar'); // Assuming you have a status bar element
-    if (el) {
-        el.textContent = msg;
-        el.style.display = 'block';
-        setTimeout(() => {
-            el.style.display = 'none';
-        }, duration);
+    console.log('Status:', msg);
+    
+    const statusEl = document.getElementById('statusMsg');
+    if (statusEl) {
+        statusEl.textContent = msg;
+        statusEl.style.display = 'block';
+        
+        if (duration > 0) {
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, duration);
+        }
     }
 }
 
-// Show news modal
-function showNews(newsItem) {
-    const modal = document.getElementById('newsModal');
-    if (modal) {
-        document.getElementById('newsModalTitle').textContent = newsItem.title;
-        document.getElementById('newsModalContent').textContent = newsItem.content;
-        modal.style.display = 'flex';
-    }
-}
-
-// Close news modal
-function closeNewsModal() {
-    const modal = document.getElementById('newsModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// --- SETUP ---
+// --- EVENT SETUP ---
 function setupEventListeners() {
     console.log('Setting up event listeners...');
 
-    // Delegated event listener for the entire body
-    document.body.addEventListener('click', e => {
+    // Global click handler using delegation
+    document.body.addEventListener('click', function(e) {
         const target = e.target;
         const targetId = target.id;
-        const classList = target.classList;
-        console.log('Click detected on:', targetId || classList.toString());
+        
+        console.log('Click detected on:', targetId || target.className);
 
-        // --- ONBOARDING, SIM, AND THEME BUTTONS ---
-        switch (targetId) {
-            case 'onboardStart':
-                console.log('Onboard start clicked');
-                const options = {
-                    gameMode: 'gm',
-                    playerRole: 'GM',
-                    chosenMode: document.getElementById('onboardMode').value,
-                    teamIdx: document.getElementById('onboardTeam').value
-                };
-                if (window.initNewGame) initNewGame(options);
-                return; // Stop further processing
+        // Handle onboarding start
+        if (targetId === 'onboardStart') {
+            console.log('Onboard start clicked');
+            handleOnboardStart(e);
+            return;
+        }
+        
+        // Handle simulation
+        if (targetId === 'btnSimWeek') {
+            console.log('Simulating week...');
+            if (window.simulateWeekAndUpdate) {
+                window.simulateWeekAndUpdate();
+            } else if (window.simulateWeek) {
+                window.simulateWeek();
+                if (window.refreshAll) window.refreshAll();
+            }
+            return;
+        }
+        
+        // Handle save/load
+        if (targetId === 'btnSave') {
+            console.log('Save clicked');
+            if (window.saveState) {
+                const success = window.saveState();
+                setStatus(success ? 'Game saved!' : 'Save failed!');
+            }
+            return;
+        }
+        
+        if (targetId === 'btnLoad') {
+            console.log('Load clicked');
+            if (window.loadState) {
+                const loaded = window.loadState();
+                if (loaded) {
+                    window.state = loaded;
+                    setStatus('Game loaded!');
+                    if (window.refreshAll) window.refreshAll();
+                } else {
+                    setStatus('No save file found!');
+                }
+            }
+            return;
+        }
+        
+        // Handle new league
+        if (targetId === 'btnNewLeague') {
+            console.log('New league clicked');
+            if (confirm('Start a new league? This will delete your current save.')) {
+                localStorage.removeItem(window.SAVE_KEY || 'nflGM4.league');
+                location.reload();
+            }
+            return;
+        }
+        
+        // Handle free agency signing
+        if (targetId === 'btnSignFA') {
+            console.log('Sign FA clicked');
+            if (window.signFreeAgent) {
+                window.signFreeAgent();
+            }
+            return;
+        }
+        
+        // Handle random team selection
+        if (targetId === 'onboardRandom') {
+            e.preventDefault();
+            const teamSelect = document.getElementById('onboardTeam');
+            if (teamSelect && teamSelect.options.length > 0) {
+                const randomIndex = Math.floor(Math.random() * teamSelect.options.length);
+                teamSelect.selectedIndex = randomIndex;
+                setStatus('Random team selected: ' + teamSelect.options[randomIndex].text);
+            }
+            return;
+        }
+    });
 
-            case 'btnSimWeek':
-                console.log('Simulating week...');
-                if (window.simulateWeekAndUpdate) simulateWeekAndUpdate();
-                return;
-
-            case 'btnThemeToggle':
-                console.log('Toggling theme...');
-                if (UI.toggleTheme) UI.toggleTheme();
-                return;
+    // Handle radio button changes
+    document.addEventListener('change', function(e) {
+        const target = e.target;
+        
+        // Names mode change
+        if (target.name === 'namesMode') {
+            console.log('Names mode changed to:', target.value);
+            state.namesMode = target.value;
+            
+            if (window.populateTeamDropdown) {
+                window.populateTeamDropdown(target.value);
+            }
         }
-
-        // --- OTHER CLICK ACTIONS FROM YOUR ORIGINAL FILE ---
-        if (classList.contains('btnSimSeason')) {
-            console.log('Sim season clicked (not implemented)');
-            setStatus('Simulate season not yet implemented.');
+        
+        // Game mode change  
+        if (target.name === 'gameMode') {
+            console.log('Game mode changed to:', target.value);
+            const careerOptions = document.getElementById('careerOptions');
+            if (careerOptions) {
+                careerOptions.hidden = target.value !== 'career';
+            }
         }
-        else if (classList.contains('btnSignPlayer')) {
-            const playerId = target.dataset.playerId;
-            console.log(`Sign player ${playerId} clicked`);
-        }
-        else if (classList.contains('btnReleasePlayer')) {
-            const playerId = target.dataset.playerId;
-            console.log(`Release player ${playerId} clicked`);
-        }
-        else if (classList.contains('btnProposeTrade')) {
-            console.log('Propose trade clicked');
-        }
-        else if (classList.contains('btnHireStaff')) {
-            const staffId = target.dataset.staffId;
-            console.log(`Hire staff ${staffId} clicked`);
-        }
-        else if (classList.contains('btnMakePick')) {
-            console.log('Make draft pick clicked');
-        }
-        else if (classList.contains('close-modal') || classList.contains('close-button')) {
-            const modal = target.closest('.modal-backdrop');
-            if (modal) {
-                modal.style.display = 'none';
+        
+        // Free agency player selection
+        if (target.name === 'fa') {
+            const btnSign = document.getElementById('btnSignFA');
+            if (btnSign) {
+                btnSign.disabled = false;
             }
         }
     });
 
-    // --- SPECIFIC LISTENERS ---
-
-    // Team mode selection (real vs. fictional)
-    const onboardModeSelect = document.getElementById('onboardMode');
-    if (onboardModeSelect) {
-        onboardModeSelect.addEventListener('change', e => {
-            state.namesMode = e.target.value;
-            const teamsByMode = listByMode(state.namesMode);
-            document.getElementById('onboardTeam').innerHTML = teamsByMode.map((t, i) => `<option value="${i}">${t.name}</option>`).join('');
-        });
-    }
-
-    // Handle initial route and hash changes for navigation
+    // Handle navigation
     window.addEventListener('hashchange', router);
-    // Call router on initial load as well
-    if (document.readyState === 'loading') {
-        window.addEventListener('DOMContentLoaded', router);
-    } else {
-        router();
-    }
-
+    
+    // Initial route
+    router();
+    
     console.log('Event listeners set up successfully');
 }
 
-// Make functions globally accessible
+/**
+ * Handle onboarding start with proper validation
+ */
+function handleOnboardStart(e) {
+    e.preventDefault();
+    console.log('Processing onboard start...');
+    
+    try {
+        // Get form values safely
+        const gameModeEl = document.querySelector('input[name="gameMode"]:checked');
+        const namesModeEl = document.querySelector('input[name="namesMode"]:checked');
+        const teamSelect = document.getElementById('onboardTeam');
+        const careerRoleEl = document.getElementById('careerRole');
+        
+        // Validate required elements exist
+        if (!teamSelect) {
+            setStatus('Error: Team selection not found');
+            console.error('Team select element missing');
+            return;
+        }
+        
+        if (teamSelect.options.length === 0) {
+            setStatus('Error: No teams available');
+            console.error('No teams in dropdown');
+            return;
+        }
+        
+        // Build options object
+        const options = {
+            gameMode: gameModeEl ? gameModeEl.value : 'gm',
+            playerRole: 'GM',
+            chosenMode: namesModeEl ? namesModeEl.value : 'fictional',
+            teamIdx: teamSelect.value || '0'
+        };
+        
+        // Handle career mode role
+        if (options.gameMode === 'career' && careerRoleEl) {
+            options.playerRole = careerRoleEl.value;
+        }
+        
+        console.log('Onboard options:', options);
+        
+        // Validate team selection
+        const teams = window.listByMode(options.chosenMode);
+        const teamIdx = parseInt(options.teamIdx, 10);
+        
+        if (isNaN(teamIdx) || teamIdx < 0 || teamIdx >= teams.length) {
+            setStatus('Error: Invalid team selection');
+            console.error('Invalid team index:', teamIdx, 'out of', teams.length);
+            return;
+        }
+        
+        const selectedTeam = teams[teamIdx];
+        console.log('Selected team:', selectedTeam);
+        
+        // Initialize the game
+        if (window.initNewGame) {
+            window.initNewGame(options);
+        } else {
+            // Fallback initialization
+            initGameFallback(options, teams);
+        }
+        
+    } catch (error) {
+        console.error('Error in handleOnboardStart:', error);
+        setStatus('Error starting game: ' + error.message);
+    }
+}
+
+/**
+ * Fallback game initialization if main function isn't available
+ */
+function initGameFallback(options, teams) {
+    try {
+        console.log('Using fallback initialization...');
+        
+        // Update state
+        state.gameMode = options.gameMode;
+        state.playerRole = options.playerRole;
+        state.namesMode = options.chosenMode;
+        state.userTeamId = parseInt(options.teamIdx, 10);
+        state.onboarded = true;
+        
+        // Ensure player object exists
+        if (!state.player) {
+            state.player = {};
+        }
+        state.player.teamId = state.userTeamId;
+        
+        // Create league
+        if (window.makeLeague) {
+            console.log('Creating league with', teams.length, 'teams');
+            state.league = window.makeLeague(teams);
+            
+            if (state.league) {
+                console.log('✅ League created successfully');
+            } else {
+                throw new Error('League creation failed');
+            }
+        } else {
+            throw new Error('makeLeague function not available');
+        }
+        
+        // Generate free agents
+        if (window.ensureFA) {
+            window.ensureFA();
+        } else if (window.generateFreeAgents) {
+            window.generateFreeAgents();
+        }
+        
+        // Close modal
+        const modal = document.getElementById('onboardModal');
+        if (modal) {
+            modal.hidden = true;
+            modal.style.display = 'none';
+        }
+        
+        // Save game
+        if (window.saveState) {
+            window.saveState();
+        }
+        
+        // Navigate to hub
+        location.hash = '#/hub';
+        
+        // Refresh UI
+        if (window.refreshAll) {
+            window.refreshAll();
+        }
+        
+        const teamName = teams[state.userTeamId]?.name || 'Unknown Team';
+        setStatus(`Game started! You are the ${options.playerRole} of ${teamName}`);
+        
+        console.log('✅ Fallback initialization completed');
+        
+    } catch (error) {
+        console.error('Fallback initialization failed:', error);
+        setStatus('Failed to start game: ' + error.message);
+    }
+}
+
+// Make functions globally available
 window.setupEventListeners = setupEventListeners;
 window.setStatus = setStatus;
 window.router = router;
-
+window.handleOnboardStart = handleOnboardStart;
+window.initGameFallback = initGameFallback;
