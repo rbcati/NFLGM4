@@ -320,7 +320,21 @@ function initGameFallback(options, teams) {
         setStatus(`Game started! You are the ${options.playerRole} of ${teamName}`);
         
         console.log('✅ Fallback initialization completed');
-        
+        // Add simulateWeek function for advancing the simulation by one week
+window.simulateWeek = function() {
+    if (!window.simulationState) {
+        window.simulationState = { currentDate: new Date() };
+    }
+
+    const currentDate = window.simulationState.currentDate;
+    currentDate.setDate(currentDate.getDate() + 7);
+    window.simulationState.currentDate = currentDate;
+
+    console.log(`Simulated week. New date: ${currentDate.toDateString()}`);
+
+    // Additional weekly update logic here (refresh UI, update stats, etc.)
+};
+
     } catch (error) {
         console.error('Fallback initialization failed:', error);
         setStatus('Failed to start game: ' + error.message);
