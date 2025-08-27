@@ -227,3 +227,190 @@
     
     <!-- Main Initialization (Last) -->
     <script src="main.js"></script>
+// bootstrap-fix.js - Add this script AFTER all other scripts in index.html
+(function() {
+  'use strict';
+  
+  console.log('🚀 NFL GM Bootstrap Fix starting...');
+  
+  // Wait for DOM to be fully ready
+  function waitForDOM() {
+    return new Promise((resolve) => {
+      if (document.readyState === 'complete') {
+        resolve();
+      } else {
+        window.addEventListener('load', resolve);
+      }
+    });
+  }
+  
+  // Wait for critical objects to be available
+  function waitForDependencies() {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 50; // 5 seconds max
+      
+      const checkDeps = () => {
+        attempts++;
+        
+        const required = {
+          Constants: window.Constants,
+          Teams: window.Teams,
+          Utils: window.Utils,
+          State: window.State,
+          state: window.state
+        };
+        
+        const missing = Object.keys(required).filter(key => !required[key]);
+        
+        if (missing.length === 0) {
+          console.log('✅ All dependencies loaded');
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          console.error('❌ Timeout waiting for dependencies:', missing);
+          resolve(); // Continue anyway
+        } else {
+          console.log(`⏳ Waiting for dependencies (${attempts}/${maxAttempts}):`, missing);
+          setTimeout(checkDeps, 100);
+        }
+      };
+      
+      checkDeps();
+    });
+  }
+  
+  // Main bootstrap function
+  async function bootstrap() {
+    try {
+      console.log('⏳ Waiting for DOM and dependencies...');
+      
+      // Wait for DOM
+      await waitForDOM();
+      console.log('✅ DOM ready');
+      
+      // Wait for dependencies
+      await waitForDependencies();
+      
+      // Ensure state exists
+      if (!window.state) {
+        console.log('🔧 Creating missing state...');
+        window.state = {
+          league: null,
+          freeAgents: [],
+          playoffs: null,
+          namesMode: 'fictional',
+          onboarded: false,
+          userTeamId: 0,
+          gameMode: 'gm',
+          playerRole: 'GM',
+          player: { teamId: 0 }
+        };
+      }
+      
+      // Ensure show function exists
+      if (!window.show) {
+        console.log('🔧 Creating missing show function...');
+        window.show = function(elementId) {
+          const element = document.getElementById(elementId);
+          if (element) {
+            if (element.classList.contains('modal')) {
+              element.style.display = 'flex';
+            } else {
+              element.style.display = 'block';
+            }
+            element.hidden = false;
+          }
+        };
+      }
+      
+      // Test team selection
+      console.log('🧪 Testing team selection...');
+      const fictional = window.listByMode('fictional');
+      const real = window.listByMode('real');
+      
+      if (fictional.length === 0 || real.length === 0) {
+        console.error('❌ No teams found!');
+        return;
+      }
+      
+      console.log('✅ Teams available - Real:', real.length, 'Fictional:', fictional.length);
+      
+      // Check if modal exists
+      const modal = document.getElementById('onboardModal');
+      const teamSelect = document.getElementById('onboardTeam');
+      
+      if (!modal || !teamSelect) {
+        console.error('❌ Modal elements missing');
+        console.log('Modal found:', !!modal);
+        console.log('Team select found:', !!teamSelect);
+        return;
+      }
+      
+      console.log('✅ Modal elements found');
+      
+      // Set up the onboarding system
+      if (window.populateTeamDropdown) {
+        window.populateTeamDropdown('fictional');
+        console.log('✅ Team dropdown populated with', teamSelect.options.length, 'options');
+      }
+      
+      // Check if we need to show onboarding
+      if (!state.onboarded || !state.league) {
+        console.log('🎯 Opening onboarding modal...');
+        if (window.openOnboard) {
+          window.openOnboard();
+        } else {
+          // Manual modal opening
+          modal.hidden = false;
+          modal.style.display = 'flex';
+        }
+      } else {
+        console.log('🎮 Game already initialized');
+        // Initialize main game
+        if (window.init) {
+          window.init();
+        }
+      }
+      
+      // Set up event listeners if not already done
+      if (window.setupEventListeners && !document.body.hasAttribute('data-events-setup')) {
+        window.setupEventListeners();
+        document.body.setAttribute('data-events-setup', 'true');
+      }
+      
+      console.log('🎉 Bootstrap completed successfully!');
+      
+    } catch (error) {
+      console.error('💥 Bootstrap failed:', error);
+      
+      // Emergency fallback
+      window.emergencyFix = function() {
+        const modal = document.getElementById('onboardModal');
+        const teamSelect = document.getElementById('onboardTeam');
+        
+        if (modal && teamSelect) {
+          modal.hidden = false;
+          modal.style.display = 'flex';
+          
+          if (window.listByMode) {
+            const teams = window.listByMode('fictional');
+            teamSelect.innerHTML = '';
+            teams.forEach((team, index) => {
+              const option = document.createElement('option');
+              option.value = String(index);
+              option.textContent = team.abbr + ' — ' + team.name;
+              teamSelect.appendChild(option);
+            });
+            console.log('🚑 Emergency fix applied');
+          }
+        }
+      };
+      
+      console.log('💡 Try running: window.emergencyFix()');
+    }
+  }
+  
+  // Start bootstrap
+  bootstrap();
+  
+})();
