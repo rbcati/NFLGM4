@@ -1,4 +1,4 @@
-// draft.js - Complete Draft System
+// draft-fixed.js - Fixed Draft System with proper syntax
 'use strict';
 
 /**
@@ -261,51 +261,18 @@ function calculateRookieContract(round, pick) {
 }
 
 /**
- * Calculate draft order based on team records
- */
-function calculateDraftOrder(league) {
-  if (!league || !league.teams) return [];
-  
-  try {
-    // Create copy of teams with records
-    const teamRecords = league.teams.map((team, index) => ({
-      id: index,
-      team: team,
-      wins: team.record?.w || team.wins || 0,
-      losses: team.record?.l || team.losses || 0,
-      pointsFor: team.record?.pf || team.ptsFor || 0,
-      pointsAgainst: team.record?.pa || team.ptsAgainst || 0,
-      pointDifferential: (team.record?.pf || team.ptsFor || 0) - (team.record?.pa || team.ptsAgainst || 0)
-    }));
-    
-    // Sort by record (worst teams draft first)
-    teamRecords.sort((a, b) => {
-      if (a.wins !== b.wins) return a.wins - b.wins;
-      if (a.pointDifferential !== b.pointDifferential) return a.pointDifferential - b.pointDifferential;
-      return b.pointsAgainst - a.pointsAgainst;
-    });
-    
-    return teamRecords.map(record => record.id);
-    
-  } catch (error) {
-    console.error('Error calculating draft order:', error);
-    return Array.from({length: league.teams.length}, (_, i) => i);
-  }
-}
-
-/**
- * Render the draft view
+ * Render the draft/scouting view
  */
 function renderDraft() {
   console.log('Rendering draft...');
   
-  const L = state.league;
-  if (!L) {
-    console.error('No league available for draft');
-    return;
-  }
-  
   try {
+    const L = state.league;
+    if (!L) {
+      console.error('No league available for draft');
+      return;
+    }
+    
     // Ensure draft class exists
     if (!state.draftClass || state.draftClass.length === 0) {
       const draftYear = L.year + 1;
@@ -313,7 +280,13 @@ function renderDraft() {
       console.log('Generated draft class for', draftYear);
     }
     
-    // Get team picks
+    // Update draft year display
+    const draftYearEl = document.getElementById('draftYear');
+    if (draftYearEl) {
+      draftYearEl.textContent = L.year + 1;
+    }
+    
+    // Get team for picks display
     const teamSelect = document.getElementById('draftTeam');
     if (teamSelect && !teamSelect.dataset.filled && window.fillTeamSelect) {
       window.fillTeamSelect(teamSelect);
@@ -323,22 +296,15 @@ function renderDraft() {
     const teamId = parseInt(teamSelect?.value || state.userTeamId || '0', 10);
     const team = L.teams[teamId];
     
-    if (!team) {
-      console.error('No team found for draft');
-      return;
+    if (team) {
+      // Render team's picks
+      renderTeamPicks(team, L);
     }
-    
-    // Update draft year display
-    const draftYearEl = document.getElementById('draftYear');
-    if (draftYearEl) {
-      draftYearEl.textContent = L.year + 1;
-    }
-    
-    // Render team's picks
-    renderTeamPicks(team, L);
     
     // Render top prospects  
     renderTopProspects();
+    
+    console.log('✅ Draft rendered successfully');
     
   } catch (error) {
     console.error('Error rendering draft:', error);
@@ -623,107 +589,6 @@ function makeDraftPick(teamId, prospectId) {
   }
 }
 
-/**
- * Run a full draft simulation for AI teams
- */
-function simulateDraft() {
-  const L = state.league;
-  if (!L || !state.draftClass) return;
-  
-  console.log('Simulating draft...');
-  
-  try {
-    const draftOrder = calculateDraftOrder(L);
-    const rounds = 7;
-    const userTeamId = state.userTeamId || 0;
-    
-    for (let round = 1; round <= rounds; round++) {
-      console.log(`Simulating round ${round}...`);
-      
-      for (const teamId of draftOrder) {
-        if (teamId === userTeamId) {
-          // Skip user team - they pick manually
-          continue;
-        }
-        
-        const team = L.teams[teamId];
-        if (!team) continue;
-        
-        // Find team's pick for this round
-        const draftYear = L.year + 1;
-        const teamPick = team.picks.find(p => p.year === draftYear && p.round === round);
-        if (!teamPick) continue;
-        
-        // AI team makes pick based on team needs
-        const prospect = selectProspectForTeam(team, round);
-        if (prospect) {
-          makeDraftPick(teamId, prospect.id);
-        }
-      }
-    }
-    
-    console.log('Draft simulation complete');
-    window.setStatus('Draft completed! Check rosters for new players.');
-    
-  } catch (error) {
-    console.error('Error simulating draft:', error);
-  }
-}
-
-/**
- * AI team selects a prospect based on team needs
- */
-function selectProspectForTeam(team, round) {
-  if (!state.draftClass || state.draftClass.length === 0) return null;
-  
-  try {
-    // Get team positional needs
-    const needs = window.getPositionalNeeds ? window.getPositionalNeeds(team) : getBasicNeeds(team);
-    
-    // Filter prospects by round and position needs
-    const roundProspects = state.draftClass.filter(p => 
-      p.projectedRound <= round && p.projectedRound >= Math.max(1, round - 1)
-    );
-    
-    if (roundProspects.length === 0) return null;
-    
-    // Score prospects based on team needs
-    const scoredProspects = roundProspects.map(prospect => {
-      const need = needs[prospect.pos] || { score: 1 };
-      const score = prospect.ovr + (need.score * 2);
-      return { prospect, score };
-    });
-    
-    // Sort by score and pick top prospect
-    scoredProspects.sort((a, b) => b.score - a.score);
-    
-    return scoredProspects[0]?.prospect || null;
-    
-  } catch (error) {
-    console.error('Error selecting prospect for team:', error);
-    return state.draftClass[0] || null;
-  }
-}
-
-/**
- * Basic positional needs if advanced function not available
- */
-function getBasicNeeds(team) {
-  const C = window.Constants;
-  const needs = {};
-  
-  if (!team.roster || !C.POSITIONS) return needs;
-  
-  C.POSITIONS.forEach(pos => {
-    const playersAtPos = team.roster.filter(p => p.pos === pos).length;
-    const targetCount = C.DEPTH_NEEDS?.[pos] || 2;
-    const need = Math.max(0, targetCount - playersAtPos);
-    needs[pos] = { score: need * 5 };
-  });
-  
-  return needs;
-}
-
 // Make functions globally available
 window.generateProspects = generateProspects;
 window.makeProspect = makeProspect;
@@ -732,14 +597,109 @@ window.generateProspectName = generateProspectName;
 window.generateCollege = generateCollege;
 window.generateCollegeStats = generateCollegeStats;
 window.calculateRookieContract = calculateRookieContract;
-window.calculateDraftOrder = calculateDraftOrder;
 window.renderDraft = renderDraft;
-window.renderTeamPicks = renderTeamPicks;
 window.renderTopProspects = renderTopProspects;
 window.scoutProspect = scoutProspect;
 window.makeDraftPick = makeDraftPick;
-window.simulateDraft = simulateDraft;
-window.selectProspectForTeam = selectProspectForTeam;
-window.getBasicNeeds = getBasicNeeds;
 
-console.log('Draft.js loaded successfully');
+// Add draft CSS
+const draftCSS = `
+.draft-picks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.draft-pick-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  text-align: center;
+}
+
+.draft-pick-card .round {
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.prospect-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.prospect-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.prospect-header h4 {
+  color: var(--text);
+  margin: 0;
+}
+
+.prospect-info {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.prospect-ratings {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.rating-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.rating-item span:first-child {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.rating-item span:last-child {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prospect-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-scout {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+
+.btn-scout:hover {
+  background: var(--accent-hover);
+}
+
+.ovr-elite { color: #34C759; }
+.ovr-very-good { color: #00D4AA; }
+.ovr-good { color: var(--accent); }
+.ovr-average { color: var(--warning); }
+.ovr-below-average { color: var(--danger); }
+`;
+
+// Inject draft CSS
+const draftStyleElement = document.createElement('style');
+draftStyleElement.textContent = draftCSS;
+document.head.appendChild(draftStyleElement);
+
+console.log('✅ Draft system fixed and loaded');
