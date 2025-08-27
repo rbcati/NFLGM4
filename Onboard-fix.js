@@ -1,5 +1,77 @@
-// onboard-fix.js - Add this new file to fix team selection in onboarding
+// onboard-fix.js - Enhanced team selection with multiple fallbacks
 'use strict';
+
+/**
+ * Enhanced listByMode function with multiple fallback options
+ * @param {string} mode - 'fictional' or 'real'
+ * @returns {Array} Array of team objects
+ */
+function listByMode(mode) {
+  console.log('listByMode called with mode:', mode);
+  
+  // Try multiple sources for team data
+  const sources = [
+    // Try Teams object first (primary)
+    () => window.Teams?.real || window.Teams?.fictional,
+    // Try the TEAM_META properties (secondary)
+    () => window.Teams?.TEAM_META_REAL || window.Teams?.TEAM_META_FICTIONAL,
+    // Try Constants directly (tertiary)
+    () => window.Constants?.TEAMS_REAL || window.Constants?.TEAMS_FICTIONAL,
+    // Try Constants TEAM_META properties (quaternary)
+    () => window.Constants?.TEAM_META_REAL || window.Constants?.TEAM_META_FICTIONAL
+  ];
+  
+  let realTeams = null;
+  let fictionalTeams = null;
+  
+  // Try each source until we find teams
+  for (const getSource of sources) {
+    try {
+      const source = getSource();
+      if (source) {
+        // Found a source, now try to get both real and fictional teams
+        if (window.Teams) {
+          realTeams = window.Teams.real || window.Teams.TEAM_META_REAL || 
+                     window.Constants?.TEAMS_REAL || window.Constants?.TEAM_META_REAL;
+          fictionalTeams = window.Teams.fictional || window.Teams.TEAM_META_FICTIONAL || 
+                          window.Constants?.TEAMS_FICTIONAL || window.Constants?.TEAM_META_FICTIONAL;
+        }
+        
+        if (window.Constants) {
+          realTeams = realTeams || window.Constants.TEAMS_REAL || window.Constants.TEAM_META_REAL;
+          fictionalTeams = fictionalTeams || window.Constants.TEAMS_FICTIONAL || window.Constants.TEAM_META_FICTIONAL;
+        }
+        
+        if (realTeams && fictionalTeams) {
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('Error accessing team source:', e);
+      continue;
+    }
+  }
+  
+  if (!realTeams || !fictionalTeams) {
+    console.error("Could not find team data in any expected location!");
+    console.log("Available objects:", {
+      Teams: !!window.Teams,
+      Constants: !!window.Constants,
+      TeamsKeys: window.Teams ? Object.keys(window.Teams) : null,
+      ConstantsKeys: window.Constants ? Object.keys(window.Constants) : null
+    });
+    return [];
+  }
+  
+  const result = mode === 'real' ? realTeams : fictionalTeams;
+  console.log(`Returning ${result.length} teams for ${mode} mode`);
+  
+  if (result.length === 0) {
+    console.error(`No ${mode} teams found!`);
+  }
+  
+  return result;
+}
 
 /**
  * Enhanced onboarding modal with working team selection
@@ -16,6 +88,7 @@ function openOnboard() {
     
     // Show the modal
     modal.hidden = false;
+    modal.style.display = 'flex';
     
     // Initialize with default mode
     if (!state.namesMode) {
@@ -198,10 +271,17 @@ function handleGameStart() {
     state.playerRole = playerRole;
     state.onboarded = true;
     
+    // Initialize state.player if it doesn't exist
+    if (!state.player) {
+      state.player = { teamId: teamIdx };
+    } else {
+      state.player.teamId = teamIdx;
+    }
+    
     // Create league
     console.log('Creating league...');
-    if (!window.makeLeague || !window.listByMode) {
-      window.setStatus('Error: Game initialization functions not loaded');
+    if (!window.makeLeague) {
+      window.setStatus('Error: makeLeague function not loaded');
       return;
     }
     
@@ -226,16 +306,31 @@ function handleGameStart() {
       window.rebuildTeamLabels(chosenMode);
     }
     
+    // Generate initial free agents
+    if (window.ensureFA) {
+      window.ensureFA();
+    } else if (window.generateFreeAgents) {
+      window.generateFreeAgents();
+    }
+    
     // Close modal and show game
     closeOnboard();
     location.hash = '#/hub';
     window.setStatus(`Started as ${playerRole} of ${selectedTeamName}!`);
+    
+    // Save the game state
+    if (window.saveState || window.saveGame) {
+      (window.saveState || window.saveGame)();
+    }
     
     // Refresh UI
     if (window.refreshAll) {
       window.refreshAll();
     } else if (window.renderHub) {
       window.renderHub();
+    } else {
+      // Fallback UI update
+      updateBasicUI();
     }
     
     console.log('Game started successfully');
@@ -247,33 +342,42 @@ function handleGameStart() {
 }
 
 /**
- * Enhanced listByMode function with better error handling
- * @param {string} mode - 'fictional' or 'real'
- * @returns {Array} Array of team objects
+ * Basic UI update as fallback
  */
-function listByMode(mode) {
-  console.log('listByMode called with mode:', mode);
-  
-  if (!window.Teams) {
-    console.error("Teams data has not loaded yet!");
-    return [];
+function updateBasicUI() {
+  try {
+    const L = state.league;
+    if (!L) return;
+    
+    // Update sidebar
+    const seasonEl = document.getElementById('seasonNow') || document.getElementById('hubSeason');
+    if (seasonEl) {
+      seasonEl.textContent = L.year || '2025';
+    }
+    
+    const weekEl = document.getElementById('hubWeek');
+    if (weekEl) {
+      weekEl.textContent = L.week || '1';
+    }
+    
+    // Update team selector if available
+    const userTeamSelect = document.getElementById('userTeam');
+    if (userTeamSelect && L.teams) {
+      userTeamSelect.innerHTML = '';
+      L.teams.forEach((team, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = team.name || `Team ${index + 1}`;
+        if (index === (state.userTeamId || state.player?.teamId || 0)) {
+          option.selected = true;
+        }
+        userTeamSelect.appendChild(option);
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error in basic UI update:', error);
   }
-  
-  const T = window.Teams;
-  
-  // Check if team data exists
-  if (!T.TEAM_META_REAL || !T.TEAM_META_FICTIONAL) {
-    console.error("Team metadata is missing!", T);
-    return [];
-  }
-  
-  const real = T.TEAM_META_REAL || [];
-  const fictional = T.TEAM_META_FICTIONAL || [];
-  
-  const result = mode === 'real' ? real : fictional;
-  console.log(`Returning ${result.length} teams for ${mode} mode`);
-  
-  return result;
 }
 
 /**
@@ -283,6 +387,7 @@ function closeOnboard() {
   const modal = document.getElementById('onboardModal');
   if (modal) {
     modal.hidden = true;
+    modal.style.display = 'none';
   }
 }
 
@@ -311,8 +416,77 @@ function testTeamSelection() {
   return {
     fictional: fictional.length,
     real: real.length,
-    modalFunction: !!window.openOnboard
+    modalFunction: !!window.openOnboard,
+    totalExpected: 32
   };
+}
+
+/**
+ * Enhanced initialization that ensures team data is properly loaded
+ */
+function ensureTeamsLoaded() {
+  console.log('🔍 Ensuring teams are loaded...');
+  
+  // Check if teams are properly loaded
+  const fictional = listByMode('fictional');
+  const real = listByMode('real');
+  
+  if (fictional.length === 0 || real.length === 0) {
+    console.warn('⚠️ Teams not properly loaded, attempting to reload...');
+    
+    // Try to reload teams.js data
+    if (window.Constants && window.Constants.TEAMS_REAL && window.Constants.TEAMS_FICTIONAL) {
+      // Ensure Teams object exists with proper structure
+      if (!window.Teams) {
+        window.Teams = {};
+      }
+      
+      window.Teams.real = window.Constants.TEAMS_REAL;
+      window.Teams.fictional = window.Constants.TEAMS_FICTIONAL;
+      window.Teams.TEAM_META_REAL = window.Constants.TEAMS_REAL;
+      window.Teams.TEAM_META_FICTIONAL = window.Constants.TEAMS_FICTIONAL;
+      
+      console.log('✅ Teams reloaded successfully');
+    } else {
+      console.error('❌ Cannot reload teams - Constants data missing');
+      return false;
+    }
+  } else {
+    console.log('✅ Teams already loaded properly');
+  }
+  
+  return true;
+}
+
+/**
+ * Initialize the onboarding system with proper error handling
+ */
+function initializeOnboardingSystem() {
+  try {
+    console.log('🎯 Initializing onboarding system...');
+    
+    // Ensure teams are loaded first
+    if (!ensureTeamsLoaded()) {
+      console.error('❌ Cannot initialize onboarding - teams not loaded');
+      return false;
+    }
+    
+    // Test team selection
+    const testResult = testTeamSelection();
+    if (testResult.fictional === 0 || testResult.real === 0) {
+      console.error('❌ Team selection test failed:', testResult);
+      return false;
+    }
+    
+    console.log('✅ Onboarding system initialized successfully');
+    console.log('📊 Available teams:', testResult);
+    
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Error initializing onboarding system:', error);
+    return false;
+  }
 }
 
 // Make functions globally available
@@ -321,7 +495,17 @@ window.closeOnboard = closeOnboard;
 window.populateTeamDropdown = populateTeamDropdown;
 window.setupOnboardEventListeners = setupOnboardEventListeners;
 window.handleGameStart = handleGameStart;
-window.listByMode = listByMode;
+window.listByMode = listByMode; // Override with our enhanced version
 window.testTeamSelection = testTeamSelection;
+window.ensureTeamsLoaded = ensureTeamsLoaded;
+window.initializeOnboardingSystem = initializeOnboardingSystem;
+
+// Auto-initialize when this script loads
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeOnboardingSystem);
+} else {
+  // Run initialization after a brief delay to ensure other scripts have loaded
+  setTimeout(initializeOnboardingSystem, 100);
+}
 
 console.log('Onboard team selection fix loaded');
