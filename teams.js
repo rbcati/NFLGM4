@@ -93,10 +93,14 @@ Constants.TEAMS_FICTIONAL = [
     { abbr: 'ARI', name: 'Arizona Scorpions', conf: 1, div: 3 }
 ];
 
-
+// Create Teams object with both naming conventions to ensure compatibility
 const Teams = {
     fictional: Constants.TEAMS_FICTIONAL,
     real: Constants.TEAMS_REAL,
+    
+    // Add the expected property names for compatibility with onboard-fix.js
+    TEAM_META_REAL: Constants.TEAMS_REAL,
+    TEAM_META_FICTIONAL: Constants.TEAMS_FICTIONAL,
 
     getByAbbr: function(abbr, mode = 'fictional') {
         const teamList = (mode === 'real') ? this.real : this.fictional;
@@ -110,13 +114,31 @@ const Teams = {
 };
 
 function listByMode(mode) {
-    if (mode === 'real') {
-        return Teams.real;
+    console.log('listByMode called with mode:', mode);
+    
+    if (!window.Teams) {
+        console.error("Teams data has not loaded yet!");
+        return [];
     }
-    return Teams.fictional;
+    
+    if (mode === 'real') {
+        const teams = Teams.real || Teams.TEAM_META_REAL || Constants.TEAMS_REAL || [];
+        console.log(`Returning ${teams.length} real teams`);
+        return teams;
+    } else {
+        const teams = Teams.fictional || Teams.TEAM_META_FICTIONAL || Constants.TEAMS_FICTIONAL || [];
+        console.log(`Returning ${teams.length} fictional teams`);
+        return teams;
+    }
 }
 
 // --- CRITICAL ---
 // Make the Teams object and the listByMode function globally available
 window.Teams = Teams;
 window.listByMode = listByMode;
+
+// Also add to Constants for additional compatibility
+Constants.TEAM_META_REAL = Constants.TEAMS_REAL;
+Constants.TEAM_META_FICTIONAL = Constants.TEAMS_FICTIONAL;
+
+console.log('Teams.js loaded - Real teams:', Teams.TEAM_META_REAL?.length, 'Fictional teams:', Teams.TEAM_META_FICTIONAL?.length);
