@@ -1,5 +1,20 @@
-// training.js - Updated to use constants instead of magic numbers
+// training-fixed.js - Fixed to work without jQuery dependency
 'use strict';
+
+/**
+ * Helper function to safely get element by ID (replaces $ function)
+ */
+function getElement(id) {
+  return document.getElementById(id);
+}
+
+/**
+ * Helper function to safely get element value
+ */
+function getValue(elementOrId) {
+  const element = typeof elementOrId === 'string' ? getElement(elementOrId) : elementOrId;
+  return element ? element.value : '';
+}
 
 /**
  * Renders the training UI card in the Roster view
@@ -8,9 +23,9 @@
 function renderTrainingUI(team) {
   if (!team || !team.roster) return;
   
-  let root = $('#trainingCard');
+  let root = getElement('trainingCard');
   if (!root) {
-    const rosterView = $('#roster');
+    const rosterView = getElement('roster');
     if (!rosterView) return;
     
     root = document.createElement('div');
@@ -48,7 +63,7 @@ function renderTrainingUI(team) {
     </div>
   `;
 
-  const btnSetTraining = $('#btnSetTraining');
+  const btnSetTraining = getElement('btnSetTraining');
   if (btnSetTraining) {
     btnSetTraining.onclick = setTrainingPlan;
   }
@@ -61,7 +76,11 @@ function setTrainingPlan() {
   if (!state.league) return;
   
   try {
-    const teamIdx = parseInt($('#rosterTeam')?.value || $('#userTeam')?.value || '0', 10);
+    // Fixed: Use proper DOM selection instead of jQuery syntax
+    const rosterTeamValue = getValue('rosterTeam');
+    const userTeamValue = getValue('userTeam');
+    const teamIdx = parseInt(rosterTeamValue || userTeamValue || '0', 10);
+    
     const team = state.league.teams[teamIdx];
     
     if (!team) {
@@ -69,8 +88,8 @@ function setTrainingPlan() {
       return;
     }
     
-    const pid = $('#trainPlayer')?.value;
-    const stat = $('#trainStat')?.value;
+    const pid = getValue('trainPlayer');
+    const stat = getValue('trainStat');
     
     if (!pid || !stat) {
       window.setStatus('Please select both a player and skill to train.');
@@ -314,7 +333,7 @@ function resolveTrainingFor(team, plan) {
 }
 
 /**
- * Runs the training process for all teams for the week
+ * Runs the training process for all teams for the week - FIXED VERSION
  * @param {Object} league - League object
  */
 function runWeeklyTraining(league) {
@@ -322,12 +341,23 @@ function runWeeklyTraining(league) {
   
   try {
     const weekJustCompleted = league.week - 1;
-  const userTeamId = parseInt($('#userTeam').val() || '0', 10);
+    
+    // FIXED: Get user team ID without jQuery
+    let userTeamId = 0;
+    const userTeamElement = getElement('userTeam');
+    if (userTeamElement && userTeamElement.value) {
+      userTeamId = parseInt(userTeamElement.value, 10);
+    } else if (state.userTeamId !== undefined) {
+      userTeamId = state.userTeamId;
+    }
+    
     const userPlan = (state.trainingPlan && state.trainingPlan.week === weekJustCompleted) ? 
                      state.trainingPlan : null;
 
     league.teams.forEach((team, idx) => {
       const plan = (idx === userTeamId && userPlan) ? userPlan : pickAITarget(team);
+      if (!plan) return; // Skip if no valid plan
+      
       const result = resolveTrainingFor(team, plan);
       
       if (!result || !result.ok) return;
@@ -359,6 +389,7 @@ function runWeeklyTraining(league) {
     
   } catch (error) {
     console.error('Error in runWeeklyTraining:', error);
+    // Don't throw the error - log it and continue
   }
 }
 
@@ -407,3 +438,9 @@ window.getPositionStatBonus = getPositionStatBonus;
 window.resolveTrainingFor = resolveTrainingFor;
 window.runWeeklyTraining = runWeeklyTraining;
 window.getTrainingSuccessRate = getTrainingSuccessRate;
+
+// Also expose helper functions for consistency
+window.getElement = getElement;
+window.getValue = getValue;
+
+console.log('✅ Training system fixed and loaded');
