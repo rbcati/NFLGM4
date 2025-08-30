@@ -1,653 +1,287 @@
-// ui-fixes.js - Complete fix for navigation and rendering
 'use strict';
 
-console.log('🔧 Loading UI fixes...');
+// --- CORE UI FUNCTIONS ---
 
-// Fix 1: Correct show function that matches HTML structure
-window.show = function(viewId) {
-  console.log('Showing view:', viewId);
-  
-  // Hide all views first
-  document.querySelectorAll('.view').forEach(view => {
-    view.hidden = true;
-    view.style.display = 'none';
-  });
-  
-  // Show target view
-  const targetView = document.getElementById(viewId);
-  if (targetView) {
-    targetView.hidden = false;
-    targetView.style.display = 'block';
-    
-    // Update navigation active state
-    document.querySelectorAll('.nav-pill').forEach(pill => {
-      const href = pill.getAttribute('href');
-      const isActive = href === `#/${viewId}`;
-      pill.setAttribute('aria-current', isActive ? 'page' : null);
+/**
+ * Displays a specific view container and hides all others.
+ * @param {string} viewId - The ID of the view element to show.
+ */
+function showView(viewId) {
+    document.querySelectorAll('.view').forEach(view => {
+        view.hidden = true;
     });
-    
-    console.log('✅ View shown successfully:', viewId);
-  } else {
-    console.error('❌ View not found:', viewId);
-  }
-};
+    const targetView = document.getElementById(viewId);
+    if (targetView) {
+        targetView.hidden = false;
+    } else {
+        console.error(`View not found: ${viewId}`);
+        // Show hub as a fallback if view is not found
+        document.getElementById('hub').hidden = false;
+    }
+}
 
-// Fix 2: Corrected renderRoster function
-window.renderRoster = function() {
-  console.log('Rendering roster...');
-  
-  try {
+/**
+ * The main render controller. It clears the view and calls the specific
+ * rendering function based on the view name.
+ * @param {string} viewName - The name of the view to render (e.g., 'hub', 'roster').
+ */
+function renderView(viewName) {
+    if (!state.league || !state.onboarded) {
+        console.log('Cannot render view, game not ready.');
+        return;
+    }
+    try {
+        const viewContainer = document.getElementById(viewName);
+        if (!viewContainer) return;
+
+        viewContainer.innerHTML = ''; // Clear previous content before drawing new
+
+        switch (viewName) {
+            case 'hub':
+                renderHub(viewContainer);
+                break;
+            case 'roster':
+                renderRoster(viewContainer);
+                break;
+            case 'standings':
+                renderStandings(viewContainer);
+                break;
+            case 'schedule':
+                renderSchedule(viewContainer);
+                break;
+            case 'coaching':
+                 if(window.renderCoaching) window.renderCoaching(viewContainer);
+                 break;
+            // Add stubs for other views to avoid errors
+            case 'trade':
+            case 'freeagency':
+            case 'draft':
+            case 'scouting':
+            case 'settings':
+            case 'hallOfFame':
+                 viewContainer.innerHTML = `<div class="card"><h2>${viewName}</h2><p>This view is under construction.</p></div>`;
+                 break;
+            default:
+                console.warn(`No renderer found for view: ${viewName}`);
+                viewContainer.innerHTML = `<div class="card"><h2>404</h2><p>View not found.</p></div>`;
+        }
+    } catch (error) {
+        console.error(`Error rendering view '${viewName}':`, error);
+    }
+}
+
+/**
+ * Fills any <select> element with a list of all teams in the league.
+ * @param {HTMLElement} selectEl - The <select> element to populate.
+ */
+function fillTeamSelect(selectEl) {
+    if (!selectEl || !state.league) return;
+    selectEl.innerHTML = '';
+    state.league.teams.forEach((team) => {
+        const option = document.createElement('option');
+        option.value = String(team.id);
+        option.textContent = `${team.abbr} — ${team.name}`;
+        selectEl.appendChild(option);
+    });
+    // Default to user's team if applicable
+    if (selectEl.id.includes('user') || selectEl.id.includes('roster')) {
+        selectEl.value = String(state.userTeamId);
+    }
+}
+
+
+// --- INDIVIDUAL VIEW RENDERERS ---
+
+function renderHub(container) {
     const L = state.league;
-    if (!L) {
-      console.error('No league available');
-      return;
+    const scheduleWeeks = L.schedule?.weeks || [];
+    const currentWeekData = scheduleWeeks[L.week - 1] || { games: [] };
+
+    // Power Rankings Logic
+    const sortedTeams = [...L.teams].sort((a, b) => (b.record.w - a.record.w) || ((b.record.pf - b.record.pa) - (a.record.pf - a.record.pa)));
+    const powerRankingHtml = sortedTeams.slice(0, 10).map((team, i) => {
+        const isUser = team.id === state.userTeamId;
+        return `<li class="${isUser ? 'user-team' : ''}">${i + 1}. ${team.name} (${team.record.w}-${team.record.l})</li>`;
+    }).join('');
+
+    // Last Week's Results Logic
+    const lastWeekIndex = L.week - 2;
+    const results = L.resultsByWeek?.[lastWeekIndex] || [];
+    let resultsHtml = '<p class="muted">No recent results</p>';
+    if (results.length > 0) {
+        resultsHtml = results.slice(0, 8).map(result => {
+            if (result.bye !== undefined) return `<div class="result-item">${L.teams[result.bye]?.name} - BYE</div>`;
+            const home = L.teams[result.home];
+            const away = L.teams[result.away];
+            return `<div class="result-item"><span class="teams">${away.abbr} ${result.scoreAway} @ ${home.abbr} ${result.scoreHome}</span><span class="winner">${result.scoreHome > result.scoreAway ? home.abbr : away.abbr} wins</span></div>`;
+        }).join('');
     }
+
+    container.innerHTML = `
+        <div class="card">
+            <div class="row"><h2>League Hub</h2><div class="spacer"></div><div class="muted">Season <span>${L.year}</span></div></div>
+            <div class="grid two">
+              <div>
+                <div>Week <span>${L.week}</span> of <span>${scheduleWeeks.length}</span></div>
+                <div>Games this week: <span>${currentWeekData.games.length}</span></div>
+                <div class="actions mt"><button id="btnSimWeek" class="btn primary">Simulate Week</button></div>
+              </div>
+              <div><h3>Power Ranking</h3><ol>${powerRankingHtml}</ol></div>
+            </div>
+        </div>
+        <div class="card"><h3>Last Week Results</h3><div>${resultsHtml}</div></div>
+    `;
+}
+
+function renderRoster(container) {
+    const L = state.league;
+    const team = L.teams[state.userTeamId]; // For now, always show user's team
     
-    // Get team selection
-    const teamSelect = document.getElementById('rosterTeam');
-    if (teamSelect && !teamSelect.dataset.filled && window.fillTeamSelect) {
-      window.fillTeamSelect(teamSelect);
-      teamSelect.dataset.filled = '1';
-    }
-    
-    const teamId = parseInt(teamSelect?.value || state.userTeamId || '0', 10);
-    const team = L.teams[teamId];
-    
-    if (!team) {
-      console.error('No team found for roster');
-      return;
-    }
-    
-    // Update title
-    const titleEl = document.getElementById('rosterTitle');
-    if (titleEl) {
-      titleEl.textContent = `${team.name} Roster`;
-    }
-    
-    // Render roster table - target correct element
-    const rosterTable = document.getElementById('rosterTable');
-    if (!rosterTable) {
-      console.error('Roster table element not found');
-      return;
-    }
-    
-    if (!team.roster || team.roster.length === 0) {
-      rosterTable.innerHTML = '<tr><td colspan="8">No players on roster</td></tr>';
-      return;
-    }
-    
-    // Build table with proper headers and data
-    rosterTable.innerHTML = `
-      <thead>
-        <tr>
-          <th><input type="checkbox" id="selectAllPlayers"></th>
-          <th>Name</th>
-          <th>Pos</th>
-          <th>Age</th>
-          <th>OVR</th>
-          <th>Contract</th>
-          <th>Cap Hit</th>
-          <th>Abilities</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${team.roster.map((player, index) => {
-          const capHit = window.capHitFor ? window.capHitFor(player, 0) : player.baseAnnual || 0;
-          const abilities = (player.abilities || []).slice(0, 2).join(', ') || 'None';
-          const contract = `${player.years}yr / $${(player.baseAnnual || 0).toFixed(1)}M`;
-          
-          return `
-            <tr data-player-id="${player.id}">
-              <td><input type="checkbox" name="playerSelect" value="${player.id}"></td>
-              <td>${player.name}</td>
-              <td>${player.pos}</td>
-              <td>${player.age}</td>
-              <td>${player.ovr}</td>
-              <td>${contract}</td>
-              <td>$${capHit.toFixed(1)}M</td>
-              <td class="abilities">${abilities}</td>
+    const rosterRows = team.roster.sort((a,b) => b.ovr - a.ovr).map(p => {
+        const capHit = window.capHitFor ? window.capHitFor(p, 0) : p.baseAnnual || 0;
+        return `
+            <tr>
+                <td>${p.name}</td>
+                <td>${p.pos}</td>
+                <td>${p.age}</td>
+                <td>${p.ovr}</td>
+                <td>${p.years}yr / $${(p.baseAnnual || 0).toFixed(1)}M</td>
+                <td>$${capHit.toFixed(1)}M</td>
             </tr>
-          `;
-        }).join('')}
-      </tbody>
+        `;
+    }).join('');
+
+    container.innerHTML = `
+        <div class="card">
+            <div class="row"><h2>${team.name} Roster</h2></div>
+            <table class="table" id="rosterTable">
+                <thead><tr><th>Name</th><th>Pos</th><th>Age</th><th>OVR</th><th>Contract</th><th>Cap Hit</th></tr></thead>
+                <tbody>${rosterRows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderStandings(container) {
+    const L = state.league;
+    const confNames = ['AFC', 'NFC'];
+    const divNames = ['East', 'North', 'South', 'West'];
+
+    let html = '';
+    confNames.forEach((confName, confIndex) => {
+        html += `<div class="conference"><h3>${confName}</h3><div class="divisions">`;
+        divNames.forEach((divName, divIndex) => {
+            const divTeams = L.teams.filter(t => t.conf === confIndex && t.div === divIndex);
+            divTeams.sort((a, b) => (b.record.w - a.record.w) || ((b.record.pf - b.record.pa) - (a.record.pf - a.record.pa)));
+            
+            const tableRows = divTeams.map(team => {
+                const isUser = team.id === state.userTeamId;
+                return `<tr class="${isUser ? 'user-team' : ''}"><td>${team.name}</td><td>${team.record.w}</td><td>${team.record.l}</td><td>${team.record.t}</td></tr>`;
+            }).join('');
+
+            html += `
+                <div class="division">
+                    <h4>${divName}</h4>
+                    <table class="table standings-table">
+                        <thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th></tr></thead>
+                        <tbody>${tableRows}</tbody>
+                    </table>
+                </div>
+            `;
+        });
+        html += '</div></div>';
+    });
+    container.innerHTML = `<div class="card"><h2>Standings</h2><div id="standingsWrap">${html}</div></div>`;
+}
+
+function renderSchedule(container) {
+    container.innerHTML = `
+        <div class="card">
+            <div class="row">
+              <h2>Schedule & Results</h2>
+              <div class="spacer"></div>
+              <label for="scheduleWeekSelect">Week</label>
+              <select id="scheduleWeekSelect"></select>
+            </div>
+            <div id="scheduleContent" class="mt"></div>
+        </div>
     `;
     
-    // Set up release button functionality
-    setupRosterEvents();
-    
-    console.log('✅ Roster rendered successfully');
-    
-  } catch (error) {
-    console.error('Error rendering roster:', error);
-    const rosterTable = document.getElementById('rosterTable');
-    if (rosterTable) {
-      rosterTable.innerHTML = '<tr><td colspan="8">Error loading roster</td></tr>';
-    }
-  }
-};
+    const weekSelect = document.getElementById('scheduleWeekSelect');
+    const L = state.league;
+    const totalWeeks = L.schedule?.weeks?.length || 18;
 
-// Fix 3: Setup roster events (for release functionality)
-function setupRosterEvents() {
-  // Select all checkbox
-  const selectAllEl = document.getElementById('selectAllPlayers');
-  if (selectAllEl) {
-    selectAllEl.addEventListener('change', function() {
-      const checkboxes = document.querySelectorAll('input[name="playerSelect"]');
-      checkboxes.forEach(cb => cb.checked = this.checked);
-      updateReleaseButton();
-    });
-  }
-  
-  // Individual checkboxes
-  const checkboxes = document.querySelectorAll('input[name="playerSelect"]');
-  checkboxes.forEach(cb => {
-    cb.addEventListener('change', updateReleaseButton);
-  });
-  
-  // Release button
-  const releaseBtn = document.getElementById('btnRelease');
-  if (releaseBtn) {
-    releaseBtn.addEventListener('click', function() {
-      const selected = Array.from(document.querySelectorAll('input[name="playerSelect"]:checked'))
-                          .map(cb => cb.value);
-      
-      if (selected.length === 0) {
-        window.setStatus('No players selected for release');
+    for (let w = 1; w <= totalWeeks; w++) {
+        const option = document.createElement('option');
+        option.value = String(w);
+        option.textContent = `Week ${w}`;
+        weekSelect.appendChild(option);
+    }
+    weekSelect.value = String(L.week);
+    
+    // The event listener for this is in events.js to keep concerns separate
+    renderScheduleContent(L.week); // Initial render
+}
+
+function renderScheduleContent(week) {
+    const scheduleContent = document.getElementById('scheduleContent');
+    if (!scheduleContent) return;
+
+    const L = state.league;
+    const weekIndex = parseInt(week, 10) - 1;
+    const weekData = L.schedule.weeks[weekIndex];
+    const results = L.resultsByWeek?.[weekIndex] || [];
+    const isCompleted = weekIndex < L.week - 1;
+
+    if (!weekData) {
+        scheduleContent.innerHTML = '<p class="muted">No schedule data for this week.</p>';
         return;
-      }
-      
-      if (confirm(`Release ${selected.length} player(s)?`)) {
-        if (window.releaseSelected) {
-          window.releaseSelected(selected);
-        } else {
-          window.setStatus('Release function not available');
+    }
+    
+    const gamesHtml = weekData.games.map(game => {
+        if (game.bye !== undefined) {
+            return `<div class="game-card bye-week">${L.teams[game.bye].name} - BYE</div>`;
         }
-      }
-    });
-  }
-}
-
-function updateReleaseButton() {
-  const releaseBtn = document.getElementById('btnRelease');
-  const selected = document.querySelectorAll('input[name="playerSelect"]:checked');
-  
-  if (releaseBtn) {
-    releaseBtn.disabled = selected.length === 0;
-    releaseBtn.textContent = selected.length > 0 ? 
-      `Release ${selected.length} Player(s)` : 'Release Selected';
-  }
-}
-
-// Fix 4: Corrected renderStandings function
-window.renderStandings = function() {
-  console.log('Rendering standings...');
-  
-  try {
-    const L = state.league;
-    if (!L || !L.teams) {
-      console.error('No league or teams available');
-      return;
-    }
-    
-    // Target correct element
-    const standingsWrap = document.getElementById('standingsWrap');
-    if (!standingsWrap) {
-      console.error('Standings container not found');
-      return;
-    }
-    
-    // Division names
-    const divisionNames = ['East', 'North', 'South', 'West'];
-    const conferenceNames = ['AFC', 'NFC'];
-    
-    let html = '';
-    
-    // Render each conference
-    conferenceNames.forEach((confName, confIndex) => {
-      html += `<div class="conference"><h3>${confName}</h3><div class="divisions">`;
-      
-      // Render each division
-      divisionNames.forEach((divName, divIndex) => {
-        const divTeams = L.teams.filter(t => t.conf === confIndex && t.div === divIndex);
+        const home = L.teams[game.home];
+        const away = L.teams[game.away];
+        const result = results.find(r => r.home === game.home && r.away === game.away);
         
-        // Sort by record
-        divTeams.sort((a, b) => {
-          const aWins = a.record?.w || a.wins || 0;
-          const bWins = b.record?.w || b.wins || 0;
-          
-          if (aWins !== bWins) return bWins - aWins;
-          
-          const aPF = a.record?.pf || a.ptsFor || 0;
-          const aPA = a.record?.pa || a.ptsAgainst || 0;
-          const bPF = b.record?.pf || b.ptsFor || 0;
-          const bPA = b.record?.pa || b.ptsAgainst || 0;
-          
-          return (bPF - bPA) - (aPF - aPA);
-        });
-        
-        html += `
-          <div class="division">
-            <h4>${divName}</h4>
-            <table class="table standings-table">
-              <thead>
-                <tr>
-                  <th>Team</th>
-                  <th>W</th>
-                  <th>L</th>
-                  <th>T</th>
-                  <th>PF</th>
-                  <th>PA</th>
-                  <th>Diff</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${divTeams.map(team => {
-                  const wins = team.record?.w || team.wins || 0;
-                  const losses = team.record?.l || team.losses || 0;
-                  const ties = team.record?.t || team.ties || 0;
-                  const pf = team.record?.pf || team.ptsFor || 0;
-                  const pa = team.record?.pa || team.ptsAgainst || 0;
-                  const diff = pf - pa;
-                  
-                  const isUserTeam = team.id === (state.userTeamId || state.player?.teamId);
-                  const userClass = isUserTeam ? ' class="user-team"' : '';
-                  
-                  return `
-                    <tr${userClass}>
-                      <td>${team.name}${isUserTeam ? ' (You)' : ''}</td>
-                      <td>${wins}</td>
-                      <td>${losses}</td>
-                      <td>${ties}</td>
-                      <td>${pf}</td>
-                      <td>${pa}</td>
-                      <td>${diff >= 0 ? '+' : ''}${diff}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        `;
-      });
-      
-      html += '</div></div>';
-    });
-    
-    standingsWrap.innerHTML = html;
-    
-    console.log('✅ Standings rendered successfully');
-    
-  } catch (error) {
-    console.error('Error rendering standings:', error);
-    const standingsWrap = document.getElementById('standingsWrap');
-    if (standingsWrap) {
-      standingsWrap.innerHTML = '<p>Error loading standings</p>';
-    }
-  }
-};
-
-// Fix 5: Enhanced router function
-window.router = function() {
-  const path = location.hash || '#/hub';
-  const viewName = path.slice(2); // Remove #/
-  
-  console.log('🧭 Routing to:', viewName);
-  
-  // Always show the view first
-  window.show(viewName);
-  
-  // Only render if game is initialized
-  if (!state.league || !state.onboarded) {
-    console.log('Game not initialized, skipping view rendering');
-    return;
-  }
-  
-  // Render specific views
-  try {
-    switch(viewName) {
-      case 'hub':
-        if (window.renderHub) window.renderHub();
-        break;
-      case 'roster':
-        if (window.renderRoster) window.renderRoster();
-        break;
-      case 'standings':
-        if (window.renderStandings) window.renderStandings();
-        break;
-      case 'freeagency':
-        if (window.renderFreeAgency) window.renderFreeAgency();
-        break;
-      case 'draft':
-        if (window.renderDraft) window.renderDraft();
-        break;
-      case 'scouting':
-        if (window.renderDraft) window.renderDraft(); // Draft and scouting share view
-        break;
-      case 'trade':
-        if (window.renderTrade) window.renderTrade();
-        break;
-      case 'coaching':
-        if (window.renderCoachingStats) window.renderCoachingStats();
-        break;
-      default:
-        console.log('No specific renderer for view:', viewName);
-    }
-  } catch (error) {
-    console.error('Error rendering view:', viewName, error);
-    window.setStatus('Error loading ' + viewName + ' view');
-  }
-};
-
-// Fix 6: Enhanced event delegation for better navigation
-function enhanceNavigation() {
-  console.log('🧭 Enhancing navigation...');
-  
-  // Remove existing hash change listener if any
-  window.removeEventListener('hashchange', window.router);
-  
-  // Add enhanced hash change listener
-  window.addEventListener('hashchange', window.router);
-  
-  // Handle nav pill clicks directly
-  document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('nav-pill')) {
-      e.preventDefault();
-      const href = e.target.getAttribute('href');
-      if (href && href.startsWith('#/')) {
-        location.hash = href;
-      }
-    }
-  });
-  
-  // Initial route
-  setTimeout(() => {
-    window.router();
-  }, 100);
-  
-  console.log('✅ Navigation enhanced');
-}
-
-// Fix 7: Placeholder render functions for missing views
-window.renderTrade = function() {
-  console.log('Rendering trade view...');
-  
-  const tradeView = document.getElementById('trade');
-  if (!tradeView) return;
-  
-  // Basic functionality - will be enhanced later
-  const teamASelect = document.getElementById('tradeA');
-  const teamBSelect = document.getElementById('tradeB');
-  
-  if (teamASelect && !teamASelect.dataset.filled && window.fillTeamSelect) {
-    window.fillTeamSelect(teamASelect);
-    teamASelect.dataset.filled = '1';
-  }
-  
-  if (teamBSelect && !teamBSelect.dataset.filled && window.fillTeamSelect) {
-    window.fillTeamSelect(teamBSelect);
-    teamBSelect.dataset.filled = '1';
-  }
-  
-  console.log('✅ Trade view rendered (basic)');
-};
-
-// Fix 8: Enhanced renderHub with better error handling
-window.renderHub = function() {
-  console.log('Rendering hub...');
-  
-  try {
-    const L = state.league;
-    if (!L) {
-      console.error('No league available for hub');
-      return;
-    }
-    
-    // Update season display
-    const seasonEls = ['hubSeason', 'seasonNow'];
-    seasonEls.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = L.year || '2025';
-    });
-    
-    // Update week display
-    const weekEl = document.getElementById('hubWeek');
-    if (weekEl) weekEl.textContent = L.week || '1';
-    
-    // Update weeks total
-    const weeksEl = document.getElementById('hubWeeks');
-    if (weeksEl) {
-      const totalWeeks = L.schedule?.weeks?.length || 18;
-      weeksEl.textContent = totalWeeks;
-    }
-    
-    // Update games count for current week
-    const gamesEl = document.getElementById('hubGames');
-    if (gamesEl) {
-      const scheduleWeeks = L.schedule?.weeks || L.schedule || [];
-      const currentWeek = scheduleWeeks[L.week - 1];
-      const gamesCount = currentWeek?.games?.length || 0;
-      gamesEl.textContent = gamesCount;
-    }
-    
-    // Update power rankings (top 10)
-    const powerEl = document.getElementById('hubPower');
-    if (powerEl && L.teams) {
-      const sortedTeams = [...L.teams].sort((a, b) => {
-        const aWins = a.record?.w || a.wins || 0;
-        const bWins = b.record?.w || b.wins || 0;
-        if (aWins !== bWins) return bWins - aWins;
-        
-        const aPF = a.record?.pf || a.ptsFor || 0;
-        const aPA = a.record?.pa || a.ptsAgainst || 0;
-        const bPF = b.record?.pf || b.ptsFor || 0;
-        const bPA = b.record?.pa || b.ptsAgainst || 0;
-        
-        return (bPF - bPA) - (aPF - aPA);
-      });
-      
-      powerEl.innerHTML = sortedTeams.slice(0, 10).map((team, i) => {
-        const wins = team.record?.w || team.wins || 0;
-        const losses = team.record?.l || team.losses || 0;
-        const ties = team.record?.t || team.ties || 0;
-        const isUserTeam = team.id === (state.userTeamId || state.player?.teamId);
-        
-        return `<li${isUserTeam ? ' class="user-team"' : ''}>${i + 1}. ${team.name} (${wins}-${losses}${ties > 0 ? `-${ties}` : ''})</li>`;
-      }).join('');
-    }
-    
-    // Show last week's results
-    renderLastWeekResults();
-    
-    console.log('✅ Hub rendered successfully');
-    
-  } catch (error) {
-    console.error('Error rendering hub:', error);
-  }
-};
-
-// Fix 9: Render last week results
-function renderLastWeekResults() {
-  try {
-    const L = state.league;
-    const resultsEl = document.getElementById('hubResults');
-    
-    if (!resultsEl || !L.resultsByWeek) return;
-    
-    const lastWeek = Math.max(0, L.week - 2);
-    const results = L.resultsByWeek[lastWeek] || [];
-    
-    if (results.length === 0) {
-      resultsEl.innerHTML = '<p class="muted">No recent results</p>';
-      return;
-    }
-    
-    resultsEl.innerHTML = results.slice(0, 8).map(result => {
-      if (result.bye !== undefined) {
-        const team = L.teams[result.bye];
-        return `<div class="result-item">${team?.name || 'Team'} - BYE</div>`;
-      }
-      
-      const home = L.teams[result.home];
-      const away = L.teams[result.away];
-      
-      if (!home || !away) return '';
-      
-      const homeScore = result.scoreHome || 0;
-      const awayScore = result.scoreAway || 0;
-      const winner = homeScore > awayScore ? home : away;
-      
-      return `
-        <div class="result-item">
-          <span class="teams">${away.abbr} ${awayScore} @ ${home.abbr} ${homeScore}</span>
-          <span class="winner">${winner.abbr} wins</span>
-        </div>
-      `;
+        if (isCompleted && result) {
+            return `<div class="game-card completed">${away.abbr} ${result.scoreAway} @ ${home.abbr} ${result.scoreHome}</div>`;
+        } else {
+            return `<div class="game-card upcoming">${away.name} (${away.record.w}-${away.record.l}) @ ${home.name} (${home.record.w}-${home.record.l})</div>`;
+        }
     }).join('');
     
-  } catch (error) {
-    console.error('Error rendering results:', error);
-  }
+    scheduleContent.innerHTML = `<div class="games-grid">${gamesHtml}</div>`;
 }
 
-// Fix 10: Add CSS for new UI elements
-const enhancedCSS = `
-.user-team {
-  background: rgba(10, 132, 255, 0.1) !important;
-  border-left: 3px solid var(--accent) !important;
-}
 
-.standings-table .user-team td {
-  color: var(--text) !important;
-  font-weight: 600 !important;
-}
-
-.conference {
-  margin-bottom: 2rem;
-}
-
-.conference h3 {
-  color: var(--text);
-  margin-bottom: 1rem;
-  font-size: 1.25rem;
-}
-
-.divisions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
-}
-
-.division {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  padding: 1rem;
-  border: 1px solid var(--hairline);
-}
-
-.division h4 {
-  color: var(--text-muted);
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.standings-table {
-  margin: 0;
-  font-size: 0.875rem;
-}
-
-.standings-table td {
-  padding: 0.5rem;
-}
-
-.result-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem;
-  background: var(--surface);
-  border-radius: var(--radius-md);
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-}
-
-.result-item .teams {
-  color: var(--text);
-}
-
-.result-item .winner {
-  color: var(--accent);
-  font-weight: 600;
-}
-
-.abilities {
-  font-size: 0.75rem;
-  color: var(--text-subtle);
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  .divisions {
-    grid-template-columns: 1fr;
-  }
-  
-  .standings-table {
-    font-size: 0.75rem;
-  }
-  
-  .standings-table th,
-  .standings-table td {
-    padding: 0.25rem;
-  }
-}
+// --- DYNAMIC CSS INJECTION ---
+// Merged from fix files to ensure UI looks correct without extra files.
+const uiCss = `
+.user-team { background: rgba(10, 132, 255, 0.1) !important; border-left: 3px solid var(--accent) !important; font-weight: bold; }
+.conference { margin-bottom: 2rem; }
+.conference h3 { margin-bottom: 1rem; }
+.divisions { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+.division { background: var(--surface); border-radius: var(--radius-lg); padding: 1rem; border: 1px solid var(--hairline); }
+.division h4 { color: var(--text-muted); margin-bottom: 0.5rem; text-transform: uppercase; }
+.result-item { display: flex; justify-content: space-between; padding: 0.5rem; background: var(--surface); border-radius: var(--radius-md); margin-bottom: 0.25rem; }
+.games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.game-card { background: var(--surface); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--hairline); text-align: center; }
+.game-card.completed { border-left: 3px solid var(--success); }
+.game-card.upcoming { border-left: 3px solid var(--accent); }
+.game-card.bye-week { color: var(--text-muted); }
+.nav-pill[aria-current="page"] { background: var(--accent); color: white; }
 `;
-
-// Inject CSS
 const styleElement = document.createElement('style');
-styleElement.textContent = enhancedCSS;
+styleElement.textContent = uiCss;
 document.head.appendChild(styleElement);
 
-// Fix 11: Initialize everything when DOM is ready
-function initializeUIFixes() {
-  console.log('🎯 Initializing UI fixes...');
-  
-  // Enhance navigation
-  enhanceNavigation();
-  
-  // Set up team selection dropdowns
-  const teamSelects = ['rosterTeam', 'faTeam', 'draftTeam', 'tradeA', 'tradeB'];
-  teamSelects.forEach(selectId => {
-    const select = document.getElementById(selectId);
-    if (select && select.options.length === 0 && window.fillTeamSelect) {
-      window.fillTeamSelect(select);
-    }
-  });
-  
-  // Initial render if game is loaded
-  if (state.league && state.onboarded) {
-    const currentHash = location.hash.slice(2) || 'hub';
-    setTimeout(() => {
-      window.router();
-    }, 200);
-  }
-  
-  console.log('✅ UI fixes initialized successfully');
-}
 
-// Auto-initialize
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeUIFixes);
-} else {
-  setTimeout(initializeUIFixes, 100);
-}
-
-// Export for manual fixing if needed
-window.enhanceNavigation = enhanceNavigation;
-window.setupRosterEvents = setupRosterEvents;
-window.initializeUIFixes = initializeUIFixes;
-
-console.log('🎉 UI fixes loaded successfully!');
+// --- GLOBAL ACCESS ---
+// Make key functions available to other files like main.js and events.js
+window.showView = showView;
+window.renderView = renderView;
+window.fillTeamSelect = fillTeamSelect;
+window.renderScheduleContent = renderScheduleContent;
