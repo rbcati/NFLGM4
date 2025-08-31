@@ -1,8 +1,8 @@
-// constants.js - Consolidated and Fixed
+// constants.js - Fixed with all missing properties
 (function (global) {
   'use strict';
   
-  // GAME CONSTANTS - All magic numbers consolidated here
+  // GAME CONSTANTS
   const GAME_CONFIG = {
     YEAR_START: 2025,
     SAVE_KEY: 'nflGM4.league',
@@ -11,12 +11,12 @@
 
   // SALARY CAP CONSTANTS
   const SALARY_CAP = {
-    BASE: 220,                    // Base salary cap in millions
-    MAX_ROLLOVER: 10,            // Maximum cap rollover allowed
-    ROOKIE_DISCOUNT: 0.9,        // Discount applied to rookie contracts
-    GUARANTEED_PCT_DEFAULT: 0.5,  // Default guaranteed percentage
-    SIGNING_BONUS_MIN: 0.25,     // Minimum signing bonus as % of total
-    SIGNING_BONUS_MAX: 0.6       // Maximum signing bonus as % of total
+    BASE: 220,
+    MAX_ROLLOVER: 10,
+    ROOKIE_DISCOUNT: 0.9,
+    GUARANTEED_PCT_DEFAULT: 0.5,
+    SIGNING_BONUS_MIN: 0.25,
+    SIGNING_BONUS_MAX: 0.6
   };
 
   // PLAYER CONSTANTS
@@ -37,7 +37,7 @@
     SUCCESS_MAX_RATE: 0.85,
     COACH_SKILL_MODIFIER: 0.15,
     AGE_PENALTY_PER_YEAR: 0.015,
-    HIGH_RATING_PENALTY: 0.01,   // Per point above 70
+    HIGH_RATING_PENALTY: 0.01,
     FATIGUE_GAIN_SUCCESS: 2,
     FATIGUE_GAIN_FAIL: 1,
     MAX_RATING_IMPROVEMENT: 4
@@ -54,7 +54,7 @@
   // FREE AGENCY CONSTANTS
   const FREE_AGENCY = {
     POOL_SIZE: 120,
-    CONTRACT_DISCOUNT: 0.9,      // FA contracts are 90% of normal value
+    CONTRACT_DISCOUNT: 0.9,
     DEFAULT_YEARS: 2,
     GUARANTEED_PCT: 0.5
   };
@@ -91,17 +91,16 @@
 
   // POSITIONS AND SCHEMES
   const POSITIONS = ["QB","RB","WR","TE","OL","DL","LB","CB","S","K","P"];
-  
   const OFFENSIVE_POSITIONS = ['QB', 'RB', 'WR', 'TE', 'OL', 'K'];
   const DEFENSIVE_POSITIONS = ['DL', 'LB', 'CB', 'S', 'P'];
 
-  // Depth chart requirements
+  // DEPTH CHART REQUIREMENTS
   const DEPTH_NEEDS = {
     QB: 2, RB: 3, WR: 4, TE: 2, OL: 6,
     DL: 5, LB: 4, CB: 4, S: 3, K: 1, P: 1
   };
 
-  // Defines which stats are most important for each position's OVR rating
+  // OVR CALCULATION WEIGHTS
   const OVR_WEIGHTS = {
     QB: { throwPower: 0.2, throwAccuracy: 0.3, awareness: 0.3, speed: 0.1, intelligence: 0.1 },
     RB: { speed: 0.2, acceleration: 0.2, trucking: 0.15, juking: 0.15, catching: 0.1, awareness: 0.2 },
@@ -116,7 +115,113 @@
     P:  { kickPower: 0.6, kickAccuracy: 0.4 }
   };
 
-  // Team schemes
+  // MISSING PROPERTIES THAT PLAYER.JS EXPECTS
+  
+  // Player age constants (expected by player.js)
+  const PLAYER_AGE_MIN = 21;
+  const PLAYER_AGE_MAX = 34;
+  const PLAYER_POTENTIAL_MIN = 40;
+  const PLAYER_POTENTIAL_MAX = 95;
+  const PLAYER_RETIREMENT_AGE_MAX = 40;
+
+  // Names arrays (using the ones from state.js)
+  const FIRST_NAMES = [
+    'James', 'Michael', 'John', 'Robert', 'David', 'William', 'Richard', 'Joseph', 'Thomas', 'Christopher',
+    'Charles', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Steven', 'Donald', 'Andrew', 'Joshua', 'Paul',
+    'Kenneth', 'Kevin', 'Brian', 'Timothy', 'Ronald', 'Jason', 'George', 'Edward', 'Jeffrey', 'Ryan',
+    'Jacob', 'Nicholas', 'Gary', 'Eric', 'Jonathan', 'Stephen', 'Larry', 'Justin', 'Benjamin', 'Scott',
+    'Brandon', 'Samuel', 'Gregory', 'Alexander', 'Patrick', 'Frank', 'Jack', 'Raymond', 'Dennis', 'Tyler'
+  ];
+
+  const LAST_NAMES = [
+    'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
+    'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
+    'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson',
+    'Walker', 'Young', 'Allen', 'King', 'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green'
+  ];
+
+  // General names structure
+  const NAMES = {
+    first: FIRST_NAMES,
+    last: LAST_NAMES
+  };
+
+  // Position-specific names (can be same as general for simplicity)
+  const NAMES_BY_POS = {
+    QB: NAMES, RB: NAMES, WR: NAMES, TE: NAMES, OL: NAMES,
+    DL: NAMES, LB: NAMES, CB: NAMES, S: NAMES, K: NAMES, P: NAMES
+  };
+
+  // College names
+  const COLLEGES = [
+    'Alabama', 'Ohio State', 'Georgia', 'Clemson', 'Oklahoma', 'LSU', 'Florida',
+    'Michigan', 'Penn State', 'Texas', 'Notre Dame', 'USC', 'Oregon', 'Wisconsin',
+    'Iowa', 'Miami', 'Florida State', 'Auburn', 'Tennessee', 'Kentucky', 'Utah',
+    'TCU', 'Baylor', 'Oklahoma State', 'Michigan State', 'Nebraska', 'UCLA'
+  ];
+
+  // Position-specific abilities
+  const ABILITIES_BY_POS = {
+    QB: ['Cannon Arm', 'Deadeye', 'Escape Artist', 'Field General', 'Clutch'],
+    RB: ['Bruiser', 'Ankle Breaker', 'Breakaway Speed', 'Pass Catcher', 'Workhorse'],
+    WR: ['Deep Threat', 'Possession', 'Route Runner', 'Sure Hands', 'YAC Monster'],
+    TE: ['Mismatch', 'Red Zone Target', 'Blocking TE', 'Seam Threat'],
+    OL: ['Pancake Block', 'Pass Pro', 'Road Grader', 'Anchor'],
+    DL: ['Pass Rush', 'Run Stopper', 'Bull Rush', 'Finesse'],
+    LB: ['Coverage LB', 'Run Defender', 'Pass Rusher', 'Sideline to Sideline'],
+    CB: ['Shutdown Corner', 'Ball Hawk', 'Press Coverage', 'Slot Defender'],
+    S: ['Ball Hawk', 'Enforcer', 'Coverage Safety', 'Box Safety'],
+    K: ['Clutch Kicker', 'Big Leg', 'Accurate'],
+    P: ['Coffin Corner', 'Hang Time', 'Directional']
+  };
+
+  // Position rating ranges for generation
+  const POS_RATING_RANGES = {
+    QB: {
+      throwPower: [60, 99], throwAccuracy: [55, 99], awareness: [50, 99],
+      speed: [40, 85], intelligence: [60, 99]
+    },
+    RB: {
+      speed: [70, 99], acceleration: [70, 99], trucking: [50, 99],
+      juking: [50, 99], catching: [40, 90], awareness: [50, 90]
+    },
+    WR: {
+      speed: [70, 99], acceleration: [70, 99], catching: [65, 99],
+      catchInTraffic: [55, 99], awareness: [50, 90]
+    },
+    TE: {
+      catching: [55, 95], runBlock: [60, 95], passBlock: [55, 90],
+      speed: [50, 85], awareness: [50, 90]
+    },
+    OL: {
+      runBlock: [70, 99], passBlock: [70, 99], awareness: [60, 95],
+      speed: [30, 65]
+    },
+    DL: {
+      passRushPower: [60, 99], passRushSpeed: [55, 99], runStop: [65, 99],
+      awareness: [50, 90], speed: [45, 85]
+    },
+    LB: {
+      speed: [60, 95], runStop: [60, 95], coverage: [45, 90],
+      awareness: [55, 95], passRushSpeed: [40, 85]
+    },
+    CB: {
+      speed: [75, 99], acceleration: [75, 99], coverage: [60, 99],
+      intelligence: [50, 95], awareness: [55, 90]
+    },
+    S: {
+      speed: [65, 95], coverage: [55, 95], runStop: [50, 90],
+      awareness: [60, 95], intelligence: [55, 90]
+    },
+    K: {
+      kickPower: [70, 99], kickAccuracy: [60, 99], awareness: [50, 80]
+    },
+    P: {
+      kickPower: [65, 99], kickAccuracy: [60, 99], awareness: [50, 80]
+    }
+  };
+
+  // TEAM SCHEMES
   const OFFENSIVE_SCHEMES = {
     'West Coast': { keyStats: ['throwAccuracy', 'catching', 'passBlock'], description: 'High-percentage, short passes.' },
     'Vertical': { keyStats: ['throwPower', 'speed', 'passBlock'], description: 'Deep shots and explosive plays.' },
@@ -130,12 +235,12 @@
     'Blitz Heavy': { keyStats: ['passRushSpeed', 'acceleration', 'runStop'], description: 'Sends extra rushers to create chaos.' }
   };
 
-  // League structure
+  // LEAGUE STRUCTURE
   const YEARS_OF_PICKS = 3;
   const CONF_NAMES = ["AFC","NFC"];
   const DIV_NAMES = ["East","North","South","West"];
 
-  // Trade value chart for draft picks
+  // TRADE VALUES
   const TRADE_VALUES = {
     PICKS: {
       1: { 1: 3000, 2: 2600, 3: 2200, 4: 1800, 5: 1600, 6: 1400, 7: 1200 },
@@ -146,10 +251,10 @@
       6: { 1: 75, 2: 50, 3: 25, 4: 15, 5: 10, 6: 8, 7: 5 },
       7: { 1: 25, 2: 15, 3: 10, 4: 8, 5: 5, 6: 3, 7: 1 }
     },
-    FUTURE_DISCOUNT: 0.8  // Each year in future reduces value by 20%
+    FUTURE_DISCOUNT: 0.8
   };
 
-  // Position trade value multipliers
+  // POSITION VALUES
   const POSITION_VALUES = {
     QB: 1.6, WR: 1.25, CB: 1.2, DL: 1.15, OL: 1.1,
     RB: 1.0, LB: 1.0, S: 1.0, TE: 0.9, K: 0.5, P: 0.5
@@ -158,35 +263,33 @@
   // Export everything
   global.Constants = { 
     // Game config
-    GAME_CONFIG,
-    SALARY_CAP,
-    PLAYER_CONFIG,
-    TRAINING,
-    DRAFT_CONFIG,
-    FREE_AGENCY,
-    SIMULATION,
-    HALL_OF_FAME,
+    GAME_CONFIG, SALARY_CAP, PLAYER_CONFIG, TRAINING, DRAFT_CONFIG, 
+    FREE_AGENCY, SIMULATION, HALL_OF_FAME,
+    
+    // Player generation (missing properties added)
+    PLAYER_AGE_MIN, PLAYER_AGE_MAX, PLAYER_POTENTIAL_MIN, PLAYER_POTENTIAL_MAX,
+    PLAYER_RETIREMENT_AGE_MAX, FIRST_NAMES, LAST_NAMES, NAMES, NAMES_BY_POS,
+    COLLEGES, ABILITIES_BY_POS, POS_RATING_RANGES,
     
     // Legacy constants (keep for compatibility)
-    CAP_BASE: SALARY_CAP.BASE,
-    YEARS_OF_PICKS,
+    CAP_BASE: SALARY_CAP.BASE, YEARS_OF_PICKS,
     
     // Positions and schemes
-    POSITIONS, 
-    OFFENSIVE_POSITIONS, 
-    DEFENSIVE_POSITIONS,
-    DEPTH_NEEDS,
-    OVR_WEIGHTS, 
-    OFFENSIVE_SCHEMES, 
-    DEFENSIVE_SCHEMES,
+    POSITIONS, OFFENSIVE_POSITIONS, DEFENSIVE_POSITIONS, DEPTH_NEEDS,
+    OVR_WEIGHTS, OFFENSIVE_SCHEMES, DEFENSIVE_SCHEMES,
     
     // League structure
-    CONF_NAMES, 
-    DIV_NAMES,
+    CONF_NAMES, DIV_NAMES,
     
     // Trade and values
-    TRADE_VALUES,
-    POSITION_VALUES
+    TRADE_VALUES, POSITION_VALUES
   };
+  
+  // Also make individual arrays globally available (for compatibility with state.js)
+  global.FIRST_NAMES = FIRST_NAMES;
+  global.LAST_NAMES = LAST_NAMES;
+  
 })(window);
+
+// Make constants available in legacy format too
 window.constants = Constants;
