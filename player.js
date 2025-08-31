@@ -1,5 +1,54 @@
 'use strict';
 
+/**
+ * Creates a new player object with stats.
+ * @param {string} pos - The player's position (e.g., 'QB', 'WR').
+ * @param {number} age - The player's age.
+ * @param {number} ovr - The player's overall rating.
+ * @returns {object} A new player object.
+ */
+window.makePlayer = function(pos, age, ovr) {
+    const U = window.Utils;
+    const C = window.Constants;
+    
+    // Use position-specific names if available, otherwise use general names
+    const names = C.NAMES_BY_POS[pos] || C.NAMES;
+    const name = `${U.randChoice(names.first)} ${U.randChoice(names.last)}`;
+    const college = U.randChoice(C.COLLEGES);
+
+    // Generate abilities based on position and overall rating
+    let abilities = [];
+    if (C.ABILITIES_BY_POS[pos]) {
+        const potentialAbilities = C.ABILITIES_BY_POS[pos];
+        const numAbilities = ovr > 85 ? U.rand(1, 2) : (ovr > 75 ? U.rand(0, 1) : 0);
+        for (let i = 0; i < numAbilities; i++) {
+            const ability = U.randChoice(potentialAbilities);
+            if (!abilities.includes(ability)) {
+                abilities.push(ability);
+            }
+        }
+    }
+
+    // Base contract values
+    const contractYears = ovr > 80 ? U.rand(3, 5) : (ovr > 70 ? U.rand(2, 4) : U.rand(1, 2));
+    const contractValue = Math.max(0.5, (ovr / 10) + U.rand(-1, 1)); // Simplified contract logic
+
+    return {
+        id: U.uuid(),
+        name: name,
+        pos: pos,
+        age: age,
+        ovr: ovr,
+        college: college,
+        abilities: abilities,
+        years: contractYears,
+        baseAnnual: contractValue,
+        // Add other potential player attributes here as needed
+        morale: 80,
+        potential: ovr + U.rand(0, 15 - (age - 21)),
+    };
+};
+
 // Player object definition
 const Player = {
     // Generate a new player with specified position and type
