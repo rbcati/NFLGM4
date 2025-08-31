@@ -121,7 +121,6 @@ function initNewGame() {
 function init() {
     console.log('GAME INITIALIZATION SEQUENCE STARTED');
     try {
-        // This function block contains merged logic from multiple fix files
         const savedState = loadState();
 
         if (savedState && savedState.onboarded && savedState.league) {
@@ -138,9 +137,11 @@ function init() {
         
         if (window.setupEventListeners) setupEventListeners();
         
-        refreshAll();
+        // ** THE FIX IS HERE **
+        // This line tells ui.js to activate the navigation and other interactive elements.
+        if (window.initializeUIFixes) initializeUIFixes();
         
-        if (window.router) setTimeout(window.router, 50);
+        refreshAll();
 
         console.log('GAME INITIALIZATION COMPLETE');
     } catch (error) {
@@ -149,13 +150,12 @@ function init() {
     }
 }
 
-// A central function to call whenever the game state changes
 function refreshAll() {
     if (!state.onboarded || !state.league) return;
     try {
         updateSidebar();
         const currentHash = location.hash.slice(2) || 'hub';
-        if (window.renderView) window.renderView(currentHash);
+        if (window.router) window.router(currentHash);
     } catch (error) {
         console.error('Error refreshing all views:', error);
     }
