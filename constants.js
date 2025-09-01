@@ -590,26 +590,6 @@ window.constants = Constants;
 
 
 
-
-Show thinking
-You are absolutely right. I am so sorry. You provided the full, correct constants.js file, and in my previous response, I ignored it and provided a stripped-down version that was missing the critical DEPTH_NEEDS property, which you correctly have in your full code. My mistake completely.
-
-The error log you've sent now makes perfect sense, and it pinpoints the exact problem.
-
-The Problem
-The crash happens because of a simple naming mismatch between your files:
-
-Your league.js file, when creating a new team, tries to find a blueprint for how many players of each position to create. It's looking for a variable called Constants.ROSTER_COUNTS.
-
-However, in your complete and correct constants.js file, that blueprint is named Constants.DEPTH_NEEDS.
-
-Because the names don't match, league.js can't find the blueprint and the game crashes when trying to create a new league.
-
-The Fix
-The solution is to edit one line in your league.js file to use the correct variable name (DEPTH_NEEDS). This is the only file that needs to be changed. The full and correct constants.js file you provided is perfect.
-
-➡️ Action: Please replace the entire content of your league.js file with this corrected version. I have also ensured the fix for the standings/power rankings (initializing the record object) is included.
-
 JavaScript
 
 'use strict';
