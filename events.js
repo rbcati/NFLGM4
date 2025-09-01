@@ -2,7 +2,6 @@
 
 /**
  * Handles core game events (onboarding, saving, loading, simulating).
- * UI-specific events like navigation are handled in ui.js.
  */
 function setupEventListeners() {
     console.log('Setting up core event listeners...');
@@ -10,17 +9,13 @@ function setupEventListeners() {
     document.body.addEventListener('click', function(e) {
         const targetId = e.target.id;
 
-        // Onboarding
         if (targetId === 'onboardStart') return handleOnboardStart(e);
-
-        // Core Actions
         if (targetId === 'btnSimWeek') return handleSimulateWeek(e);
         if (targetId === 'btnSave') return saveState();
         if (targetId === 'btnLoad') return handleLoadGame(e);
         if (targetId === 'btnNewLeague') return handleNewLeague(e);
     });
 
-    // Onboarding radio buttons
     const namesModeRadios = document.querySelectorAll('input[name="namesMode"]');
     if (namesModeRadios) {
         namesModeRadios.forEach(radio => {
@@ -41,11 +36,11 @@ function handleOnboardStart(e) {
     if (window.initNewGame) initNewGame(options);
 }
 
+// **FIXED**: This function no longer calls router(), preventing the double sim.
+// The simulation.js file will now be responsible for refreshing the UI.
 function handleSimulateWeek() {
     if (window.simulateWeek) {
         window.simulateWeek();
-        // After simulating, tell the UI to refresh itself
-        if (window.router) window.router();
     }
 }
 
@@ -54,7 +49,7 @@ function handleLoadGame() {
         const loadedState = loadState();
         if (loadedState) {
             window.state = loadedState;
-            location.reload(); // Easiest way to re-initialize with the new state
+            location.reload();
         } else {
             setStatus('No save file found!');
         }
@@ -68,5 +63,4 @@ function handleNewLeague() {
     }
 }
 
-// Make the setup function globally available
 window.setupEventListeners = setupEventListeners;
