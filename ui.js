@@ -323,7 +323,20 @@ if (document.readyState === 'loading') {
 } else {
   setTimeout(initializeUI, 100);
 }
-
+window.router = function() {
+  const path = location.hash || '#/hub';
+  const viewName = path.slice(2); // Remove '#/' to get 'roster', 'hub', etc.
+  
+  window.show(viewName); // Show the correct view
+  
+  // Call appropriate render function
+  switch(viewName) {
+    case 'hub': if (window.renderHub) window.renderHub(); break;
+    case 'roster': if (window.renderRoster) window.renderRoster(); break;
+    case 'standings': if (window.renderStandings) window.renderStandings(); break;
+    // etc...
+  }
+};
 // --- GLOBAL EXPORTS ---
 window.enhanceNavigation = enhanceNavigation;
 window.setupRosterEvents = setupRosterEvents;
