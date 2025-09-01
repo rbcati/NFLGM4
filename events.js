@@ -5,14 +5,15 @@
  */
 function setupEventListeners() {
     console.log('Setting up core event listeners...');
-
-    // Use a flag to prevent double clicks during simulation
-    let isSimulating = false;
+    let isSimulating = false; // Flag to prevent double simulation
 
     document.body.addEventListener('click', function(e) {
         const targetId = e.target.id;
 
+        // Onboarding
         if (targetId === 'onboardStart') return handleOnboardStart(e);
+
+        // Core Actions
         if (targetId === 'btnSave') return saveState();
         if (targetId === 'btnLoad') return handleLoadGame(e);
         if (targetId === 'btnNewLeague') return handleNewLeague(e);
@@ -27,6 +28,7 @@ function setupEventListeners() {
         }
     });
 
+    // Onboarding radio buttons
     const namesModeRadios = document.querySelectorAll('input[name="namesMode"]');
     if (namesModeRadios) {
         namesModeRadios.forEach(radio => {
@@ -40,7 +42,6 @@ function setupEventListeners() {
 function handleOnboardStart(e) {
     e.preventDefault();
     const options = {
-        gameMode: document.querySelector('input[name="gameMode"]:checked')?.value || 'gm',
         chosenMode: document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional',
         teamIdx: document.getElementById('onboardTeam')?.value || '0'
     };
@@ -52,14 +53,10 @@ async function handleSimulateWeek(button) {
         button.disabled = true;
         button.textContent = 'Simulating...';
     }
-
-    // Use a timeout to allow the UI to update before the simulation starts
     await new Promise(resolve => setTimeout(resolve, 50));
-
     if (window.simulateWeek) {
         window.simulateWeek();
     }
-
     if (button) {
         button.disabled = false;
         button.textContent = 'Simulate Week';
