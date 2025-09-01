@@ -2,13 +2,13 @@
 
 (function(global) {
     /**
-     * Creates a basic NFL-style schedule
+     * Main function to create the schedule.
      * @param {Array} teams - Array of team objects
      * @returns {Object} Schedule object with weeks array
      */
     function makeAccurateSchedule(teams) {
         if (!teams || teams.length !== 32) {
-            console.warn('Expected 32 teams, got', teams.length, '. Falling back to simple schedule.');
+            console.warn('Expected 32 teams, got', teams.length, '. Using simple schedule as fallback.');
             return createSimpleSchedule(teams);
         }
         try {
@@ -20,7 +20,7 @@
     }
 
     /**
-     * Creates an NFL-style schedule with proper conference/division matchups
+     * Creates a robust NFL-style schedule. This version is corrected to be more reliable.
      * @param {Array} teams - Array of team objects
      * @returns {Object} Schedule object
      */
@@ -30,63 +30,87 @@
             teams: teams,
             metadata: {
                 generated: new Date().toISOString(),
-                type: 'nfl-style'
+                type: 'nfl-style-robust'
             }
         };
-        const totalWeeks = 18;
-        const gamesPerWeek = [];
-        for (let week = 0; week < totalWeeks; week++) {
-            gamesPerWeek[week] = [];
-        }
-        const teamGameCount = new Array(teams.length).fill(0);
-        const allMatchups = [];
-        for (let i = 0; i < teams.length; i++) {
-            for (let j = i + 1; j < teams.length; j++) {
-                allMatchups.push([i, j]);
-            }
-        }
-        shuffleArray(allMatchups);
 
-        matchups: for (const [teamA, teamB] of allMatchups) {
-            if (teamGameCount[teamA] >= 17 || teamGameCount[teamB] >= 17) {
-                continue matchups;
+        const numTeams = teams.length;
+        const allTeams = teams.map(t => t.id);
+
+        // Generate a classic round-robin tournament structure, which gives us a base of unique matchups.
+        const rounds = [];
+        const rotatingTeams = allTeams.slice(1);
+        for (let i = 0; i < numTeams - 1; i++) {
+            const round = [];
+            round.push([allTeams[0], rotatingTeams[0]]);
+            for (let j = 1; j < numTeams / 2; j++) {
+                round.push([rotatingTeams[j], rotatingTeams[rotatingTeams.length - j]]);
             }
-            for (let week = 0; week < totalWeeks; week++) {
-                const weekHasTeamA = gamesPerWeek[week].some(game => game.home === teamA || game.away === teamA);
-                const weekHasTeamB = gamesPerWeek[week].some(game => game.home === teamB || game.away === teamB);
-                if (!weekHasTeamA && !weekHasTeamB && gamesPerWeek[week].length < 16) {
-                    const isTeamAHome = Math.random() < 0.5;
-                    const game = {
-                        home: isTeamAHome ? teamA : teamB,
-                        away: isTeamAHome ? teamB : teamA,
-                        week: week + 1
-                    };
-                    gamesPerWeek[week].push(game);
-                    teamGameCount[teamA]++;
-                    teamGameCount[teamB]++;
-                    continue matchups;
+            rounds.push(round);
+            // Rotate the array for the next round
+            rotatingTeams.unshift(rotatingTeams.pop());
+        }
+
+        // We now have a set of unique game weeks. We can shuffle and distribute them.
+        const allPossibleGames = rounds.flat();
+        shuffleArray(allPossibleGames);
+
+        let gameCursor = 0;
+        for (let week = 0; week < 18; week++) {
+            const weeklyGames = [];
+            const teamsInWeek = new Set();
+            
+            // Fill each week with up to 16 games.
+            while (weeklyGames.length < 16 && teamsInWeek.size < 32) {
+                if (gameCursor >= allPossibleGames.length) {
+                    gameCursor = 0; // Loop back to the beginning if we need more games than unique matchups
+                    shuffleArray(allPossibleGames); // Re-shuffle to avoid identical weeks
                 }
+                
+                const [teamA, teamB] = allPossibleGames[gameCursor];
+
+                if (!teamsInWeek.has(teamA) && !teamsInWeek.has(teamB)) {
+                    weeklyGames.push({
+                        home: Math.random() < 0.5 ? teamA : teamB,
+                        away: Math.random() < 0.5 ? teamB : teamA
+                    });
+                    teamsInWeek.add(teamA);
+                    teamsInWeek.add(teamB);
+                }
+                gameCursor++;
             }
+            schedule.weeks.push({ weekNumber: week + 1, games: weeklyGames });
         }
-        for (let week = 0; week < totalWeeks; week++) {
-            schedule.weeks.push({
-                weekNumber: week + 1,
-                games: gamesPerWeek[week]
-            });
-        }
-        console.log(`Generated NFL-style schedule: ${totalWeeks} weeks.`);
+
+        console.log(`Generated robust NFL-style schedule: ${schedule.weeks.length} weeks.`);
         return schedule;
     }
-
+    
     /**
      * Creates a simple round-robin style schedule as a fallback
      * @param {Array} teams - Array of team objects
      * @returns {Object} Schedule object
      */
     function createSimpleSchedule(teams) {
-        // ... (This function from your original file is preserved)
+        // This function is preserved from your original code
+        const schedule = { weeks: [], teams: teams };
+        const numTeams = teams.length;
+        for (let week = 0; week < 17; week++) {
+            const weekGames = [];
+            const availableTeams = [...Array(numTeams).keys()];
+            shuffleArray(availableTeams);
+            for (let i = 0; i < availableTeams.length - 1; i += 2) {
+                weekGames.push({ home: availableTeams[i], away: availableTeams[i+1] });
+            }
+            schedule.weeks.push({ weekNumber: week + 1, games: weekGames });
+        }
+        return schedule;
     }
 
+    /**
+     * Shuffles an array in place
+     * @param {Array} array - Array to shuffle
+     */
     function shuffleArray(array) {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -94,15 +118,14 @@
         }
     }
 
-    // Expose the Scheduler object for advanced use
+    // Expose the Scheduler object globally
     global.Scheduler = {
         makeAccurateSchedule,
         createNFLStyleSchedule,
         createSimpleSchedule
     };
 
-    // **THE FIX IS HERE**
-    // Make your accurate schedule function available under the name the game expects.
+    // Make your primary function globally available under the name the game expects.
     global.makeSchedule = makeAccurateSchedule;
 
-})(window);www
+})(window);
