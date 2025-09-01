@@ -536,3 +536,704 @@ select:focus, input:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--hairline-strong);
 }
+/* === ADD THESE STYLES TO THE END OF YOUR EXISTING style.css FILE === */
+
+/* Standings Page & Save Data Manager Styles */
+
+/* === STANDINGS PAGE STYLES === */
+
+.standings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-6);
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.standings-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-2xl);
+  font-weight: 700;
+}
+
+.standings-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.season-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.season-year {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.week-info {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.standings-tabs {
+  display: flex;
+  gap: var(--space-1);
+  background: var(--surface);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1);
+  border: 1px solid var(--hairline);
+}
+
+.standings-tab {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  white-space: nowrap;
+}
+
+.standings-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.standings-tab.active {
+  color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  box-shadow: var(--shadow-sm);
+}
+
+.standings-content {
+  position: relative;
+}
+
+.standings-section {
+  display: none;
+  animation: fadeInUp 0.3s ease-out;
+}
+
+.standings-section.active {
+  display: block;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Conference Grid Layout */
+.conferences-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
+.conference-standings {
+  min-width: 0; /* Prevents grid overflow */
+}
+
+.conference-title {
+  color: var(--text);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+  text-align: center;
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--hairline);
+  position: relative;
+}
+
+.conference-title::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+}
+
+/* Division Cards */
+.divisions-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.division-card {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: all var(--dur) var(--ease);
+}
+
+.division-card:hover {
+  border-color: var(--hairline-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.division-title {
+  background: var(--surface-strong);
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+/* Enhanced Standings Tables */
+.standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.standings-table thead th {
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: var(--text-xs);
+  letter-spacing: 0.5px;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+}
+
+.standings-table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.standings-table tbody tr {
+  transition: all var(--dur-fast) var(--ease);
+}
+
+.standings-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.standings-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Team Names and Special Indicators */
+.team-name {
+  color: var(--text) !important;
+  font-weight: 500 !important;
+  position: relative;
+}
+
+.division-crown {
+  margin-right: var(--space-2);
+  font-size: 12px;
+}
+
+.playoff-indicator {
+  margin-right: var(--space-2);
+  font-size: 12px;
+}
+
+.division-indicator {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--text-subtle);
+  margin-left: var(--space-2);
+  opacity: 0.7;
+}
+
+/* Row Highlighting */
+.user-team {
+  background: rgba(10, 132, 255, 0.1) !important;
+  border-left: 3px solid var(--accent) !important;
+}
+
+.user-team td {
+  color: var(--text) !important;
+  font-weight: 500 !important;
+}
+
+.user-team:hover {
+  background: rgba(10, 132, 255, 0.15) !important;
+}
+
+.division-leader {
+  background: rgba(255, 215, 0, 0.08);
+  border-left: 3px solid #FFD700;
+}
+
+.playoff-team {
+  background: rgba(52, 199, 89, 0.08);
+  border-left: 3px solid var(--success);
+}
+
+.wildcard {
+  background: rgba(255, 159, 10, 0.08);
+  border-left: 3px solid var(--warning);
+}
+
+/* Point Differential Colors */
+.positive {
+  color: var(--success);
+  font-weight: 500;
+}
+
+.negative {
+  color: var(--danger);
+  font-weight: 500;
+}
+
+/* Conference Tables */
+.conference-table {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+}
+
+.conference-table .rank {
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  width: 40px;
+}
+
+/* Overall Standings */
+.overall-standings {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.standings-title {
+  color: var(--text);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+  text-align: center;
+}
+
+.overall-table {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  margin-bottom: var(--space-6);
+}
+
+.conference-name {
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Playoff Picture */
+.playoff-picture {
+  /* Uses the same conferences-grid layout */
+}
+
+.conference-playoffs {
+  /* Same as conference-standings */
+}
+
+.playoff-section-title {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: var(--space-6) 0 var(--space-3) 0;
+}
+
+.playoff-teams {
+  margin-bottom: var(--space-6);
+}
+
+.bubble-teams {
+  margin-bottom: var(--space-4);
+}
+
+.playoff-table {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  margin-bottom: var(--space-4);
+}
+
+.bubble-table {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  opacity: 0.8;
+}
+
+.seed {
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  width: 50px;
+}
+
+.playoff-status {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.division-winner .playoff-status {
+  color: var(--success);
+}
+
+.wildcard .playoff-status {
+  color: var(--warning);
+}
+
+/* === SAVE DATA MANAGER STYLES === */
+
+.save-data-manager {
+  margin-bottom: var(--space-6);
+  border: 2px solid var(--accent);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+}
+
+.save-data-manager h3 {
+  color: var(--accent);
+  margin-bottom: var(--space-6);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.save-data-manager h3::before {
+  content: '💾';
+  font-size: var(--text-lg);
+}
+
+.save-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.save-action-group {
+  /* Grid item */
+}
+
+.save-action-group h4 {
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.save-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.save-buttons .btn {
+  justify-content: center;
+}
+
+.import-area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.import-info {
+  margin-top: var(--space-1);
+}
+
+.import-info small {
+  color: var(--text-subtle);
+  font-size: var(--text-xs);
+}
+
+/* Backups Section */
+.backups-section {
+  margin-bottom: var(--space-6);
+}
+
+.backups-section h4 {
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.backups-section h4::before {
+  content: '🗃️';
+}
+
+.backups-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.backup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  transition: all var(--dur) var(--ease);
+}
+
+.backup-item:hover {
+  border-color: var(--hairline-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.backup-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.backup-title {
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--text-base);
+  margin-bottom: var(--space-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backup-details {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.backup-date {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.backup-type {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+}
+
+.backup-type.manual {
+  background: var(--accent-muted);
+  color: var(--accent);
+}
+
+.backup-type.automatic {
+  background: rgba(52, 199, 89, 0.1);
+  color: var(--success);
+}
+
+.backup-size {
+  color: var(--text-subtle);
+  font-size: var(--text-xs);
+  font-family: monospace;
+}
+
+.backup-version {
+  color: var(--text-subtle);
+  font-size: var(--text-xs);
+  font-family: monospace;
+}
+
+.backup-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.backup-actions .btn {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  min-width: 70px;
+  justify-content: center;
+}
+
+.backup-cleanup {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-3);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.backup-cleanup small {
+  color: var(--text-subtle);
+  font-size: var(--text-xs);
+}
+
+/* Save Information */
+.save-info {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--hairline);
+}
+
+.save-info h4 {
+  color: var(--text-muted);
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.save-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .conferences-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  
+  .standings-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  
+  .standings-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .season-info {
+    align-items: center;
+    text-align: center;
+  }
+  
+  .save-actions {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+
+@media (max-width: 768px) {
+  .standings-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .standings-tab {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+  }
+  
+  .standings-table {
+    font-size: var(--text-xs);
+  }
+  
+  .standings-table th,
+  .standings-table td {
+    padding: var(--space-2);
+  }
+  
+  .backup-item {
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+  
+  .backup-actions {
+    justify-content: center;
+  }
+  
+  .backup-details {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .save-buttons .btn,
+  .backup-cleanup {
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .standings-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .standings-tabs {
+    gap: 2px;
+  }
+  
+  .standings-tab {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+  }
+  
+  .divisions-grid {
+    gap: var(--space-3);
+  }
+  
+  .backup-cleanup {
+    flex-direction: column;
+    gap: var(--space-2);
+    text-align: center;
+  }
+}
