@@ -1,8 +1,8 @@
+// main.js - CORRECTED VERSION with proper navigation initialization
 'use strict';
 
 /**
- * Main game controller. Merged from main.js, Missing-core-functions.js, Onboard-fix.js,
- * onboarding-modal-fix.js, and coaching-integration.js.
+ * Main game controller with proper navigation setup
  */
 
 // --- CORE HELPER FUNCTIONS ---
@@ -115,7 +115,6 @@ function initNewGame() {
     }
 }
 
-
 // --- GAME INITIALIZATION & LIFECYCLE ---
 
 function init() {
@@ -137,9 +136,23 @@ function init() {
         
         if (window.setupEventListeners) setupEventListeners();
         
-        // ** THE FIX IS HERE **
-        // This line tells ui.js to activate the navigation and other interactive elements.
-        if (window.initializeUIFixes) initializeUIFixes();
+        // CRITICAL FIX: Call the navigation initialization
+        // This ensures the navigation system is properly set up
+        if (window.initializeUIFixes) {
+            console.log('🚀 Calling initializeUIFixes for navigation...');
+            window.initializeUIFixes();
+        } else {
+            console.warn('⚠️ initializeUIFixes not available yet, will retry...');
+            // Retry after a short delay in case it loads later
+            setTimeout(() => {
+                if (window.initializeUIFixes) {
+                    console.log('🚀 Retrying initializeUIFixes...');
+                    window.initializeUIFixes();
+                } else {
+                    console.error('❌ initializeUIFixes never became available');
+                }
+            }, 500);
+        }
         
         refreshAll();
 
@@ -155,7 +168,10 @@ function refreshAll() {
     try {
         updateSidebar();
         const currentHash = location.hash.slice(2) || 'hub';
-        if (window.router) window.router(currentHash);
+        // Use the router if it exists
+        if (window.router) {
+            window.router();
+        }
     } catch (error) {
         console.error('Error refreshing all views:', error);
     }
@@ -167,18 +183,27 @@ function updateSidebar() {
     if (!team) return;
 
     try {
-        document.getElementById('seasonNow').textContent = state.league.year || '';
-        document.getElementById('capUsed').textContent = `$${(team.capUsed || 0).toFixed(1)}M`;
-        document.getElementById('capTotal').textContent = `$${(team.capTotal || 220).toFixed(1)}M`;
-        document.getElementById('capRoom').textContent = `$${(team.capRoom || 0).toFixed(1)}M`;
-        document.getElementById('deadCap').textContent = `$${(team.deadCap || 0).toFixed(1)}M`;
+        const seasonEl = document.getElementById('seasonNow');
+        if (seasonEl) seasonEl.textContent = state.league.year || '';
+        
+        const capUsedEl = document.getElementById('capUsed');
+        if (capUsedEl) capUsedEl.textContent = `$${(team.capUsed || 0).toFixed(1)}M`;
+        
+        const capTotalEl = document.getElementById('capTotal');
+        if (capTotalEl) capTotalEl.textContent = `$${(team.capTotal || 220).toFixed(1)}M`;
+        
+        const capRoomEl = document.getElementById('capRoom');
+        if (capRoomEl) capRoomEl.textContent = `$${(team.capRoom || 0).toFixed(1)}M`;
+        
+        const deadCapEl = document.getElementById('deadCap');
+        if (deadCapEl) deadCapEl.textContent = `$${(team.deadCap || 0).toFixed(1)}M`;
 
         const userTeamSelect = document.getElementById('userTeam');
         if (userTeamSelect && (!userTeamSelect.dataset.filled || userTeamSelect.options.length !== state.league.teams.length)) {
              if (window.fillTeamSelect) window.fillTeamSelect(userTeamSelect);
              userTeamSelect.dataset.filled = 'true';
         }
-        userTeamSelect.value = state.userTeamId;
+        if (userTeamSelect) userTeamSelect.value = state.userTeamId;
     } catch (error) {
         console.error('Error updating sidebar:', error);
     }
@@ -186,7 +211,6 @@ function updateSidebar() {
 
 // --- START THE GAME ---
 document.addEventListener('DOMContentLoaded', init);
-
 
 // --- GLOBAL ACCESS ---
 window.setStatus = setStatus;
@@ -197,19 +221,17 @@ window.listByMode = listByMode;
 window.openOnboard = openOnboard;
 window.currentTeam = currentTeam;
 
-// This is a large block of code merged from Missing-core-functions.js
-// It ensures that even if other files fail to load, these critical functions exist.
+// Fallback functions to ensure game doesn't break
 (function safeInitializeMissingFunctions() {
     if (!window.Utils) {
         console.warn('Utils.js not found, creating fallback.');
         window.Utils = {
             rand: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-            uuid: () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-                const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-                return v.toString(16);
-            })
+            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
+            id: () => Math.random().toString(36).slice(2, 10)
         };
     }
+    
     const requiredFunctions = {
         makeLeague: (teams) => {
             console.warn('Fallback makeLeague used.');
@@ -228,6 +250,7 @@ window.currentTeam = currentTeam;
         renderCoaching: (container) => container.innerHTML = 'Coaching view not loaded.',
         simulateWeek: () => { setStatus('Simulation logic not loaded.'); }
     };
+    
     for (const funcName in requiredFunctions) {
         if (typeof window[funcName] !== 'function') {
             console.log(`Creating fallback for missing function: ${funcName}`);
