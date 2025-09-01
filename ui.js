@@ -130,7 +130,13 @@ window.renderTrade = function() {
 window.router = function() {
     // ... This is the full router function you provided ...
 };
-
+// In your renderSettings function or similar:
+function renderSettings() {
+    // Existing settings rendering...
+    
+    // Add the save data manager
+    renderSaveDataManager();
+}
 function enhanceNavigation() {
     // ... This is the full enhanceNavigation function you provided ...
 }
