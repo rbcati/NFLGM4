@@ -1,18 +1,24 @@
-// save-data-manager.js - Advanced Save Data Management System
+// save-data-manager.js - Fixed Advanced Save Data Management System
 'use strict';
 
 /**
  * Save Data Manager with versioning, backup/restore, and migration
+ * Fixed: Added localStorage quota management and size checking
  */
 const SaveDataManager = {
   VERSION: '4.1.0',
   COMPATIBILITY_VERSIONS: ['4.0.0', '4.0.1', '4.1.0'], // Versions this can read
   SAVE_KEY: 'nflGM4.league',
   BACKUP_KEY_PREFIX: 'nflGM4.backup.',
-  MAX_BACKUPS: 5,
+  MAX_BACKUPS: 3, // Reduced from 5 to save space
+  BACKUP_COOLDOWN: 30000, // 30 seconds between automatic backups
+  MAX_STORAGE_SIZE: 4.5 * 1024 * 1024, // 4.5MB limit (leaving room for other data)
+  
+  // Track last backup time to prevent spam
+  lastAutoBackupTime: 0,
   
   /**
-   * Enhanced save function with versioning
+   * Enhanced save function with versioning and better error handling
    * @param {Object} gameState - Game state to save
    * @param {Object} options - Save options
    * @returns {Object} Save result
@@ -39,14 +45,31 @@ const SaveDataManager = {
         }
       };
       
-      // Create backup before saving if enabled
-      if (options.createBackup !== false) {
+      // Check storage space before saving
+      const serialized = JSON.stringify(savePackage);
+      if (!this.checkStorageSpace(serialized.length)) {
+        console.warn('Insufficient storage space, cleaning up...');
+        this.emergencyCleanup();
+      }
+      
+      // Create backup before saving if enabled and cooldown has passed
+      if (options.createBackup !== false && this.shouldCreateAutoBackup()) {
         this.createAutomaticBackup(savePackage);
       }
       
       // Save to localStorage
-      const serialized = JSON.stringify(savePackage);
-      localStorage.setItem(this.SAVE_KEY, serialized);
+      try {
+        localStorage.setItem(this.SAVE_KEY, serialized);
+      } catch (storageError) {
+        if (storageError.name === 'QuotaExceededError') {
+          console.warn('Quota exceeded, attempting emergency cleanup...');
+          this.emergencyCleanup();
+          // Try saving again after cleanup
+          localStorage.setItem(this.SAVE_KEY, serialized);
+        } else {
+          throw storageError;
+        }
+      }
       
       console.log('✅ Game saved successfully with version', this.VERSION);
       
@@ -60,6 +83,92 @@ const SaveDataManager = {
     } catch (error) {
       console.error('Save failed:', error);
       return { success: false, error: error.message };
+    }
+  },
+  
+  /**
+   * Check if we should create an automatic backup
+   * @returns {boolean} Whether to create backup
+   */
+  shouldCreateAutoBackup() {
+    const now = Date.now();
+    const timeSinceLastBackup = now - this.lastAutoBackupTime;
+    return timeSinceLastBackup >= this.BACKUP_COOLDOWN;
+  },
+  
+  /**
+   * Check if there's enough storage space
+   * @param {number} additionalSize - Size to add in bytes
+   * @returns {boolean} Whether there's enough space
+   */
+  checkStorageSpace(additionalSize = 0) {
+    try {
+      const currentUsage = this.getStorageUsage();
+      return (currentUsage + additionalSize) < this.MAX_STORAGE_SIZE;
+    } catch (error) {
+      console.warn('Could not check storage space:', error);
+      return false; // Assume no space if we can't check
+    }
+  },
+  
+  /**
+   * Get current localStorage usage in bytes
+   * @returns {number} Storage usage in bytes
+   */
+  getStorageUsage() {
+    let totalSize = 0;
+    try {
+      for (let key in localStorage) {
+        if (localStorage.hasOwnProperty(key)) {
+          totalSize += localStorage[key].length + key.length;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not calculate storage usage:', error);
+    }
+    return totalSize;
+  },
+  
+  /**
+   * Emergency cleanup when quota is exceeded
+   */
+  emergencyCleanup() {
+    console.log('🧹 Performing emergency storage cleanup...');
+    
+    try {
+      // First, remove all automatic backups
+      const backups = this.getBackups();
+      const autoBackups = backups.filter(b => b.type === 'automatic');
+      
+      console.log(`Removing ${autoBackups.length} automatic backups...`);
+      autoBackups.forEach(backup => {
+        this.deleteBackup(backup.key);
+      });
+      
+      // If still not enough space, remove oldest manual backups (keep at least 1)
+      const manualBackups = backups.filter(b => b.type === 'manual');
+      if (manualBackups.length > 1) {
+        const toRemove = manualBackups.slice(1); // Keep only the newest manual backup
+        console.log(`Removing ${toRemove.length} old manual backups...`);
+        toRemove.forEach(backup => {
+          this.deleteBackup(backup.key);
+        });
+      }
+      
+      // Clean up any other NFL GM related storage that might be old
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('nflGM') && !key.startsWith('nflGM4.')) {
+          // Remove old version data
+          console.log(`Removing old storage: ${key}`);
+          localStorage.removeItem(key);
+        }
+      }
+      
+      console.log('✅ Emergency cleanup completed');
+      
+    } catch (error) {
+      console.error('Emergency cleanup failed:', error);
     }
   },
   
@@ -194,8 +303,10 @@ const SaveDataManager = {
         };
       }
       
-      // Create backup of current save before importing
-      this.createManualBackup('before_import');
+      // Create backup of current save before importing (if space allows)
+      if (this.checkStorageSpace(0)) {
+        this.createManualBackup('before_import');
+      }
       
       // Migrate if necessary
       let gameData = importData.gameData;
@@ -225,25 +336,45 @@ const SaveDataManager = {
   },
   
   /**
-   * Create automatic backup
+   * Create automatic backup with improved error handling
    * @param {Object} savePackage - Save package to backup
    */
   createAutomaticBackup(savePackage) {
     try {
+      // Check if we should create a backup (cooldown)
+      if (!this.shouldCreateAutoBackup()) {
+        return;
+      }
+      
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const backupKey = `${this.BACKUP_KEY_PREFIX}auto_${timestamp}`;
       
-      localStorage.setItem(backupKey, JSON.stringify({
+      const backupData = JSON.stringify({
         ...savePackage,
         backupType: 'automatic',
         backupTimestamp: new Date().toISOString()
-      }));
+      });
       
-      // Clean up old automatic backups
+      // Check if we have space for this backup
+      if (!this.checkStorageSpace(backupData.length)) {
+        console.warn('Not enough space for automatic backup, skipping...');
+        this.cleanupOldBackups();
+        return;
+      }
+      
+      localStorage.setItem(backupKey, backupData);
+      this.lastAutoBackupTime = Date.now();
+      
+      // Clean up old automatic backups immediately after creating new one
       this.cleanupOldBackups();
       
     } catch (error) {
-      console.error('Backup creation failed:', error);
+      if (error.name === 'QuotaExceededError') {
+        console.warn('Backup failed due to storage quota, cleaning up...');
+        this.emergencyCleanup();
+      } else {
+        console.error('Backup creation failed:', error);
+      }
     }
   },
   
@@ -274,7 +405,15 @@ const SaveDataManager = {
         }
       };
       
-      localStorage.setItem(backupKey, JSON.stringify(backupData));
+      const serializedBackup = JSON.stringify(backupData);
+      
+      // Check storage space
+      if (!this.checkStorageSpace(serializedBackup.length)) {
+        console.warn('Not enough space for manual backup');
+        return { success: false, error: 'Insufficient storage space for backup' };
+      }
+      
+      localStorage.setItem(backupKey, serializedBackup);
       
       return { success: true, key: backupKey, timestamp: backupData.timestamp };
       
@@ -335,8 +474,10 @@ const SaveDataManager = {
       
       const backup = JSON.parse(backupData);
       
-      // Create backup of current state before restoring
-      this.createManualBackup('before_restore');
+      // Create backup of current state before restoring (if space allows)
+      if (this.checkStorageSpace(0)) {
+        this.createManualBackup('before_restore');
+      }
       
       // Restore the backup
       const saveResult = this.save(backup.gameData, { createBackup: false });
@@ -373,7 +514,7 @@ const SaveDataManager = {
   },
   
   /**
-   * Clean up old automatic backups
+   * Clean up old automatic backups (improved)
    */
   cleanupOldBackups() {
     try {
@@ -478,7 +619,7 @@ const SaveDataManager = {
   },
   
   /**
-   * Prepare game data for saving
+   * Prepare game data for saving (optimized for size)
    * @param {Object} gameState - Raw game state
    * @returns {Object} Prepared data
    */
@@ -486,7 +627,7 @@ const SaveDataManager = {
     // Create a clean copy without unnecessary data
     const cleanData = JSON.parse(JSON.stringify(gameState));
     
-    // Remove temporary/computed properties
+    // Remove temporary/computed properties to save space
     if (cleanData.league && cleanData.league.teams) {
       cleanData.league.teams.forEach(team => {
         // Remove computed standings data
@@ -501,9 +642,19 @@ const SaveDataManager = {
             // Remove temporary training data
             delete player.tempStats;
             delete player.displayData;
+            delete player.projectedStats; // Often large and recalculatable
           });
         }
+        
+        // Remove large temporary schedule data if it exists
+        delete team.scheduleCache;
+        delete team.standingsCache;
       });
+      
+      // Remove large schedule cache from league
+      if (cleanData.league.schedule) {
+        delete cleanData.league.schedule.cache;
+      }
     }
     
     return cleanData;
@@ -652,11 +803,54 @@ const SaveDataManager = {
     const timestamp = new Date().toISOString().split('T')[0];
     
     return `NFLGM_${teamName}_Season${season}_${timestamp}.json`;
+  },
+  
+  /**
+   * Get storage usage statistics
+   * @returns {Object} Storage statistics
+   */
+  getStorageStats() {
+    const stats = {
+      totalUsage: 0,
+      saveSize: 0,
+      backupsSize: 0,
+      backupsCount: 0,
+      freeSpace: 0
+    };
+    
+    try {
+      // Calculate total usage
+      stats.totalUsage = this.getStorageUsage();
+      
+      // Calculate save size
+      const saveData = localStorage.getItem(this.SAVE_KEY);
+      if (saveData) {
+        stats.saveSize = saveData.length;
+      }
+      
+      // Calculate backups size and count
+      const backups = this.getBackups();
+      stats.backupsCount = backups.length;
+      backups.forEach(backup => {
+        const backupData = localStorage.getItem(backup.key);
+        if (backupData) {
+          stats.backupsSize += backupData.length;
+        }
+      });
+      
+      // Calculate free space
+      stats.freeSpace = Math.max(0, this.MAX_STORAGE_SIZE - stats.totalUsage);
+      
+    } catch (error) {
+      console.error('Error calculating storage stats:', error);
+    }
+    
+    return stats;
   }
 };
 
 /**
- * Render Save Data Management UI
+ * Render Save Data Management UI with storage info
  */
 function renderSaveDataManager() {
   const settingsView = document.getElementById('settings');
@@ -664,17 +858,33 @@ function renderSaveDataManager() {
   
   const backups = SaveDataManager.getBackups();
   const currentSaveExists = localStorage.getItem(SaveDataManager.SAVE_KEY);
+  const storageStats = SaveDataManager.getStorageStats();
   
   const saveManagerHTML = `
     <div class="card save-data-manager">
       <h3>Save Data Management</h3>
+      
+      <div class="storage-info">
+        <h4>Storage Usage</h4>
+        <div class="storage-stats">
+          <div class="storage-bar">
+            <div class="storage-used" style="width: ${(storageStats.totalUsage / SaveDataManager.MAX_STORAGE_SIZE * 100)}%"></div>
+          </div>
+          <div class="storage-details">
+            <span>Used: ${SaveDataManager.formatBytes(storageStats.totalUsage)}</span>
+            <span>Free: ${SaveDataManager.formatBytes(storageStats.freeSpace)}</span>
+            <span>Save: ${SaveDataManager.formatBytes(storageStats.saveSize)}</span>
+            <span>Backups: ${SaveDataManager.formatBytes(storageStats.backupsSize)} (${storageStats.backupsCount})</span>
+          </div>
+        </div>
+      </div>
       
       <div class="save-actions">
         <div class="save-action-group">
           <h4>Current Save</h4>
           <div class="save-buttons">
             <button id="btnExportSave" class="btn primary">Export Save</button>
-            <button id="btnManualBackup" class="btn">Create Backup</button>
+            <button id="btnManualBackup" class="btn" ${storageStats.freeSpace < 50000 ? 'disabled title="Not enough storage space"' : ''}>Create Backup</button>
             ${currentSaveExists ? '<button id="btnDeleteSave" class="btn danger">Delete Save</button>' : ''}
           </div>
         </div>
@@ -718,7 +928,8 @@ function renderSaveDataManager() {
           
           <div class="backup-cleanup">
             <button id="btnCleanupBackups" class="btn">Cleanup Old Backups</button>
-            <small class="muted">Removes automatic backups older than the latest ${SaveDataManager.MAX_BACKUPS}</small>
+            <button id="btnEmergencyCleanup" class="btn danger">Emergency Cleanup</button>
+            <small class="muted">Emergency cleanup removes all automatic backups and old manual backups</small>
           </div>
         </div>
       ` : ''}
@@ -728,7 +939,9 @@ function renderSaveDataManager() {
         <div class="save-details">
           <div>Version: ${SaveDataManager.VERSION}</div>
           <div>Compatible Versions: ${SaveDataManager.COMPATIBILITY_VERSIONS.join(', ')}</div>
-          <div>Max Backups: ${SaveDataManager.MAX_BACKUPS}</div>
+          <div>Max Auto Backups: ${SaveDataManager.MAX_BACKUPS}</div>
+          <div>Backup Cooldown: ${SaveDataManager.BACKUP_COOLDOWN / 1000}s</div>
+          <div>Storage Limit: ${SaveDataManager.formatBytes(SaveDataManager.MAX_STORAGE_SIZE)}</div>
         </div>
       </div>
     </div>
@@ -823,7 +1036,7 @@ function setupSaveDataManagerEvents() {
   document.querySelectorAll('.btn-restore').forEach(btn => {
     btn.addEventListener('click', () => {
       const backupKey = btn.dataset.backupKey;
-      if (confirm('Are you sure you want to restore this backup? Your current save will be backed up first.')) {
+      if (confirm('Are you sure you want to restore this backup? Your current save will be backed up first if space allows.')) {
         const result = SaveDataManager.restoreBackup(backupKey);
         if (result.success) {
           window.setStatus('Backup restored successfully! Reload to see changes.');
@@ -863,11 +1076,24 @@ function setupSaveDataManagerEvents() {
       setTimeout(renderSaveDataManager, 500);
     });
   }
+  
+  // Emergency cleanup
+  const btnEmergencyCleanup = document.getElementById('btnEmergencyCleanup');
+  if (btnEmergencyCleanup) {
+    btnEmergencyCleanup.addEventListener('click', () => {
+      if (confirm('Emergency cleanup will remove ALL automatic backups and old manual backups. Continue?')) {
+        SaveDataManager.emergencyCleanup();
+        window.setStatus('Emergency cleanup completed');
+        setTimeout(renderSaveDataManager, 500);
+      }
+    });
+  }
 }
 
 // Override the existing save/load functions to use the new manager
 window.saveState = function(stateToSave) {
-  return SaveDataManager.save(stateToSave);
+  const result = SaveDataManager.save(stateToSave);
+  return result; // Return the full result object instead of just success
 };
 
 window.loadState = function() {
