@@ -220,23 +220,24 @@
     
 </body>
 </html>
-    // complete-navigation-fix.js - Add this script AFTER all other scripts in your HTML
+ // complete-navigation-fix.js - Add this script LAST in your HTML, after all other scripts
 'use strict';
 
 (function() {
-  console.log('🚀 Loading complete navigation fix...');
-  
+  console.log('🧭 Loading FINAL navigation fix...');
+
   // Wait for everything to be ready
-  function waitForGameReady() {
+  function waitForReady() {
     return new Promise((resolve) => {
       let attempts = 0;
       const maxAttempts = 50;
       
       const check = () => {
         attempts++;
+        const ready = window.Constants && window.Teams && window.Utils && window.state && document.readyState === 'complete';
         
-        if (window.Constants && window.Teams && window.Utils && window.state) {
-          console.log('✅ Game dependencies ready');
+        if (ready) {
+          console.log('✅ Everything ready for navigation fix');
           resolve();
         } else if (attempts >= maxAttempts) {
           console.log('⚠️ Timeout waiting for dependencies, proceeding anyway');
@@ -249,31 +250,295 @@
       check();
     });
   }
-  
-  // Main fix function
-  async function applyNavigationFix() {
-    await waitForGameReady();
+
+  // The ONE TRUE ROUTER - replaces all others
+  function createFinalRouter() {
+    console.log('🔧 Creating final router...');
     
-    console.log('🔧 Applying navigation fixes...');
-    
-    // Fix 1: Correct show function
-    window.show = function(viewId) {
-      console.log('Showing view:', viewId);
+    window.router = function() {
+      const path = location.hash || '#/hub';
+      const viewName = path.slice(2);
+      
+      console.log('🧭 Final router navigating to:', viewName);
       
       // Hide all views
       document.querySelectorAll('.view').forEach(view => {
         view.hidden = true;
+        view.style.display = 'none';
       });
       
       // Show target view
-      const targetView = document.getElementById(viewId);
+      const targetView = document.getElementById(viewName);
       if (targetView) {
         targetView.hidden = false;
-        console.log('✅ View shown:', viewId);
+        targetView.style.display = 'block';
+        console.log('✅ Showing view:', viewName);
       } else {
-        console.error('❌ View not found:', viewId);
+        console.warn('⚠️ View not found:', viewName, 'showing hub instead');
+        const hubView = document.getElementById('hub');
+        if (hubView) {
+          hubView.hidden = false;
+          hubView.style.display = 'block';
+        }
       }
+      
+      // Update nav pills
+      document.querySelectorAll('.nav-pill').forEach(pill => {
+        const href = pill.getAttribute('href');
+        const isActive = href === path;
+        
+        // Remove old states
+        pill.classList.remove('active');
+        pill.removeAttribute('aria-current');
+        
+        // Add active state
+        if (isActive) {
+          pill.classList.add('active');
+          pill.setAttribute('aria-current', 'page');
+        }
+      });
+      
+      // Only render if game is ready
+      if (!state.league || !state.onboarded) {
+        console.log('Game not ready, skipping content rendering');
+        return;
+      }
+      
+      // Render content
+      setTimeout(() => {
+        try {
+          switch(viewName) {
+            case 'hub':
+              if (window.renderHub) window.renderHub();
+              break;
+            case 'roster':
+              if (window.renderRoster) window.renderRoster();
+              break;
+            case 'standings':
+              if (window.renderStandings) window.renderStandings();
+              break;
+            case 'freeagency':
+              if (window.renderFreeAgency) window.renderFreeAgency();
+              break;
+            case 'draft':
+            case 'scouting':
+              if (window.renderDraft) window.renderDraft();
+              break;
+            case 'trade':
+              if (window.renderTrade) window.renderTrade();
+              break;
+            case 'coaching':
+              if (window.renderCoachingStats) window.renderCoachingStats();
+              break;
+            case 'settings':
+              renderBasicSettings();
+              break;
+            default:
+              console.log('No renderer for:', viewName);
+          }
+        } catch (error) {
+          console.error('Error rendering view:', viewName, error);
+        }
+      }, 50);
     };
+  }
+
+  // Basic settings renderer
+  function renderBasicSettings() {
+    const settingsView = document.getElementById('settings');
+    if (settingsView) {
+      settingsView.innerHTML = `
+        <div class="card">
+          <h2>Settings</h2>
+          <div class="section">
+            <label>Current Season</label>
+            <p>${state.league?.year || 2025}</p>
+          </div>
+          <div class="section">
+            <label>Game Mode</label>
+            <p>${state.gameMode === 'gm' ? 'General Manager' : 'Career Mode'}</p>
+          </div>
+          <div class="section">
+            <label>Your Role</label>
+            <p>${state.playerRole || 'GM'}</p>
+          </div>
+          <div class="section">
+            <button onclick="resetGame()" class="btn danger">Reset Game</button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // Reset game function
+  window.resetGame = function() {
+    if (confirm('Reset game? All progress will be lost.')) {
+      localStorage.clear();
+      location.reload();
+    }
+  };
+
+  // Set up navigation events
+  function setupFinalNavigation() {
+    console.log('🔧 Setting up final navigation...');
+    
+    // Remove ALL existing event listeners
+    window.removeEventListener('hashchange', window.router);
+    
+    // Add the ONE TRUE hash change listener
+    window.addEventListener('hashchange', window.router);
+    
+    // Set up click handling
+    document.addEventListener('click', function(e) {
+      // Handle nav pill clicks
+      if (e.target.classList.contains('nav-pill')) {
+        e.preventDefault();
+        const href = e.target.getAttribute('href');
+        
+        if (href && href.startsWith('#/')) {
+          console.log('🖱️ Nav clicked:', href);
+          location.hash = href;
+        }
+        return;
+      }
+      
+      // Handle any other navigation links
+      if (e.target.tagName === 'A' && e.target.getAttribute('href')?.startsWith('#/')) {
+        e.preventDefault();
+        location.hash = e.target.getAttribute('href');
+      }
+    });
+    
+    console.log('✅ Final navigation events set up');
+  }
+
+  // Add navigation styles
+  function addNavigationStyles() {
+    const navCSS = `
+      /* Navigation Active States */
+      .nav-pill.active,
+      .nav-pill[aria-current="page"] {
+        background: linear-gradient(135deg, var(--accent, #0A84FF), var(--accent-hover, #409CFF)) !important;
+        color: white !important;
+        box-shadow: 0 2px 8px rgba(10, 132, 255, 0.3) !important;
+      }
+      
+      .nav-pill {
+        transition: all 200ms ease !important;
+      }
+      
+      .nav-pill:hover {
+        transform: translateY(-1px) !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+      }
+      
+      /* View Management */
+      .view {
+        display: none !important;
+      }
+      
+      .view:not([hidden]) {
+        display: block !important;
+      }
+      
+      /* User team highlighting */
+      .user-team {
+        background: rgba(10, 132, 255, 0.1) !important;
+        border-left: 3px solid var(--accent, #0A84FF) !important;
+      }
+      
+      .user-team td {
+        color: var(--text, white) !important;
+        font-weight: 600 !important;
+      }
+    `;
+    
+    const styleEl = document.createElement('style');
+    styleEl.id = 'final-nav-styles';
+    styleEl.textContent = navCSS;
+    
+    // Remove any existing styles with same ID
+    const existingStyle = document.getElementById('final-nav-styles');
+    if (existingStyle) existingStyle.remove();
+    
+    document.head.appendChild(styleEl);
+  }
+
+  // Initialize everything
+  async function initializeFinalNavigation() {
+    await waitForReady();
+    
+    console.log('🚀 Initializing final navigation system...');
+    
+    // Create the router
+    createFinalRouter();
+    
+    // Add styles
+    addNavigationStyles();
+    
+    // Set up events
+    setupFinalNavigation();
+    
+    // Initial route
+    setTimeout(() => {
+      console.log('🎯 Running initial route...');
+      window.router();
+    }, 100);
+    
+    console.log('✅ Final navigation system initialized!');
+    console.log('💡 Try clicking the navigation buttons now');
+  }
+
+  // Override initializeUIFixes to use our system
+  window.initializeUIFixes = initializeFinalNavigation;
+
+  // Start initialization
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeFinalNavigation);
+  } else {
+    setTimeout(initializeFinalNavigation, 100);
+  }
+
+  // Debug functions
+  window.debugNavigation = function() {
+    console.log('🔍 Navigation Debug Info');
+    console.log('Current hash:', location.hash);
+    console.log('Router function exists:', typeof window.router === 'function');
+    
+    const navPills = document.querySelectorAll('.nav-pill');
+    console.log('Nav pills found:', navPills.length);
+    navPills.forEach((pill, i) => {
+      console.log(`  ${i + 1}. ${pill.textContent} -> ${pill.href}`);
+    });
+    
+    const views = document.querySelectorAll('.view');
+    console.log('Views found:', views.length);
+    views.forEach((view, i) => {
+      const visible = !view.hidden && view.style.display !== 'none';
+      console.log(`  ${i + 1}. #${view.id} - Visible: ${visible}`);
+    });
+    
+    console.log('State ready:', !!state.league && !!state.onboarded);
+  };
+
+  window.testNavigation = function() {
+    console.log('🧪 Testing navigation...');
+    const testRoutes = ['#/hub', '#/roster', '#/standings'];
+    
+    testRoutes.forEach((route, i) => {
+      setTimeout(() => {
+        console.log(`Testing route: ${route}`);
+        location.hash = route;
+      }, i * 1000);
+    });
+  };
+
+  console.log('💡 Final navigation fix loaded');
+  console.log('Available commands:');
+  console.log('- debugNavigation() - Show debug info');  
+  console.log('- testNavigation() - Test route switching');
+
+})();
     
     // Fix 2: Enhanced router
     window.router = function() {
