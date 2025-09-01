@@ -1,6 +1,29 @@
 'use strict';
 
 /**
+ * Validates that required global dependencies are available
+ * @returns {boolean} True if all dependencies are available
+ */
+function validateDependencies() {
+  const missing = [];
+  
+  if (!window.Constants?.SIMULATION) missing.push('window.Constants.SIMULATION');
+  if (!window.Utils) missing.push('window.Utils');
+  if (!window.state?.league) missing.push('window.state.league');
+  if (!window.setStatus) missing.push('window.setStatus');
+  
+  if (missing.length > 0) {
+    console.error('Missing required dependencies:', missing);
+    if (window.setStatus) {
+      window.setStatus(`Error: Missing dependencies - ${missing.join(', ')}`);
+    }
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Applies the result of a simulated game to the teams' records.
  * @param {object} game - An object containing the home and away team objects.
  * @param {object} game.home - The home team object.
@@ -9,6 +32,17 @@
  * @param {number} awayScore - The final score for the away team.
  */
 function applyResult(game, homeScore, awayScore) {
+  // Validate inputs
+  if (!game || typeof game !== 'object') {
+    console.error("Invalid game object provided to applyResult");
+    return;
+  }
+  
+  if (typeof homeScore !== 'number' || typeof awayScore !== 'number') {
+    console.error("Invalid scores provided to applyResult", { homeScore, awayScore });
+    return;
+  }
+  
   const home = game.home;
   const away = game.away;
 
@@ -18,26 +52,25 @@ function applyResult(game, homeScore, awayScore) {
     return;
   }
 
-  // Initialize records if they don't exist
-  if (home.wins === undefined) home.wins = 0;
-  if (home.losses === undefined) home.losses = 0;
-  if (home.ties === undefined) home.ties = 0;
-  if (away.wins === undefined) away.wins = 0;
-  if (away.losses === undefined) away.losses = 0;
-  if (away.ties === undefined) away.ties = 0;
-  if (home.ptsFor === undefined) home.ptsFor = 0;
-  if (home.ptsAgainst === undefined) home.ptsAgainst = 0;
-  if (away.ptsFor === undefined) away.ptsFor = 0;
-  if (away.ptsAgainst === undefined) away.ptsAgainst = 0;
-
+  // Initialize records if they don't exist - more robust initialization
+  const initializeTeamStats = (team) => {
+    if (!team) return;
+    team.wins = team.wins ?? 0;
+    team.losses = team.losses ?? 0;
+    team.ties = team.ties ?? 0;
+    team.ptsFor = team.ptsFor ?? 0;
+    team.ptsAgainst = team.ptsAgainst ?? 0;
+  };
+  
+  initializeTeamStats(home);
+  initializeTeamStats(away);
 
   // Update game scores if a game object is passed with schedule info
-  if (game.played !== undefined) {
-      game.homeScore = homeScore;
-      game.awayScore = awayScore;
-      game.played = true;
+  if (game.hasOwnProperty('played')) {
+    game.homeScore = homeScore;
+    game.awayScore = awayScore;
+    game.played = true;
   }
-
 
   // Update team records
   if (homeScore > awayScore) {
@@ -58,80 +91,121 @@ function applyResult(game, homeScore, awayScore) {
   away.ptsAgainst += homeScore;
 }
 
-
 /**
  * Simulates game statistics for a single game between two teams.
  * @param {object} home - The home team object.
  * @param {object} away - The away team object.
- * @returns {object} An object with homeScore and awayScore.
+ * @returns {object|null} An object with homeScore and awayScore, or null if error.
  */
 function simGameStats(home, away) {
-  const C = window.Constants.SIMULATION;
-  const U = window.Utils;
-
-  // Basic team strength from overall ratings
-  const homeStrength = home.roster.reduce((acc, p) => acc + p.ovr, 0) / home.roster.length;
-  const awayStrength = away.roster.reduce((acc, p) => acc + p.ovr, 0) / away.roster.length;
-
-  // Add home advantage
-  const strengthDiff = (homeStrength - awayStrength) + C.HOME_ADVANTAGE;
-
-  // Simulate scores
-  let homeScore = U.rand(C.BASE_SCORE_MIN, C.BASE_SCORE_MAX) + Math.round(strengthDiff / 5);
-  let awayScore = U.rand(C.BASE_SCORE_MIN, C.BASE_SCORE_MAX) - Math.round(strengthDiff / 5);
-
-  // Add some randomness
-  homeScore += U.rand(0, C.SCORE_VARIANCE);
-  awayScore += U.rand(0, C.SCORE_VARIANCE);
-
-  // Ensure scores are non-negative
-  homeScore = Math.max(0, homeScore);
-  awayScore = Math.max(0, awayScore);
-
-  // Simulate basic player stats (you can expand on this)
-  [home, away].forEach((team, isHome) => {
-    const score = isHome ? homeScore : awayScore;
-    const qb = team.roster.find(p => p.pos === 'QB');
-    if (qb) {
-      const passYd = Math.round(score * U.rand(8, 12));
-      const passTD = Math.floor(score / 10);
-      if(!qb.stats) qb.stats = {};
-      qb.stats.game = { passYd, passTD };
+  try {
+    // Validate dependencies
+    if (!window.Constants?.SIMULATION || !window.Utils) {
+      console.error('Missing simulation dependencies');
+      return null;
     }
-  });
+    
+    const C = window.Constants.SIMULATION;
+    const U = window.Utils;
 
-  return { homeScore, awayScore };
+    // Validate team inputs
+    if (!home?.roster || !away?.roster || !Array.isArray(home.roster) || !Array.isArray(away.roster)) {
+      console.error('Invalid team roster data:', { home: !!home?.roster, away: !!away?.roster });
+      return null;
+    }
+
+    if (home.roster.length === 0 || away.roster.length === 0) {
+      console.warn('Empty roster detected:', { homeRoster: home.roster.length, awayRoster: away.roster.length });
+    }
+
+    // Basic team strength from overall ratings with fallback
+    const calculateStrength = (roster) => {
+      if (!roster.length) return 50; // Default strength
+      return roster.reduce((acc, p) => acc + (p.ovr || 50), 0) / roster.length;
+    };
+
+    const homeStrength = calculateStrength(home.roster);
+    const awayStrength = calculateStrength(away.roster);
+
+    // Add home advantage with fallback constants
+    const HOME_ADVANTAGE = C.HOME_ADVANTAGE || 3;
+    const BASE_SCORE_MIN = C.BASE_SCORE_MIN || 10;
+    const BASE_SCORE_MAX = C.BASE_SCORE_MAX || 35;
+    const SCORE_VARIANCE = C.SCORE_VARIANCE || 10;
+    
+    const strengthDiff = (homeStrength - awayStrength) + HOME_ADVANTAGE;
+
+    // Simulate scores
+    let homeScore = U.rand(BASE_SCORE_MIN, BASE_SCORE_MAX) + Math.round(strengthDiff / 5);
+    let awayScore = U.rand(BASE_SCORE_MIN, BASE_SCORE_MAX) - Math.round(strengthDiff / 5);
+
+    // Add some randomness
+    homeScore += U.rand(0, SCORE_VARIANCE);
+    awayScore += U.rand(0, SCORE_VARIANCE);
+
+    // Ensure scores are non-negative
+    homeScore = Math.max(0, homeScore);
+    awayScore = Math.max(0, awayScore);
+
+    // Simulate basic player stats (you can expand on this)
+    [home, away].forEach((team, teamIndex) => {
+      const score = teamIndex === 0 ? homeScore : awayScore;
+      const qb = team.roster.find(p => p.pos === 'QB');
+      if (qb) {
+        const passYd = Math.round(score * U.rand(8, 12));
+        const passTD = Math.floor(score / 10);
+        if (!qb.stats) qb.stats = {};
+        qb.stats.game = { passYd, passTD };
+      }
+    });
+
+    return { homeScore, awayScore };
+    
+  } catch (error) {
+    console.error('Error in simGameStats:', error);
+    return null;
+  }
 }
-
 
 /**
  * Simulates all games for the current week in the league.
  */
 function simulateWeek() {
-  const L = state.league;
-
-  // Enhanced validation
-  if (!L) {
-    console.error('No league available for simulation');
-    window.setStatus('Error: No league loaded');
-    return;
-  }
-
-  if (!L.schedule) {
-    console.error('No schedule available for simulation');
-    window.setStatus('Error: No schedule found');
-    return;
-  }
-
-  // Handle both schedule formats (legacy compatibility)
-  const scheduleWeeks = L.schedule.weeks || L.schedule;
-  if (!scheduleWeeks || !Array.isArray(scheduleWeeks)) {
-    console.error('Invalid schedule format for simulation');
-    window.setStatus('Error: Invalid schedule format');
-    return;
-  }
-
   try {
+    // Validate all dependencies first
+    if (!validateDependencies()) {
+      return;
+    }
+    
+    const L = window.state.league;
+
+    // Enhanced validation
+    if (!L) {
+      console.error('No league available for simulation');
+      window.setStatus('Error: No league loaded');
+      return;
+    }
+
+    if (!L.schedule) {
+      console.error('No schedule available for simulation');
+      window.setStatus('Error: No schedule found');
+      return;
+    }
+
+    // Handle both schedule formats (legacy compatibility)
+    const scheduleWeeks = L.schedule.weeks || L.schedule;
+    if (!scheduleWeeks || !Array.isArray(scheduleWeeks)) {
+      console.error('Invalid schedule format for simulation');
+      window.setStatus('Error: Invalid schedule format');
+      return;
+    }
+
+    // Ensure week is properly initialized
+    if (!L.week || typeof L.week !== 'number') {
+      L.week = 1;
+      console.log('Initialized league week to 1');
+    }
+
     console.log(`Simulating week ${L.week}...`);
     window.setStatus(`Simulating week ${L.week}...`);
 
@@ -140,12 +214,14 @@ function simulateWeek() {
       console.log('Regular season complete, starting playoffs');
       window.setStatus('Regular season complete!');
 
-      if (window.startPlayoffs) {
+      if (typeof window.startPlayoffs === 'function') {
         window.startPlayoffs();
       } else {
         // Fallback if playoffs not implemented
         window.setStatus('Season complete! Check standings.');
-        location.hash = '#/standings';
+        if (window.location) {
+          window.location.hash = '#/standings';
+        }
       }
       return;
     }
@@ -168,7 +244,9 @@ function simulateWeek() {
       window.setStatus(`No games scheduled for week ${L.week}`);
       // Still advance the week
       L.week++;
-      if (window.renderHub) window.renderHub();
+      if (typeof window.renderHub === 'function') {
+        window.renderHub();
+      }
       return;
     }
 
@@ -177,59 +255,82 @@ function simulateWeek() {
 
     // Simulate each game
     pairings.forEach((pair, index) => {
-      // Handle bye weeks
-      if (pair.bye !== undefined) {
-        results.push({
-          id: `w${L.week}b${pair.bye}`,
-          bye: pair.bye
-        });
-        return;
-      }
+      try {
+        // Handle bye weeks
+        if (pair.bye !== undefined) {
+          results.push({
+            id: `w${L.week}b${pair.bye}`,
+            bye: pair.bye
+          });
+          return;
+        }
 
-      // Validate team indices
-      const home = L.teams[pair.home];
-      const away = L.teams[pair.away];
+        // Validate team indices
+        if (!L.teams || !Array.isArray(L.teams)) {
+          console.error('Invalid teams array in league');
+          return;
+        }
+        
+        const home = L.teams[pair.home];
+        const away = L.teams[pair.away];
 
-      if (!home || !away) {
-        console.warn('Invalid team IDs in pairing:', pair);
-        window.setStatus(`Warning: Invalid teams in game ${index + 1}`);
-        return;
-      }
+        if (!home || !away) {
+          console.warn('Invalid team IDs in pairing:', pair);
+          window.setStatus(`Warning: Invalid teams in game ${index + 1}`);
+          return;
+        }
 
-      // Simulate the game
-      const gameScores = simGameStats(home, away);
-      const sH = gameScores.homeScore;
-      const sA = gameScores.awayScore;
+        // Simulate the game
+        const gameScores = simGameStats(home, away);
+        
+        if (!gameScores) {
+          console.error(`Failed to simulate game ${index + 1}`);
+          return;
+        }
+        
+        const sH = gameScores.homeScore;
+        const sA = gameScores.awayScore;
 
-      // Update player season stats from game stats
-      [...home.roster, ...away.roster].forEach(p => {
-        if (p && p.stats && p.stats.game) {
-          if (!p.stats.season) p.stats.season = {};
-          Object.keys(p.stats.game).forEach(key => {
-            if (typeof p.stats.game[key] === 'number') {
-              p.stats.season[key] = (p.stats.season[key] || 0) + p.stats.game[key];
+        // Update player season stats from game stats
+        const updatePlayerStats = (roster) => {
+          if (!Array.isArray(roster)) return;
+          
+          roster.forEach(p => {
+            if (p && p.stats && p.stats.game) {
+              if (!p.stats.season) p.stats.season = {};
+              Object.keys(p.stats.game).forEach(key => {
+                if (typeof p.stats.game[key] === 'number') {
+                  p.stats.season[key] = (p.stats.season[key] || 0) + p.stats.game[key];
+                }
+              });
             }
           });
-        }
-      });
+        };
+        
+        updatePlayerStats(home.roster);
+        updatePlayerStats(away.roster);
 
-      // Store game result
-      results.push({
-        id: `w${L.week}g${index}`,
-        home: pair.home,
-        away: pair.away,
-        scoreHome: sH,
-        scoreAway: sA,
-        homeWin: sH > sA
-      });
+        // Store game result
+        results.push({
+          id: `w${L.week}g${index}`,
+          home: pair.home,
+          away: pair.away,
+          scoreHome: sH,
+          scoreAway: sA,
+          homeWin: sH > sA
+        });
 
-      // *** THIS IS THE CORRECTED PART ***
-      // Create a game object with the actual teams to pass to applyResult
-      const game = { home: home, away: away };
-      applyResult(game, sH, sA);
-      gamesSimulated++;
+        // Create a game object with the actual teams to pass to applyResult
+        const game = { home: home, away: away };
+        applyResult(game, sH, sA);
+        gamesSimulated++;
 
-      console.log(`${away.name} ${sA} @ ${home.name} ${sH}`);
+        console.log(`${away.name || `Team ${pair.away}`} ${sA} @ ${home.name || `Team ${pair.home}`} ${sH}`);
+        
+      } catch (gameError) {
+        console.error(`Error simulating game ${index + 1}:`, gameError);
+        window.setStatus(`Error in game ${index + 1}: ${gameError.message}`);
+      }
     });
 
     // Store results for the week
@@ -241,7 +342,7 @@ function simulateWeek() {
     L.week++;
 
     // Run weekly training if available
-    if (window.runWeeklyTraining) {
+    if (typeof window.runWeeklyTraining === 'function') {
       try {
         window.runWeeklyTraining(L);
       } catch (trainingError) {
@@ -254,10 +355,10 @@ function simulateWeek() {
 
     // Update UI to show results
     try {
-      if (window.renderHub) {
+      if (typeof window.renderHub === 'function') {
         window.renderHub();
       }
-      if (window.updateCapSidebar) {
+      if (typeof window.updateCapSidebar === 'function') {
         window.updateCapSidebar();
       }
 
@@ -265,8 +366,8 @@ function simulateWeek() {
       window.setStatus(`Week ${previousWeek} simulated - ${gamesSimulated} games completed`);
 
       // Auto-show results on hub
-      if (location.hash !== '#/hub') {
-        location.hash = '#/hub';
+      if (window.location && window.location.hash !== '#/hub') {
+        window.location.hash = '#/hub';
       }
 
     } catch (uiError) {
@@ -281,4 +382,8 @@ function simulateWeek() {
 }
 
 // Make sure function is available globally
-window.simulateWeek = simulateWeek;
+if (typeof window !== 'undefined') {
+  window.simulateWeek = simulateWeek;
+  window.simGameStats = simGameStats;
+  window.applyResult = applyResult;
+}
