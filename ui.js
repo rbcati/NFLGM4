@@ -323,7 +323,20 @@ if (document.readyState === 'loading') {
 } else {
   setTimeout(initializeUI, 100);
 }
-
+window.show = function(viewId) {
+  // Hide ALL views first
+  document.querySelectorAll('.view').forEach(view => {
+    view.hidden = true;
+    view.style.display = 'none';
+  });
+  
+  // Show the target view
+  const targetView = document.getElementById(viewId);
+  if (targetView) {
+    targetView.hidden = false;
+    targetView.style.display = 'block';
+  }
+};
 // --- GLOBAL EXPORTS ---
 window.enhanceNavigation = enhanceNavigation;
 window.setupRosterEvents = setupRosterEvents;
