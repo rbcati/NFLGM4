@@ -40,6 +40,24 @@ function openOnboard() {
     if(window.populateTeamDropdown) populateTeamDropdown('fictional');
 }
 
+// **FIXED**: This function was missing from the simplified main.js
+function populateTeamDropdown(mode) {
+    const teamSelect = document.getElementById('onboardTeam');
+    if (!teamSelect) return;
+    try {
+        teamSelect.innerHTML = '';
+        const teams = listByMode(mode);
+        teams.forEach((team, index) => {
+            const option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = `${team.abbr} — ${team.name}`;
+            teamSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error populating team dropdown:', error);
+    }
+}
+
 function initNewGame(options) {
     try {
         console.log('Initializing new game with options:', options);
@@ -84,10 +102,7 @@ function init() {
             openOnboard();
         }
         
-        // Let other files handle their own event setup
         if (window.setupEventListeners) setupEventListeners();
-        // The ui.js file has its own initialization which handles routing
-        // We don't need to call router() here.
 
     } catch (error) {
         console.error('FATAL ERROR during initialization:', error);
@@ -101,3 +116,4 @@ window.setStatus = setStatus;
 window.listByMode = listByMode;
 window.currentTeam = currentTeam;
 window.initNewGame = initNewGame;
+window.populateTeamDropdown = populateTeamDropdown; // Make sure it's globally accessible
