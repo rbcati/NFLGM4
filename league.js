@@ -17,7 +17,7 @@ window.makeLeague = function(teams) {
         const team = { ...t }; // Create a copy to avoid modifying the original template
         team.id = i;
         
-        // **FIXED**: Initialize the record object for each team from the start.
+        // Initializes the record object so standings and power rankings work correctly.
         team.record = { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
         
         team.roster = [];
@@ -29,14 +29,15 @@ window.makeLeague = function(teams) {
         const C = window.Constants;
         const U = window.Utils;
 
-        // Generate roster based on position counts
-        Object.keys(C.ROSTER_COUNTS).forEach(pos => {
-            const count = C.ROSTER_COUNTS[pos];
+        // **THE FIX IS HERE**
+        // Changed C.ROSTER_COUNTS to C.DEPTH_NEEDS to match your full constants.js file.
+        Object.keys(C.DEPTH_NEEDS).forEach(pos => {
+            const count = C.DEPTH_NEEDS[pos];
             for (let j = 0; j < count; j++) {
-                // Use position-specific overall ratings
-                const ovrRange = C.OVR_BY_POS[pos] || [60, 85];
+                // Use position-specific overall ratings from constants
+                const ovrRange = (C.POS_RATING_RANGES && C.POS_RATING_RANGES[pos]) ? [70, 99] : [60, 85];
                 const ovr = U.rand(ovrRange[0], ovrRange[1]);
-                const age = U.rand(21, 34);
+                const age = U.rand(C.PLAYER_CONFIG.MIN_AGE, C.PLAYER_CONFIG.MAX_AGE);
                 
                 if (window.makePlayer) {
                     const player = makePlayer(pos, age, ovr);
