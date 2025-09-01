@@ -1,12 +1,10 @@
-// main.js - CORRECTED VERSION with proper navigation initialization
 'use strict';
 
 /**
- * Main game controller with proper navigation setup
+ * Main game controller. This version is simplified to prevent conflicts with ui.js.
  */
 
 // --- CORE HELPER FUNCTIONS ---
-
 function setStatus(msg, duration = 4000) {
     console.log('Status:', msg);
     const statusEl = document.getElementById('statusMsg');
@@ -24,10 +22,7 @@ function setStatus(msg, duration = 4000) {
 }
 
 function listByMode(mode) {
-    if (!window.Teams) {
-        console.error("Teams data has not loaded.");
-        return [];
-    }
+    if (!window.Teams) return [];
     return mode === 'real' ? (window.Teams.real || []) : (window.Teams.fictional || []);
 }
 
@@ -37,77 +32,39 @@ function currentTeam() {
 }
 
 // --- ONBOARDING & NEW GAME LOGIC ---
-
 function openOnboard() {
-    try {
-        const modal = document.getElementById('onboardModal');
-        if (!modal) return;
-
-        modal.hidden = false;
-        modal.style.display = 'flex';
-
-        const currentMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
-        populateTeamDropdown(currentMode);
-    } catch (error) {
-        console.error('Error opening onboard modal:', error);
-    }
+    const modal = document.getElementById('onboardModal');
+    if (!modal) return;
+    modal.hidden = false;
+    modal.style.display = 'flex';
+    if(window.populateTeamDropdown) populateTeamDropdown('fictional');
 }
 
-function populateTeamDropdown(mode) {
-    const teamSelect = document.getElementById('onboardTeam');
-    if (!teamSelect) return;
+function initNewGame(options) {
     try {
-        teamSelect.innerHTML = '';
-        const teams = listByMode(mode);
-        teams.forEach((team, index) => {
-            const option = document.createElement('option');
-            option.value = String(index);
-            option.textContent = `${team.abbr} — ${team.name}`;
-            teamSelect.appendChild(option);
-        });
-    } catch (error) {
-        console.error('Error populating team dropdown:', error);
-    }
-}
-
-function initNewGame() {
-    try {
-        const options = {
-            gameMode: document.querySelector('input[name="gameMode"]:checked')?.value || 'gm',
-            playerRole: document.getElementById('careerRole')?.value || 'GM',
-            chosenMode: document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional',
-            teamIdx: document.getElementById('onboardTeam')?.value || '0'
-        };
-
         console.log('Initializing new game with options:', options);
         window.state = window.State.init();
 
         state.onboarded = true;
         state.namesMode = options.chosenMode;
         state.gameMode = options.gameMode;
-        state.playerRole = options.playerRole;
         state.userTeamId = parseInt(options.teamIdx, 10);
         state.player = { teamId: state.userTeamId };
 
         const teams = listByMode(state.namesMode);
-        if (teams.length === 0) throw new Error('No teams available for league creation.');
+        if (teams.length === 0) throw new Error('No teams for league creation.');
         
         state.league = window.makeLeague(teams);
         if (!state.league) throw new Error('Failed to create league.');
-        
-        // --- Integrations from other modules ---
+
         if (window.ensureFA) window.ensureFA();
-        if (window.generateCoaches) generateCoaches(state.league);
-        // --- End Integrations ---
 
         saveState();
         const modal = document.getElementById('onboardModal');
         if (modal) modal.style.display = 'none';
         
-        location.hash = '#/hub';
-        refreshAll();
-        const teamName = state.league.teams[state.userTeamId]?.name || 'your team';
-        setStatus(`Welcome, GM of the ${teamName}!`);
+        location.hash = '#/hub'; // Go to hub after creation
+        if (window.initializeUIFixes) window.initializeUIFixes(); // Re-init UI for new game
 
     } catch (error) {
         console.error('Error in initNewGame:', error);
@@ -115,146 +72,32 @@ function initNewGame() {
     }
 }
 
-// --- GAME INITIALIZATION & LIFECYCLE ---
-
+// --- GAME INITIALIZATION ---
 function init() {
-    console.log('GAME INITIALIZATION SEQUENCE STARTED');
+    console.log('Main.js: Initializing game...');
     try {
         const savedState = loadState();
-
-        if (savedState && savedState.onboarded && savedState.league) {
-            console.log('Valid save file found. Loading game.');
+        if (savedState && savedState.onboarded) {
             window.state = savedState;
-             // Ensure new properties exist on older saves for compatibility
-            if (!state.player) state.player = { teamId: state.userTeamId };
-            if (!state.league.coaches && window.generateCoaches) generateCoaches(state.league);
         } else {
-            console.log('No valid save file. Starting onboarding process.');
             window.state = State.init();
             openOnboard();
         }
         
+        // Let other files handle their own event setup
         if (window.setupEventListeners) setupEventListeners();
-        
-        // CRITICAL FIX: Call the navigation initialization
-        // This ensures the navigation system is properly set up
-        if (window.initializeUIFixes) {
-            console.log('🚀 Calling initializeUIFixes for navigation...');
-            window.initializeUIFixes();
-        } else {
-            console.warn('⚠️ initializeUIFixes not available yet, will retry...');
-            // Retry after a short delay in case it loads later
-            setTimeout(() => {
-                if (window.initializeUIFixes) {
-                    console.log('🚀 Retrying initializeUIFixes...');
-                    window.initializeUIFixes();
-                } else {
-                    console.error('❌ initializeUIFixes never became available');
-                }
-            }, 500);
-        }
-        
-        refreshAll();
+        // The ui.js file has its own initialization which handles routing
+        // We don't need to call router() here.
 
-        console.log('GAME INITIALIZATION COMPLETE');
     } catch (error) {
         console.error('FATAL ERROR during initialization:', error);
-        document.body.innerHTML = `<div class="card" style="padding: 2rem;"><h1>Fatal Error</h1><p>Could not initialize the game. Please check the console and try refreshing.</p></div>`;
     }
 }
 
-function refreshAll() {
-    if (!state.onboarded || !state.league) return;
-    try {
-        updateSidebar();
-        const currentHash = location.hash.slice(2) || 'hub';
-        // Use the router if it exists
-        if (window.router) {
-            window.router();
-        }
-    } catch (error) {
-        console.error('Error refreshing all views:', error);
-    }
-}
-
-function updateSidebar() {
-    if (!state || !state.league || !state.league.teams) return;
-    const team = currentTeam();
-    if (!team) return;
-
-    try {
-        const seasonEl = document.getElementById('seasonNow');
-        if (seasonEl) seasonEl.textContent = state.league.year || '';
-        
-        const capUsedEl = document.getElementById('capUsed');
-        if (capUsedEl) capUsedEl.textContent = `$${(team.capUsed || 0).toFixed(1)}M`;
-        
-        const capTotalEl = document.getElementById('capTotal');
-        if (capTotalEl) capTotalEl.textContent = `$${(team.capTotal || 220).toFixed(1)}M`;
-        
-        const capRoomEl = document.getElementById('capRoom');
-        if (capRoomEl) capRoomEl.textContent = `$${(team.capRoom || 0).toFixed(1)}M`;
-        
-        const deadCapEl = document.getElementById('deadCap');
-        if (deadCapEl) deadCapEl.textContent = `$${(team.deadCap || 0).toFixed(1)}M`;
-
-        const userTeamSelect = document.getElementById('userTeam');
-        if (userTeamSelect && (!userTeamSelect.dataset.filled || userTeamSelect.options.length !== state.league.teams.length)) {
-             if (window.fillTeamSelect) window.fillTeamSelect(userTeamSelect);
-             userTeamSelect.dataset.filled = 'true';
-        }
-        if (userTeamSelect) userTeamSelect.value = state.userTeamId;
-    } catch (error) {
-        console.error('Error updating sidebar:', error);
-    }
-}
-
-// --- START THE GAME ---
 document.addEventListener('DOMContentLoaded', init);
 
 // --- GLOBAL ACCESS ---
 window.setStatus = setStatus;
-window.refreshAll = refreshAll;
-window.initNewGame = initNewGame;
-window.populateTeamDropdown = populateTeamDropdown;
 window.listByMode = listByMode;
-window.openOnboard = openOnboard;
 window.currentTeam = currentTeam;
-
-// Fallback functions to ensure game doesn't break
-(function safeInitializeMissingFunctions() {
-    if (!window.Utils) {
-        console.warn('Utils.js not found, creating fallback.');
-        window.Utils = {
-            rand: (min, max) => Math.floor(Math.random() * (max - min + 1)) + min,
-            choice: (arr) => arr[Math.floor(Math.random() * arr.length)],
-            id: () => Math.random().toString(36).slice(2, 10)
-        };
-    }
-    
-    const requiredFunctions = {
-        makeLeague: (teams) => {
-            console.warn('Fallback makeLeague used.');
-            return { teams: teams, year: 2025, week: 1, schedule: { weeks: [] }, resultsByWeek: [] };
-        },
-        generateProspects: () => { console.warn('Fallback generateProspects used.'); return []; },
-        generateCoaches: () => { console.warn('Fallback generateCoaches used.'); },
-        ensureFA: () => { console.warn('Fallback ensureFA used.'); },
-        runWeeklyTraining: () => {},
-        runOffseason: () => {},
-        capHitFor: (player) => player.baseAnnual || 0,
-        renderTrade: (container) => container.innerHTML = 'Trade view not loaded.',
-        renderFreeAgency: (container) => container.innerHTML = 'Free Agency view not loaded.',
-        renderDraft: (container) => container.innerHTML = 'Draft view not loaded.',
-        renderScouting: (container) => container.innerHTML = 'Scouting view not loaded.',
-        renderCoaching: (container) => container.innerHTML = 'Coaching view not loaded.',
-        simulateWeek: () => { setStatus('Simulation logic not loaded.'); }
-    };
-    
-    for (const funcName in requiredFunctions) {
-        if (typeof window[funcName] !== 'function') {
-            console.log(`Creating fallback for missing function: ${funcName}`);
-            window[funcName] = requiredFunctions[funcName];
-        }
-    }
-})();
+window.initNewGame = initNewGame;
