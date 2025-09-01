@@ -370,4 +370,271 @@ function runBasicOffseason() {
     
   } catch (error) {
     console.error('Error in basic offseason:', error);
-    window.setStatus('Offseason simulation erro
+    window.setStatus('Offseason simulation error');
+  }
+}
+
+/**
+ * Render playoffs view - THE MISSING FUNCTION
+ */
+function renderPlayoffs() {
+  console.log('🏆 Rendering playoffs...');
+  
+  const P = state.playoffs;
+  const L = state.league;
+  
+  if (!P || !L) {
+    console.error('No playoffs or league data for rendering');
+    return;
+  }
+  
+  // Create playoffs view if it doesn't exist
+  let playoffsView = document.getElementById('playoffs');
+  if (!playoffsView) {
+    playoffsView = document.createElement('section');
+    playoffsView.id = 'playoffs';
+    playoffsView.className = 'view';
+    
+    const contentSection = document.querySelector('.content');
+    if (contentSection) {
+      contentSection.appendChild(playoffsView);
+    }
+  }
+  
+  // Show the view
+  playoffsView.hidden = false;
+  playoffsView.style.display = 'block';
+  
+  try {
+    const roundNames = {
+      'WC': 'Wild Card',
+      'DIV': 'Divisional',
+      'CONF': 'Conference Championships', 
+      'SB': 'Super Bowl'
+    };
+    
+    let html = `
+      <div class="card">
+        <h2>🏆 ${L.year} Playoffs - ${roundNames[P.round] || P.round}</h2>
+        <div class="playoffs-controls">
+          <button id="btnSimPlayoffRound" class="btn primary">Simulate ${roundNames[P.round] || P.round}</button>
+        </div>
+      </div>
+    `;
+    
+    // Show current matchups
+    if (P.round !== 'SB') {
+      ['AFC', 'NFC'].forEach(conf => {
+        if (P.series[conf] && P.series[conf].length > 0) {
+          html += `
+            <div class="card">
+              <h3>${conf} ${roundNames[P.round] || P.round}</h3>
+              <div class="playoff-matchups">
+                ${P.series[conf].map((game, i) => {
+                  const home = L.teams[game.home];
+                  const away = L.teams[game.away];
+                  const homeRecord = home.record;
+                  const awayRecord = away.record;
+                  
+                  return `
+                    <div class="matchup-card">
+                      <div class="team away-team">
+                        <span class="team-name">${away.name}</span>
+                        <span class="team-record">(${awayRecord.w}-${awayRecord.l}-${awayRecord.t})</span>
+                      </div>
+                      <div class="vs">@</div>
+                      <div class="team home-team">
+                        <span class="team-name">${home.name}</span>
+                        <span class="team-record">(${homeRecord.w}-${homeRecord.l}-${homeRecord.t})</span>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }
+      });
+    } else {
+      // Super Bowl
+      const game = P.series.SB[0];
+      const home = L.teams[game.home];
+      const away = L.teams[game.away];
+      
+      html += `
+        <div class="card super-bowl-card">
+          <h3>🏆 Super Bowl ${L.year}</h3>
+          <div class="super-bowl-matchup">
+            <div class="team sb-away">
+              <h4>${away.name}</h4>
+              <p>(${away.record.w}-${away.record.l}-${away.record.t})</p>
+            </div>
+            <div class="sb-vs">VS</div>
+            <div class="team sb-home">
+              <h4>${home.name}</h4>
+              <p>(${home.record.w}-${home.record.l}-${home.record.t})</p>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Show playoff results
+    if (P.results && P.results.length > 0) {
+      html += `
+        <div class="card">
+          <h3>Playoff Results</h3>
+          <div class="playoff-results">
+            ${P.results.slice(-8).reverse().map(result => 
+              `<div class="result-item">${result}</div>`
+            ).join('')}
+          </div>
+        </div>
+      `;
+    }
+    
+    playoffsView.innerHTML = html;
+    
+    // Set up simulation button
+    const simBtn = document.getElementById('btnSimPlayoffRound');
+    if (simBtn) {
+      simBtn.addEventListener('click', () => {
+        simBtn.disabled = true;
+        simBtn.textContent = 'Simulating...';
+        
+        setTimeout(() => {
+          simulatePlayoffRound();
+          simBtn.disabled = false;
+          simBtn.textContent = `Simulate ${roundNames[P.round] || P.round}`;
+        }, 500);
+      });
+    }
+    
+  } catch (error) {
+    console.error('Error rendering playoffs:', error);
+    playoffsView.innerHTML = `
+      <div class="card">
+        <h2>Playoffs</h2>
+        <p class="error">Error rendering playoffs view</p>
+      </div>
+    `;
+  }
+}
+
+// Add playoffs CSS
+const playoffCSS = `
+.playoffs-controls {
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.playoff-matchups {
+  display: grid;
+  gap: 1rem;
+}
+
+.matchup-card {
+  display: grid;
+  grid-template-columns: 2fr auto 2fr;
+  align-items: center;
+  padding: 1rem;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+
+.team {
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.away-team {
+  text-align: right;
+}
+
+.home-team {
+  text-align: left;
+}
+
+.team-name {
+  display: block;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.team-record {
+  display: block;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.vs {
+  font-weight: 700;
+  color: var(--accent);
+  padding: 0 1rem;
+}
+
+.super-bowl-card {
+  background: linear-gradient(135deg, 
+    var(--surface) 0%, 
+    rgba(255, 215, 0, 0.1) 100%);
+  border: 2px solid rgba(255, 215, 0, 0.3);
+}
+
+.super-bowl-matchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.sb-vs {
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(10, 132, 255, 0.5);
+}
+
+.playoff-results {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.playoff-results .result-item {
+  padding: 0.75rem;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.5rem;
+  font-family: monospace;
+  font-size: 0.875rem;
+}
+`;
+
+// Inject CSS
+const playoffStyleEl = document.createElement('style');
+playoffStyleEl.id = 'playoff-styles';
+playoffStyleEl.textContent = playoffCSS;
+
+// Remove existing if present
+const existingStyle = document.getElementById('playoff-styles');
+if (existingStyle) existingStyle.remove();
+
+document.head.appendChild(playoffStyleEl);
+
+// Make functions globally available
+window.teamStats = teamStats;
+window.pctRec = pctRec;
+window.pctDiv = pctDiv;
+window.pctConf = pctConf;
+window.tieBreakCompare = tieBreakCompare;
+window.seedPlayoffs = seedPlayoffs;
+window.startPlayoffs = startPlayoffs;
+window.buildRoundPairings = buildRoundPairings;
+window.simPlayoffGame = simPlayoffGame;
+window.simulatePlayoffRound = simulatePlayoffRound;
+window.renderPlayoffs = renderPlayoffs; // THE MISSING FUNCTION!
+window.runBasicOffseason = runBasicOffseason;
+
+console.log('✅ Complete playoffs system loaded with renderPlayoffs function');
