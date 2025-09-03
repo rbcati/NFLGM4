@@ -1,147 +1,520 @@
 'use strict';
 
 /**
- * Main game controller. This is the complete version with all necessary
- * helper functions and safety fallbacks included.
+ * Enhanced Main Game Controller with improved performance and error handling
  */
 
-// --- CORE HELPER FUNCTIONS ---
-function setStatus(msg, duration = 4000) {
-    const statusEl = document.getElementById('statusMsg');
-    if (statusEl) {
+class GameController {
+    constructor() {
+        this.domCache = new Map();
+        this.eventListeners = new Map();
+        this.initialized = false;
+        this.initPromise = null;
+    }
+
+    // --- ENHANCED DOM OPERATIONS ---
+    getElement(id, cache = true) {
+        if (cache && this.domCache.has(id)) {
+            const element = this.domCache.get(id);
+            // Verify element is still in DOM
+            if (document.contains(element)) {
+                return element;
+            }
+            this.domCache.delete(id);
+        }
+        
+        const element = document.getElementById(id);
+        if (element && cache) {
+            this.domCache.set(id, element);
+        }
+        return element;
+    }
+
+    clearDOMCache() {
+        this.domCache.clear();
+    }
+
+    // --- IMPROVED STATUS SYSTEM ---
+    setStatus(msg, type = 'info', duration = 4000) {
+        const statusEl = this.getElement('statusMsg');
+        if (!statusEl) {
+            console.warn('Status element not found:', msg);
+            return;
+        }
+
+        // Clear any existing timeout
+        if (statusEl.timeoutId) {
+            clearTimeout(statusEl.timeoutId);
+        }
+
         statusEl.textContent = msg;
+        statusEl.className = `status-message status-${type}`;
         statusEl.style.display = 'block';
+        
         if (duration > 0) {
-            setTimeout(() => {
+            statusEl.timeoutId = setTimeout(() => {
                 if (statusEl.textContent === msg) {
                     statusEl.style.display = 'none';
+                    statusEl.className = 'status-message';
                 }
+                statusEl.timeoutId = null;
             }, duration);
         }
+
+        // Also log important messages
+        if (type === 'error') {
+            console.error('Status Error:', msg);
+        } else if (type === 'warning') {
+            console.warn('Status Warning:', msg);
+        }
     }
-}
 
-function listByMode(mode) {
-    if (!window.Teams) return [];
-    return mode === 'real' ? (window.Teams.real || []) : (window.Teams.fictional || []);
-}
+    // --- ENHANCED HELPER FUNCTIONS ---
+    listByMode(mode) {
+        if (!window.Teams || typeof window.Teams !== 'object') {
+            console.warn('Teams data not available');
+            return [];
+        }
+        
+        const teams = mode === 'real' ? window.Teams.real : window.Teams.fictional;
+        return Array.isArray(teams) ? teams : [];
+    }
 
-function currentTeam() {
-    if (!state || !state.league || state.userTeamId === undefined) return null;
-    return state.league.teams[state.userTeamId];
-}
+    getCurrentTeam() {
+        try {
+            if (!window.state?.league?.teams || window.state.userTeamId === undefined) {
+                return null;
+            }
+            return window.state.league.teams[window.state.userTeamId] || null;
+        } catch (error) {
+            console.error('Error getting current team:', error);
+            return null;
+        }
+    }
 
-// --- ONBOARDING & NEW GAME LOGIC ---
-function openOnboard() {
-    const modal = document.getElementById('onboardModal');
-    if (!modal) return;
-    modal.hidden = false;
-    modal.style.display = 'flex';
-    populateTeamDropdown('fictional');
-}
+    // --- ROBUST ONBOARDING ---
+    async openOnboard() {
+        try {
+            const modal = this.getElement('onboardModal');
+            if (!modal) {
+                throw new Error('Onboarding modal not found');
+            }
 
-function populateTeamDropdown(mode) {
-    const teamSelect = document.getElementById('onboardTeam');
-    if (!teamSelect) return;
-    try {
-        teamSelect.innerHTML = '';
-        const teams = listByMode(mode);
-        teams.forEach((team, index) => {
-            const option = document.createElement('option');
-            option.value = String(index);
-            option.textContent = `${team.abbr} — ${team.name}`;
-            teamSelect.appendChild(option);
+            modal.hidden = false;
+            modal.style.display = 'flex';
+            
+            // Ensure teams are loaded before populating dropdown
+            await this.ensureTeamsLoaded();
+            this.populateTeamDropdown('fictional');
+            
+        } catch (error) {
+            console.error('Error opening onboarding:', error);
+            this.setStatus('Failed to open game setup', 'error');
+        }
+    }
+
+    async ensureTeamsLoaded() {
+        if (!window.Teams) {
+            // Try to load teams data
+            if (typeof window.loadTeamsData === 'function') {
+                try {
+                    await window.loadTeamsData();
+                } catch (error) {
+                    console.error('Failed to load teams data:', error);
+                    throw new Error('Teams data unavailable');
+                }
+            } else {
+                throw new Error('Teams data and loader not available');
+            }
+        }
+    }
+
+    populateTeamDropdown(mode) {
+        const teamSelect = this.getElement('onboardTeam');
+        if (!teamSelect) {
+            console.error('Team select element not found');
+            return false;
+        }
+
+        try {
+            // Clear existing options efficiently
+            teamSelect.innerHTML = '';
+            
+            const teams = this.listByMode(mode);
+            if (teams.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = 'No teams available';
+                option.disabled = true;
+                teamSelect.appendChild(option);
+                return false;
+            }
+
+            // Use DocumentFragment for better performance
+            const fragment = document.createDocumentFragment();
+            teams.forEach((team, index) => {
+                if (team && team.name && team.abbr) {
+                    const option = document.createElement('option');
+                    option.value = String(index);
+                    option.textContent = `${team.abbr} — ${team.name}`;
+                    fragment.appendChild(option);
+                }
+            });
+            
+            teamSelect.appendChild(fragment);
+            return true;
+            
+        } catch (error) {
+            console.error('Error populating team dropdown:', error);
+            this.setStatus('Failed to load team list', 'error');
+            return false;
+        }
+    }
+
+    // --- ENHANCED GAME INITIALIZATION ---
+    async initNewGame(options) {
+        try {
+            // Validate options
+            if (!options || typeof options !== 'object') {
+                throw new Error('Invalid game options');
+            }
+
+            const { chosenMode, teamIdx } = options;
+            if (!chosenMode || teamIdx === undefined) {
+                throw new Error('Missing required game options');
+            }
+
+            // Initialize state with validation
+            if (!window.State?.init) {
+                throw new Error('State system not available');
+            }
+
+            window.state = window.State.init();
+            window.state.onboarded = true;
+            window.state.namesMode = chosenMode;
+            window.state.userTeamId = parseInt(teamIdx, 10);
+            
+            if (isNaN(window.state.userTeamId)) {
+                throw new Error('Invalid team selection');
+            }
+
+            window.state.player = { teamId: window.state.userTeamId };
+
+            // Create league with error handling
+            const teams = this.listByMode(window.state.namesMode);
+            if (teams.length === 0) {
+                throw new Error('No teams available for selected mode');
+            }
+
+            if (!window.makeLeague) {
+                throw new Error('League creation system not available');
+            }
+
+            window.state.league = window.makeLeague(teams);
+            
+            // Initialize other systems
+            if (window.ensureFA) {
+                try {
+                    window.ensureFA();
+                } catch (error) {
+                    console.warn('Failed to initialize free agency:', error);
+                }
+            }
+
+            // Save state
+            const saveResult = await this.saveGameState();
+            if (!saveResult.success) {
+                console.warn('Failed to save initial game state:', saveResult.error);
+            }
+
+            // Close modal and navigate
+            const modal = this.getElement('onboardModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+
+            location.hash = '#/hub';
+            
+            // Initialize UI
+            if (window.initializeUIFixes) {
+                window.initializeUIFixes();
+            }
+
+            this.setStatus('New game created successfully!', 'success', 3000);
+            
+        } catch (error) {
+            console.error('Error in initNewGame:', error);
+            this.setStatus(`Failed to create new game: ${error.message}`, 'error');
+            throw error;
+        }
+    }
+
+    // --- ROBUST INITIALIZATION ---
+    async init() {
+        if (this.initPromise) {
+            return this.initPromise;
+        }
+
+        this.initPromise = this._performInit();
+        return this.initPromise;
+    }
+
+    async _performInit() {
+        console.log('GameController: Initializing...');
+        
+        try {
+            // Load saved state
+            const loadResult = await this.loadGameState();
+            
+            if (loadResult.success && loadResult.gameData?.onboarded) {
+                window.state = loadResult.gameData;
+                this.setStatus('Game loaded successfully', 'success', 2000);
+            } else {
+                // Initialize new game state
+                if (!window.State?.init) {
+                    throw new Error('State system not loaded');
+                }
+                
+                window.state = window.State.init();
+                await this.openOnboard();
+            }
+
+            // Setup event listeners
+            this.setupEventListeners();
+            
+            // Initialize UI fixes
+            if (window.initializeUIFixes) {
+                window.initializeUIFixes();
+            }
+
+            // Setup auto-save
+            this.setupAutoSave();
+
+            this.initialized = true;
+            console.log('✅ GameController initialized successfully');
+            
+        } catch (error) {
+            console.error('FATAL ERROR during initialization:', error);
+            this.setStatus(`Initialization failed: ${error.message}`, 'error', 10000);
+            
+            // Try to recover with minimal state
+            try {
+                window.state = { onboarded: false };
+                await this.openOnboard();
+            } catch (recoveryError) {
+                console.error('Recovery failed:', recoveryError);
+                this.setStatus('Game failed to start. Please refresh the page.', 'error', 0);
+            }
+        }
+    }
+
+    // --- EVENT MANAGEMENT ---
+    setupEventListeners() {
+        // Clean up existing listeners first
+        this.removeAllEventListeners();
+
+        // Add new listeners with proper cleanup tracking
+        this.addEventListener(window, 'beforeunload', this.handleBeforeUnload.bind(this));
+        this.addEventListener(window, 'hashchange', this.handleHashChange.bind(this));
+        
+        // Memory cleanup on visibility change
+        this.addEventListener(document, 'visibilitychange', () => {
+            if (document.hidden) {
+                this.clearDOMCache();
+            }
         });
-    } catch (error) {
-        console.error('Error populating team dropdown:', error);
     }
-}
 
-function initNewGame(options) {
-    try {
-        window.state = window.State.init();
-        state.onboarded = true;
-        state.namesMode = options.chosenMode;
-        state.userTeamId = parseInt(options.teamIdx, 10);
-        state.player = { teamId: state.userTeamId };
-        const teams = listByMode(state.namesMode);
-        state.league = window.makeLeague(teams);
-        if (window.ensureFA) window.ensureFA();
-        saveState();
-        const modal = document.getElementById('onboardModal');
-        if (modal) modal.style.display = 'none';
-        location.hash = '#/hub';
-        if (window.initializeUIFixes) window.initializeUIFixes();
-    } catch (error) {
-        console.error('Error in initNewGame:', error);
-        setStatus(`Error creating new game: ${error.message}`);
-    }
-}
-
-// --- GAME INITIALIZATION ---
-function init() {
-    console.log('Main.js: Initializing game...');
-    try {
-        const savedState = loadState();
-        if (savedState && savedState.onboarded) {
-            window.state = savedState;
-        } else {
-            window.state = State.init();
-            openOnboard();
+    addEventListener(element, event, handler) {
+        const key = `${element.constructor.name}_${event}`;
+        if (this.eventListeners.has(key)) {
+            element.removeEventListener(event, this.eventListeners.get(key));
         }
-        if (window.setupEventListeners) setupEventListeners();
-        if (window.initializeUIFixes) initializeUIFixes();
-    } catch (error) {
-        console.error('FATAL ERROR during initialization:', error);
+        element.addEventListener(event, handler);
+        this.eventListeners.set(key, handler);
     }
-}
 
-function refreshAll() {
-    if (!state.onboarded || !state.league) return;
-    try {
-        // ... (Code to refresh UI elements, e.g., calling render functions)
-        const currentHash = location.hash.slice(2) || 'hub';
-        if (window.router) window.router(currentHash);
-    } catch (error) {
-        console.error('Error in refreshAll:', error);
+    removeAllEventListeners() {
+        this.eventListeners.forEach((handler, key) => {
+            const [elementType, event] = key.split('_');
+            const element = elementType === 'Window' ? window : document;
+            element.removeEventListener(event, handler);
+        });
+        this.eventListeners.clear();
     }
-}
 
-
-// --- THE MISSING "SAFETY NET" CODE ---
-// This block was removed in the last version and is now restored.
-// It creates placeholder functions to prevent crashes if a file fails to load.
-(function safeInitializeMissingFunctions() {
-    const requiredFunctions = {
-        makeLeague: (teams) => { return { teams: teams, year: 2025, week: 1, schedule: { weeks: [] } }; },
-        generateProspects: () => { return []; },
-        generateCoaches: () => {},
-        ensureFA: () => {},
-        runWeeklyTraining: () => {},
-        runOffseason: () => {},
-        capHitFor: (player) => player.baseAnnual || 0,
-        renderTrade: () => {},
-        renderFreeAgency: () => {},
-        renderDraft: () => {},
-        renderScouting: () => {},
-        renderCoaching: () => {},
-        simulateWeek: () => { setStatus('Simulation logic not loaded.'); }
-    };
-    for (const funcName in requiredFunctions) {
-        if (typeof window[funcName] !== 'function') {
-            console.warn(`Creating fallback for missing function: ${funcName}`);
-            window[funcName] = requiredFunctions[funcName];
+    handleBeforeUnload(event) {
+        if (window.state?.needsSave) {
+            event.preventDefault();
+            event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+            return event.returnValue;
         }
     }
-})();
 
+    handleHashChange() {
+        try {
+            const hash = location.hash.slice(2) || 'hub';
+            if (window.router && typeof window.router === 'function') {
+                window.router(hash);
+            }
+        } catch (error) {
+            console.error('Error handling hash change:', error);
+        }
+    }
 
-// --- GLOBAL ACCESS & START ---
-window.setStatus = setStatus;
-window.listByMode = listByMode;
-window.openOnboard = openOnboard;
-window.populateTeamDropdown = populateTeamDropdown;
-window.initNewGame = initNewGame;
-window.refreshAll = refreshAll;
+    // --- AUTO-SAVE SYSTEM ---
+    setupAutoSave() {
+        // Clear any existing auto-save
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+        }
 
-document.addEventListener('DOMContentLoaded', init);
+        // Auto-save every 5 minutes
+        this.autoSaveInterval = setInterval(() => {
+            if (window.state?.onboarded && window.state?.needsSave) {
+                this.saveGameState().then(result => {
+                    if (result.success) {
+                        window.state.needsSave = false;
+                        console.log('Auto-save completed');
+                    }
+                }).catch(error => {
+                    console.error('Auto-save failed:', error);
+                });
+            }
+        }, 5 * 60 * 1000);
+    }
+
+    // --- ENHANCED SAVE/LOAD ---
+    async saveGameState(stateToSave = null) {
+        try {
+            if (window.saveState && typeof window.saveState === 'function') {
+                const result = window.saveState(stateToSave);
+                return result;
+            } else {
+                throw new Error('Save system not available');
+            }
+        } catch (error) {
+            console.error('Save failed:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async loadGameState() {
+        try {
+            if (window.loadState && typeof window.loadState === 'function') {
+                const gameData = window.loadState();
+                if (gameData) {
+                    return { success: true, gameData };
+                } else {
+                    return { success: false, error: 'No save data found' };
+                }
+            } else {
+                throw new Error('Load system not available');
+            }
+        } catch (error) {
+            console.error('Load failed:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // --- IMPROVED REFRESH SYSTEM ---
+    async refreshAll() {
+        if (!window.state?.onboarded || !window.state?.league) {
+            console.warn('Cannot refresh - game not properly initialized');
+            return;
+        }
+
+        try {
+            // Clear DOM cache to ensure fresh elements
+            this.clearDOMCache();
+            
+            // Refresh current view
+            const currentHash = location.hash.slice(2) || 'hub';
+            if (window.router && typeof window.router === 'function') {
+                window.router(currentHash);
+            }
+            
+        } catch (error) {
+            console.error('Error in refreshAll:', error);
+            this.setStatus('Failed to refresh display', 'error');
+        }
+    }
+
+    // --- ENHANCED SAFETY NET ---
+    initializeSafetyNet() {
+        const requiredFunctions = {
+            makeLeague: (teams) => ({
+                teams: teams || [],
+                year: 2025,
+                week: 1,
+                schedule: { weeks: [] },
+                standings: { divisions: {} }
+            }),
+            generateProspects: () => [],
+            generateCoaches: () => {},
+            ensureFA: () => {},
+            runWeeklyTraining: () => {},
+            runOffseason: () => {},
+            capHitFor: (player) => player?.baseAnnual || 0,
+            renderTrade: () => console.warn('Trade system not loaded'),
+            renderFreeAgency: () => console.warn('Free agency system not loaded'),
+            renderDraft: () => console.warn('Draft system not loaded'),
+            renderScouting: () => console.warn('Scouting system not loaded'),
+            renderCoaching: () => console.warn('Coaching system not loaded'),
+            simulateWeek: () => this.setStatus('Simulation logic not loaded', 'warning')
+        };
+
+        let missingCount = 0;
+        for (const [funcName, fallback] of Object.entries(requiredFunctions)) {
+            if (typeof window[funcName] !== 'function') {
+                console.warn(`Creating fallback for missing function: ${funcName}`);
+                window[funcName] = fallback;
+                missingCount++;
+            }
+        }
+
+        if (missingCount > 0) {
+            console.warn(`⚠️  ${missingCount} functions are missing - using fallbacks`);
+        }
+    }
+
+    // --- CLEANUP ---
+    cleanup() {
+        this.removeAllEventListeners();
+        this.clearDOMCache();
+        
+        if (this.autoSaveInterval) {
+            clearInterval(this.autoSaveInterval);
+            this.autoSaveInterval = null;
+        }
+        
+        this.initialized = false;
+        this.initPromise = null;
+    }
+}
+
+// --- GLOBAL INITIALIZATION ---
+const gameController = new GameController();
+
+// Initialize safety net immediately
+gameController.initializeSafetyNet();
+
+// Expose necessary functions globally
+window.setStatus = (msg, type, duration) => gameController.setStatus(msg, type, duration);
+window.listByMode = (mode) => gameController.listByMode(mode);
+window.openOnboard = () => gameController.openOnboard();
+window.populateTeamDropdown = (mode) => gameController.populateTeamDropdown(mode);
+window.initNewGame = (options) => gameController.initNewGame(options);
+window.refreshAll = () => gameController.refreshAll();
+window.currentTeam = () => gameController.getCurrentTeam();
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', () => {
+    gameController.cleanup();
+});
+
+// Initialize when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    gameController.init().catch(error => {
+        console.error('Failed to initialize game:', error);
+    });
+});
