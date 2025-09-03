@@ -335,6 +335,22 @@
   color: var(--text, #E6EDF3);
 }
 
+.coaching-actions {
+  margin-top: 2rem;
+}
+
+.coaching-actions .btn {
+  margin-bottom: 1rem;
+}
+
+.coaching-help {
+  font-size: 0.875rem;
+  color: var(--text-subtle, #6E7681);
+  max-width: 400px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
 /* Animations */
 .coaching-table tbody tr,
 .hof-coach-card,
