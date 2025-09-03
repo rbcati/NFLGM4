@@ -612,3 +612,63 @@ window.testTeamLoading = function() {
     
     console.log('🧪 === END TEAM LOADING TEST ===');
 };
+
+// Add player stats debug function
+window.debugPlayerStatsSystem = function() {
+    console.log('🔍 === PLAYER STATS SYSTEM DEBUG ===');
+    
+    // Check if player stats viewer is initialized
+    console.log('1️⃣ PlayerStatsViewer check:');
+    console.log('window.playerStatsViewer:', !!window.playerStatsViewer);
+    if (window.playerStatsViewer) {
+        console.log('Initialized:', window.playerStatsViewer.initialized);
+        console.log('Modal:', !!window.playerStatsViewer.modal);
+        console.log('Current player:', window.playerStatsViewer.currentPlayer);
+    }
+    
+    // Check if team ratings functions are available
+    console.log('2️⃣ Team ratings functions check:');
+    console.log('calculateOffensiveRating:', !!window.calculateOffensiveRating);
+    console.log('calculateDefensiveRating:', !!window.calculateDefensiveRating);
+    console.log('calculateTeamRating:', !!window.calculateTeamRating);
+    
+    // Check if player stats modal exists in DOM
+    console.log('3️⃣ DOM elements check:');
+    const modal = document.getElementById('playerStatsModal');
+    console.log('playerStatsModal element:', !!modal);
+    if (modal) {
+        console.log('Modal display:', modal.style.display);
+        console.log('Modal classes:', modal.className);
+    }
+    
+    // Check if any players are clickable
+    console.log('4️⃣ Player clickability check:');
+    const playerRows = document.querySelectorAll('.player-row, tr[data-player-id]');
+    console.log('Player rows found:', playerRows.length);
+    if (playerRows.length > 0) {
+        console.log('Sample player row:', playerRows[0]);
+        console.log('Has clickable class:', playerRows[0].classList.contains('clickable'));
+        console.log('Has player ID:', !!playerRows[0].dataset.playerId);
+    }
+    
+    // Check game state
+    console.log('5️⃣ Game state check:');
+    console.log('window.state:', !!window.state);
+    if (window.state) {
+        console.log('League:', !!window.state.league);
+        console.log('Teams:', window.state.league?.teams?.length || 'missing');
+        if (window.state.league?.teams) {
+            const firstTeam = window.state.league.teams[0];
+            console.log('First team:', firstTeam?.name);
+            console.log('First team roster:', firstTeam?.roster?.length || 'missing');
+            if (firstTeam?.roster?.length > 0) {
+                const firstPlayer = firstTeam.roster[0];
+                console.log('First player:', firstPlayer?.name);
+                console.log('First player stats:', !!firstPlayer?.stats);
+                console.log('First player ratings:', !!firstPlayer?.ratings);
+            }
+        }
+    }
+    
+    console.log('🔍 === END PLAYER STATS DEBUG ===');
+};
