@@ -10,6 +10,26 @@ class PlayerStatsViewer {
     constructor() {
         this.currentPlayer = null;
         this.modal = null;
+        this.initialized = false;
+        this.waitForLeague();
+    }
+
+    async waitForLeague() {
+        // Wait for league to be ready before initializing
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        while (attempts < maxAttempts) {
+            if (window.state && window.state.league && window.state.league.teams) {
+                this.init();
+                this.initialized = true;
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 100));
+            attempts++;
+        }
+        
+        console.warn('PlayerStatsViewer: League not ready after timeout, initializing anyway');
         this.init();
     }
 
@@ -67,19 +87,72 @@ class PlayerStatsViewer {
                 }
             }
         });
+
+        // Listen for league changes to clean up stale data
+        if (window.state) {
+            const originalLeague = window.state.league;
+            Object.defineProperty(window.state, 'league', {
+                get: function() { return originalLeague; },
+                set: function(newLeague) {
+                    if (newLeague !== originalLeague) {
+                        originalLeague = newLeague;
+                        // Clean up stale player IDs when league changes
+                        this.cleanupStalePlayerIds();
+                    }
+                }.bind(this)
+            });
+        }
+    }
+
+    cleanupStalePlayerIds() {
+        // Remove stale player IDs from DOM elements
+        const playerRows = document.querySelectorAll('[data-player-id]');
+        const validPlayerIds = new Set();
+        
+        if (window.state && window.state.league && window.state.league.teams) {
+            window.state.league.teams.forEach(team => {
+                if (team.players && Array.isArray(team.players)) {
+                    team.players.forEach(player => {
+                        if (player && player.id) {
+                            validPlayerIds.add(player.id);
+                        }
+                    });
+                }
+            });
+        }
+
+        playerRows.forEach(row => {
+            const playerId = row.dataset.playerId;
+            if (playerId && !validPlayerIds.has(playerId)) {
+                // Remove stale player ID
+                row.removeAttribute('data-player-id');
+                console.debug('Removed stale player ID:', playerId);
+            }
+        });
     }
 
     showPlayerStats(playerId) {
-        const L = state.league;
-        if (!L || !L.teams) return;
+        // Check if league is ready
+        if (!this.initialized || !window.state || !window.state.league || !window.state.league.teams) {
+            console.warn('PlayerStatsViewer: League not ready, cannot show player stats');
+            return;
+        }
+
+        const L = window.state.league;
+        
+        // Validate player ID
+        if (!playerId || typeof playerId !== 'string') {
+            console.warn('PlayerStatsViewer: Invalid player ID provided:', playerId);
+            return;
+        }
 
         // Find player across all teams
         let player = null;
         let playerTeam = null;
         
         for (const team of L.teams) {
-            if (team.players) {
-                const foundPlayer = team.players.find(p => p.id === playerId);
+            if (team.players && Array.isArray(team.players)) {
+                const foundPlayer = team.players.find(p => p && p.id === playerId);
                 if (foundPlayer) {
                     player = foundPlayer;
                     playerTeam = team;
@@ -89,7 +162,8 @@ class PlayerStatsViewer {
         }
 
         if (!player) {
-            console.error('Player not found:', playerId);
+            // Don't log error for missing players - this is expected when DOM has stale data
+            console.debug('Player not found (likely stale DOM data):', playerId);
             return;
         }
 
@@ -314,6 +388,11 @@ class PlayerStatsViewer {
             }
         });
     }
+
+    // Public method to clean up stale player IDs
+    cleanupStaleData() {
+        this.cleanupStalePlayerIds();
+    }
 }
 
 // Initialize the player stats viewer
@@ -325,3 +404,21 @@ document.addEventListener('DOMContentLoaded', () => {
 // Make function globally available
 window.playerStatsViewer = playerStatsViewer;
 window.makePlayersClickable = () => playerStatsViewer?.makePlayersClickable();
+window.cleanupStalePlayerData = () => playerStatsViewer?.cleanupStaleData();
+
+// Add cleanup to window state changes
+if (window.state) {
+    const originalState = window.state;
+    Object.defineProperty(window, 'state', {
+        get: function() { return originalState; },
+        set: function(newState) {
+            if (newState !== originalState) {
+                originalState = newState;
+                // Clean up stale data when state changes
+                if (playerStatsViewer && playerStatsViewer.cleanupStaleData) {
+                    setTimeout(() => playerStatsViewer.cleanupStaleData(), 100);
+                }
+            }
+        }
+    });
+}
