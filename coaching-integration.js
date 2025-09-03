@@ -45,8 +45,69 @@ function enhanceStaffGeneration() {
  */
 function makeBasicStaff(position) {
   const U = window.Utils;
-  const firstNames = ['Mike', 'John', 'Bill', 'Tom', 'Jim', 'Dave', 'Steve', 'Dan', 'Ron', 'Joe'];
-  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis', 'Miller', 'Wilson'];
+  
+  // Expanded first names - much more diverse and realistic
+  const firstNames = [
+    'Mike', 'John', 'Bill', 'Tom', 'Jim', 'Dave', 'Steve', 'Dan', 'Ron', 'Joe',
+    'Matt', 'Chris', 'Kevin', 'Brian', 'Mark', 'Jeff', 'Scott', 'Tim', 'Greg', 'Tony',
+    'Andy', 'Sean', 'Todd', 'Ken', 'Mike', 'Pat', 'Frank', 'Gary', 'Larry', 'Jerry',
+    'Nick', 'Josh', 'Ryan', 'Eric', 'Adam', 'Jason', 'Justin', 'Brandon', 'Travis', 'Cody',
+    'Derek', 'Corey', 'Shane', 'Brent', 'Blake', 'Jake', 'Luke', 'Cole', 'Chase', 'Tyler',
+    'Zach', 'Nathan', 'Austin', 'Jordan', 'Dylan', 'Logan', 'Cameron', 'Hunter', 'Isaac', 'Evan',
+    'Gavin', 'Mason', 'Lucas', 'Aiden', 'Owen', 'Connor', 'Caleb', 'Wyatt', 'Jack', 'Noah',
+    'Liam', 'Ethan', 'Alexander', 'Henry', 'Sebastian', 'Michael', 'Daniel', 'David', 'Joseph', 'Christopher',
+    'Andrew', 'James', 'Robert', 'William', 'Richard', 'Thomas', 'Charles', 'Donald', 'George', 'Kenneth',
+    'Edward', 'Paul', 'Steven', 'Anthony', 'Kenneth', 'Andrew', 'Joshua', 'Kenneth', 'Kevin', 'Brian',
+    'Maria', 'Sarah', 'Jennifer', 'Jessica', 'Amanda', 'Melissa', 'Nicole', 'Stephanie', 'Ashley', 'Heather',
+    'Michelle', 'Kimberly', 'Amy', 'Angela', 'Lisa', 'Rebecca', 'Laura', 'Sharon', 'Cynthia', 'Karen',
+    'Helen', 'Sandra', 'Donna', 'Carol', 'Ruth', 'Sharon', 'Linda', 'Betty', 'Nancy', 'Helen'
+  ];
+  
+  // Expanded last names - much more diverse and realistic
+  const lastNames = [
+    'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor',
+    'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Garcia', 'Martinez', 'Robinson',
+    'Clark', 'Rodriguez', 'Lewis', 'Lee', 'Walker', 'Perez', 'Hall', 'Young', 'Allen', 'King',
+    'Wright', 'Scott', 'Torres', 'Nguyen', 'Hill', 'Flores', 'Green', 'Adams', 'Nelson', 'Baker',
+    'Rivera', 'Campbell', 'Mitchell', 'Carter', 'Roberts', 'Gomez', 'Phillips', 'Evans', 'Turner', 'Diaz',
+    'Parker', 'Cruz', 'Edwards', 'Collins', 'Reyes', 'Stewart', 'Morris', 'Morales', 'Murphy', 'Peterson',
+    'Bailey', 'Reed', 'Kelly', 'Howard', 'Ramos', 'Kim', 'Cox', 'Ward', 'Richardson', 'Watson',
+    'Brooks', 'Chavez', 'Wood', 'James', 'Bennett', 'Gray', 'Mendoza', 'Ruiz', 'Hughes', 'Price',
+    'Alvarez', 'Castillo', 'Sanders', 'Patel', 'Myers', 'Long', 'Ross', 'Foster', 'Jimenez', 'Powell',
+    'Jenkins', 'Perry', 'Russell', 'Sullivan', 'Bell', 'Coleman', 'Jenkins', 'Perry', 'Russell', 'Sullivan',
+    'Bell', 'Coleman', 'Butler', 'Henderson', 'Barnes', 'Gonzales', 'Fisher', 'Vasquez', 'Simmons', 'Romero',
+    'Jordan', 'Patterson', 'Hughes', 'Flores', 'Washington', 'Butler', 'Simmons', 'Foster', 'Gonzales', 'Bryant',
+    'Alexander', 'Russell', 'Griffin', 'Diaz', 'Hayes', 'Myers', 'Ford', 'Hamilton', 'Graham', 'Sullivan',
+    'Wallace', 'Woods', 'Cole', 'West', 'Jordan', 'Owens', 'Reynolds', 'Fisher', 'Ellis', 'Harrison',
+    'Gibson', 'McDonald', 'Cruz', 'Marshall', 'Ortiz', 'Gomez', 'Murray', 'Freeman', 'Wells', 'Webb',
+    'Simpson', 'Stevens', 'Tucker', 'Porter', 'Hunter', 'Hicks', 'Crawford', 'Henry', 'Boyd', 'Mason',
+    'Morris', 'Kennedy', 'Warren', 'Dixon', 'Ramos', 'Reyes', 'Burns', 'Gordon', 'Shaw', 'Holmes',
+    'Rice', 'Robertson', 'Hunt', 'Black', 'Daniels', 'Palmer', 'Mills', 'Nichols', 'Grant', 'Knight',
+    'Ferguson', 'Rose', 'Stone', 'Hawkins', 'Dunn', 'Perkins', 'Hudson', 'Spencer', 'Gardner', 'Stephens',
+    'Payne', 'Pierce', 'Berry', 'Matthews', 'Arnold', 'Wagner', 'Willis', 'Ray', 'Watkins', 'Olson',
+    'Carroll', 'Duncan', 'Snyder', 'Hart', 'Cunningham', 'Bradley', 'Lane', 'Andrews', 'Ruiz', 'Harper',
+    'Fox', 'Riley', 'Armstrong', 'Carpenter', 'Weaver', 'Greene', 'Lawrence', 'Elliott', 'Chavez', 'Sims',
+    'Austin', 'Peters', 'Kelley', 'Franklin', 'Lawson', 'Fields', 'Gutierrez', 'Ryan', 'Schmidt', 'Carr',
+    'Vasquez', 'Callahan', 'Schneider', 'Leach', 'Estrada', 'Beasley', 'Atkins', 'Mejia', 'Stokes', 'Barnes',
+    'Erickson', 'Holt', 'Dougherty', 'Brennan', 'Larson', 'Newman', 'Wong', 'Garrett', 'Jacobs', 'Pratt',
+    'Williamson', 'Chapman', 'Lawrence', 'Andrews', 'Peterson', 'Franklin', 'Lynch', 'Bishop', 'Arnold', 'Harrison',
+    'Spencer', 'Pierce', 'Myers', 'Lynch', 'Zimmerman', 'Guzman', 'McKenzie', 'Craig', 'Bond', 'Duncan',
+    'Kennedy', 'Buchanan', 'Valentine', 'Shelton', 'Bates', 'Casey', 'Thornton', 'McLean', 'O\'Connor', 'Walsh',
+    'Jeffries', 'Eaton', 'Watkins', 'Burns', 'Spencer', 'Daniels', 'Rojas', 'Chan', 'Mathis', 'Singh',
+    'Guerrero', 'Rowland', 'Keller', 'Sherman', 'Morton', 'Berg', 'Lucero', 'Zuniga', 'Bauer', 'Zavala',
+    'Jacobson', 'Arellano', 'Phelps', 'McClain', 'Riggs', 'Turner', 'Calhoun', 'O\'Neal', 'Small', 'Pope',
+    'Fitzgerald', 'Walton', 'Warren', 'Hodges', 'Jarvis', 'Miranda', 'Aguilar', 'Velasquez', 'Castillo', 'Callahan',
+    'Hendrix', 'Collier', 'Lane', 'Thomas', 'Hester', 'Stout', 'Barrera', 'Keith', 'Bradshaw', 'Acosta',
+    'Shannon', 'Hendricks', 'Moody', 'Terry', 'Hoffman', 'Blair', 'Daniels', 'Cross', 'Simon', 'James',
+    'Rodriguez', 'Jackson', 'Fowler', 'Newman', 'Harvey', 'Li', 'Jiang', 'Kumar', 'Patel', 'Singh',
+    'Zhang', 'Wang', 'Liu', 'Chen', 'Yang', 'Huang', 'Wu', 'Zhou', 'Sun', 'Zhu',
+    'Kim', 'Park', 'Lee', 'Choi', 'Jung', 'Kang', 'Yoon', 'Jang', 'Han', 'Song',
+    'Tanaka', 'Sato', 'Suzuki', 'Takahashi', 'Watanabe', 'Ito', 'Yamamoto', 'Nakamura', 'Kobayashi', 'Kato',
+    'Yamada', 'Yamaguchi', 'Sasaki', 'Matsumoto', 'Inoue', 'Hayashi', 'Matsuda', 'Kimura', 'Shimizu', 'Hayakawa',
+    'Saito', 'Murakami', 'Ishikawa', 'Sakamoto', 'Endo', 'Aoki', 'Ikeda', 'Fujimoto', 'Nishimura', 'Fukuda',
+    'Ota', 'Miura', 'Okada', 'Nakajima', 'Harada', 'Fujita', 'Takeuchi', 'Ishii', 'Hasegawa', 'Ogawa',
+    'Goto', 'Matsui', 'Sugiyama', 'Yamashita', 'Saito', 'Hara', 'Sato', 'Takeda', 'Ito', 'Watanabe'
+  ];
   
   return {
     id: U ? U.id() : Math.random().toString(36).slice(2),
