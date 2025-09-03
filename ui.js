@@ -97,6 +97,51 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
 // --- ENHANCED HELPER FUNCTIONS ---
 // Note: listByMode is defined in teams.js, don't override it here
 
+window.fillTeamSelect = function(selectElement, mode = 'fictional') {
+    try {
+        if (!selectElement) {
+            console.error('fillTeamSelect: No select element provided');
+            return false;
+        }
+        
+        if (!window.listByMode) {
+            console.error('fillTeamSelect: listByMode function not available');
+            return false;
+        }
+        
+        const teams = window.listByMode(mode);
+        if (!teams || teams.length === 0) {
+            console.error('fillTeamSelect: No teams available for mode:', mode);
+            return false;
+        }
+        
+        // Clear existing options
+        selectElement.innerHTML = '';
+        
+        // Add team options
+        teams.forEach((team, index) => {
+            const option = document.createElement('option');
+            option.value = String(index);
+            option.textContent = `${team.abbr} — ${team.name}`;
+            selectElement.appendChild(option);
+        });
+        
+        // Set default selection
+        if (window.state?.userTeamId !== undefined && window.state.userTeamId < teams.length) {
+            selectElement.value = window.state.userTeamId;
+        } else {
+            selectElement.value = '0';
+        }
+        
+        console.log(`✅ fillTeamSelect: Populated ${teams.length} teams for mode: ${mode}`);
+        return true;
+        
+    } catch (error) {
+        console.error('Error in fillTeamSelect:', error);
+        return false;
+    }
+};
+
 window.getCurrentTeam = function() {
     try {
         if (!window.state?.league?.teams || window.state.userTeamId === undefined) {
