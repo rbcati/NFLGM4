@@ -244,12 +244,12 @@ function renderPowerRankings() {
     
     // Calculate power rankings based on record and point differential
     const teamsWithPower = L.teams.map(team => {
-        const record = team.record || { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
-        const wins = record.w || 0;
-        const losses = record.l || 0;
-        const ties = record.t || 0;
-        const pointsFor = record.pf || 0;
-        const pointsAgainst = record.pa || 0;
+        // Use the direct team properties that are set by simulation
+        const wins = team.wins || 0;
+        const losses = team.losses || 0;
+        const ties = team.ties || 0;
+        const pointsFor = team.ptsFor || 0;
+        const pointsAgainst = team.ptsAgainst || 0;
         
         // Power score calculation
         const winPct = (wins + ties * 0.5) / Math.max(1, wins + losses + ties);
@@ -330,20 +330,121 @@ function renderLastWeekResults() {
 }
 
 window.renderTrade = function() {
-    // ... This is the full renderTrade function you provided ...
+    console.log('Rendering trade center...');
+    try {
+        const L = state.league;
+        if (!L) {
+            console.error('No league data available');
+            return;
+        }
+        
+        const tradeContainer = document.getElementById('trade');
+        if (!tradeContainer) return;
+        
+        // Check if trade system is available
+        if (window.renderTradeCenter) {
+            window.renderTradeCenter();
+            return;
+        }
+        
+        // Fallback trade interface
+        tradeContainer.innerHTML = `
+            <div class="card">
+                <h2>Trade Center</h2>
+                <div class="muted">Trade system not fully implemented yet.</div>
+                <div class="actions mt">
+                    <button class="btn primary" onclick="alert('Trade system coming soon!')">Make Trade</button>
+                </div>
+            </div>
+        `;
+        
+        console.log('✅ Trade center rendered successfully');
+        
+    } catch (error) {
+        console.error('Error rendering trade center:', error);
+    }
 };
 
 // --- ROUTING & EVENT HANDLING ---
 window.router = function() {
     // ... This is the full router function you provided ...
 };
-// In your renderSettings function or similar:
-function renderSettings() {
-    // Existing settings rendering...
-    
-    // Add the save data manager
-    renderSaveDataManager();
-}
+window.renderSettings = function() {
+    console.log('Rendering settings...');
+    try {
+        const settingsContainer = document.getElementById('settings');
+        if (!settingsContainer) return;
+        
+        settingsContainer.innerHTML = `
+            <div class="card">
+                <h2>Game Settings</h2>
+                <div class="grid two">
+                    <div>
+                        <h3>Game Options</h3>
+                        <div class="form-group">
+                            <label for="namesMode">Player Names:</label>
+                            <select id="namesMode">
+                                <option value="fictional" ${state.namesMode === 'fictional' ? 'selected' : ''}>Fictional</option>
+                                <option value="real" ${state.namesMode === 'real' ? 'selected' : ''}>Real</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="gameMode">Game Mode:</label>
+                            <select id="gameMode">
+                                <option value="gm" ${state.gameMode === 'gm' ? 'selected' : ''}>General Manager</option>
+                                <option value="career" ${state.gameMode === 'career' ? 'selected' : ''}>Career Mode</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <h3>Save Data</h3>
+                        <div id="saveDataManager"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add the save data manager if available
+        if (window.renderSaveDataManager) {
+            window.renderSaveDataManager();
+        }
+        
+        console.log('✅ Settings rendered successfully');
+        
+    } catch (error) {
+        console.error('Error rendering settings:', error);
+    }
+};
+
+window.renderScouting = function() {
+    console.log('Rendering scouting...');
+    try {
+        const scoutingContainer = document.getElementById('scouting');
+        if (!scoutingContainer) return;
+        
+        // Check if dedicated scouting system is available
+        if (window.renderScouting) {
+            window.renderScouting();
+            return;
+        }
+        
+        // Fallback scouting interface
+        scoutingContainer.innerHTML = `
+            <div class="card">
+                <h2>Scouting</h2>
+                <div class="muted">Scouting system not fully implemented yet.</div>
+                <div class="actions mt">
+                    <button class="btn primary" onclick="alert('Scouting system coming soon!')">Scout Players</button>
+                </div>
+            </div>
+        `;
+        
+        console.log('✅ Scouting rendered successfully');
+        
+    } catch (error) {
+        console.error('Error rendering scouting:', error);
+    }
+};
 function enhanceNavigation() {
     // ... This is the full enhanceNavigation function you provided ...
 }
