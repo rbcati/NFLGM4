@@ -2,7 +2,7 @@
 'use strict';
 
 function ensureFA() {
-  if (state.freeAgents && state.freeAgents.length > 0) {
+  if (window.state?.freeAgents && window.state.freeAgents.length > 0) {
     return; // FA pool already exists
   }
   
@@ -15,8 +15,13 @@ function ensureFA() {
   }
 
   // Initialize free agents array if it doesn't exist
-  if (!state.freeAgents) {
-    state.freeAgents = [];
+  if (!window.state) {
+    console.error('Game state not available for FA generation');
+    return;
+  }
+  
+  if (!window.state.freeAgents) {
+    window.state.freeAgents = [];
   }
 
   const poolSize = C.FREE_AGENCY?.POOL_SIZE || 120;
@@ -56,13 +61,13 @@ function ensureFA() {
       window.tagAbilities(player);
     }
     
-    state.freeAgents.push(player);
+    window.state.freeAgents.push(player);
   }
   
   // Sort by overall rating (best players first)
-  state.freeAgents.sort((a, b) => b.ovr - a.ovr);
+  window.state.freeAgents.sort((a, b) => b.ovr - a.ovr);
   
-  console.log(`Generated ${state.freeAgents.length} free agents`);
+  console.log(`Generated ${window.state.freeAgents.length} free agents`);
 }
 
 function generateBasicName() {
@@ -85,7 +90,7 @@ function renderFreeAgency() {
   try {
     ensureFA();
     
-    const L = state.league;
+    const L = window.state?.league;
     if (!L) {
       console.error('No league available for free agency');
       return;
@@ -101,7 +106,7 @@ function renderFreeAgency() {
     tbl.innerHTML = '<thead><tr><th></th><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Base</th><th>Bonus</th><th>Years</th><th>Abilities</th></tr></thead>';
     const tbody = document.createElement('tbody');
     
-    state.freeAgents.forEach((p, i) => {
+    window.state.freeAgents.forEach((p, i) => {
       const tr = document.createElement('tr');
       const abilities = (p.abilities || []).join(', ') || 'None';
       
@@ -153,7 +158,7 @@ function renderFreeAgency() {
 function signFreeAgent(playerIndex) {
   console.log('Attempting to sign free agent:', playerIndex);
   
-  if (!state.freeAgents || state.freeAgents.length === 0) {
+  if (!window.state?.freeAgents || window.state.freeAgents.length === 0) {
     window.setStatus('No free agents available');
     return;
   }
@@ -168,13 +173,13 @@ function signFreeAgent(playerIndex) {
     idx = parseInt(selectedRadio.value, 10);
   }
 
-  if (isNaN(idx) || idx < 0 || idx >= state.freeAgents.length) {
+  if (isNaN(idx) || idx < 0 || idx >= window.state.freeAgents.length) {
     window.setStatus('Invalid free agent selection.');
     return;
   }
 
   try {
-    const L = state.league;
+    const L = window.state.league;
     if (!L) {
       window.setStatus('No league available');
       return;
@@ -189,22 +194,22 @@ function signFreeAgent(playerIndex) {
       return;
     }
     
-    const player = state.freeAgents[idx];
+    const player = window.state.freeAgents[idx];
     if (!player) {
       window.setStatus('Player not found');
       return;
     }
     
     // Check role permissions if in career mode
-    if (state.playerRole && state.playerRole !== 'GM') {
+    if (window.state.playerRole && window.state.playerRole !== 'GM') {
       const C = window.Constants;
       const isOffensive = C.OFFENSIVE_POSITIONS.includes(player.pos);
-      const canSign = state.playerRole === 'GM' || 
-                      (state.playerRole === 'OC' && isOffensive) || 
-                      (state.playerRole === 'DC' && !isOffensive);
+      const canSign = window.state.playerRole === 'GM' || 
+                      (window.state.playerRole === 'OC' && isOffensive) || 
+                      (window.state.playerRole === 'DC' && !isOffensive);
 
       if (!canSign) {
-        window.setStatus(`As ${state.playerRole}, you cannot sign ${player.pos}s.`);
+        window.setStatus(`As ${window.state.playerRole}, you cannot sign ${player.pos}s.`);
         return;
       }
     }
@@ -226,7 +231,7 @@ function signFreeAgent(playerIndex) {
     team.roster.sort((a, b) => b.ovr - a.ovr);
     
     // Remove from free agents
-    state.freeAgents.splice(idx, 1);
+    window.state.freeAgents.splice(idx, 1);
     
     // Update salary cap
     if (window.recalcCap) {
@@ -263,7 +268,7 @@ window.generateBasicName = generateBasicName;
 function generateFreeAgents() {
   console.log('generateFreeAgents called - delegating to ensureFA');
   ensureFA();
-  return state.freeAgents || [];
+  return window.state?.freeAgents || [];
 }
 
 // Make sure both function names are available globally
