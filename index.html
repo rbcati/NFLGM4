@@ -329,12 +329,9 @@
                     case 'trade': if (window.renderTradeCenter) window.renderTradeCenter(); else if (window.renderTrade) window.renderTrade(); break;
                     case 'settings': if (window.renderSettings) window.renderSettings(); break;
                     case 'player-stats': 
-                      // Player stats view - just show the modal if it exists
-                      if (window.playerStatsViewer && window.playerStatsViewer.currentPlayer) {
-                        window.playerStatsViewer.showModal();
-                      } else {
-                        console.log('No player selected for stats view');
-                      }
+                      // Player stats view - this is handled by the player stats viewer
+                      // The viewPlayerStats function should have already shown the modal
+                      console.log('Player stats view requested - modal should already be visible');
                       break;
                     default: console.log('No renderer for:', viewName);
                   }
