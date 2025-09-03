@@ -314,6 +314,9 @@ function renderTradeCenter() {
             tradeB.value = (state.userTeamId || 0) === 0 ? 1 : 0;
         }
         
+        // Render team ratings for both teams
+        renderTradeTeamRatings();
+        
         // Render initial trade lists
         renderTradeTeamList('A');
         renderTradeTeamList('B');
@@ -326,6 +329,103 @@ function renderTradeCenter() {
     } catch (error) {
         console.error('Error rendering trade center:', error);
     }
+}
+
+/**
+ * Renders team ratings for both teams in the trade interface
+ */
+function renderTradeTeamRatings() {
+    const L = state.league;
+    if (!L || !L.teams) return;
+    
+    const tradeA = document.getElementById('tradeA');
+    const tradeB = document.getElementById('tradeB');
+    
+    if (!tradeA || !tradeB) return;
+    
+    const teamAId = parseInt(tradeA.value);
+    const teamBId = parseInt(tradeB.value);
+    
+    const teamA = L.teams[teamAId];
+    const teamB = L.teams[teamBId];
+    
+    if (!teamA || !teamB) return;
+    
+    // Create ratings container if it doesn't exist
+    let ratingsContainer = document.getElementById('tradeTeamRatings');
+    if (!ratingsContainer) {
+        ratingsContainer = document.createElement('div');
+        ratingsContainer.id = 'tradeTeamRatings';
+        ratingsContainer.className = 'trade-team-ratings';
+        
+        // Insert before the trade lists
+        const tradeLists = document.querySelector('.trade-lists');
+        if (tradeLists) {
+            tradeLists.parentNode.insertBefore(ratingsContainer, tradeLists);
+        }
+    }
+    
+    // Calculate ratings for both teams
+    const teamARatings = {
+        offensive: window.calculateOffensiveRating ? window.calculateOffensiveRating(teamA) : 'N/A',
+        defensive: window.calculateDefensiveRating ? window.calculateDefensiveRating(teamA) : 'N/A',
+        overall: window.calculateTeamRating ? window.calculateTeamRating(teamA) : 'N/A'
+    };
+    
+    const teamBRatings = {
+        offensive: window.calculateOffensiveRating ? window.calculateOffensiveRating(teamB) : 'N/A',
+        defensive: window.calculateDefensiveRating ? window.calculateDefensiveRating(teamB) : 'N/A',
+        overall: window.calculateTeamRating ? window.calculateTeamRating(teamB) : 'N/A'
+    };
+    
+    ratingsContainer.innerHTML = `
+        <div class="trade-ratings-grid">
+            <div class="trade-team-rating">
+                <h4>${teamA.name} Ratings</h4>
+                <div class="rating-item">
+                    <span class="rating-label">Offense:</span>
+                    <span class="rating-value ${getRatingClass(teamARatings.offensive)}">${teamARatings.offensive}</span>
+                </div>
+                <div class="rating-item">
+                    <span class="rating-label">Defense:</span>
+                    <span class="rating-value ${getRatingClass(teamARatings.defensive)}">${teamARatings.defensive}</span>
+                </div>
+                <div class="rating-item">
+                    <span class="rating-label">Overall:</span>
+                    <span class="rating-value ${getRatingClass(teamARatings.overall)}">${teamARatings.overall}</span>
+                </div>
+            </div>
+            <div class="trade-team-rating">
+                <h4>${teamB.name} Ratings</h4>
+                <div class="rating-item">
+                    <span class="rating-label">Offense:</span>
+                    <span class="rating-value ${getRatingClass(teamBRatings.offensive)}">${teamBRatings.offensive}</span>
+                </div>
+                <div class="rating-item">
+                    <span class="rating-label">Defense:</span>
+                    <span class="rating-value ${getRatingClass(teamBRatings.defensive)}">${teamBRatings.defensive}</span>
+                </div>
+                <div class="rating-item">
+                    <span class="rating-label">Overall:</span>
+                    <span class="rating-value ${getRatingClass(teamBRatings.overall)}">${teamBRatings.overall}</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Helper function to get rating CSS class
+ */
+function getRatingClass(rating) {
+    if (rating === 'N/A') return '';
+    const numRating = parseInt(rating);
+    if (isNaN(numRating)) return '';
+    if (numRating >= 85) return 'rating-elite';
+    if (numRating >= 80) return 'rating-excellent';
+    if (numRating >= 75) return 'rating-good';
+    if (numRating >= 70) return 'rating-average';
+    return 'rating-below-average';
 }
 
 /**
@@ -428,6 +528,7 @@ function setupTradeValidation() {
     if (tradeA) {
         tradeA.addEventListener('change', () => {
             renderTradeTeamList('A');
+            renderTradeTeamRatings(); // Update team ratings
             clearTradeValidation();
         });
     }
@@ -435,6 +536,7 @@ function setupTradeValidation() {
     if (tradeB) {
         tradeB.addEventListener('change', () => {
             renderTradeTeamList('B');
+            renderTradeTeamRatings(); // Update team ratings
             clearTradeValidation();
         });
     }
