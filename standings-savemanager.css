@@ -158,6 +158,129 @@
   margin-bottom: 15px;
 }
 
+/* Enhanced Team Details Modal Styles */
+.team-details-modal .modal-content.large {
+  max-width: 800px;
+  width: 90vw;
+}
+
+.team-details-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.team-section {
+  background: var(--surface, rgba(22, 27, 34, 0.75));
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-lg, 16px);
+  padding: 1.5rem;
+}
+
+.team-section h3 {
+  color: var(--text, #E6EDF3);
+  margin-bottom: 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  border-bottom: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  padding-bottom: 0.5rem;
+}
+
+.team-info {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row .label {
+  color: var(--text-muted, #9FB0C2);
+  font-weight: 500;
+}
+
+.info-row .value {
+  color: var(--text, #E6EDF3);
+  font-weight: 600;
+}
+
+.info-row .value.positive {
+  color: #10B981;
+}
+
+.info-row .value.negative {
+  color: #EF4444;
+}
+
+.team-staff, .team-roster, .franchise-history {
+  background: var(--surface, rgba(22, 27, 34, 0.75));
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.1));
+  border-radius: var(--radius-lg, 16px);
+  padding: 1.5rem;
+}
+
+.team-staff h4, .team-roster h4, .franchise-history h4 {
+  color: var(--text, #E6EDF3);
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.staff-grid, .roster-stats, .franchise-stats {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.staff-member, .roster-stat, .franchise-stat {
+  color: var(--text-muted, #9FB0C2);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.staff-member:last-child, .roster-stat:last-child, .franchise-stat:last-child {
+  border-bottom: none;
+}
+
+.team-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.team-actions .btn {
+  min-width: 140px;
+}
+
+@media (max-width: 768px) {
+  .team-details-grid {
+    gap: 1rem;
+  }
+  
+  .team-section, .team-staff, .team-roster, .franchise-history {
+    padding: 1rem;
+  }
+  
+  .team-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .team-actions .btn {
+    width: 100%;
+    max-width: 300px;
+  }
+}
+
 .backup-item {
   display: flex;
   justify-content: space-between;
