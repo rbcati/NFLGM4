@@ -52,14 +52,22 @@
             teamOpponents[team.id] = new Set();
         });
 
-        // Distribute bye weeks across weeks 5-18
-        const byeWeeks = distributeByeWeeks(teams);
-        byeWeeks.forEach((weekTeams, weekIndex) => {
-            const actualWeek = weekIndex + 5; // weeks 5-18
-            weekTeams.forEach(teamId => {
-                teamByeWeek[teamId] = actualWeek;
-            });
-        });
+        // Simple bye week distribution - 2 teams per week from weeks 5-18
+        const byeWeeks = [];
+        for (let week = 5; week <= 18; week++) {
+            byeWeeks[week] = [];
+        }
+        
+        // Distribute teams to bye weeks
+        let teamIndex = 0;
+        for (let week = 5; week <= 18; week++) {
+            const teamsThisWeek = week <= 17 ? 2 : 4; // 2 teams per week, 4 in final week
+            for (let i = 0; i < teamsThisWeek && teamIndex < teams.length; i++) {
+                byeWeeks[week].push(teams[teamIndex].id);
+                teamByeWeek[teams[teamIndex].id] = week;
+                teamIndex++;
+            }
+        }
 
         // Create schedule week by week
         for (let week = 1; week <= 18; week++) {
