@@ -17,6 +17,8 @@ function setupEventListeners() {
         if (targetId === 'btnSave') return saveState();
         if (targetId === 'btnLoad') return handleLoadGame(e);
         if (targetId === 'btnNewLeague') return handleNewLeague(e);
+        if (targetId === 'btnRelease') return handleReleasePlayers(e);
+        if (targetId === 'btnSimPlayoff') return handleSimulatePlayoff(e);
         
         // **FIXED**: Debounced simulate week handler
         if (targetId === 'btnSimWeek') {
@@ -82,4 +84,36 @@ function handleNewLeague() {
     }
 }
 
+function handleReleasePlayers(e) {
+    e.preventDefault();
+    
+    // Get selected players
+    const selectedCheckboxes = document.querySelectorAll('.player-select:checked');
+    if (selectedCheckboxes.length === 0) {
+        window.setStatus('No players selected for release.');
+        return;
+    }
+    
+    const selectedIds = Array.from(selectedCheckboxes).map(cb => cb.value);
+    
+    if (confirm(`Are you sure you want to release ${selectedIds.length} player(s)? This action cannot be undone.`)) {
+        if (window.releaseSelected) {
+            window.releaseSelected(selectedIds);
+        } else {
+            window.setStatus('Release functionality not available.');
+        }
+    }
+}
+
+function handleSimulatePlayoff(e) {
+    e.preventDefault();
+    
+    if (window.simPlayoffWeek) {
+        window.simPlayoffWeek();
+    } else {
+        window.setStatus('Playoff simulation not available.');
+    }
+}
+
 window.setupEventListeners = setupEventListeners;
+
