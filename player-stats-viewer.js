@@ -140,9 +140,15 @@ class PlayerStatsViewer {
     }
 
     showPlayerStats(playerId) {
+        console.log('🔍 Attempting to show player stats for ID:', playerId);
+        
         // Check if league is ready
         if (!this.initialized || !window.state || !window.state.league || !window.state.league.teams) {
             console.warn('PlayerStatsViewer: League not ready, cannot show player stats');
+            console.log('Initialized:', this.initialized);
+            console.log('State:', !!window.state);
+            console.log('League:', !!window.state?.league);
+            console.log('Teams:', !!window.state?.league?.teams);
             return;
         }
 
@@ -463,6 +469,30 @@ function initializePlayerStatsViewer() {
         window.makePlayersClickable = () => playerStatsViewer?.makePlayersClickable();
         window.cleanupStalePlayerData = () => playerStatsViewer?.cleanupStaleData();
         window.refreshClickablePlayers = () => playerStatsViewer?.refreshClickablePlayers();
+        
+        // Add debug function
+        window.debugPlayerStats = (playerId) => {
+            console.log('🔍 Debug: Checking player stats for ID:', playerId);
+            if (window.state?.league?.teams) {
+                let found = false;
+                window.state.league.teams.forEach((team, teamIndex) => {
+                    if (team.roster) {
+                        const player = team.roster.find(p => p.id === playerId);
+                        if (player) {
+                            console.log('✅ Player found:', player);
+                            console.log('Team:', team.name);
+                            console.log('Team index:', teamIndex);
+                            found = true;
+                        }
+                    }
+                });
+                if (!found) {
+                    console.log('❌ Player not found in any team roster');
+                }
+            } else {
+                console.log('❌ League or teams not available');
+            }
+        };
         
         console.log('✅ PlayerStatsViewer initialized');
     }
