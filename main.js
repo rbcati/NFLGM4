@@ -109,8 +109,9 @@ class GameController {
     // --- ROSTER MANAGEMENT ---
     // Note: renderRoster is implemented in ui.js to avoid conflicts
     async renderRoster() {
-        // Delegate to the ui.js implementation
-        if (window.renderRoster && window.renderRoster !== this.renderRoster) {
+        // Delegate to the ui.js implementation, but avoid infinite recursion
+        if (window.renderRoster && typeof window.renderRoster === 'function') {
+            // Call the global function directly, not through this.renderRoster
             window.renderRoster();
         } else {
             console.warn('renderRoster not available from ui.js');
@@ -182,14 +183,77 @@ class GameController {
         }
     }
 
+    // --- SCHEDULE RENDERING ---
+    renderSchedule() {
+        try {
+            console.log('Rendering schedule...');
+            
+            const scheduleContainer = this.getElement('schedule');
+            if (!scheduleContainer) {
+                console.warn('Schedule container not found');
+                return;
+            }
+            
+            const L = window.state?.league;
+            if (!L || !L.schedule) {
+                scheduleContainer.innerHTML = '<div class="card"><p>No schedule available</p></div>';
+                return;
+            }
+            
+            // Simple schedule display
+            let scheduleHTML = '<div class="card"><h2>Season Schedule</h2>';
+            scheduleHTML += `<p>Current Week: ${L.week || 1}</p>`;
+            
+            for (let week = 1; week <= 18; week++) {
+                if (L.schedule[week] && L.schedule[week].length > 0) {
+                    scheduleHTML += `<h3>Week ${week}</h3>`;
+                    scheduleHTML += '<div class="schedule-week">';
+                    
+                    L.schedule[week].forEach(game => {
+                        const homeTeam = L.teams.find(t => t.id === game.home);
+                        const awayTeam = L.teams.find(t => t.id === game.away);
+                        
+                        if (homeTeam && awayTeam) {
+                            scheduleHTML += `
+                                <div class="schedule-game">
+                                    <span class="away-team">${awayTeam.name}</span>
+                                    <span class="at">@</span>
+                                    <span class="home-team">${homeTeam.name}</span>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    scheduleHTML += '</div>';
+                }
+            }
+            
+            scheduleHTML += '</div>';
+            scheduleContainer.innerHTML = scheduleHTML;
+            
+            console.log('✅ Schedule rendered successfully');
+            
+        } catch (error) {
+            console.error('Error rendering schedule:', error);
+            this.setStatus('Failed to render schedule', 'error');
+        }
+    }
+
     // --- SIMULATION FUNCTIONS ---
     handleSimulateWeek() {
         try {
             console.log('Simulating week...');
             this.setStatus('Simulating week...', 'info');
             
-            // Basic week simulation
-            if (window.state?.league) {
+            // Use the real simulation system
+            if (window.simulateWeek) {
+                window.simulateWeek();
+                this.setStatus('Week simulated successfully', 'success');
+                
+                // Re-render hub to show updated week
+                setTimeout(() => this.renderHub(), 1000);
+            } else if (window.state?.league) {
+                // Fallback: basic week simulation
                 const L = window.state.league;
                 if (L.week < 18) {
                     L.week++;
