@@ -333,6 +333,11 @@ window.renderHub = function() {
         // Render power rankings
         renderPowerRankings();
         
+        // Render team ratings overview
+        if (window.renderLeagueTeamRatings) {
+            window.renderLeagueTeamRatings(L, 'leagueTeamRatings');
+        }
+        
         // Render last week results
         renderLastWeekResults();
         
@@ -359,10 +364,25 @@ function renderPowerRankings() {
         const pointsFor = team.ptsFor || 0;
         const pointsAgainst = team.ptsAgainst || 0;
         
-        // Power score calculation
+        // Power score calculation using team ratings
         const winPct = (wins + ties * 0.5) / Math.max(1, wins + losses + ties);
         const pointDiff = pointsFor - pointsAgainst;
-        const powerScore = (winPct * 100) + (pointDiff * 0.1) + (team.ovr || 0);
+        
+        // Use team ratings if available, otherwise fall back to individual player ratings
+        let teamRating = 0;
+        if (team.overallRating) {
+            teamRating = team.overallRating;
+        } else if (team.ovr) {
+            teamRating = team.ovr;
+        } else {
+            // Calculate team rating on the fly
+            if (window.calculateTeamRating) {
+                const ratings = window.calculateTeamRating(team);
+                teamRating = ratings.overall;
+            }
+        }
+        
+        const powerScore = (winPct * 100) + (pointDiff * 0.1) + teamRating;
         
         return {
             ...team,
