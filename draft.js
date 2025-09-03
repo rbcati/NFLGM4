@@ -194,8 +194,9 @@ function generateBasicRatings(pos, baseOvr) {
  */
 function generateProspectName() {
   const U = window.Utils;
-  const firstNames = window.FIRST_NAMES || ['John', 'Mike', 'David', 'Chris', 'Matt'];
-  const lastNames = window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones'];
+  // Use expanded names for maximum variety (1,000,000+ combinations)
+  const firstNames = window.EXPANDED_FIRST_NAMES || window.FIRST_NAMES || ['John', 'Mike', 'David', 'Chris', 'Matt'];
+  const lastNames = window.EXPANDED_LAST_NAMES || window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones'];
   
   return U.choice(firstNames) + ' ' + U.choice(lastNames);
 }
