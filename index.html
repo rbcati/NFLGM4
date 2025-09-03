@@ -60,6 +60,14 @@
                   </div>
                   <div><h3>Power Ranking</h3><ol id="hubPower"></ol></div>
                 </div>
+                
+                <!-- League Team Ratings Overview -->
+                <div class="card mt">
+                  <h3>League Team Ratings</h3>
+                  <div id="leagueTeamRatings" class="league-ratings-grid">
+                    <!-- League team ratings will be rendered here -->
+                  </div>
+                </div>
               </div>
               <div class="card"><h3>Last Week Results</h3><div id="hubResults" class="list"></div></div>
             </section>
@@ -67,6 +75,12 @@
             <section id="roster" class="view" hidden>
               <div class="card">
                 <div class="row"><h2 id="rosterTitle">Roster</h2><div class="spacer"></div><label for="rosterTeam">Team</label><select id="rosterTeam"></select></div>
+                
+                <!-- Team Ratings Section -->
+                <div id="teamRatingsContainer" class="team-ratings-section">
+                  <!-- Team ratings will be rendered here -->
+                </div>
+                
                 <table class="table" id="rosterTable"></table>
                 <div class="row mt">
                   <button id="btnRelease" class="btn danger">Release Selected</button>
@@ -228,6 +242,7 @@
     <script src="events.js"></script>
     <script src="offseason.js"></script>
     <script src="playoffs.js"></script>
+    <script src="team-ratings.js"></script>
     <script src="draft.js"></script>
     <script src="rookies.js"></script>
     <script src="freeagency.js"></script>
