@@ -152,6 +152,19 @@ window.makeLeague = function(teams) {
     } else {
         console.log('Coaching system not available, skipping coaching stats initialization');
     }
+    
+    // Initialize team ratings for all teams
+    if (typeof window.updateAllTeamRatings === 'function') {
+        try {
+            window.updateAllTeamRatings(L);
+            console.log('Initialized team ratings for all teams');
+        } catch (error) {
+            console.error('Error initializing team ratings:', error);
+        }
+    } else {
+        console.log('Team ratings system not available, skipping team ratings initialization');
+    }
 
     return L;
 };
+
