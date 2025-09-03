@@ -271,13 +271,14 @@
               setTimeout(() => {
                 try {
                   switch(viewName) {
-                    case 'hub': renderFixedHub(); break;
-                    case 'roster': renderFixedRoster(); break;
-                    case 'standings': renderFixedStandings(); break;
+                    case 'hub': if (window.renderHub) window.renderHub(); break;
+                    case 'roster': if (window.renderRoster) window.renderRoster(); break;
+                    case 'standings': if (window.renderStandingsPage) window.renderStandingsPage(); else if (window.renderStandings) window.renderStandings(); break;
                     case 'freeagency': if (window.renderFreeAgency) window.renderFreeAgency(); break;
-                    case 'draft':
-                    case 'scouting': renderFixedDraft(); break;
-                    case 'trade': renderFixedTrade(); break;
+                    case 'draft': if (window.renderDraft) window.renderDraft(); break;
+                    case 'scouting': if (window.renderScouting) window.renderScouting(); break;
+                    case 'trade': if (window.renderTradeCenter) window.renderTradeCenter(); else if (window.renderTrade) window.renderTrade(); break;
+                    case 'settings': if (window.renderSettings) window.renderSettings(); break;
                     default: console.log('No renderer for:', viewName);
                   }
                 } catch (error) {
@@ -285,11 +286,7 @@
                 }
               }, 50);
             };
-            function renderFixedHub() { /* ... function content ... */ }
-            function renderFixedRoster() { /* ... function content ... */ }
-            function renderFixedStandings() { /* ... function content ... */ }
-            function renderFixedDraft() { /* ... function content ... */ }
-            function renderFixedTrade() { /* ... function content ... */ }
+
             window.scoutPlayer = function(prospectId) { /* ... function content ... */ };
             function setupNavigation() {
               console.log('🧭 Setting up navigation...');
