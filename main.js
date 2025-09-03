@@ -770,3 +770,37 @@ if (document.readyState === 'loading') {
 
 // Make controller globally available
 window.gameController = gameController;
+
+// Make all necessary functions globally available
+window.initNewGame = gameController.initNewGame.bind(gameController);
+window.saveGameState = gameController.saveGameState.bind(gameController);
+window.loadGameState = gameController.loadGameState.bind(gameController);
+window.setStatus = gameController.setStatus.bind(gameController);
+window.router = gameController.router.bind(gameController);
+window.renderRoster = gameController.renderRoster.bind(gameController);
+window.renderHub = gameController.renderHub.bind(gameController);
+window.renderGameResults = gameController.renderGameResults.bind(gameController);
+window.renderPowerRankings = gameController.renderPowerRankings.bind(gameController);
+window.renderLastWeekResults = gameController.renderLastWeekResults.bind(gameController);
+window.renderTrade = gameController.renderTrade.bind(gameController);
+window.renderSettings = gameController.renderSettings.bind(gameController);
+window.renderPlayoffs = gameController.renderPlayoffs.bind(gameController);
+window.renderScouting = gameController.renderScouting.bind(gameController);
+window.renderTeamRatings = gameController.renderTeamRatings.bind(gameController);
+window.renderLeagueTeamRatings = gameController.renderLeagueTeamRatings.bind(gameController);
+window.updateTeamRatings = gameController.updateTeamRatings.bind(gameController);
+window.updateAllTeamRatings = gameController.updateAllTeamRatings.bind(gameController);
+window.calculateOffensiveRating = gameController.calculateOffensiveRating.bind(gameController);
+window.calculateDefensiveRating = gameController.calculateDefensiveRating.bind(gameController);
+window.calculateTeamRating = gameController.calculateTeamRating.bind(gameController);
+window.calculateDepthRating = gameController.calculateDepthRating.bind(gameController);
+window.calculateStarPowerRating = gameController.calculateStarPowerRating.bind(gameController);
+window.calculateOverallRating = gameController.calculateOverallRating.bind(gameController);
+window.getElement = gameController.getElement.bind(gameController);
+window.listByMode = gameController.listByMode.bind(gameController);
+window.populateTeamDropdown = gameController.populateTeamDropdown.bind(gameController);
+window.fillTeamSelect = gameController.fillTeamSelect.bind(gameController);
+window.getCurrentTeam = gameController.getCurrentTeam.bind(gameController);
+window.handleTeamSelectionChange = gameController.handleTeamSelectionChange.bind(gameController);
+
+console.log('✅ GameController functions exported globally');
