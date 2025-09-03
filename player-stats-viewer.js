@@ -119,8 +119,8 @@ class PlayerStatsViewer {
         
         if (window.state && window.state.league && window.state.league.teams) {
             window.state.league.teams.forEach(team => {
-                if (team.players && Array.isArray(team.players)) {
-                    team.players.forEach(player => {
+                if (team.roster && Array.isArray(team.roster)) {
+                    team.roster.forEach(player => {
                         if (player && player.id) {
                             validPlayerIds.add(player.id);
                         }
@@ -159,8 +159,8 @@ class PlayerStatsViewer {
         let playerTeam = null;
         
         for (const team of L.teams) {
-            if (team.players && Array.isArray(team.players)) {
-                const foundPlayer = team.players.find(p => p && p.id === playerId);
+            if (team.roster && Array.isArray(team.roster)) {
+                const foundPlayer = team.roster.find(p => p && p.id === playerId);
                 if (foundPlayer) {
                     player = foundPlayer;
                     playerTeam = team;
@@ -184,7 +184,7 @@ class PlayerStatsViewer {
         // Update modal title and basic info
         document.getElementById('playerModalTitle').textContent = `${player.name} - Statistics`;
         document.getElementById('playerName').textContent = player.name;
-        document.getElementById('playerPosition').textContent = player.position;
+        document.getElementById('playerPosition').textContent = player.pos || player.position || 'N/A';
         document.getElementById('playerTeam').textContent = team ? team.name : 'Unknown Team';
 
         // Generate stats grid based on position
@@ -218,18 +218,21 @@ class PlayerStatsViewer {
             </div>
         `;
 
-        // Contract info
-        if (player.contract) {
+        // Contract info - handle both contract object and direct properties
+        const salary = player.contract?.salary || player.baseAnnual || player.salary || 0;
+        const years = player.contract?.years || player.years || player.yearsTotal || 'N/A';
+        
+        if (salary > 0 || years !== 'N/A') {
             statsHTML += `
                 <div class="stats-section">
                     <h3>Contract Information</h3>
                     <div class="stats-row">
                         <span class="stat-label">Salary:</span>
-                        <span class="stat-value">$${(player.contract.salary || 0).toLocaleString()}</span>
+                        <span class="stat-value">$${salary.toLocaleString()}</span>
                     </div>
                     <div class="stats-row">
                         <span class="stat-label">Years Remaining:</span>
-                        <span class="stat-value">${player.contract.years || 'N/A'}</span>
+                        <span class="stat-value">${years}</span>
                     </div>
                 </div>
             `;
@@ -450,15 +453,28 @@ class PlayerStatsViewer {
 
 // Initialize the player stats viewer
 let playerStatsViewer;
-document.addEventListener('DOMContentLoaded', () => {
-    playerStatsViewer = new PlayerStatsViewer();
-});
 
-// Make function globally available
-window.playerStatsViewer = playerStatsViewer;
-window.makePlayersClickable = () => playerStatsViewer?.makePlayersClickable();
-window.cleanupStalePlayerData = () => playerStatsViewer?.cleanupStaleData();
-window.refreshClickablePlayers = () => playerStatsViewer?.refreshClickablePlayers();
+function initializePlayerStatsViewer() {
+    if (!playerStatsViewer) {
+        playerStatsViewer = new PlayerStatsViewer();
+        
+        // Make functions globally available
+        window.playerStatsViewer = playerStatsViewer;
+        window.makePlayersClickable = () => playerStatsViewer?.makePlayersClickable();
+        window.cleanupStalePlayerData = () => playerStatsViewer?.cleanupStaleData();
+        window.refreshClickablePlayers = () => playerStatsViewer?.refreshClickablePlayers();
+        
+        console.log('✅ PlayerStatsViewer initialized');
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializePlayerStatsViewer);
+} else {
+    // DOM already loaded, initialize immediately
+    setTimeout(initializePlayerStatsViewer, 100);
+}
 
 // Add cleanup to window state changes
 if (window.state) {
