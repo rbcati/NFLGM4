@@ -35,55 +35,175 @@
         };
 
         const numTeams = teams.length;
-        const allTeams = teams.map(t => t.id);
-
-        // Generate a classic round-robin tournament structure, which gives us a base of unique matchups.
-        const rounds = [];
-        const rotatingTeams = allTeams.slice(1);
-        for (let i = 0; i < numTeams - 1; i++) {
-            const round = [];
-            round.push([allTeams[0], rotatingTeams[0]]);
-            for (let j = 1; j < numTeams / 2; j++) {
-                round.push([rotatingTeams[j], rotatingTeams[rotatingTeams.length - j]]);
-            }
-            rounds.push(round);
-            // Rotate the array for the next round
-            rotatingTeams.unshift(rotatingTeams.pop());
+        if (numTeams !== 32) {
+            console.error('NFL schedule requires exactly 32 teams');
+            return createSimpleSchedule(teams);
         }
 
-        // We now have a set of unique game weeks. We can shuffle and distribute them.
-        const allPossibleGames = rounds.flat();
-        shuffleArray(allPossibleGames);
-
-        let gameCursor = 0;
-        for (let week = 0; week < 18; week++) {
-            const weeklyGames = [];
+        // Create a proper 18-week schedule (17 games + 1 bye week per team)
+        const weeks = [];
+        
+        // Generate all possible unique matchups
+        const allMatchups = [];
+        for (let i = 0; i < numTeams; i++) {
+            for (let j = i + 1; j < numTeams; j++) {
+                allMatchups.push([teams[i].id, teams[j].id]);
+            }
+        }
+        
+        // Shuffle matchups to randomize
+        shuffleArray(allMatchups);
+        
+        // Track games per team to ensure exactly 17 games
+        const teamGameCount = {};
+        teams.forEach(team => teamGameCount[team.id] = 0);
+        
+        // Create 18 weeks
+        for (let week = 1; week <= 18; week++) {
+            const weekGames = [];
             const teamsInWeek = new Set();
+            const teamsNeedingGames = teams.filter(team => teamGameCount[team.id] < 17);
             
-            // Fill each week with up to 16 games.
-            while (weeklyGames.length < 16 && teamsInWeek.size < 32) {
-                if (gameCursor >= allPossibleGames.length) {
-                    gameCursor = 0; // Loop back to the beginning if we need more games than unique matchups
-                    shuffleArray(allPossibleGames); // Re-shuffle to avoid identical weeks
+            // If this is the last week, force remaining teams to play
+            if (week === 18) {
+                // Find teams that still need games
+                const teamsNeedingFinalGames = teams.filter(team => teamGameCount[team.id] < 17);
+                
+                // Create matchups for remaining teams
+                for (let i = 0; i < teamsNeedingFinalGames.length; i += 2) {
+                    if (i + 1 < teamsNeedingFinalGames.length) {
+                        const teamA = teamsNeedingFinalGames[i];
+                        const teamB = teamsNeedingFinalGames[i + 1];
+                        
+                        if (teamGameCount[teamA.id] < 17 && teamGameCount[teamB.id] < 17) {
+                            weekGames.push({
+                                home: Math.random() < 0.5 ? teamA.id : teamB.id,
+                                away: Math.random() < 0.5 ? teamB.id : teamA.id
+                            });
+                            teamGameCount[teamA.id]++;
+                            teamGameCount[teamB.id]++;
+                            teamsInWeek.add(teamA.id);
+                            teamsInWeek.add(teamB.id);
+                        }
+                    }
+                }
+            } else {
+                // Normal week - try to schedule up to 16 games
+                let gamesScheduled = 0;
+                let attempts = 0;
+                const maxAttempts = 1000;
+                
+                while (gamesScheduled < 16 && attempts < maxAttempts && teamsNeedingGames.length >= 2) {
+                    attempts++;
+                    
+                    // Find two teams that can play each other
+                    let teamA, teamB;
+                    let foundMatchup = false;
+                    
+                    for (let i = 0; i < teamsNeedingGames.length && !foundMatchup; i++) {
+                        for (let j = i + 1; j < teamsNeedingGames.length && !foundMatchup; j++) {
+                            const candidateA = teamsNeedingGames[i];
+                            const candidateB = teamsNeedingGames[j];
+                            
+                            // Check if both teams can play this week
+                            if (!teamsInWeek.has(candidateA.id) && 
+                                !teamsInWeek.has(candidateB.id) &&
+                                teamGameCount[candidateA.id] < 17 &&
+                                teamGameCount[candidateB.id] < 17) {
+                                
+                                teamA = candidateA;
+                                teamB = candidateB;
+                                foundMatchup = true;
+                            }
+                        }
+                    }
+                    
+                    if (foundMatchup) {
+                        weekGames.push({
+                            home: Math.random() < 0.5 ? teamA.id : teamB.id,
+                            away: Math.random() < 0.5 ? teamB.id : teamA.id
+                        });
+                        teamGameCount[teamA.id]++;
+                        teamGameCount[teamB.id]++;
+                        teamsInWeek.add(teamA.id);
+                        teamsInWeek.add(teamB.id);
+                        gamesScheduled++;
+                        
+                        // Remove teams from available list if they've played 17 games
+                        if (teamGameCount[teamA.id] >= 17) {
+                            const index = teamsNeedingGames.findIndex(t => t.id === teamA.id);
+                            if (index > -1) teamsNeedingGames.splice(index, 1);
+                        }
+                        if (teamGameCount[teamB.id] >= 17) {
+                            const index = teamsNeedingGames.findIndex(t => t.id === teamB.id);
+                            if (index > -1) teamsNeedingGames.splice(index, 1);
+                        }
+                    }
+                }
+            }
+            
+            // Add bye weeks for teams not playing this week
+            const teamsWithBye = teams.filter(team => !teamsInWeek.has(team.id));
+            if (teamsWithBye.length > 0) {
+                weekGames.push({
+                    bye: teamsWithBye.map(team => team.id)
+                });
+            }
+            
+            weeks.push({ 
+                weekNumber: week, 
+                games: weekGames,
+                teamsWithBye: teamsWithBye.map(team => team.id)
+            });
+        }
+        
+        schedule.weeks = weeks;
+        
+        // Validate schedule
+        const validation = validateSchedule(schedule, teams);
+        if (!validation.valid) {
+            console.warn('Schedule validation failed:', validation.errors);
+        }
+        
+        console.log(`Generated NFL-style schedule: ${weeks.length} weeks. Games per team:`, teamGameCount);
+        return schedule;
+    }
+    
+    /**
+     * Validates that the schedule is correct
+     * @param {Object} schedule - Schedule object
+     * @param {Array} teams - Teams array
+     * @returns {Object} Validation result
+     */
+    function validateSchedule(schedule, teams) {
+        const result = { valid: true, errors: [] };
+        const teamGameCount = {};
+        
+        teams.forEach(team => teamGameCount[team.id] = 0);
+        
+        schedule.weeks.forEach((week, weekIndex) => {
+            week.games.forEach(game => {
+                if (game.bye) {
+                    // Bye week - no games to count
+                    return;
                 }
                 
-                const [teamA, teamB] = allPossibleGames[gameCursor];
-
-                if (!teamsInWeek.has(teamA) && !teamsInWeek.has(teamB)) {
-                    weeklyGames.push({
-                        home: Math.random() < 0.5 ? teamA : teamB,
-                        away: Math.random() < 0.5 ? teamB : teamA
-                    });
-                    teamsInWeek.add(teamA);
-                    teamsInWeek.add(teamB);
+                if (game.home && game.away) {
+                    teamGameCount[game.home]++;
+                    teamGameCount[game.away]++;
                 }
-                gameCursor++;
+            });
+        });
+        
+        // Check that each team plays exactly 17 games
+        teams.forEach(team => {
+            if (teamGameCount[team.id] !== 17) {
+                result.valid = false;
+                result.errors.push(`Team ${team.name} plays ${teamGameCount[team.id]} games instead of 17`);
             }
-            schedule.weeks.push({ weekNumber: week + 1, games: weeklyGames });
-        }
-
-        console.log(`Generated robust NFL-style schedule: ${schedule.weeks.length} weeks.`);
-        return schedule;
+        });
+        
+        return result;
     }
     
     /**
@@ -129,3 +249,4 @@
     global.makeSchedule = makeAccurateSchedule;
 
 })(window);
+
