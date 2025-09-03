@@ -261,6 +261,386 @@ function evaluateTrade(givingTeam, receivingTeam, playersGiven, playersReceived)
     };
 }
 
+/**
+ * Renders the trade center interface
+ */
+function renderTradeCenter() {
+    console.log('Rendering trade center...');
+    
+    try {
+        const L = state.league;
+        if (!L || !L.teams) {
+            console.error('No league data available for trade center');
+            return;
+        }
+        
+        // Populate team selectors
+        populateTradeTeamSelectors();
+        
+        // Set default teams
+        const tradeA = document.getElementById('tradeA');
+        const tradeB = document.getElementById('tradeB');
+        
+        if (tradeA && !tradeA.value) {
+            tradeA.value = state.userTeamId || 0;
+        }
+        if (tradeB && !tradeB.value) {
+            tradeB.value = (state.userTeamId || 0) === 0 ? 1 : 0;
+        }
+        
+        // Render initial trade lists
+        renderTradeTeamList('A');
+        renderTradeTeamList('B');
+        
+        // Setup trade validation
+        setupTradeValidation();
+        
+        console.log('✅ Trade center rendered successfully');
+        
+    } catch (error) {
+        console.error('Error rendering trade center:', error);
+    }
+}
+
+/**
+ * Populates the team selectors in the trade interface
+ */
+function populateTradeTeamSelectors() {
+    const L = state.league;
+    if (!L || !L.teams) return;
+    
+    const tradeA = document.getElementById('tradeA');
+    const tradeB = document.getElementById('tradeB');
+    
+    if (tradeA) {
+        tradeA.innerHTML = L.teams.map((team, index) => 
+            `<option value="${index}">${team.name}</option>`
+        ).join('');
+    }
+    
+    if (tradeB) {
+        tradeB.innerHTML = L.teams.map((team, index) => 
+            `<option value="${index}">${team.name}</option>`
+        ).join('');
+    }
+}
+
+/**
+ * Renders the trade list for a specific team
+ * @param {string} teamLetter - 'A' or 'B'
+ */
+function renderTradeTeamList(teamLetter) {
+    const L = state.league;
+    if (!L || !L.teams) return;
+    
+    const teamSelect = document.getElementById(`trade${teamLetter}`);
+    const playerList = document.getElementById(`tradeList${teamLetter}`);
+    const pickList = document.getElementById(`pickList${teamLetter}`);
+    
+    if (!teamSelect || !playerList || !pickList) return;
+    
+    const teamId = parseInt(teamSelect.value);
+    const team = L.teams[teamId];
+    
+    if (!team) return;
+    
+    // Render players
+    if (team.roster && team.roster.length > 0) {
+        const sortedRoster = [...team.roster].sort((a, b) => {
+            if (a.pos !== b.pos) return a.pos.localeCompare(b.pos);
+            return (b.ovr || 0) - (a.ovr || 0);
+        });
+        
+        playerList.innerHTML = `
+            <h4>Players</h4>
+            <div class="trade-players">
+                ${sortedRoster.map(player => `
+                    <div class="trade-player" data-player-id="${player.id}">
+                        <input type="checkbox" name="trade${teamLetter}Players" value="${player.id}">
+                        <span class="player-name">${player.name}</span>
+                        <span class="player-pos">${player.pos}</span>
+                        <span class="player-ovr">${player.ovr}</span>
+                        <span class="player-age">${player.age}</span>
+                        <span class="player-contract">${player.years}yr</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        playerList.innerHTML = '<p class="muted">No players on roster</p>';
+    }
+    
+    // Render draft picks
+    if (team.picks && team.picks.length > 0) {
+        pickList.innerHTML = `
+            <h4>Draft Picks</h4>
+            <div class="trade-picks">
+                ${team.picks.map(pick => `
+                    <div class="trade-pick" data-pick-id="${pick.id}">
+                        <input type="checkbox" name="trade${teamLetter}Picks" value="${pick.id}">
+                        <span class="pick-round">${pick.round}</span>
+                        <span class="pick-year">${pick.year}</span>
+                        <span class="pick-team">${L.teams[pick.team]?.name || 'Unknown'}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    } else {
+        pickList.innerHTML = '<p class="muted">No draft picks available</p>';
+    }
+}
+
+/**
+ * Sets up trade validation functionality
+ */
+function setupTradeValidation() {
+    const tradeA = document.getElementById('tradeA');
+    const tradeB = document.getElementById('tradeB');
+    const validateBtn = document.getElementById('tradeValidate');
+    const executeBtn = document.getElementById('tradeExecute');
+    
+    if (tradeA) {
+        tradeA.addEventListener('change', () => {
+            renderTradeTeamList('A');
+            clearTradeValidation();
+        });
+    }
+    
+    if (tradeB) {
+        tradeB.addEventListener('change', () => {
+            renderTradeTeamList('B');
+            clearTradeValidation();
+        });
+    }
+    
+    if (validateBtn) {
+        validateBtn.addEventListener('click', validateTrade);
+    }
+    
+    if (executeBtn) {
+        executeBtn.addEventListener('click', executeTrade);
+    }
+}
+
+/**
+ * Validates the current trade
+ */
+function validateTrade() {
+    console.log('Validating trade...');
+    
+    try {
+        const L = state.league;
+        if (!L || !L.teams) return;
+        
+        const teamAId = parseInt(document.getElementById('tradeA')?.value || '0');
+        const teamBId = parseInt(document.getElementById('tradeB')?.value || '0');
+        
+        if (teamAId === teamBId) {
+            showTradeInfo('Cannot trade with yourself!', 'error');
+            return;
+        }
+        
+        const teamA = L.teams[teamAId];
+        const teamB = L.teams[teamBId];
+        
+        // Get selected players and picks
+        const playersA = getSelectedTradeItems('tradeAPlayers');
+        const picksA = getSelectedTradeItems('tradeAPicks');
+        const playersB = getSelectedTradeItems('tradeBPlayers');
+        const picksB = getSelectedTradeItems('tradeBPicks');
+        
+        if (playersA.length === 0 && picksA.length === 0 && 
+            playersB.length === 0 && picksB.length === 0) {
+            showTradeInfo('Please select players or picks to trade', 'warning');
+            return;
+        }
+        
+        // Calculate trade values
+        const valueA = calculateTradeValue(teamA, playersA, picksA);
+        const valueB = calculateTradeValue(teamB, playersB, picksB);
+        
+        // Evaluate trade
+        const evaluation = evaluateTrade(teamA, teamB, playersA, playersB);
+        
+        // Show trade info
+        const tradeInfo = document.getElementById('tradeInfo');
+        if (tradeInfo) {
+            tradeInfo.innerHTML = `
+                <div class="trade-evaluation">
+                    <div class="trade-values">
+                        <div>Team A Value: ${valueA.toFixed(1)}</div>
+                        <div>Team B Value: ${valueB.toFixed(1)}</div>
+                        <div>Difference: ${(valueB - valueA).toFixed(1)}</div>
+                    </div>
+                    <div class="trade-recommendation ${evaluation.recommendation.toLowerCase()}">
+                        ${evaluation.recommendation}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Enable execute button if trade is valid
+        const executeBtn = document.getElementById('tradeExecute');
+        if (executeBtn) {
+            executeBtn.disabled = false;
+        }
+        
+        console.log('✅ Trade validated');
+        
+    } catch (error) {
+        console.error('Error validating trade:', error);
+        showTradeInfo('Error validating trade', 'error');
+    }
+}
+
+/**
+ * Gets selected trade items by name
+ * @param {string} name - Name attribute of checkboxes
+ * @returns {Array} Array of selected values
+ */
+function getSelectedTradeItems(name) {
+    const checkboxes = document.querySelectorAll(`input[name="${name}"]:checked`);
+    return Array.from(checkboxes).map(cb => cb.value);
+}
+
+/**
+ * Calculates the total value of a trade package
+ * @param {Object} team - Team object
+ * @param {Array} players - Array of player IDs
+ * @param {Array} picks - Array of pick IDs
+ * @returns {number} Total trade value
+ */
+function calculateTradeValue(team, players, picks) {
+    let totalValue = 0;
+    
+    // Add player values
+    if (team.roster) {
+        players.forEach(playerId => {
+            const player = team.roster.find(p => p.id === playerId);
+            if (player) {
+                totalValue += calculatePlayerTradeValue(player);
+            }
+        });
+    }
+    
+    // Add pick values (simplified)
+    picks.forEach(pickId => {
+        const pick = team.picks?.find(p => p.id === pickId);
+        if (pick) {
+            // Basic pick value: 1st round = 100, 2nd = 50, 3rd = 25, etc.
+            const pickValue = Math.max(10, 100 / Math.pow(2, pick.round - 1));
+            totalValue += pickValue;
+        }
+    });
+    
+    return totalValue;
+}
+
+/**
+ * Executes the validated trade
+ */
+function executeTrade() {
+    console.log('Executing trade...');
+    
+    try {
+        const L = state.league;
+        if (!L || !L.teams) return;
+        
+        const teamAId = parseInt(document.getElementById('tradeA')?.value || '0');
+        const teamBId = parseInt(document.getElementById('tradeB')?.value || '0');
+        
+        const teamA = L.teams[teamAId];
+        const teamB = L.teams[teamBId];
+        
+        // Get selected items
+        const playersA = getSelectedTradeItems('tradeAPlayers');
+        const picksA = getSelectedTradeItems('tradeAPicks');
+        const playersB = getSelectedTradeItems('tradeBPlayers');
+        const picksB = getSelectedTradeItems('tradeBPicks');
+        
+        // Execute the trade
+        executeTradeTransfer(teamA, teamB, playersA, picksA, playersB, picksB);
+        
+        // Clear selections and re-render
+        clearTradeSelections();
+        renderTradeTeamList('A');
+        renderTradeTeamList('B');
+        clearTradeValidation();
+        
+        showTradeInfo('Trade executed successfully!', 'success');
+        
+        console.log('✅ Trade executed');
+        
+    } catch (error) {
+        console.error('Error executing trade:', error);
+        showTradeInfo('Error executing trade', 'error');
+    }
+}
+
+/**
+ * Executes the actual player and pick transfers
+ * @param {Object} teamA - First team
+ * @param {Object} teamB - Second team
+ * @param {Array} playersA - Players from team A
+ * @param {Array} picksA - Picks from team A
+ * @param {Array} playersB - Players from team B
+ * @param {Array} picksB - Picks from team B
+ */
+function executeTradeTransfer(teamA, teamB, playersA, picksA, playersB, picksB) {
+    // Transfer players from A to B
+    playersA.forEach(playerId => {
+        const playerIndex = teamA.roster.findIndex(p => p.id === playerId);
+        if (playerIndex !== -1) {
+            const player = teamA.roster.splice(playerIndex, 1)[0];
+            teamB.roster.push(player);
+        }
+    });
+    
+    // Transfer players from B to A
+    playersB.forEach(playerId => {
+        const playerIndex = teamB.roster.findIndex(p => p.id === playerId);
+        if (playerIndex !== -1) {
+            const player = teamB.roster.splice(playerIndex, 1)[0];
+            teamA.roster.push(player);
+        }
+    });
+    
+    // Transfer picks (simplified - would need more complex logic for actual pick management)
+    // This is a placeholder for the actual pick transfer logic
+}
+
+/**
+ * Clears trade selections
+ */
+function clearTradeSelections() {
+    document.querySelectorAll('input[name^="trade"]').forEach(cb => {
+        cb.checked = false;
+    });
+}
+
+/**
+ * Clears trade validation display
+ */
+function clearTradeValidation() {
+    const tradeInfo = document.getElementById('tradeInfo');
+    if (tradeInfo) tradeInfo.innerHTML = '';
+    
+    const executeBtn = document.getElementById('tradeExecute');
+    if (executeBtn) executeBtn.disabled = true;
+}
+
+/**
+ * Shows trade information message
+ * @param {string} message - Message to display
+ * @param {string} type - Message type (success, error, warning)
+ */
+function showTradeInfo(message, type = 'info') {
+    const tradeInfo = document.getElementById('tradeInfo');
+    if (tradeInfo) {
+        tradeInfo.innerHTML = `<div class="trade-message ${type}">${message}</div>`;
+    }
+}
+
 // Export functions for use
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
@@ -268,7 +648,13 @@ if (typeof module !== 'undefined' && module.exports) {
         calculateTeamNeeds,
         getTopTeamNeeds,
         evaluateTrade,
+        renderTradeCenter,
         TRADE_CONFIG,
         DEFAULT_DEPTH_NEEDS
     };
 }
+
+// Make functions globally available
+window.renderTradeCenter = renderTradeCenter;
+window.validateTrade = validateTrade;
+window.executeTrade = executeTrade;
