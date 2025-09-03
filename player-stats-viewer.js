@@ -17,7 +17,7 @@ class PlayerStatsViewer {
     async waitForLeague() {
         // Wait for league to be ready before initializing
         let attempts = 0;
-        const maxAttempts = 50;
+        const maxAttempts = 100; // Increased timeout
         
         while (attempts < maxAttempts) {
             if (window.state && window.state.league && window.state.league.teams) {
@@ -495,6 +495,14 @@ function initializePlayerStatsViewer() {
         };
         
         console.log('✅ PlayerStatsViewer initialized');
+    }
+}
+
+// Also initialize when game state changes
+function watchForGameState() {
+    if (window.state && window.state.league && window.state.league.teams) {
+        console.log('🎮 Game state ready, initializing PlayerStatsViewer');
+        initializePlayerStatsViewer();
     }
 }
 
