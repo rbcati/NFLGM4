@@ -36,6 +36,14 @@ class PlayerStatsViewer {
     init() {
         this.createModal();
         this.setupEventListeners();
+        
+        // Auto-make players clickable after a short delay
+        setTimeout(() => {
+            this.makePlayersClickable();
+        }, 500);
+        
+        // Set up observer to watch for new player rows
+        this.setupDOMObserver();
     }
 
     createModal() {
@@ -90,7 +98,7 @@ class PlayerStatsViewer {
 
         // Listen for league changes to clean up stale data
         if (window.state) {
-            const originalLeague = window.state.league;
+            let originalLeague = window.state.league;
             Object.defineProperty(window.state, 'league', {
                 get: function() { return originalLeague; },
                 set: function(newLeague) {
@@ -393,6 +401,51 @@ class PlayerStatsViewer {
     cleanupStaleData() {
         this.cleanupStalePlayerIds();
     }
+
+    // Public method to refresh clickable players
+    refreshClickablePlayers() {
+        if (this.initialized) {
+            this.makePlayersClickable();
+        }
+    }
+
+    setupDOMObserver() {
+        // Watch for changes in the DOM and make new players clickable
+        if (window.MutationObserver) {
+            this.observer = new MutationObserver((mutations) => {
+                let shouldRefresh = false;
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList') {
+                        mutation.addedNodes.forEach((node) => {
+                            if (node.nodeType === Node.ELEMENT_NODE) {
+                                if (node.classList && (node.classList.contains('player-row') || node.hasAttribute('data-player-id'))) {
+                                    shouldRefresh = true;
+                                }
+                                if (node.querySelector && (node.querySelector('.player-row') || node.querySelector('[data-player-id]'))) {
+                                    shouldRefresh = true;
+                                }
+                            }
+                        });
+                    }
+                });
+                
+                if (shouldRefresh) {
+                    setTimeout(() => this.makePlayersClickable(), 100);
+                }
+            });
+            
+            this.observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        }
+    }
+
+    disconnect() {
+        if (this.observer) {
+            this.observer.disconnect();
+        }
+    }
 }
 
 // Initialize the player stats viewer
@@ -405,10 +458,11 @@ document.addEventListener('DOMContentLoaded', () => {
 window.playerStatsViewer = playerStatsViewer;
 window.makePlayersClickable = () => playerStatsViewer?.makePlayersClickable();
 window.cleanupStalePlayerData = () => playerStatsViewer?.cleanupStaleData();
+window.refreshClickablePlayers = () => playerStatsViewer?.refreshClickablePlayers();
 
 // Add cleanup to window state changes
 if (window.state) {
-    const originalState = window.state;
+    let originalState = window.state;
     Object.defineProperty(window, 'state', {
         get: function() { return originalState; },
         set: function(newState) {
