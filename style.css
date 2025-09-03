@@ -59,6 +59,18 @@
   --text-xs: 0.75rem; --text-sm: 0.875rem; --text-base: 1rem;
   --text-lg: 1.125rem; --text-xl: 1.25rem; --text-2xl: 1.5rem;
   --text-3xl: 1.875rem; --text-4xl: 2.25rem;
+
+  /* Add these missing variables */
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --success-text: #22c55e;
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-text: #ef4444;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-text: #f59e0b;
+  --accent-rgb: 59, 130, 246;
+  --success-rgb: 34, 197, 94;
+  --error-rgb: 239, 68, 68;
+  --warning-rgb: 245, 158, 11;
 }
 
 /* Base Styles with Enhanced Background */
@@ -1236,4 +1248,327 @@ select:focus, input:focus {
     gap: var(--space-2);
     text-align: center;
   }
+}
+
+/* Add these styles to the end of your existing CSS */
+
+/* Trade Center Styles */
+.trade-players, .trade-picks {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    background: var(--surface);
+}
+
+.trade-player, .trade-pick {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto auto auto;
+    gap: var(--space-2);
+    align-items: center;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--hairline);
+    font-size: var(--text-sm);
+}
+
+.trade-player:last-child, .trade-pick:last-child {
+    border-bottom: none;
+}
+
+.trade-player input, .trade-pick input {
+    margin: 0;
+}
+
+.trade-evaluation {
+    background: var(--surface);
+    padding: var(--space-3);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--hairline);
+}
+
+.trade-values {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+    font-size: var(--text-sm);
+}
+
+.trade-recommendation {
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    text-align: center;
+    font-weight: 600;
+}
+
+.trade-recommendation.favorable {
+    background: var(--success-bg);
+    color: var(--success-text);
+}
+
+.trade-recommendation.unfavorable {
+    background: var(--error-bg);
+    color: var(--error-text);
+}
+
+/* Power Rankings Styles */
+.power-ranking-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: var(--space-3);
+    align-items: center;
+    padding: var(--space-2);
+    border-bottom: 1px solid var(--hairline);
+}
+
+.power-ranking-item:last-child {
+    border-bottom: none;
+}
+
+.power-ranking-item .rank {
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 30px;
+}
+
+.power-ranking-item .team-name {
+    font-weight: 500;
+}
+
+.power-ranking-item .record {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+.power-ranking-item .point-diff {
+    font-weight: 600;
+    text-align: right;
+    min-width: 50px;
+}
+
+.power-ranking-item .point-diff:not(:empty) {
+    color: var(--success-text);
+}
+
+.power-ranking-item .point-diff:empty {
+    color: var(--text-muted);
+}
+
+/* Standings Styles */
+.standings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-4);
+    flex-wrap: wrap;
+    gap: var(--space-3);
+}
+
+.standings-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.season-info {
+    display: flex;
+    gap: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.standings-tabs {
+    display: flex;
+    gap: var(--space-1);
+    background: var(--surface);
+    border-radius: var(--radius-pill);
+    padding: var(--space-1);
+    border: 1px solid var(--hairline);
+}
+
+.standings-tab {
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    font-size: var(--text-sm);
+    transition: all var(--dur) var(--ease);
+}
+
+.standings-tab:hover {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.standings-tab.active {
+    background: var(--accent);
+    color: white;
+}
+
+.standings-section {
+    display: none;
+}
+
+.standings-section.active {
+    display: block;
+}
+
+.conferences-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+@media (max-width: 1024px) {
+    .conferences-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.conference-standings h3 {
+    color: var(--text);
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-2);
+    border-bottom: 2px solid var(--accent);
+}
+
+.standings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+}
+
+.standings-table th,
+.standings-table td {
+    padding: var(--space-2);
+    text-align: left;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.standings-table th {
+    background: var(--surface);
+    font-weight: 600;
+    color: var(--text);
+}
+
+.standings-table .user-team {
+    background: rgba(var(--accent-rgb), 0.1);
+    border-left: 3px solid var(--accent);
+}
+
+.standings-table .playoff-team {
+    background: rgba(var(--success-rgb), 0.05);
+}
+
+.standings-table .division-leader {
+    background: rgba(var(--warning-rgb), 0.05);
+}
+
+.positive {
+    color: var(--success-text);
+}
+
+.negative {
+    color: var(--error-text);
+}
+
+.division-crown,
+.playoff-indicator {
+    margin-right: var(--space-1);
+}
+
+/* Result Item Styles */
+.result-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2);
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-2);
+    border: 1px solid var(--hairline);
+}
+
+.result-item.user-game {
+    border-color: var(--accent);
+    background: rgba(var(--accent-rgb), 0.05);
+}
+
+.result-item .teams {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.result-item .team {
+    font-weight: 500;
+}
+
+.result-item .winner {
+    color: var(--success-text);
+    font-weight: 600;
+}
+
+.result-item .score {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+.result-item .at {
+    color: var(--text-muted);
+    font-size: var(--text-sm);
+}
+
+/* Utility Classes */
+.muted {
+    color: var(--text-muted);
+}
+
+.small {
+    font-size: var(--text-sm);
+}
+
+.mt {
+    margin-top: var(--space-3);
+}
+
+.mb {
+    margin-bottom: var(--space-3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .standings-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .standings-controls {
+        align-items: center;
+    }
+    
+    .standings-tabs {
+        justify-content: center;
+    }
+    
+    .power-ranking-item {
+        grid-template-columns: 1fr;
+        gap: var(--space-1);
+        text-align: center;
+    }
+    
+    .trade-player, .trade-pick {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: var(--space-1);
+    }
+    
+    .trade-values {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
 }
