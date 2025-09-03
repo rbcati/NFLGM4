@@ -95,15 +95,7 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
 };
 
 // --- ENHANCED HELPER FUNCTIONS ---
-window.listByMode = function(mode) {
-    if (!window.Teams || typeof window.Teams !== 'object') {
-        console.warn('Teams data not available');
-        return [];
-    }
-    
-    const teams = mode === 'real' ? window.Teams.real : window.Teams.fictional;
-    return Array.isArray(teams) ? teams : [];
-};
+// Note: listByMode is defined in teams.js, don't override it here
 
 window.getCurrentTeam = function() {
     try {
