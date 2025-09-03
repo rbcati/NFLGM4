@@ -267,8 +267,9 @@ function generateContract(ovr, pos) {
  */
 function generatePlayerName() {
   const U = window.Utils;
-  const firstName = U.choice(window.FIRST_NAMES || ['John', 'Mike', 'James', 'David']);
-  const lastName = U.choice(window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown']);
+  // Use expanded names for maximum variety (1,000,000+ combinations)
+  const firstName = U.choice(window.EXPANDED_FIRST_NAMES || window.FIRST_NAMES || ['John', 'Mike', 'James', 'David']);
+  const lastName = U.choice(window.EXPANDED_LAST_NAMES || window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown']);
   return `${firstName} ${lastName}`;
 }
 
