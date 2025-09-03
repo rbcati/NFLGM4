@@ -286,8 +286,8 @@ function showPlayerDetails(player) {
                     ` : ''}
                 </div>
                 <div class="player-actions">
-                    <button class="btn primary" onclick="viewPlayerStats(${player.id})">View Stats</button>
-                    <button class="btn secondary" onclick="editPlayer(${player.id})">Edit Player</button>
+                    <button class="btn primary" onclick="window.viewPlayerStats('${player.id}')">View Stats</button>
+                    <button class="btn secondary" onclick="window.editPlayer('${player.id}')">Edit Player</button>
                 </div>
             </div>
         </div>
