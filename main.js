@@ -106,154 +106,14 @@ class GameController {
         return Math.round(totalRating / ratingCount);
     }
 
-    // --- ENHANCED ROSTER MANAGEMENT ---
+    // --- ROSTER MANAGEMENT ---
+    // Note: renderRoster is implemented in ui.js to avoid conflicts
     async renderRoster() {
-        try {
-            console.log('Rendering enhanced roster...');
-            
-            const L = window.state.league;
-            if (!L || !L.teams) {
-                throw new Error('No league data available');
-            }
-
-            const currentTeam = window.getCurrentTeam();
-            if (!currentTeam) {
-                throw new Error('No current team available');
-            }
-
-            // Update team ratings first
-            if (window.updateTeamRatings) {
-                window.updateTeamRatings(currentTeam);
-            }
-            
-            // Render team ratings
-            if (window.renderTeamRatings) {
-                window.renderTeamRatings(currentTeam, 'teamRatingsContainer');
-            }
-
-            // Update roster title
-            const rosterTitle = this.getElement('rosterTitle');
-            if (rosterTitle) {
-                rosterTitle.textContent = `${currentTeam.name} Roster`;
-            }
-
-            // Populate team selector
-            const teamSelect = this.getElement('rosterTeam');
-            if (teamSelect) {
-                window.fillTeamSelect(teamSelect, 'fictional');
-            }
-
-            // Get roster table
-            const rosterTable = this.getElement('rosterTable');
-            if (!rosterTable) {
-                throw new Error('Roster table not found');
-            }
-
-            // Clear existing content
-            rosterTable.innerHTML = '';
-
-            // Create table header
-            const thead = document.createElement('thead');
-            thead.innerHTML = `
-                <tr>
-                    <th><input type="checkbox" id="selectAll"></th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Age</th>
-                    <th>Overall</th>
-                    <th>Salary</th>
-                    <th>Years</th>
-                    <th>Actions</th>
-                </tr>
-            `;
-            rosterTable.appendChild(thead);
-
-            // Create table body
-            const tbody = document.createElement('tbody');
-            
-            if (currentTeam.roster && currentTeam.roster.length > 0) {
-                currentTeam.roster.forEach(player => {
-                    const row = document.createElement('tr');
-                    row.className = 'player-row';
-                    row.dataset.playerId = player.id;
-                    row.style.cursor = 'pointer';
-                    
-                    // Calculate overall rating
-                    const overall = this.calculateOverallRating(player);
-                    
-                    row.innerHTML = `
-                        <td><input type="checkbox" class="player-select" value="${player.id}"></td>
-                        <td class="player-name">${player.name}</td>
-                        <td class="player-position">${player.pos || player.position || 'N/A'}</td>
-                        <td class="player-age">${player.age || 'N/A'}</td>
-                        <td class="player-overall">${overall}</td>
-                        <td class="player-salary">$${(player.contract?.salary || player.baseAnnual || 0).toLocaleString()}</td>
-                        <td class="player-years">${player.contract?.years || player.years || 'N/A'}</td>
-                        <td class="player-actions">
-                            <button class="btn btn-small" onclick="window.viewPlayerStats('${player.id}')">View</button>
-                        </td>
-                    `;
-                    
-                    // Add click handler for the entire row
-                    row.addEventListener('click', (e) => {
-                        if (!e.target.closest('button') && !e.target.closest('input')) {
-                            if (window.playerStatsViewer) {
-                                window.playerStatsViewer.showPlayerStats(player.id);
-                            }
-                        }
-                    });
-                    
-                    tbody.appendChild(row);
-                });
-            } else {
-                const noPlayersRow = document.createElement('tr');
-                noPlayersRow.innerHTML = '<td colspan="8" class="text-center">No players found</td>';
-                tbody.appendChild(noPlayersRow);
-            }
-            
-            rosterTable.appendChild(tbody);
-
-            // Set up select all functionality
-            const selectAllCheckbox = this.getElement('selectAll');
-            if (selectAllCheckbox) {
-                selectAllCheckbox.addEventListener('change', (e) => {
-                    const playerCheckboxes = document.querySelectorAll('.player-select');
-                    playerCheckboxes.forEach(checkbox => {
-                        checkbox.checked = e.target.checked;
-                    });
-                });
-            }
-
-            // Make players clickable
-            if (window.playerStatsViewer) {
-                window.playerStatsViewer.makePlayersClickable();
-            } else {
-                // Fallback: make players clickable directly
-                const playerRows = document.querySelectorAll('.player-row');
-                playerRows.forEach(row => {
-                    if (!row.classList.contains('clickable')) {
-                        row.classList.add('clickable');
-                        row.style.cursor = 'pointer';
-                        row.addEventListener('click', (e) => {
-                            if (!e.target.closest('button') && !e.target.closest('input')) {
-                                const playerId = row.dataset.playerId;
-                                if (playerId) {
-                                    // Try to show player stats directly
-                                    if (window.viewPlayerStats) {
-                                        window.viewPlayerStats(playerId);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                });
-            }
-
-            console.log('✅ Enhanced roster rendered successfully');
-            
-        } catch (error) {
-            console.error('Error rendering enhanced roster:', error);
-            this.setStatus('Error rendering roster', 'error');
+        // Delegate to the ui.js implementation
+        if (window.renderRoster && window.renderRoster !== this.renderRoster) {
+            window.renderRoster();
+        } else {
+            console.warn('renderRoster not available from ui.js');
         }
     }
 
@@ -268,7 +128,7 @@ class GameController {
                 return;
             }
             
-            // Simple hub content
+            // Enhanced hub content with simulate league button
             hubContainer.innerHTML = `
                 <div class="card">
                     <h2>Team Hub</h2>
@@ -279,23 +139,97 @@ class GameController {
                                 <button class="btn primary" onclick="location.hash='#/roster'">View Roster</button>
                                 <button class="btn" onclick="location.hash='#/schedule'">View Schedule</button>
                                 <button class="btn" onclick="location.hash='#/trade'">Trade Center</button>
+                                <button class="btn" onclick="location.hash='#/freeagency'">Free Agency</button>
+                                <button class="btn" onclick="location.hash='#/draft'">Draft</button>
                             </div>
                         </div>
                         <div>
-                            <h3>Team Status</h3>
-                            <div id="teamStatus">
-                                <p>Team information will be displayed here</p>
+                            <h3>League Actions</h3>
+                            <div class="actions">
+                                <button class="btn primary" id="btnSimWeek" onclick="handleSimulateWeek()">Simulate Week</button>
+                                <button class="btn" id="btnSimSeason" onclick="handleSimulateSeason()">Simulate Season</button>
+                                <button class="btn" onclick="location.hash='#/standings'">View Standings</button>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h3>Team Status</h3>
+                        <div id="teamStatus">
+                            <p>Team information will be displayed here</p>
                         </div>
                     </div>
                 </div>
             `;
+            
+            // Add event listeners for simulate buttons
+            const btnSimWeek = hubContainer.querySelector('#btnSimWeek');
+            const btnSimSeason = hubContainer.querySelector('#btnSimSeason');
+            
+            if (btnSimWeek) {
+                btnSimWeek.addEventListener('click', () => this.handleSimulateWeek());
+            }
+            
+            if (btnSimSeason) {
+                btnSimSeason.addEventListener('click', () => this.handleSimulateSeason());
+            }
             
             console.log('✅ Hub rendered successfully');
             
         } catch (error) {
             console.error('Error rendering hub:', error);
             this.setStatus('Failed to render hub', 'error');
+        }
+    }
+
+    // --- SIMULATION FUNCTIONS ---
+    handleSimulateWeek() {
+        try {
+            console.log('Simulating week...');
+            this.setStatus('Simulating week...', 'info');
+            
+            // Basic week simulation
+            if (window.state?.league) {
+                const L = window.state.league;
+                if (L.week < 18) {
+                    L.week++;
+                    this.setStatus(`Advanced to week ${L.week}`, 'success');
+                    
+                    // Re-render hub to show updated week
+                    setTimeout(() => this.renderHub(), 1000);
+                } else {
+                    this.setStatus('Season complete!', 'success');
+                }
+            } else {
+                this.setStatus('No league data available', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error simulating week:', error);
+            this.setStatus('Failed to simulate week', 'error');
+        }
+    }
+
+    handleSimulateSeason() {
+        try {
+            console.log('Simulating season...');
+            this.setStatus('Simulating season...', 'info');
+            
+            // Basic season simulation
+            if (window.state?.league) {
+                const L = window.state.league;
+                L.week = 18;
+                this.setStatus('Season completed!', 'success');
+                
+                // Re-render hub to show updated week
+                setTimeout(() => this.renderHub(), 1000);
+            } else {
+                this.setStatus('No league data available', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error simulating season:', error);
+            this.setStatus('Failed to simulate season', 'error');
         }
     }
 
