@@ -9,7 +9,7 @@ function makeStaff(position) {
     const firstNames = window.Constants?.FIRST_NAMES || window.FIRST_NAMES || ['John', 'Mike', 'Steve', 'Dave', 'Tom'];
     const lastNames = window.Constants?.LAST_NAMES || window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones'];
     
-    return {
+    const staffMember = {
         id: U.id(),
         name: U.choice(firstNames) + ' ' + U.choice(lastNames),
         position: position,
@@ -22,16 +22,24 @@ function makeStaff(position) {
         stats: null, // Will be initialized by coaching system
         careerHistory: []
     };
+    
+    console.log(`Generated ${position}: ${staffMember.name}`);
+    return staffMember;
 }
 
 // Generates a full, initial staff for a team
 function generateInitialStaff() {
-    return {
+    console.log('Generating initial staff...');
+    
+    const staff = {
         headCoach: makeStaff('HC'),
         offCoordinator: makeStaff('OC'),
         defCoordinator: makeStaff('DC'),
         scout: makeStaff('Scout'),
     };
+    
+    console.log('Generated staff:', staff);
+    return staff;
 }
 
 // Make the function available to other scripts
