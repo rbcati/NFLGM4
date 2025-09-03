@@ -80,51 +80,7 @@ class GameController {
         return Array.isArray(teams) ? teams : [];
     }
 
-    getCurrentTeam() {
-        try {
-            if (!window.state?.league?.teams || window.state.userTeamId === undefined) {
-                return null;
-            }
-            return window.state.league.teams[window.state.userTeamId] || null;
-        } catch (error) {
-            console.error('Error getting current team:', error);
-            return null;
-        }
-    }
-
-    // --- ENHANCED HELPER FUNCTIONS ---
-    fillTeamSelect(selectElement, mode = 'fictional') {
-        if (!selectElement) return;
-        
-        try {
-            const L = window.state.league;
-            if (!L || !L.teams) {
-                console.error('No league data available for team selection');
-                return;
-            }
-            
-            // Clear existing options
-            selectElement.innerHTML = '';
-            
-            // Add teams
-            L.teams.forEach((team, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = team.name;
-                selectElement.appendChild(option);
-            });
-            
-            // Set default selection if user team is available
-            if (window.state.userTeamId !== undefined && window.state.userTeamId < L.teams.length) {
-                selectElement.value = window.state.userTeamId;
-            }
-            
-            console.log(`✅ Team select populated with ${L.teams.length} teams`);
-            
-        } catch (error) {
-            console.error('Error filling team select:', error);
-        }
-    }
+    // Use global functions from ui.js instead of local duplicates
 
     calculateOverallRating(player) {
         if (!player || !player.ratings) {
@@ -160,9 +116,19 @@ class GameController {
                 throw new Error('No league data available');
             }
 
-            const currentTeam = this.getCurrentTeam();
+            const currentTeam = window.getCurrentTeam();
             if (!currentTeam) {
                 throw new Error('No current team available');
+            }
+
+            // Update team ratings first
+            if (window.updateTeamRatings) {
+                window.updateTeamRatings(currentTeam);
+            }
+            
+            // Render team ratings
+            if (window.renderTeamRatings) {
+                window.renderTeamRatings(currentTeam, 'teamRatingsContainer');
             }
 
             // Update roster title
@@ -174,7 +140,7 @@ class GameController {
             // Populate team selector
             const teamSelect = this.getElement('rosterTeam');
             if (teamSelect) {
-                this.fillTeamSelect(teamSelect, 'fictional');
+                window.fillTeamSelect(teamSelect, 'fictional');
             }
 
             // Get roster table
@@ -749,4 +715,23 @@ class GameController {
                                 rating: 65
                             },
                             defCoordinator: {
-                                name: `
+                                name: `DC ${team.name}`,
+                                position: 'DC',
+                                experience: 1,
+                                rating: 65
+                            }
+                        };
+                    }
+                });
+                return coaches;
+            }
+        };
+        
+        // Make functions globally available
+        Object.entries(requiredFunctions).forEach(([name, func]) => {
+            if (!window[name]) {
+                window[name] = func;
+            }
+        });
+    }
+}
