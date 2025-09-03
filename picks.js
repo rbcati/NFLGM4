@@ -99,11 +99,11 @@ function calculateDraftOrder(league) {
     const teamRecords = league.teams.map((team, index) => ({
       id: index,
       team: team,
-      wins: team.record?.w || 0,
-      losses: team.record?.l || 0,
-      pointsFor: team.record?.pf || 0,
-      pointsAgainst: team.record?.pa || 0,
-      pointDifferential: (team.record?.pf || 0) - (team.record?.pa || 0)
+      wins: team.wins || 0,
+      losses: team.losses || 0,
+      pointsFor: team.ptsFor || 0,
+      pointsAgainst: team.ptsAgainst || 0,
+      pointDifferential: (team.ptsFor || 0) - (team.ptsAgainst || 0)
     }));
     
     // Sort by record (worst teams draft first)
