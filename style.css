@@ -1572,3 +1572,541 @@ select:focus, input:focus {
         text-align: center;
     }
 }
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    overflow: auto;
+}
+
+.modal-content {
+    background-color: var(--surface);
+    margin: 5% auto;
+    padding: 0;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid var(--hairline);
+    background-color: var(--surface-elevated);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: var(--text);
+    font-size: 1.25rem;
+}
+
+.close {
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+}
+
+.close:hover,
+.close:focus {
+    color: var(--text);
+}
+
+.modal-body {
+    padding: 1.5rem;
+}
+
+/* Player Stats Modal Styles */
+.player-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.player-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: var(--surface-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--hairline);
+}
+
+.player-name {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.player-position {
+    background-color: var(--accent);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.player-team {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+.stats-section {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+}
+
+.stats-section h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text);
+    font-size: 1.125rem;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 0.5rem;
+}
+
+.stats-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--hairline-subtle);
+}
+
+.stats-row:last-child {
+    border-bottom: none;
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.stat-value {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.ratings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem;
+}
+
+.rating-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    background-color: var(--surface);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hairline-subtle);
+}
+
+.rating-name {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.rating-value {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.rating-high {
+    color: #10b981;
+}
+
+.rating-medium {
+    color: #f59e0b;
+}
+
+.rating-low {
+    color: #ef4444;
+}
+
+/* Game Results Modal Styles */
+.game-results-modal .modal-content {
+    max-width: 900px;
+}
+
+.game-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background-color: var(--surface-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--hairline);
+}
+
+.game-teams {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.team {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.team.winner {
+    color: var(--accent);
+}
+
+.vs {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.score {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.score.winner {
+    color: var(--accent);
+}
+
+.score-separator {
+    color: var(--text-muted);
+    font-size: 1.5rem;
+    font-weight: 500;
+}
+
+.game-week {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    background-color: var(--surface);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hairline);
+}
+
+.team-performance {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.team-stats {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+}
+
+.team-stats h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text);
+    font-size: 1rem;
+    text-align: center;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 0.5rem;
+}
+
+.detailed-stats {
+    margin-top: 1.5rem;
+}
+
+.detailed-stats h4 {
+    margin: 0 0 1rem 0;
+    color: var(--text);
+    font-size: 1.125rem;
+    border-bottom: 1px solid var(--hairline);
+    padding-bottom: 0.5rem;
+}
+
+.team-detailed-stats {
+    margin-bottom: 1.5rem;
+}
+
+.team-detailed-stats h5 {
+    margin: 0 0 1rem 0;
+    color: var(--text);
+    font-size: 1rem;
+    background-color: var(--surface-elevated);
+    padding: 0.5rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hairline);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.stat-category {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+}
+
+.stat-category h6 {
+    margin: 0 0 0.75rem 0;
+    color: var(--text);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--hairline-subtle);
+    padding-bottom: 0.5rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.25rem 0;
+    font-size: 0.875rem;
+}
+
+.stat-name {
+    color: var(--text-muted);
+}
+
+/* Schedule Viewer Styles */
+.schedule-view {
+    margin-top: 2rem;
+}
+
+.schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.schedule-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.view-toggle {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.view-toggle .btn {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--hairline);
+    background-color: var(--surface);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.view-toggle .btn:hover {
+    background-color: var(--surface-elevated);
+    color: var(--text);
+}
+
+.view-toggle .btn.active {
+    background-color: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.week-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.week-selector label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.week-selector select {
+    padding: 0.5rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface);
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.schedule-grid,
+.results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.week-schedule,
+.week-results {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+}
+
+.week-schedule.current-week,
+.week-results.current-week {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+}
+
+.week-schedule h3,
+.week-results h3 {
+    margin: 0 0 1rem 0;
+    color: var(--text);
+    font-size: 1.125rem;
+    text-align: center;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.games-list,
+.results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.game-item,
+.result-item {
+    background-color: var(--surface);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.game-item:hover,
+.result-item:hover {
+    background-color: var(--surface-elevated);
+    border-color: var(--hairline-strong);
+}
+
+.game-item.bye-week,
+.result-item.bye-week {
+    background-color: var(--surface-subtle);
+    border-color: var(--hairline-subtle);
+    color: var(--text-muted);
+    text-align: center;
+    font-style: italic;
+}
+
+.game-teams {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.away-team,
+.home-team {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.away-team.winner,
+.home-team.winner {
+    color: var(--accent);
+}
+
+.at {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.game-time {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.game-score {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.away-score,
+.home-score {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.away-score.winner,
+.home-score.winner {
+    color: var(--accent);
+}
+
+.game-result-indicator {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modal-content {
+        width: 95%;
+        margin: 2% auto;
+    }
+    
+    .schedule-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .schedule-controls {
+        justify-content: center;
+    }
+    
+    .schedule-grid,
+    .results-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .team-performance {
+        grid-template-columns: 1fr;
+    }
+    
+    .ratings-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
