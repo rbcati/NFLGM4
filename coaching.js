@@ -540,43 +540,39 @@ function renderCoachingStats() {
       }
     }
     
-    const coachingView = document.getElementById('coaching');
-    if (!coachingView) {
-      console.error('Coaching view not found');
+    const coachingContent = document.getElementById('coaching-content');
+    if (!coachingContent) {
+      console.error('Coaching content area not found');
       return;
     }
     
-    coachingView.innerHTML = `
-      <div class="card">
-        <h2>Coaching Statistics</h2>
-        <div class="coaching-tabs">
-          <button class="tab-btn active" data-tab="active">Active Coaches</button>
-          <button class="tab-btn" data-tab="hof">Hall of Fame</button>
-          <button class="tab-btn" data-tab="records">Records</button>
-        </div>
-        
-        <div id="coaching-content">
-          ${renderActiveCoaches(allCoaches)}
-        </div>
+    coachingContent.innerHTML = `
+      <div class="coaching-tabs">
+        <button class="tab-btn active" data-tab="active">Active Coaches</button>
+        <button class="tab-btn" data-tab="hof">Hall of Fame</button>
+        <button class="tab-btn" data-tab="records">Records</button>
+      </div>
+      
+      <div id="coaching-tab-content">
+        ${renderActiveCoaches(allCoaches)}
       </div>
     `;
     
     // Set up tab switching
-    const tabButtons = coachingView.querySelectorAll('.tab-btn');
+    const tabButtons = coachingContent.querySelectorAll('.tab-btn');
     tabButtons.forEach(btn => {
       btn.addEventListener('click', (e) => {
         tabButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         
-        const tab = btn.dataset.tab;
-        const content = document.getElementById('coaching-content');
+        const tabContent = document.getElementById('coaching-tab-content');
         
         if (tab === 'active') {
-          content.innerHTML = renderActiveCoaches(allCoaches);
+          tabContent.innerHTML = renderActiveCoaches(allCoaches);
         } else if (tab === 'hof') {
-          content.innerHTML = renderCoachingHallOfFame(allCoaches);
+          tabContent.innerHTML = renderCoachingHallOfFame(allCoaches);
         } else if (tab === 'records') {
-          content.innerHTML = renderCoachingRecords(allCoaches);
+          tabContent.innerHTML = renderCoachingRecords(allCoaches);
         }
       });
     });
@@ -868,3 +864,22 @@ window.promoteCoordinatorToHeadCoach = promoteCoordinatorToHeadCoach;
 window.calculateWinPercentage = calculateWinPercentage;
 window.getCoachingHallOfFame = getCoachingHallOfFame;
 window.renderCoachingStats = renderCoachingStats;
+
+/**
+ * Main coaching system entry point
+ * This function renders the main coaching interface
+ */
+function renderCoaching() {
+    // Check if we have a content area to render into
+    const content = document.getElementById('content');
+    if (!content) {
+        console.error('Content area not found for coaching interface');
+        return;
+    }
+    
+    // Render the main coaching stats interface
+    renderCoachingStats();
+}
+
+// Expose the main coaching function globally
+window.renderCoaching = renderCoaching;
