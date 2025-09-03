@@ -554,10 +554,54 @@ function initializeCoachingIntegration() {
       addCoachingNavigation();
     }
     
+    // Ensure existing leagues have coaching staff
+    ensureExistingLeaguesHaveStaff();
+    
     console.log('Coaching system integration complete!');
     
   } catch (error) {
     console.error('Error initializing coaching integration:', error);
+  }
+}
+
+/**
+ * Ensure that existing leagues have coaching staff
+ */
+function ensureExistingLeaguesHaveStaff() {
+  try {
+    if (window.state && window.state.league && window.state.league.teams) {
+      console.log('Checking existing league for coaching staff...');
+      
+      let staffAdded = false;
+      window.state.league.teams.forEach(team => {
+        if (!team.staff) {
+          console.log(`Adding coaching staff to ${team.name}`);
+          if (typeof window.generateInitialStaff === 'function') {
+            team.staff = window.generateInitialStaff();
+            staffAdded = true;
+          }
+        }
+        
+        // Initialize coaching stats for existing staff
+        if (team.staff && typeof window.initializeCoachingStats === 'function') {
+          if (team.staff.headCoach) {
+            window.initializeCoachingStats(team.staff.headCoach);
+          }
+          if (team.staff.offCoordinator) {
+            window.initializeCoachingStats(team.staff.offCoordinator);
+          }
+          if (team.staff.defCoordinator) {
+            window.initializeCoachingStats(team.staff.defCoordinator);
+          }
+        }
+      });
+      
+      if (staffAdded) {
+        console.log('Added coaching staff to existing league');
+      }
+    }
+  } catch (error) {
+    console.error('Error ensuring existing leagues have staff:', error);
   }
 }
 
@@ -571,3 +615,17 @@ window.enhanceOffseasonProcessing = enhanceOffseasonProcessing;
 window.updateAllCoachingSeasonStats = updateAllCoachingSeasonStats;
 window.handleCoachingChanges = handleCoachingChanges;
 window.initializeCoachingIntegration = initializeCoachingIntegration;
+window.ensureExistingLeaguesHaveStaff = ensureExistingLeaguesHaveStaff;
+
+// Add a global function to manually add coaching staff
+window.addCoachingStaffToLeague = function() {
+  console.log('Manually adding coaching staff to league...');
+  ensureExistingLeaguesHaveStaff();
+  
+  // Refresh the coaching page if it's currently displayed
+  if (window.location.hash === '#/coaching' && typeof window.renderCoachingStats === 'function') {
+    window.renderCoachingStats();
+  }
+  
+  return 'Coaching staff added to all teams. Check the coaching page to see the results.';
+};
