@@ -381,7 +381,7 @@ function releaseSelected(selectedIds) {
     return;
   }
   
-  const L = state.league;
+  const L = window.state?.league;
   const team = window.currentTeam();
   if (!L || !team) return;
   
