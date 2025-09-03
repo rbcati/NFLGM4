@@ -92,6 +92,284 @@ class GameController {
         }
     }
 
+    // --- ENHANCED HELPER FUNCTIONS ---
+    fillTeamSelect(selectElement, mode = 'fictional') {
+        if (!selectElement) return;
+        
+        try {
+            const L = window.state.league;
+            if (!L || !L.teams) {
+                console.error('No league data available for team selection');
+                return;
+            }
+            
+            // Clear existing options
+            selectElement.innerHTML = '';
+            
+            // Add teams
+            L.teams.forEach((team, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = team.name;
+                selectElement.appendChild(option);
+            });
+            
+            // Set default selection if user team is available
+            if (window.state.userTeamId !== undefined && window.state.userTeamId < L.teams.length) {
+                selectElement.value = window.state.userTeamId;
+            }
+            
+            console.log(`✅ Team select populated with ${L.teams.length} teams`);
+            
+        } catch (error) {
+            console.error('Error filling team select:', error);
+        }
+    }
+
+    calculateOverallRating(player) {
+        if (!player || !player.ratings) {
+            return 'N/A';
+        }
+        
+        const ratings = player.ratings;
+        let totalRating = 0;
+        let ratingCount = 0;
+        
+        // Calculate average of all ratings
+        Object.values(ratings).forEach(rating => {
+            if (typeof rating === 'number' && rating > 0) {
+                totalRating += rating;
+                ratingCount++;
+            }
+        });
+        
+        if (ratingCount === 0) {
+            return 'N/A';
+        }
+        
+        return Math.round(totalRating / ratingCount);
+    }
+
+    // --- ENHANCED ROSTER MANAGEMENT ---
+    async renderRoster() {
+        try {
+            console.log('Rendering enhanced roster...');
+            
+            const L = window.state.league;
+            if (!L || !L.teams) {
+                throw new Error('No league data available');
+            }
+
+            const currentTeam = this.getCurrentTeam();
+            if (!currentTeam) {
+                throw new Error('No current team available');
+            }
+
+            // Update roster title
+            const rosterTitle = this.getElement('rosterTitle');
+            if (rosterTitle) {
+                rosterTitle.textContent = `${currentTeam.name} Roster`;
+            }
+
+            // Populate team selector
+            const teamSelect = this.getElement('rosterTeam');
+            if (teamSelect) {
+                this.fillTeamSelect(teamSelect, 'fictional');
+            }
+
+            // Get roster table
+            const rosterTable = this.getElement('rosterTable');
+            if (!rosterTable) {
+                throw new Error('Roster table not found');
+            }
+
+            // Clear existing content
+            rosterTable.innerHTML = '';
+
+            // Create table header
+            const thead = document.createElement('thead');
+            thead.innerHTML = `
+                <tr>
+                    <th><input type="checkbox" id="selectAll"></th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Age</th>
+                    <th>Overall</th>
+                    <th>Salary</th>
+                    <th>Years</th>
+                    <th>Actions</th>
+                </tr>
+            `;
+            rosterTable.appendChild(thead);
+
+            // Create table body
+            const tbody = document.createElement('tbody');
+            
+            if (currentTeam.roster && currentTeam.roster.length > 0) {
+                currentTeam.roster.forEach(player => {
+                    const row = document.createElement('tr');
+                    row.className = 'player-row';
+                    row.dataset.playerId = player.id;
+                    row.style.cursor = 'pointer';
+                    
+                    // Calculate overall rating
+                    const overall = this.calculateOverallRating(player);
+                    
+                    row.innerHTML = `
+                        <td><input type="checkbox" class="player-select" value="${player.id}"></td>
+                        <td class="player-name">${player.name}</td>
+                        <td class="player-position">${player.position}</td>
+                        <td class="player-age">${player.age || 'N/A'}</td>
+                        <td class="player-overall">${overall}</td>
+                        <td class="player-salary">$${(player.contract?.salary || 0).toLocaleString()}</td>
+                        <td class="player-years">${player.contract?.years || 'N/A'}</td>
+                        <td class="player-actions">
+                            <button class="btn btn-small" onclick="window.viewPlayerStats('${player.id}')">View</button>
+                        </td>
+                    `;
+                    
+                    // Add click handler for the entire row
+                    row.addEventListener('click', (e) => {
+                        if (!e.target.closest('button') && !e.target.closest('input')) {
+                            if (window.playerStatsViewer) {
+                                window.playerStatsViewer.showPlayerStats(player.id);
+                            }
+                        }
+                    });
+                    
+                    tbody.appendChild(row);
+                });
+            } else {
+                const noPlayersRow = document.createElement('tr');
+                noPlayersRow.innerHTML = '<td colspan="8" class="text-center">No players found</td>';
+                tbody.appendChild(noPlayersRow);
+            }
+            
+            rosterTable.appendChild(tbody);
+
+            // Set up select all functionality
+            const selectAllCheckbox = this.getElement('selectAll');
+            if (selectAllCheckbox) {
+                selectAllCheckbox.addEventListener('change', (e) => {
+                    const playerCheckboxes = document.querySelectorAll('.player-select');
+                    playerCheckboxes.forEach(checkbox => {
+                        checkbox.checked = e.target.checked;
+                    });
+                });
+            }
+
+            // Make players clickable
+            if (window.playerStatsViewer) {
+                window.playerStatsViewer.makePlayersClickable();
+            }
+
+            console.log('✅ Enhanced roster rendered successfully');
+            
+        } catch (error) {
+            console.error('Error rendering enhanced roster:', error);
+            this.setStatus('Error rendering roster', 'error');
+        }
+    }
+
+    // --- ENHANCED GAME RESULTS DISPLAY ---
+    async renderGameResults() {
+        try {
+            console.log('Rendering enhanced game results...');
+            
+            const L = window.state.league;
+            if (!L || !L.resultsByWeek) {
+                console.warn('No game results available');
+                return;
+            }
+
+            const hubResults = this.getElement('hubResults');
+            if (!hubResults) return;
+
+            // Get last week results
+            const lastWeek = L.week > 1 ? L.week - 1 : 1;
+            const weekResults = L.resultsByWeek[lastWeek];
+            
+            if (!weekResults || weekResults.length === 0) {
+                hubResults.innerHTML = '<p class="muted">No results available for last week</p>';
+                return;
+            }
+
+            let resultsHTML = '';
+            weekResults.forEach(result => {
+                if (result.bye) {
+                    // Bye week
+                    const byeTeams = result.bye.map(teamId => {
+                        const team = L.teams[teamId];
+                        return team ? team.name : 'Unknown Team';
+                    }).join(', ');
+                    
+                    resultsHTML += `
+                        <div class="result-item bye-week" data-week="${lastWeek}">
+                            <div class="bye-teams">${byeTeams} - BYE</div>
+                        </div>
+                    `;
+                } else {
+                    // Game result
+                    const homeTeam = L.teams[result.home];
+                    const awayTeam = L.teams[result.away];
+                    
+                    if (homeTeam && awayTeam) {
+                        const homeWin = result.homeWin;
+                        const homeScore = result.scoreHome || 0;
+                        const awayScore = result.scoreAway || 0;
+                        
+                        resultsHTML += `
+                            <div class="result-item game-result" data-week="${lastWeek}" data-home="${result.home}" data-away="${result.away}">
+                                <div class="game-teams">
+                                    <span class="away-team ${!homeWin ? 'winner' : ''}">${awayTeam.name}</span>
+                                    <span class="at">@</span>
+                                    <span class="home-team ${homeWin ? 'winner' : ''}">${homeTeam.name}</span>
+                                </div>
+                                <div class="game-score">
+                                    <span class="away-score ${!homeWin ? 'winner' : ''}">${awayScore}</span>
+                                    <span class="score-separator">-</span>
+                                    <span class="home-score ${homeWin ? 'winner' : ''}">${homeScore}</span>
+                                </div>
+                                <div class="game-result-indicator">
+                                    ${homeWin ? 'Home Win' : 'Away Win'}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            });
+
+            hubResults.innerHTML = resultsHTML;
+
+            // Make game results clickable
+            if (window.gameResultsViewer) {
+                window.gameResultsViewer.makeGameResultsClickable();
+            }
+
+            console.log('✅ Enhanced game results rendered successfully');
+            
+        } catch (error) {
+            console.error('Error rendering game results:', error);
+        }
+    }
+
+    // --- ENHANCED SCHEDULE DISPLAY ---
+    async renderSchedule() {
+        try {
+            console.log('Rendering enhanced schedule...');
+            
+            // Refresh schedule viewer if available
+            if (window.scheduleViewer) {
+                window.scheduleViewer.refresh();
+            }
+
+            console.log('✅ Enhanced schedule rendered successfully');
+            
+        } catch (error) {
+            console.error('Error rendering schedule:', error);
+        }
+    }
+
     // --- ROBUST ONBOARDING ---
     async openOnboard() {
         try {
@@ -471,138 +749,4 @@ class GameController {
                                 rating: 65
                             },
                             defCoordinator: {
-                                name: `DC ${team.name}`,
-                                position: 'DC',
-                                experience: 1,
-                                rating: 65
-                            }
-                        };
-                        
-                        // Initialize coaching stats if available
-                        if (window.initializeCoachingStats) {
-                            Object.values(team.staff).forEach(coach => {
-                                window.initializeCoachingStats(coach);
-                            });
-                        }
-                    }
-                });
-                
-                return coaches;
-            },
-            ensureFA: () => {},
-            runWeeklyTraining: () => {},
-            runOffseason: () => {
-                // Basic offseason processing
-                if (!window.state?.league) return;
-                
-                const L = window.state.league;
-                
-                // Update team records and standings
-                if (L.teams) {
-                    L.teams.forEach(team => {
-                        if (team.record) {
-                            // Basic offseason logic
-                            team.record.season = L.year;
-                        }
-                    });
-                }
-                
-                // Advance to next season
-                L.year++;
-                L.week = 1;
-                
-                // Reset team records
-                if (L.teams) {
-                    L.teams.forEach(team => {
-                        team.record = { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
-                    });
-                }
-                
-                // Update coaching stats if available
-                if (window.updateAllCoachingSeasonStats) {
-                    window.updateAllCoachingSeasonStats(L);
-                }
-            },
-            capHitFor: (player) => player?.baseAnnual || 0,
-            renderTrade: () => console.warn('Trade system not loaded'),
-            renderFreeAgency: () => console.warn('Free agency system not loaded'),
-            renderDraft: () => console.warn('Draft system not loaded'),
-            renderScouting: () => {
-                // Basic scouting interface
-                const content = document.getElementById('content');
-                if (content) {
-                    content.innerHTML = `
-                        <div class="scouting-container">
-                            <h2>Scouting</h2>
-                            <p>Scouting system is not fully implemented yet.</p>
-                            <p>This feature will allow you to scout college prospects and evaluate their potential.</p>
-                        </div>
-                    `;
-                }
-            },
-            renderCoaching: () => {
-                // Use the existing coaching stats function
-                if (window.renderCoachingStats) {
-                    window.renderCoachingStats();
-                } else {
-                    console.warn('Coaching system not fully loaded');
-                }
-            },
-            simulateWeek: () => this.setStatus('Simulation logic not loaded', 'warning')
-        };
-
-        let missingCount = 0;
-        for (const [funcName, fallback] of Object.entries(requiredFunctions)) {
-            if (typeof window[funcName] !== 'function') {
-                console.log(`Creating implementation for: ${funcName}`);
-                window[funcName] = fallback;
-                missingCount++;
-            }
-        }
-
-        if (missingCount > 0) {
-            console.log(`✅ ${missingCount} functions implemented - system ready`);
-        }
-    }
-
-    // --- CLEANUP ---
-    cleanup() {
-        this.removeAllEventListeners();
-        this.clearDOMCache();
-        
-        if (this.autoSaveInterval) {
-            clearInterval(this.autoSaveInterval);
-            this.autoSaveInterval = null;
-        }
-        
-        this.initialized = false;
-        this.initPromise = null;
-    }
-}
-
-// --- GLOBAL INITIALIZATION ---
-const gameController = new GameController();
-
-// Initialize safety net immediately
-gameController.initializeSafetyNet();
-
-// Expose necessary functions globally
-window.setStatus = (msg, type, duration) => gameController.setStatus(msg, type, duration);
-window.listByMode = (mode) => gameController.listByMode(mode);
-window.openOnboard = () => gameController.openOnboard();
-window.populateTeamDropdown = (mode) => gameController.populateTeamDropdown(mode);
-window.initNewGame = (options) => gameController.initNewGame(options);
-window.refreshAll = () => gameController.refreshAll();
-window.currentTeam = () => gameController.getCurrentTeam();
-
-// Cleanup on page unload
-window.addEventListener('beforeunload', () => {
-    gameController.cleanup();
-});
-
-// Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    gameController.init().catch(error => {
-        console.error('Failed to initialize game:', error);
-    });
-});
+                                name: `
