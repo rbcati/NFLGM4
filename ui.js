@@ -65,7 +65,7 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
     if (!selectElement) return;
     
     try {
-        const L = state.league;
+        const L = window.state?.league;
         if (!L || !L.teams) {
             console.error('No league data available for team selection');
             return;
@@ -83,8 +83,8 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
         });
         
         // Set default selection if user team is available
-        if (state.userTeamId !== undefined && state.userTeamId < L.teams.length) {
-            selectElement.value = state.userTeamId;
+        if (window.state?.userTeamId !== undefined && window.state.userTeamId < L.teams.length) {
+            selectElement.value = window.state.userTeamId;
         }
         
         console.log(`✅ Team select populated with ${L.teams.length} teams`);
@@ -145,7 +145,7 @@ window.calculateOverallRating = function(player) {
 window.renderRoster = function() {
     console.log('Rendering roster...');
     try {
-        const L = state.league;
+        const L = window.state?.league;
         if (!L) {
             console.error('No league data available');
             return;
@@ -155,9 +155,15 @@ window.renderRoster = function() {
         if (teamSelect && !teamSelect.dataset.filled && window.fillTeamSelect) {
             window.fillTeamSelect(teamSelect);
             teamSelect.dataset.filled = '1';
+            
+            // Add change event listener for team selection
+            if (!teamSelect.dataset.hasChangeListener) {
+                teamSelect.addEventListener('change', window.handleTeamSelectionChange);
+                teamSelect.dataset.hasChangeListener = '1';
+            }
         }
         
-        const teamId = parseInt(teamSelect?.value || state.userTeamId || '0', 10);
+        const teamId = parseInt(teamSelect?.value || window.state?.userTeamId || '0', 10);
         const team = L.teams[teamId];
         if (!team) {
             console.error('Team not found:', teamId);
@@ -313,7 +319,7 @@ window.renderStandings = function() {
 window.renderHub = function() {
     console.log('Rendering hub...');
     try {
-        const L = state.league;
+        const L = window.state?.league;
         if (!L) return;
         
         // Update season/week info
@@ -349,7 +355,7 @@ window.renderHub = function() {
 };
 
 function renderPowerRankings() {
-    const L = state.league;
+    const L = window.state?.league;
     if (!L || !L.teams) return;
     
     const powerList = document.getElementById('hubPower');
@@ -402,7 +408,7 @@ function renderPowerRankings() {
         const pointDiffStr = pointDiff >= 0 ? `+${pointDiff}` : pointDiff.toString();
         
         return `
-            <li class="power-ranking-item ${team.id === state.userTeamId ? 'user-team' : ''}">
+            <li class="power-ranking-item ${team.id === window.state?.userTeamId ? 'user-team' : ''}">
                 <span class="rank">${index + 1}</span>
                 <span class="team-name">${team.name}</span>
                 <span class="record">${recordStr}</span>
@@ -413,7 +419,7 @@ function renderPowerRankings() {
 }
 
 function renderLastWeekResults() {
-    const L = state.league;
+    const L = window.state?.league;
     if (!L) return;
     
     const resultsContainer = document.getElementById('hubResults');
@@ -441,7 +447,7 @@ function renderLastWeekResults() {
         const homeScore = result.scoreHome || 0;
         const awayScore = result.scoreAway || 0;
         const winner = homeScore > awayScore ? homeTeam : awayTeam;
-        const isUserTeam = result.home === state.userTeamId || result.away === state.userTeamId;
+        const isUserTeam = result.home === window.state?.userTeamId || result.away === window.state?.userTeamId;
         
         return `
             <div class="result-item ${isUserTeam ? 'user-game' : ''}">
@@ -460,7 +466,7 @@ function renderLastWeekResults() {
 window.renderTrade = function() {
     console.log('Rendering trade center...');
     try {
-        const L = state.league;
+        const L = window.state?.league;
         if (!L) {
             console.error('No league data available');
             return;
@@ -512,15 +518,15 @@ window.renderSettings = function() {
                         <div class="form-group">
                             <label for="namesMode">Player Names:</label>
                             <select id="namesMode">
-                                <option value="fictional" ${state.namesMode === 'fictional' ? 'selected' : ''}>Fictional</option>
-                                <option value="real" ${state.namesMode === 'real' ? 'selected' : ''}>Real</option>
+                                <option value="fictional" ${window.state?.namesMode === 'fictional' ? 'selected' : ''}>Fictional</option>
+                                <option value="real" ${window.state?.namesMode === 'real' ? 'selected' : ''}>Real</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="gameMode">Game Mode:</label>
                             <select id="gameMode">
-                                <option value="gm" ${state.gameMode === 'gm' ? 'selected' : ''}>General Manager</option>
-                                <option value="career" ${state.gameMode === 'career' ? 'selected' : ''}>Career Mode</option>
+                                <option value="gm" ${window.state?.gameMode === 'gm' ? 'selected' : ''}>General Manager</option>
+                                <option value="career" ${window.state?.gameMode === 'career' ? 'selected' : ''}>Career Mode</option>
                             </select>
                         </div>
                     </div>
@@ -541,6 +547,21 @@ window.renderSettings = function() {
         
     } catch (error) {
         console.error('Error rendering settings:', error);
+    }
+};
+
+// Add team selection change handler for roster view
+window.handleTeamSelectionChange = function() {
+    const teamSelect = document.getElementById('rosterTeam');
+    if (teamSelect) {
+        const selectedTeamId = parseInt(teamSelect.value);
+        if (!isNaN(selectedTeamId) && window.state?.league?.teams) {
+            window.state.userTeamId = selectedTeamId;
+            // Re-render roster with new team
+            if (window.renderRoster) {
+                window.renderRoster();
+            }
+        }
     }
 };
 
@@ -589,7 +610,7 @@ function updateReleaseButton() {
 function initializeUI() {
   console.log('🎯 Initializing UI...');
   enhanceNavigation();
-  if (state.league && state.onboarded) {
+  if (window.state?.league && window.state?.onboarded) {
     setTimeout(() => window.router(), 200);
   }
 }
