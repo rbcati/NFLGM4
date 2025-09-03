@@ -327,13 +327,14 @@
                     case 'scouting': if (window.renderScouting) window.renderScouting(); break;
                     case 'coaching': if (window.renderCoachingStats) window.renderCoachingStats(); break;
                     case 'trade': if (window.renderTradeCenter) window.renderTradeCenter(); else if (window.renderTrade) window.renderTrade(); break;
-                    case 'settings': if (window.renderSettings) window.renderSettings(); break;
-                    case 'player-stats': 
-                      // Player stats view - this is handled by the player stats viewer
-                      // The viewPlayerStats function should have already shown the modal
-                      console.log('Player stats view requested - modal should already be visible');
-                      break;
-                    default: console.log('No renderer for:', viewName);
+                                       case 'settings': if (window.renderSettings) window.renderSettings(); break;
+                   case 'schedule': if (window.renderSchedule) window.renderSchedule(); break;
+                   case 'player-stats': 
+                     // Player stats view - this is handled by the player stats viewer
+                     // The viewPlayerStats function should have already shown the modal
+                     console.log('Player stats view requested - modal should already be visible');
+                     break;
+                   default: console.log('No renderer for:', viewName);
                   }
                 } catch (error) {
                   console.error('Error rendering view:', viewName, error);
