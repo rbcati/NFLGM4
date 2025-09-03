@@ -117,3 +117,4 @@ function handleSimulatePlayoff(e) {
 
 window.setupEventListeners = setupEventListeners;
 
+
