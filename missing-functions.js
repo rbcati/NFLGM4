@@ -409,6 +409,11 @@ function releaseSelected(selectedIds) {
     window.recalcCap(L, team);
   }
   
+  // Update team ratings after roster change
+  if (window.updateTeamRatings) {
+    window.updateTeamRatings(team);
+  }
+  
   // Refresh UI
   if (window.renderRoster) window.renderRoster();
   if (window.updateCapSidebar) window.updateCapSidebar();
