@@ -26,41 +26,98 @@ function ensureFA() {
 
   const poolSize = C.FREE_AGENCY?.POOL_SIZE || 120;
   
-  for (let i = 0; i < poolSize; i++) {
-    const pos = U.choice(C.POSITIONS);
-    
-    // Use makePlayer if available, otherwise create basic player
+  // Create more realistic free agent distribution
+  const createRealisticPlayer = (pos, index) => {
     let player;
+    
     if (window.makePlayer) {
       player = window.makePlayer(pos);
     } else {
-      // Fallback player creation
+      // Fallback player creation with realistic distribution
       player = {
         id: U.id(),
         name: generateBasicName(),
         pos: pos,
         age: U.rand(22, 35),
-        ovr: U.rand(60, 88),
+        ovr: 0, // Will be set below
         years: 0,
         yearsTotal: C.FREE_AGENCY?.DEFAULT_YEARS || 2,
-        baseAnnual: U.rand(1, 15),
-        signingBonus: U.rand(0.5, 8),
+        baseAnnual: 0, // Will be calculated based on overall
+        signingBonus: 0, // Will be calculated
         guaranteedPct: C.FREE_AGENCY?.GUARANTEED_PCT || 0.5,
         stats: { game: {}, season: {}, career: {} },
         abilities: []
       };
     }
     
-    // Adjust for free agency market
-    player.years = 0; // Contract expired
-    player.baseAnnual = Math.round(player.baseAnnual * (C.FREE_AGENCY?.CONTRACT_DISCOUNT || 0.9) * 10) / 10;
-    player.signingBonus = Math.round((player.baseAnnual * player.yearsTotal * 0.4) * 10) / 10;
+    // Create realistic overall rating distribution
+    // Most players should be in the 60-75 range, fewer in 75-85, very few 85+
+    let overall;
+    const rand = Math.random();
+    
+    if (rand < 0.60) {
+      // 60% of players: 60-75 overall (depth players)
+      overall = U.rand(60, 75);
+    } else if (rand < 0.90) {
+      // 30% of players: 75-82 overall (solid players)
+      overall = U.rand(75, 82);
+    } else if (rand < 0.98) {
+      // 8% of players: 82-87 overall (good players)
+      overall = U.rand(82, 87);
+    } else {
+      // 2% of players: 87-92 overall (star players)
+      overall = U.rand(87, 92);
+    }
+    
+    player.ovr = overall;
+    
+    // Calculate realistic salary based on overall rating and position
+    const baseSalary = calculateRealisticSalary(player.ovr, player.pos, player.age);
+    player.baseAnnual = baseSalary;
+    
+    // Calculate signing bonus (typically 20-40% of total contract value)
+    const totalContractValue = baseSalary * player.yearsTotal;
+    const bonusPercentage = U.rand(0.2, 0.4);
+    player.signingBonus = Math.round(totalContractValue * bonusPercentage * 10) / 10;
+    
+    // Adjust for free agency market (slight discount)
+    const marketDiscount = C.FREE_AGENCY?.CONTRACT_DISCOUNT || 0.95;
+    player.baseAnnual = Math.round(player.baseAnnual * marketDiscount * 10) / 10;
     
     // Add abilities if the function exists
     if (window.tagAbilities) {
       window.tagAbilities(player);
     }
     
+    return player;
+  };
+  
+  // Generate players with realistic position distribution
+  const positionDistribution = {
+    'OL': 25,    // Offensive linemen are common in FA
+    'DL': 20,    // Defensive linemen
+    'LB': 15,    // Linebackers
+    'CB': 12,    // Cornerbacks
+    'S': 10,     // Safeties
+    'WR': 8,     // Wide receivers
+    'RB': 5,     // Running backs
+    'TE': 3,     // Tight ends
+    'QB': 1,     // Quarterbacks (rare in FA)
+    'K': 1       // Kickers
+  };
+  
+  let playerIndex = 0;
+  Object.entries(positionDistribution).forEach(([pos, count]) => {
+    for (let i = 0; i < count; i++) {
+      const player = createRealisticPlayer(pos, playerIndex++);
+      window.state.freeAgents.push(player);
+    }
+  });
+  
+  // Fill remaining slots with random positions
+  while (window.state.freeAgents.length < poolSize) {
+    const pos = U.choice(C.POSITIONS);
+    const player = createRealisticPlayer(pos, playerIndex++);
     window.state.freeAgents.push(player);
   }
   
@@ -82,6 +139,75 @@ function generateBasicName() {
   
   return firstNames[Math.floor(Math.random() * firstNames.length)] + ' ' + 
          lastNames[Math.floor(Math.random() * lastNames.length)];
+}
+
+/**
+ * Calculates realistic salary based on overall rating, position, and age
+ * @param {number} overall - Player overall rating
+ * @param {string} position - Player position
+ * @param {number} age - Player age
+ * @returns {number} Base annual salary in millions
+ */
+function calculateRealisticSalary(overall, position, age) {
+  const U = window.Utils;
+  
+  // Base salary multiplier by position (relative to overall rating)
+  const positionMultipliers = {
+    'QB': 1.8,    // Quarterbacks get paid the most
+    'OL': 1.2,    // Offensive linemen are valuable
+    'DL': 1.1,    // Defensive linemen
+    'WR': 1.0,    // Wide receivers
+    'CB': 0.95,   // Cornerbacks
+    'LB': 0.9,    // Linebackers
+    'RB': 0.85,   // Running backs (shorter careers)
+    'S': 0.8,     // Safeties
+    'TE': 0.75,   // Tight ends
+    'K': 0.4,     // Kickers
+    'P': 0.3      // Punters
+  };
+  
+  const multiplier = positionMultipliers[position] || 1.0;
+  
+  // Base salary calculation based on overall rating
+  let baseSalary;
+  if (overall >= 90) {
+    // Elite players: $15-25M
+    baseSalary = U.rand(15, 25);
+  } else if (overall >= 85) {
+    // Star players: $8-15M
+    baseSalary = U.rand(8, 15);
+  } else if (overall >= 80) {
+    // Good players: $4-8M
+    baseSalary = U.rand(4, 8);
+  } else if (overall >= 75) {
+    // Solid players: $2-4M
+    baseSalary = U.rand(2, 4);
+  } else if (overall >= 70) {
+    // Average players: $1-2M
+    baseSalary = U.rand(1, 2);
+  } else if (overall >= 65) {
+    // Below average: $0.5-1M
+    baseSalary = U.rand(0.5, 1);
+  } else {
+    // Depth players: $0.3-0.8M
+    baseSalary = U.rand(0.3, 0.8);
+  }
+  
+  // Apply position multiplier
+  baseSalary *= multiplier;
+  
+  // Age adjustment (older players get slight discount, younger players slight premium)
+  if (age >= 30) {
+    baseSalary *= U.rand(0.8, 0.95); // 5-20% discount for older players
+  } else if (age <= 25) {
+    baseSalary *= U.rand(1.0, 1.1); // 0-10% premium for young players
+  }
+  
+  // Add some randomness (±10%)
+  const randomFactor = U.rand(0.9, 1.1);
+  baseSalary *= randomFactor;
+  
+  return Math.round(baseSalary * 10) / 10; // Round to 1 decimal place
 }
 
 function renderFreeAgency() {
@@ -232,6 +358,11 @@ function signFreeAgent(playerIndex) {
     
     // Remove from free agents
     window.state.freeAgents.splice(idx, 1);
+    
+    // Update team ratings after roster change
+    if (window.updateTeamRatings) {
+      window.updateTeamRatings(team);
+    }
     
     // Update salary cap
     if (window.recalcCap) {
