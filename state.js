@@ -31,9 +31,9 @@ if (typeof state === 'undefined') {
   };
 }
 
-// Name arrays for player generation (only if not already defined)
+// Name arrays for player generation (now using expanded names for 1,000,000+ combinations)
 if (typeof FIRST_NAMES === 'undefined') {
-  var FIRST_NAMES = [
+  var FIRST_NAMES = window.EXPANDED_FIRST_NAMES || [
     'James', 'Michael', 'John', 'Robert', 'David', 'William', 'Richard', 'Joseph', 'Thomas', 'Christopher',
     'Charles', 'Daniel', 'Matthew', 'Anthony', 'Mark', 'Steven', 'Donald', 'Andrew', 'Joshua', 'Paul',
     'Kenneth', 'Kevin', 'Brian', 'Timothy', 'Ronald', 'Jason', 'George', 'Edward', 'Jeffrey', 'Ryan',
@@ -70,7 +70,7 @@ if (typeof FIRST_NAMES === 'undefined') {
 }
 
 if (typeof LAST_NAMES === 'undefined') {
-  var LAST_NAMES = [
+  var LAST_NAMES = window.EXPANDED_LAST_NAMES || [
     'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
     'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin',
     'Lee', 'Perez', 'Thompson', 'White', 'Harris', 'Sanchez', 'Clark', 'Ramirez', 'Lewis', 'Robinson',
