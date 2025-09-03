@@ -219,7 +219,7 @@ window.renderHub = function() {
         if (hubWeeks) hubWeeks.textContent = '18';
         
         // Calculate games this week
-        const currentWeekGames = L.schedule?.filter(game => game.week === L.week) || [];
+        const currentWeekGames = L.schedule?.weeks?.find(week => week.weekNumber === L.week)?.games || [];
         if (hubGames) hubGames.textContent = currentWeekGames.length;
         
         // Render power rankings
@@ -286,38 +286,42 @@ function renderPowerRankings() {
 
 function renderLastWeekResults() {
     const L = state.league;
-    if (!L || !L.schedule) return;
+    if (!L) return;
     
     const resultsContainer = document.getElementById('hubResults');
     if (!resultsContainer) return;
     
-    // Find last week's games
+    // Find last week's results from the resultsByWeek storage
     const lastWeek = Math.max(1, (L.week || 1) - 1);
-    const lastWeekGames = L.schedule.filter(game => game.week === lastWeek);
+    const lastWeekResults = L.resultsByWeek?.[lastWeek - 1] || [];
     
-    if (lastWeekGames.length === 0) {
+    if (lastWeekResults.length === 0) {
         resultsContainer.innerHTML = '<div class="muted">No games played yet</div>';
         return;
     }
     
-    resultsContainer.innerHTML = lastWeekGames.map(game => {
-        const homeTeam = L.teams[game.home];
-        const awayTeam = L.teams[game.away];
+    resultsContainer.innerHTML = lastWeekResults.map(result => {
+        if (result.bye) {
+            return `<div class="result-item bye">${L.teams[result.bye]?.name || 'Team'} - BYE</div>`;
+        }
+        
+        const homeTeam = L.teams[result.home];
+        const awayTeam = L.teams[result.away];
         
         if (!homeTeam || !awayTeam) return '';
         
-        const homeScore = game.homeScore || 0;
-        const awayScore = game.awayScore || 0;
+        const homeScore = result.scoreHome || 0;
+        const awayScore = result.scoreAway || 0;
         const winner = homeScore > awayScore ? homeTeam : awayTeam;
-        const isUserTeam = game.home === state.userTeamId || game.away === state.userTeamId;
+        const isUserTeam = result.home === state.userTeamId || result.away === state.userTeamId;
         
         return `
             <div class="result-item ${isUserTeam ? 'user-game' : ''}">
                 <div class="teams">
-                    <span class="team ${game.away === winner.id ? 'winner' : ''}">${awayTeam.name}</span>
+                    <span class="team ${result.away === winner.id ? 'winner' : ''}">${awayTeam.name}</span>
                     <span class="score">${awayScore}</span>
                     <span class="at">@</span>
-                    <span class="team ${game.home === winner.id ? 'winner' : ''}">${homeTeam.name}</span>
+                    <span class="team ${result.home === winner.id ? 'winner' : ''}">${homeTeam.name}</span>
                     <span class="score">${homeScore}</span>
                 </div>
             </div>
