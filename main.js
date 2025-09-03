@@ -184,11 +184,11 @@ class GameController {
                     row.innerHTML = `
                         <td><input type="checkbox" class="player-select" value="${player.id}"></td>
                         <td class="player-name">${player.name}</td>
-                        <td class="player-position">${player.position}</td>
+                        <td class="player-position">${player.pos || player.position || 'N/A'}</td>
                         <td class="player-age">${player.age || 'N/A'}</td>
                         <td class="player-overall">${overall}</td>
-                        <td class="player-salary">$${(player.contract?.salary || 0).toLocaleString()}</td>
-                        <td class="player-years">${player.contract?.years || 'N/A'}</td>
+                        <td class="player-salary">$${(player.contract?.salary || player.baseAnnual || 0).toLocaleString()}</td>
+                        <td class="player-years">${player.contract?.years || player.years || 'N/A'}</td>
                         <td class="player-actions">
                             <button class="btn btn-small" onclick="window.viewPlayerStats('${player.id}')">View</button>
                         </td>
@@ -227,6 +227,26 @@ class GameController {
             // Make players clickable
             if (window.playerStatsViewer) {
                 window.playerStatsViewer.makePlayersClickable();
+            } else {
+                // Fallback: make players clickable directly
+                const playerRows = document.querySelectorAll('.player-row');
+                playerRows.forEach(row => {
+                    if (!row.classList.contains('clickable')) {
+                        row.classList.add('clickable');
+                        row.style.cursor = 'pointer';
+                        row.addEventListener('click', (e) => {
+                            if (!e.target.closest('button') && !e.target.closest('input')) {
+                                const playerId = row.dataset.playerId;
+                                if (playerId) {
+                                    // Try to show player stats directly
+                                    if (window.viewPlayerStats) {
+                                        window.viewPlayerStats(playerId);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
             }
 
             console.log('✅ Enhanced roster rendered successfully');
