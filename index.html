@@ -328,6 +328,14 @@
                     case 'coaching': if (window.renderCoachingStats) window.renderCoachingStats(); break;
                     case 'trade': if (window.renderTradeCenter) window.renderTradeCenter(); else if (window.renderTrade) window.renderTrade(); break;
                     case 'settings': if (window.renderSettings) window.renderSettings(); break;
+                    case 'player-stats': 
+                      // Player stats view - just show the modal if it exists
+                      if (window.playerStatsViewer && window.playerStatsViewer.currentPlayer) {
+                        window.playerStatsViewer.showModal();
+                      } else {
+                        console.log('No player selected for stats view');
+                      }
+                      break;
                     default: console.log('No renderer for:', viewName);
                   }
                 } catch (error) {
