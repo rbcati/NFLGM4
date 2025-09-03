@@ -1745,3 +1745,192 @@ select:focus, input:focus {
   display: flex;
   gap: var(--space-3);
 }
+
+/* Team Ratings Styles */
+.team-ratings-section {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+
+.team-ratings h3 {
+  margin-bottom: var(--space-4);
+  color: var(--accent);
+  font-size: var(--text-lg);
+}
+
+.rating-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.rating-item {
+  text-align: center;
+  padding: var(--space-3);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  transition: all var(--dur) var(--ease);
+}
+
+.rating-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.rating-label {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-bottom: var(--space-2);
+  font-weight: 500;
+}
+
+.rating-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* Rating color classes */
+.rating-elite {
+  color: #FFD700; /* Gold */
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.rating-excellent {
+  color: #00FF88; /* Bright green */
+}
+
+.rating-very-good {
+  color: #00CCFF; /* Bright blue */
+}
+
+.rating-good {
+  color: #34C759; /* Green */
+}
+
+.rating-average {
+  color: #FF9F0A; /* Orange */
+}
+
+.rating-below-average {
+  color: #FF6B35; /* Red-orange */
+}
+
+.rating-poor {
+  color: #FF453A; /* Red */
+}
+
+.rating-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail-item .label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.detail-item .value {
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* League Team Ratings Grid */
+.league-ratings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.league-team-card {
+  padding: var(--space-4);
+  background: var(--surface-strong);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  transition: all var(--dur) var(--ease);
+}
+
+.league-team-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.league-team-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.league-team-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: var(--text-lg);
+}
+
+.league-team-overall {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.league-team-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.league-team-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+}
+
+.league-team-stat .label {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.league-team-stat .value {
+  color: var(--text);
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+
+/* Rank-based styling */
+.league-team-card.top-rank {
+  border-left: 4px solid #FFD700; /* Gold for top 3 */
+  background: linear-gradient(135deg, var(--surface-strong), rgba(255, 215, 0, 0.1));
+}
+
+.league-team-card.playoff-rank {
+  border-left: 4px solid #00CCFF; /* Blue for playoff teams */
+  background: linear-gradient(135deg, var(--surface-strong), rgba(0, 204, 255, 0.1));
+}
+
+.league-team-card.regular-rank {
+  border-left: 4px solid var(--hairline);
+}
