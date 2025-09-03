@@ -60,15 +60,29 @@ const DEFAULT_DEPTH_NEEDS = {
  */
 function validatePlayer(player) {
     if (!player || typeof player !== 'object') {
+        console.warn('validatePlayer: player is null, undefined, or not an object:', player);
         return false;
     }
     
     const requiredFields = ['pos', 'age', 'ovr', 'years', 'baseAnnual'];
-    return requiredFields.every(field => 
-        player.hasOwnProperty(field) && 
-        typeof player[field] === 'number' && 
-        !isNaN(player[field])
-    );
+    const missingFields = [];
+    
+    for (const field of requiredFields) {
+        if (!player.hasOwnProperty(field)) {
+            missingFields.push(`missing ${field}`);
+        } else if (typeof player[field] !== 'number') {
+            missingFields.push(`${field} is not a number (got ${typeof player[field]})`);
+        } else if (isNaN(player[field])) {
+            missingFields.push(`${field} is NaN`);
+        }
+    }
+    
+    if (missingFields.length > 0) {
+        console.warn('validatePlayer: validation failed for player:', player, 'Issues:', missingFields);
+        return false;
+    }
+    
+    return true;
 }
 
 /**
@@ -80,7 +94,9 @@ function validatePlayer(player) {
 function calculatePlayerTradeValue(player, config = {}) {
     // Input validation
     if (!validatePlayer(player)) {
-        throw new Error('Invalid player object provided to calculatePlayerTradeValue');
+        console.error('calculatePlayerTradeValue: Invalid player object:', player);
+        // Return a default value instead of throwing an error
+        return TRADE_CONFIG.MIN_TRADE_VALUE || 1;
     }
     
     // Merge config with defaults
