@@ -46,8 +46,8 @@ function enhanceStaffGeneration() {
 function makeBasicStaff(position) {
   const U = window.Utils;
   
-  // Expanded first names - much more diverse and realistic
-  const firstNames = [
+  // Use expanded names for maximum variety (1,000,000+ combinations)
+  const firstNames = window.EXPANDED_FIRST_NAMES || [
     'Mike', 'John', 'Bill', 'Tom', 'Jim', 'Dave', 'Steve', 'Dan', 'Ron', 'Joe',
     'Matt', 'Chris', 'Kevin', 'Brian', 'Mark', 'Jeff', 'Scott', 'Tim', 'Greg', 'Tony',
     'Andy', 'Sean', 'Todd', 'Ken', 'Mike', 'Pat', 'Frank', 'Gary', 'Larry', 'Jerry',
@@ -63,8 +63,8 @@ function makeBasicStaff(position) {
     'Helen', 'Sandra', 'Donna', 'Carol', 'Ruth', 'Sharon', 'Linda', 'Betty', 'Nancy', 'Helen'
   ];
   
-  // Expanded last names - much more diverse and realistic
-  const lastNames = [
+  // Use expanded names for maximum variety (1,000,000+ combinations)
+  const lastNames = window.EXPANDED_LAST_NAMES || [
     'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor',
     'Anderson', 'Thomas', 'Jackson', 'White', 'Harris', 'Martin', 'Thompson', 'Garcia', 'Martinez', 'Robinson',
     'Clark', 'Rodriguez', 'Lewis', 'Lee', 'Walker', 'Perez', 'Hall', 'Young', 'Allen', 'King',
