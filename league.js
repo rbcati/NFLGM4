@@ -88,6 +88,32 @@ window.makeLeague = function(teams) {
         } else {
             console.warn('DEPTH_NEEDS not found in Constants');
         }
+        
+        // Generate coaching staff for the team
+        if (typeof window.generateInitialStaff === 'function') {
+            try {
+                team.staff = window.generateInitialStaff();
+                console.log(`Generated coaching staff for ${team.name}:`, team.staff);
+            } catch (error) {
+                console.error(`Error generating staff for ${team.name}:`, error);
+                // Create basic staff as fallback
+                team.staff = {
+                    headCoach: { name: 'Vacant HC', position: 'HC', age: 45, playerDevelopment: 50, playcalling: 50, scouting: 50 },
+                    offCoordinator: { name: 'Vacant OC', position: 'OC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
+                    defCoordinator: { name: 'Vacant DC', position: 'DC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
+                    scout: { name: 'Vacant Scout', position: 'Scout', age: 35, playerDevelopment: 50, playcalling: 50, scouting: 50 }
+                };
+            }
+        } else {
+            console.warn('generateInitialStaff function not found, creating basic staff');
+            // Create basic staff as fallback
+            team.staff = {
+                headCoach: { name: 'Vacant HC', position: 'HC', age: 45, playerDevelopment: 50, playcalling: 50, scouting: 50 },
+                offCoordinator: { name: 'Vacant OC', position: 'OC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
+                defCoordinator: { name: 'Vacant DC', position: 'DC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
+                scout: { name: 'Vacant Scout', position: 'Scout', age: 35, playerDevelopment: 50, playcalling: 50, scouting: 50 }
+            };
+        }
 
         return team;
     });
@@ -101,6 +127,30 @@ window.makeLeague = function(teams) {
         }
     } else {
         console.warn('makeSchedule function not found');
+    }
+    
+    // Initialize coaching stats for all teams if the coaching system is available
+    if (typeof window.initializeCoachingStats === 'function') {
+        try {
+            L.teams.forEach(team => {
+                if (team.staff) {
+                    if (team.staff.headCoach) {
+                        window.initializeCoachingStats(team.staff.headCoach);
+                    }
+                    if (team.staff.offCoordinator) {
+                        window.initializeCoachingStats(team.staff.offCoordinator);
+                    }
+                    if (team.staff.defCoordinator) {
+                        window.initializeCoachingStats(team.staff.defCoordinator);
+                    }
+                }
+            });
+            console.log('Initialized coaching stats for all teams');
+        } catch (error) {
+            console.error('Error initializing coaching stats:', error);
+        }
+    } else {
+        console.log('Coaching system not available, skipping coaching stats initialization');
     }
 
     return L;
