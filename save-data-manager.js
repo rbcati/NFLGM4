@@ -399,6 +399,32 @@ class SaveDataManager {
         return freedBytes;
     }
 
+    // --- EMERGENCY RECOVERY ---
+    async clearCorruptedData() {
+        console.log('🚨 Clearing corrupted save data...');
+        
+        try {
+            // Remove main save
+            localStorage.removeItem(this.SAVE_KEY);
+            
+            // Remove all backups
+            const backups = await this.getBackups();
+            for (const backup of backups) {
+                localStorage.removeItem(backup.key);
+            }
+            
+            // Clear cache
+            this.storageCache.clear();
+            
+            console.log('✅ Corrupted data cleared successfully');
+            return { success: true, message: 'Corrupted data cleared' };
+            
+        } catch (error) {
+            console.error('Failed to clear corrupted data:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
     // --- ENHANCED BACKUP MANAGEMENT ---
     shouldCreateBackup() {
         const timeSinceLastBackup = Date.now() - this.lastAutoBackupTime;
@@ -448,7 +474,14 @@ class SaveDataManager {
                 return { success: false, error: 'No save data found' };
             }
             
-            const savePackage = JSON.parse(saved);
+            let savePackage;
+            try {
+                savePackage = JSON.parse(saved);
+            } catch (parseError) {
+                console.error('Failed to parse save data:', parseError);
+                console.timeEnd('Load Process');
+                return await this.recoverFromBackup();
+            }
             
             // Verify data integrity
             if (!this.verifySaveIntegrity(savePackage)) {
@@ -460,8 +493,18 @@ class SaveDataManager {
             if (!this.isVersionCompatible(savePackage.version)) {
                 if (this.canMigrate(savePackage.version)) {
                     console.log(`Migrating save from ${savePackage.version} to ${this.VERSION}`);
-                    savePackage.gameData = await this.migrateSaveData(savePackage.gameData, savePackage.version);
-                    savePackage.version = this.VERSION;
+                    try {
+                        savePackage.gameData = await this.migrateSaveData(savePackage.gameData, savePackage.version);
+                        savePackage.version = this.VERSION;
+                    } catch (migrationError) {
+                        console.error('Migration failed:', migrationError);
+                        return { 
+                            success: false, 
+                            error: `Migration from ${savePackage.version} failed: ${migrationError.message}`,
+                            needsMigration: true,
+                            saveVersion: savePackage.version
+                        };
+                    }
                 } else {
                     console.timeEnd('Load Process');
                     return { 
@@ -486,23 +529,48 @@ class SaveDataManager {
         } catch (error) {
             console.error('Load failed:', error);
             console.timeEnd('Load Process');
-            return await this.recoverFromBackup();
+            // Ensure we always return a proper result object
+            const backupResult = await this.recoverFromBackup();
+            if (!backupResult.success) {
+                return { 
+                    success: false, 
+                    error: `Load failed: ${error.message}`,
+                    backupRecoveryFailed: true,
+                    originalError: error.message
+                };
+            }
+            return backupResult;
         }
     }
 
     verifySaveIntegrity(savePackage) {
         try {
             // Basic structure check
-            if (!savePackage.gameData || !savePackage.version || !savePackage.timestamp) {
+            if (!savePackage || typeof savePackage !== 'object') {
+                console.warn('Save package is not a valid object');
                 return false;
             }
             
-            // Checksum verification
+            if (!savePackage.gameData || !savePackage.version || !savePackage.timestamp) {
+                console.warn('Save package missing required fields:', {
+                    hasGameData: !!savePackage.gameData,
+                    hasVersion: !!savePackage.version,
+                    hasTimestamp: !!savePackage.timestamp
+                });
+                return false;
+            }
+            
+            // Checksum verification (optional)
             if (savePackage.checksum) {
-                const expectedChecksum = this.createChecksum(savePackage.gameData);
-                if (expectedChecksum !== savePackage.checksum) {
-                    console.warn('Checksum mismatch detected');
-                    return false;
+                try {
+                    const expectedChecksum = this.createChecksum(savePackage.gameData);
+                    if (expectedChecksum !== savePackage.checksum) {
+                        console.warn('Checksum mismatch detected');
+                        return false;
+                    }
+                } catch (checksumError) {
+                    console.warn('Checksum verification failed:', checksumError);
+                    // Don't fail on checksum errors, just warn
                 }
             }
             
@@ -515,17 +583,27 @@ class SaveDataManager {
 
     async recoverFromBackup() {
         try {
-            console.log('Attempting recovery from backup...');
+            console.log('🔄 Attempting recovery from backup...');
             const backups = await this.getBackups();
             
             if (backups.length === 0) {
+                console.warn('No backups available for recovery');
                 return { success: false, error: 'No backups available for recovery' };
             }
+            
+            console.log(`Found ${backups.length} backup(s) to try`);
             
             // Try backups in order of recency
             for (const backup of backups) {
                 try {
+                    console.log(`Trying backup: ${backup.key}`);
                     const backupData = localStorage.getItem(backup.key);
+                    
+                    if (!backupData) {
+                        console.warn(`Backup ${backup.key} has no data`);
+                        continue;
+                    }
+                    
                     const backupPackage = JSON.parse(backupData);
                     
                     if (this.verifySaveIntegrity(backupPackage)) {
@@ -538,18 +616,32 @@ class SaveDataManager {
                             recoveredFromBackup: true,
                             backupUsed: backup.key
                         };
+                    } else {
+                        console.warn(`Backup ${backup.key} failed integrity check`);
                     }
                 } catch (backupError) {
-                    console.warn(`Backup ${backup.key} is also corrupted:`, backupError);
+                    console.warn(`Backup ${backup.key} is corrupted:`, backupError);
+                    // Remove corrupted backup
+                    try {
+                        localStorage.removeItem(backup.key);
+                        console.log(`Removed corrupted backup: ${backup.key}`);
+                    } catch (removeError) {
+                        console.warn(`Failed to remove corrupted backup ${backup.key}:`, removeError);
+                    }
                     continue;
                 }
             }
             
-            return { success: false, error: 'All backups are corrupted' };
+            console.error('All backups failed recovery attempts');
+            return { success: false, error: 'All backups are corrupted or invalid' };
             
         } catch (error) {
             console.error('Backup recovery failed:', error);
-            return { success: false, error: 'Backup recovery failed: ' + error.message };
+            return { 
+                success: false, 
+                error: 'Backup recovery failed: ' + error.message,
+                originalError: error
+            };
         }
     }
 
@@ -651,6 +743,54 @@ class SaveDataManager {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
     }
 
+    // --- DEBUGGING AND DIAGNOSTICS ---
+    debugStorage() {
+        console.group('🔍 Storage Debug Information');
+        
+        try {
+            const usage = this.getStorageUsage(false);
+            console.log('Storage Usage:', usage);
+            
+            console.log('LocalStorage Keys:');
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    const item = localStorage.getItem(key);
+                    const size = item ? item.length : 0;
+                    console.log(`  ${key}: ${this.formatBytes(size)}`);
+                }
+            }
+            
+            // Check main save data
+            const mainSave = localStorage.getItem(this.SAVE_KEY);
+            if (mainSave) {
+                try {
+                    const parsed = JSON.parse(mainSave);
+                    console.log('Main Save Data:', {
+                        version: parsed.version,
+                        timestamp: parsed.timestamp,
+                        hasGameData: !!parsed.gameData,
+                        size: this.formatBytes(mainSave.length)
+                    });
+                } catch (parseError) {
+                    console.error('Main save data is corrupted:', parseError);
+                }
+            } else {
+                console.warn('No main save data found');
+            }
+            
+            // Check backups
+            this.getBackups().then(backups => {
+                console.log('Backups:', backups);
+            });
+            
+        } catch (error) {
+            console.error('Error during storage debug:', error);
+        }
+        
+        console.groupEnd();
+    }
+
     // --- STORAGE STATISTICS ---
     getStorageStats() {
         const usage = this.getStorageUsage();
@@ -710,18 +850,78 @@ window.saveState = function(stateToSave, options = {}) {
     return saveManager.save(stateToSave, options);
 };
 
-window.loadState = function() {
-    const result = saveManager.load();
-    if (!result.success) {
-        console.error('Load failed:', result.error);
-        if (result.recoveredFromBackup && window.setStatus) {
-            window.setStatus('Save was corrupted, recovered from backup', 'warning');
+window.loadState = async function() {
+    try {
+        console.log('🔄 Attempting to load game state...');
+        const result = await saveManager.load();
+        
+        if (!result.success) {
+            console.error('❌ Load failed:', result.error);
+            
+            // Provide more detailed error information
+            if (result.backupRecoveryFailed) {
+                console.error('Backup recovery also failed. Original error:', result.originalError);
+            }
+            
+            if (result.needsMigration) {
+                console.error('Save data needs migration from version:', result.saveVersion);
+            }
+            
+            // Try to set status if available
+            if (window.setStatus) {
+                let statusMessage = 'Failed to load save data';
+                let statusType = 'error';
+                
+                if (result.recoveredFromBackup) {
+                    statusMessage = 'Save was corrupted, recovered from backup';
+                    statusType = 'warning';
+                } else if (result.needsMigration) {
+                    statusMessage = `Save version ${result.saveVersion} is not compatible`;
+                    statusType = 'error';
+                } else if (result.error) {
+                    statusMessage = `Load error: ${result.error}`;
+                    statusType = 'error';
+                }
+                
+                window.setStatus(statusMessage, statusType);
+            }
+            
+            return null;
         }
+        
+        console.log('✅ Game state loaded successfully');
+        return result.gameData;
+        
+    } catch (error) {
+        console.error('❌ Unexpected error in loadState:', error);
+        
+        if (window.setStatus) {
+            window.setStatus(`Unexpected load error: ${error.message}`, 'error');
+        }
+        
+        return null;
     }
-    return result.success ? result.gameData : null;
 };
 
 // Expose manager globally
 window.SaveDataManager = saveManager;
+
+// Add debug method to global scope
+window.debugStorage = function() {
+    saveManager.debugStorage();
+};
+
+// Add emergency recovery method
+window.clearCorruptedData = function() {
+    return saveManager.clearCorruptedData();
+};
+
+// Add error handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', function(event) {
+    console.error('Unhandled promise rejection:', event.reason);
+    if (window.setStatus) {
+        window.setStatus(`Unhandled error: ${event.reason}`, 'error');
+    }
+});
 
 console.log('✅ Enhanced Save Data Manager loaded successfully');
