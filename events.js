@@ -117,4 +117,22 @@ function handleSimulatePlayoff(e) {
 
 window.setupEventListeners = setupEventListeners;
 
-
+// Add missing openOnboard function
+window.openOnboard = function() {
+    console.log('🎯 Opening onboarding modal...');
+    const modal = document.getElementById('onboardModal');
+    if (modal) {
+        modal.hidden = false;
+        modal.style.display = 'flex';
+        
+        // Populate team dropdown if not already done
+        const teamSelect = document.getElementById('onboardTeam');
+        if (teamSelect && window.populateTeamDropdown) {
+            window.populateTeamDropdown('fictional');
+        }
+        
+        console.log('✅ Onboarding modal opened');
+    } else {
+        console.error('❌ Onboarding modal not found');
+    }
+};
