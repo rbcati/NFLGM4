@@ -72,9 +72,12 @@
             }
             break;
           case 'standings':
-            if (window.renderStandings) {
-              window.renderStandings();
+            if (window.renderStandingsPage) {
+              window.renderStandingsPage();
               console.log('✅ Standings rendered');
+            } else if (window.renderStandings) {
+              window.renderStandings();
+              console.log('✅ Standings (legacy) rendered');
             }
             break;
           case 'freeagency':
@@ -91,9 +94,12 @@
             }
             break;
           case 'trade':
-            if (window.renderTrade) {
+            if (window.renderTradeCenter) {
+              window.renderTradeCenter();
+              console.log('✅ Trade center rendered');
+            } else if (window.renderTrade) {
               window.renderTrade();
-              console.log('✅ Trade rendered');
+              console.log('✅ Trade (legacy) rendered');
             }
             break;
           case 'coaching':
@@ -105,6 +111,12 @@
           case 'settings':
             renderSettings();
             console.log('✅ Settings rendered');
+            break;
+          case 'hallOfFame':
+            if (window.renderHallOfFame) {
+              window.renderHallOfFame();
+              console.log('✅ Hall of Fame rendered');
+            }
             break;
           default:
             console.log('No specific renderer for view:', viewName);
@@ -448,17 +460,3 @@
   window.fixNavigation = initializeNavigationFix;
   window.diagnoseNavigation = diagnoseNavigation;
   window.fixedRouter = fixedRouter;
-  
-  // Auto-initialize
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeNavigationFix);
-  } else {
-    // Run immediately if DOM is ready
-    setTimeout(initializeNavigationFix, 100);
-  }
-  
-  console.log('💡 Navigation fix loaded. Available commands:');
-  console.log('- fixNavigation() - Apply complete navigation fix');
-  console.log('- diagnoseNavigation() - Show navigation diagnostic');
-  
-})();
