@@ -102,12 +102,12 @@ function calculateAllStandings(league) {
   
   // Add calculated fields to each team
   teams.forEach(team => {
-    const record = team.record || { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
-    team.wins = record.w || 0;
-    team.losses = record.l || 0;
-    team.ties = record.t || 0;
-    team.pointsFor = record.pf || 0;
-    team.pointsAgainst = record.pa || 0;
+    // Use the direct team properties that are set by simulation
+    team.wins = team.wins || 0;
+    team.losses = team.losses || 0;
+    team.ties = team.ties || 0;
+    team.pointsFor = team.ptsFor || 0;
+    team.pointsAgainst = team.ptsAgainst || 0;
     team.pointDifferential = team.pointsFor - team.pointsAgainst;
     team.winPercentage = calculateWinPercentage(team.wins, team.losses, team.ties);
     team.gamesPlayed = team.wins + team.losses + team.ties;
