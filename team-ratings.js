@@ -343,6 +343,61 @@ function getRatingClass(rating) {
     return 'poor';
 }
 
+/**
+ * Renders league-wide team ratings overview
+ * @param {Object} league - League object
+ * @param {string} containerId - ID of container to render ratings
+ */
+function renderLeagueTeamRatings(league, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container || !league?.teams) return;
+
+    // Update all team ratings first
+    updateAllTeamRatings(league);
+    
+    // Sort teams by overall rating
+    const sortedTeams = [...league.teams].sort((a, b) => (b.overallRating || 0) - (a.overallRating || 0));
+    
+    const html = `
+        <div class="league-ratings-overview">
+            ${sortedTeams.map((team, index) => {
+                const ratings = team.ratings || calculateTeamRating(team);
+                const rank = index + 1;
+                const rankClass = rank <= 3 ? 'top-rank' : rank <= 8 ? 'playoff-rank' : 'regular-rank';
+                
+                return `
+                    <div class="league-team-card ${rankClass}">
+                        <div class="league-team-header">
+                            <div class="league-team-name">${rank}. ${team.name}</div>
+                            <div class="league-team-overall rating-${getRatingClass(ratings.overall)}">${ratings.overall}</div>
+                        </div>
+                        <div class="league-team-stats">
+                            <div class="league-team-stat">
+                                <span class="label">Offense</span>
+                                <span class="value rating-${getRatingClass(ratings.offense.overall)}">${ratings.offense.overall}</span>
+                            </div>
+                            <div class="league-team-stat">
+                                <span class="label">Defense</span>
+                                <span class="value rating-${getRatingClass(ratings.defense.overall)}">${ratings.defense.overall}</span>
+                            </div>
+                            <div class="league-team-stat">
+                                <span class="label">Special Teams</span>
+                                <span class="value rating-${getRatingClass(ratings.specialTeams)}">${ratings.specialTeams}</span>
+                            </div>
+                            <div class="league-team-stat">
+                                <span class="label">Depth</span>
+                                <span class="value">${ratings.depth}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    container.innerHTML = html;
+}
+
 // Make functions globally available
 window.calculateOffensiveRating = calculateOffensiveRating;
 window.calculateDefensiveRating = calculateDefensiveRating;
@@ -350,3 +405,4 @@ window.calculateTeamRating = calculateTeamRating;
 window.updateTeamRatings = updateTeamRatings;
 window.updateAllTeamRatings = updateAllTeamRatings;
 window.renderTeamRatings = renderTeamRatings;
+window.renderLeagueTeamRatings = renderLeagueTeamRatings;
