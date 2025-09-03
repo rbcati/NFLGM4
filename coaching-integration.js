@@ -276,15 +276,12 @@ function updateAllCoachingSeasonStats(league) {
   if (!league || !league.teams) return;
   
   league.teams.forEach(team => {
-    const record = team.record;
-    if (!record) return;
-    
     const seasonStats = {
-      wins: record.w || 0,
-      losses: record.l || 0,
-      ties: record.t || 0,
-      pointsFor: record.pf || 0,
-      pointsAgainst: record.pa || 0
+      wins: team.wins || 0,
+      losses: team.losses || 0,
+      ties: team.ties || 0,
+      pointsFor: team.ptsFor || 0,
+      pointsAgainst: team.ptsAgainst || 0
     };
     
     // Update head coach stats
