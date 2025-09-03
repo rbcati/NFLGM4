@@ -227,9 +227,9 @@ function generatePlayerName() {
   const U = window.Utils;
   const C = window.Constants;
   
-  // Use constants if available, otherwise use global arrays from state.js
-  const firstNames = C.FIRST_NAMES || window.FIRST_NAMES || ['John', 'Mike', 'James', 'David'];
-  const lastNames = C.LAST_NAMES || window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown'];
+  // Use expanded names for maximum variety (1,000,000+ combinations)
+  const firstNames = window.EXPANDED_FIRST_NAMES || C.FIRST_NAMES || window.FIRST_NAMES || ['John', 'Mike', 'James', 'David'];
+  const lastNames = window.EXPANDED_LAST_NAMES || C.LAST_NAMES || window.LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown'];
   
   const firstName = U.choice(firstNames);
   const lastName = U.choice(lastNames);
