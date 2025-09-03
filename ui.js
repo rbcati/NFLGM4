@@ -544,16 +544,28 @@ window.renderSettings = function() {
 
 // Add team selection change handler for roster view
 window.handleTeamSelectionChange = function() {
+    console.log('🔄 Team selection changed');
     const teamSelect = document.getElementById('rosterTeam');
     if (teamSelect) {
         const selectedTeamId = parseInt(teamSelect.value);
+        console.log('Selected team ID:', selectedTeamId);
+        console.log('Current state:', window.state);
+        console.log('League teams:', window.state?.league?.teams?.length);
+        
         if (!isNaN(selectedTeamId) && window.state?.league?.teams) {
             window.state.userTeamId = selectedTeamId;
-            // Re-render roster with new team
+            console.log('Updated userTeamId to:', selectedTeamId);
             if (window.renderRoster) {
+                console.log('Calling renderRoster...');
                 window.renderRoster();
+            } else {
+                console.log('renderRoster function not available');
             }
+        } else {
+            console.log('Invalid team selection or league not ready');
         }
+    } else {
+        console.log('Team select element not found');
     }
 };
 
