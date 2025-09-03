@@ -9,7 +9,7 @@
 function generatePlayoffs(teams) {
     const C = window.Constants.PLAYOFFS;
     const bracket = {
-        year: state.league.year,
+        year: window.state?.league?.year || 2025,
         rounds: { afc: [[], [], []], nfc: [[], [], []], superbowl: [] },
         winner: null,
         currentRound: 0,
@@ -43,7 +43,7 @@ function generatePlayoffs(teams) {
 
 // --- PLAYOFF SIMULATION ---
 function simPlayoffWeek() {
-    const P = state.playoffs;
+    const P = window.state?.playoffs;
     if (!P || P.winner) return;
 
     const simGame = window.simGameStats;
@@ -96,6 +96,41 @@ function simPlayoffWeek() {
 
     saveState();
     if (window.renderPlayoffs) renderPlayoffs();
+}
+
+// --- PLAYOFF INITIALIZATION ---
+function startPlayoffs() {
+    console.log('Starting playoffs...');
+    
+    if (!window.state?.league?.teams) {
+        console.error('No teams available for playoffs');
+        window.setStatus('Error: No teams available for playoffs');
+        return;
+    }
+    
+    // Generate playoff bracket
+    const playoffBracket = generatePlayoffs(window.state.league.teams);
+    
+    // Store in state
+    window.state.playoffs = playoffBracket;
+    
+    // Save state
+    if (window.saveState) {
+        window.saveState();
+    }
+    
+    // Navigate to playoffs view
+    if (window.location) {
+        window.location.hash = '#/playoffs';
+    }
+    
+    // Render playoffs
+    if (window.renderPlayoffs) {
+        window.renderPlayoffs();
+    }
+    
+    window.setStatus('Playoffs have begun!');
+    console.log('Playoffs started successfully');
 }
 
 // --- PLAYOFF UI RENDERING ---
@@ -209,3 +244,4 @@ function getRoundName(roundNum) {
 window.generatePlayoffs = generatePlayoffs;
 window.simPlayoffWeek = simPlayoffWeek;
 window.renderPlayoffs = renderPlayoffs;
+window.startPlayoffs = startPlayoffs;
