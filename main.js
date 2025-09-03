@@ -735,3 +735,18 @@ class GameController {
         });
     }
 }
+
+// Create and initialize the game controller
+const gameController = new GameController();
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        gameController.init();
+    });
+} else {
+    gameController.init();
+}
+
+// Make controller globally available
+window.gameController = gameController;
