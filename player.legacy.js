@@ -201,9 +201,9 @@ function updatePlayerSeasonLegacy(player, seasonStats, team, year) {
       teamName: team.name,
       stats: { ...seasonStats },
       teamRecord: {
-        wins: team.record?.w || 0,
-        losses: team.record?.l || 0,
-        ties: team.record?.t || 0
+        wins: team.wins || 0,
+        losses: team.losses || 0,
+        ties: team.ties || 0
       },
       playoffAppearance: seasonStats.madePlayoffs || false,
       championships: seasonStats.championships || []
