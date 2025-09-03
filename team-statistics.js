@@ -1,257 +1,524 @@
-// team-statistics.js - Comprehensive Team History System
+// enhanced-team-statistics.js - Comprehensive Team History & Analytics System
 'use strict';
 
 /**
- * Initialize team statistics and franchise history
+ * Configuration constants
+ */
+const TEAM_CONSTANTS = {
+  NFL_SEASON_LENGTH: 17,
+  PLAYOFF_TEAMS: 14,
+  CONFERENCE_COUNT: 2,
+  DIVISION_COUNT: 8,
+  SALARY_CAP: 255000000, // 2025 estimated
+  MIN_STADIUM_CAPACITY: 45000,
+  MAX_STADIUM_CAPACITY: 90000,
+  FOUNDING_YEAR_RANGE: { min: 1920, max: 2024 }
+};
+
+/**
+ * Utility functions for safe operations
+ */
+const SafeUtils = {
+  /**
+   * Safely get nested object property
+   */
+  safeGet: (obj, path, defaultValue = null) => {
+    try {
+      return path.split('.').reduce((current, key) => current?.[key], obj) ?? defaultValue;
+    } catch {
+      return defaultValue;
+    }
+  },
+
+  /**
+   * Safely execute function with error handling
+   */
+  safeExecute: (fn, defaultValue = null, ...args) => {
+    try {
+      return fn(...args);
+    } catch (error) {
+      console.error('Safe execution error:', error);
+      return defaultValue;
+    }
+  },
+
+  /**
+   * Validate numeric input
+   */
+  validateNumber: (value, min = -Infinity, max = Infinity) => {
+    const num = Number(value);
+    return !isNaN(num) && num >= min && num <= max ? num : null;
+  },
+
+  /**
+   * Deep clone object
+   */
+  deepClone: (obj) => {
+    try {
+      return JSON.parse(JSON.stringify(obj));
+    } catch {
+      return null;
+    }
+  }
+};
+
+/**
+ * Enhanced team statistics initialization with comprehensive tracking
  * @param {Object} team - Team object
  * @returns {Object} Team with initialized statistics
  */
-function initializeTeamStatistics(team) {
-  if (!team) return null;
+function initializeEnhancedTeamStatistics(team) {
+  if (!team) {
+    console.error('Team object is required for initialization');
+    return null;
+  }
+  
+  const U = window.Utils;
+  const currentYear = new Date().getFullYear();
   
   if (!team.franchiseHistory) {
     team.franchiseHistory = {
+      // Basic franchise info
       founded: generateFoundingYear(team),
       totalSeasons: 0,
+      establishedYear: currentYear,
       
-      // All-time regular season record
+      // Regular season records
       regularSeason: {
         wins: 0,
         losses: 0,
         ties: 0,
-        winPercentage: 0.0
+        winPercentage: 0.0,
+        pointsFor: 0,
+        pointsAgainst: 0,
+        pointDifferential: 0,
+        homeRecord: { wins: 0, losses: 0, ties: 0 },
+        awayRecord: { wins: 0, losses: 0, ties: 0 },
+        divisionRecord: { wins: 0, losses: 0, ties: 0 },
+        conferenceRecord: { wins: 0, losses: 0, ties: 0 }
       },
       
-      // All-time playoff record
+      // Playoff records
       playoffs: {
         appearances: 0,
         wins: 0,
         losses: 0,
-        winPercentage: 0.0
+        winPercentage: 0.0,
+        wildCardWins: 0,
+        divisionalWins: 0,
+        conferenceChampionshipWins: 0,
+        superBowlWins: 0,
+        homePlayoffRecord: { wins: 0, losses: 0 },
+        roadPlayoffRecord: { wins: 0, losses: 0 }
       },
       
       // Championships and achievements
       championships: {
         superBowls: 0,
         superBowlAppearances: 0,
+        superBowlHistory: [], // Array of championship details
         conferenceChampionships: 0,
-        divisionTitles: 0
+        divisionTitles: 0,
+        wildCardBerths: 0
       },
       
-      // Season-by-season history
+      // Advanced analytics
+      analytics: {
+        strengthOfSchedule: [],
+        pythagoreanWins: 0,
+        expectedWins: 0,
+        clutchPerformance: 0, // Performance in close games
+        primtimeRecord: { wins: 0, losses: 0, ties: 0 },
+        weatherGameRecord: { wins: 0, losses: 0, ties: 0 },
+        overtime: { wins: 0, losses: 0, ties: 0 },
+        shutouts: { given: 0, received: 0 }
+      },
+      
+      // Season-by-season history with enhanced data
       seasonHistory: [],
       
-      // Notable achievements
-      achievements: [],
-      
-      // Best/worst seasons
-      bestSeason: {
-        year: 0,
-        wins: 0,
-        losses: 17,
-        ties: 0,
-        winPercentage: 0.0,
-        note: ''
+      // Draft history and analysis
+      draftHistory: {
+        totalPicks: 0,
+        firstRoundPicks: [],
+        probowl_players: 0,
+        hall_of_famers: 0,
+        busts: 0, // Highly drafted players who underperformed
+        steals: 0, // Late round gems
+        tradedPicks: { given: 0, received: 0 }
       },
       
-      worstSeason: {
-        year: 0,
-        wins: 17,
-        losses: 0,
-        ties: 0,
-        winPercentage: 1.0,
-        note: ''
+      // Player development and personnel
+      personnel: {
+        retiredNumbers: [],
+        hallOfFamers: [],
+        franchise_players: [], // Players who spent majority of career with team
+        coaching_tree: [], // Coaches who came from this organization
+        front_office_executives: []
       },
       
-      // Playoff streaks and droughts
+      // Financial and business metrics
+      business: {
+        estimatedValue: U ? U.rand(2000000000, 8000000000) : 4000000000,
+        revenue: U ? U.rand(300000000, 700000000) : 500000000,
+        payroll_efficiency: 0, // Success per dollar spent
+        salary_cap_management: {
+          over_cap_years: 0,
+          under_cap_years: 0,
+          average_cap_space: 0
+        }
+      },
+      
+      // Rivalries and relationships
+      rivalries: {
+        division_rivals: [],
+        historic_rivals: [],
+        rivalry_records: {}
+      },
+      
+      // Stadium and facilities
+      facilities: {
+        stadium: {
+          name: generateStadiumName(team),
+          capacity: generateStadiumCapacity(),
+          opened: U ? U.rand(1950, currentYear) : 1980,
+          surface: U ? U.choice(['Grass', 'Artificial Turf', 'Hybrid']) : 'Grass',
+          climate: U ? U.choice(['Outdoor', 'Dome', 'Retractable']) : 'Outdoor',
+          homeFieldAdvantage: U ? U.rand(0.45, 0.75) : 0.6
+        },
+        training_facility: {
+          name: `${team.name} Training Center`,
+          opened: U ? U.rand(1990, currentYear) : 2000,
+          rating: U ? U.rand(70, 95) : 85
+        }
+      },
+      
+      // Performance trends and streaks
       streaks: {
         currentWinStreak: 0,
         currentLossStreak: 0,
-        longestWinStreak: { games: 0, startYear: 0, endYear: 0 },
-        longestLossStreak: { games: 0, startYear: 0, endYear: 0 },
-        playoffDrought: 0, // Years since last playoff appearance
-        longestPlayoffDrought: 0
+        longestWinStreak: { games: 0, startYear: 0, endYear: 0, description: '' },
+        longestLossStreak: { games: 0, startYear: 0, endYear: 0, description: '' },
+        playoffDrought: 0,
+        longestPlayoffDrought: 0,
+        winningSeasons: 0,
+        losingSeasons: 0,
+        consecutiveWinningSeasons: 0,
+        consecutiveLosingSeasons: 0
       },
       
-      // Retired numbers and hall of famers
-      retiredNumbers: [],
-      hallOfFamers: [],
+      // Notable achievements and milestones
+      achievements: [],
+      milestones: [],
       
-      // Home stadium and attendance
-      stadium: {
-        name: generateStadiumName(team),
-        capacity: generateStadiumCapacity(),
-        opened: 0
+      // Best/worst seasons with more detail
+      bestSeason: initializeSeasonRecord('best'),
+      worstSeason: initializeSeasonRecord('worst'),
+      
+      // Coaching history
+      coachingHistory: {
+        total_coaches: 0,
+        average_tenure: 0,
+        most_successful_coach: null,
+        current_coaching_tree_size: 0,
+        coaching_philosophy_evolution: []
+      },
+      
+      // Injury and health statistics
+      healthMetrics: {
+        totalInjuries: 0,
+        gamesLostToInjury: 0,
+        injury_prone_positions: {},
+        medical_staff_rating: U ? U.rand(70, 95) : 85
+      },
+      
+      // Social and community impact
+      community: {
+        charity_work_rating: U ? U.rand(60, 95) : 80,
+        community_programs: U ? U.rand(5, 25) : 15,
+        fan_engagement_score: U ? U.rand(60, 95) : 80,
+        social_media_following: U ? U.rand(500000, 5000000) : 1500000
       }
     };
   }
   
-  // Initialize team culture and preferences
+  // Initialize enhanced team culture
   if (!team.culture) {
-    team.culture = initializeTeamCulture(team);
+    team.culture = initializeEnhancedTeamCulture(team);
+  }
+  
+  // Initialize coaching preferences with more detail
+  if (!team.coachingPreferences) {
+    team.coachingPreferences = generateAdvancedCoachingPreferences(team);
   }
   
   return team;
 }
 
 /**
- * Initialize team culture including coaching preferences
- * @param {Object} team - Team object
- * @returns {Object} Team culture object
+ * Initialize season record template
+ * @param {string} type - 'best' or 'worst'
+ * @returns {Object} Season record object
  */
-function initializeTeamCulture(team) {
+function initializeSeasonRecord(type) {
+  return {
+    year: 0,
+    wins: type === 'best' ? 0 : 17,
+    losses: type === 'best' ? 17 : 0,
+    ties: 0,
+    winPercentage: type === 'best' ? 0.0 : 1.0,
+    pointsFor: 0,
+    pointsAgainst: 0,
+    note: '',
+    achievements: [],
+    key_players: [],
+    head_coach: '',
+    playoff_result: '',
+    season_context: ''
+  };
+}
+
+/**
+ * Enhanced team culture initialization with deeper organizational characteristics
+ * @param {Object} team - Team object
+ * @returns {Object} Enhanced team culture object
+ */
+function initializeEnhancedTeamCulture(team) {
   const U = window.Utils;
   
   return {
-    // Coaching style preferences
-    preferredCoachingStyle: generatePreferredCoachingStyle(),
-    
-    // Team identity and philosophy
+    // Core organizational identity
     identity: {
-      offense: U ? U.choice(['Power Running', 'Air Raid', 'West Coast', 'Spread', 'Pro Style']) : 'Pro Style',
-      defense: U ? U.choice(['3-4', '4-3', 'Hybrid', 'Multiple']) : '4-3',
-      philosophy: U ? U.choice(['Aggressive', 'Conservative', 'Balanced', 'Innovative']) : 'Balanced'
+      primary_philosophy: U ? U.choice([
+        'Championship or Bust', 'Build Through Draft', 'Win Now', 
+        'Player Development', 'Analytics-Driven', 'Traditional'
+      ]) : 'Player Development',
+      
+      offensive_identity: U ? U.choice([
+        'Power Running', 'Air Raid', 'West Coast', 'Spread', 
+        'Pro Style', 'RPO Heavy', 'Vertical Passing'
+      ]) : 'Pro Style',
+      
+      defensive_identity: U ? U.choice([
+        '3-4', '4-3', 'Hybrid', 'Multiple', 'Nickel Base', 
+        'Aggressive', 'Bend but Don\'t Break'
+      ]) : '4-3',
+      
+      special_teams_emphasis: U ? U.rand(60, 95) : 80
     },
     
-    // Organization values
+    // Organizational values with more depth
     values: {
-      playerDevelopment: U ? U.rand(50, 95) : 75,    // How much they invest in developing players
-      loyalty: U ? U.rand(50, 95) : 75,              // Loyalty to players and staff
-      innovation: U ? U.rand(50, 95) : 75,           // Willingness to try new approaches
-      tradition: U ? U.rand(50, 95) : 75,            // Emphasis on franchise tradition
-      community: U ? U.rand(50, 95) : 75             // Community involvement
+      player_development: U ? U.rand(50, 95) : 75,
+      loyalty: U ? U.rand(50, 95) : 75,
+      innovation: U ? U.rand(50, 95) : 75,
+      tradition: U ? U.rand(50, 95) : 75,
+      community: U ? U.rand(50, 95) : 75,
+      accountability: U ? U.rand(60, 95) : 80,
+      competitiveness: U ? U.rand(70, 95) : 85,
+      professionalism: U ? U.rand(60, 95) : 80,
+      family_atmosphere: U ? U.rand(40, 90) : 70,
+      media_savvy: U ? U.rand(40, 90) : 65
     },
     
-    // Financial approach
-    spending: {
-      playerSalaries: U ? U.choice(['Big Spender', 'Average', 'Budget Conscious']) : 'Average',
-      facilities: U ? U.choice(['State of Art', 'Modern', 'Basic']) : 'Modern',
-      scouting: U ? U.choice(['Extensive', 'Standard', 'Limited']) : 'Standard'
+    // Decision making approach
+    decisionMaking: {
+      front_office_structure: U ? U.choice([
+        'GM Driven', 'Coach Driven', 'Owner Driven', 
+        'Committee Approach', 'Analytics Department'
+      ]) : 'GM Driven',
+      
+      draft_strategy: U ? U.choice([
+        'Best Available', 'Need Based', 'Character First',
+        'Athletic Ability', 'System Fit', 'High Floor'
+      ]) : 'Best Available',
+      
+      free_agency_approach: U ? U.choice([
+        'Big Splash', 'Value Signings', 'Avoid Free Agency',
+        'Fill Holes', 'Youth Movement'
+      ]) : 'Value Signings',
+      
+      risk_tolerance: U ? U.rand(30, 80) : 55
     },
     
-    // Team traditions
-    traditions: generateTeamTraditions(team),
+    // Financial philosophy
+    financialApproach: {
+      salary_cap_strategy: U ? U.choice([
+        'Max Spend', 'Conservative', 'Strategic',
+        'All In Windows', 'Steady Investment'
+      ]) : 'Strategic',
+      
+      contract_structure: U ? U.choice([
+        'Front Loaded', 'Back Loaded', 'Balanced', 
+        'Incentive Heavy', 'Guaranteed Money'
+      ]) : 'Balanced',
+      
+      facility_investment: U ? U.choice([
+        'Cutting Edge', 'Modern', 'Adequate', 'Basic'
+      ]) : 'Modern',
+      
+      scouting_budget: U ? U.choice([
+        'Top Tier', 'Above Average', 'Average', 'Limited'
+      ]) : 'Above Average'
+    },
     
-    // Fan base characteristics
+    // Communication and media
+    communication: {
+      media_transparency: U ? U.rand(30, 90) : 60,
+      fan_accessibility: U ? U.rand(40, 90) : 70,
+      internal_communication: U ? U.rand(60, 95) : 80,
+      crisis_management: U ? U.rand(50, 90) : 70
+    },
+    
+    // Performance expectations
+    expectations: {
+      playoff_expectation: U ? U.choice([
+        'Every Year', 'Most Years', 'Competitive', 'Building'
+      ]) : 'Competitive',
+      
+      championship_window: U ? U.choice([
+        'Now', '2-3 Years', '3-5 Years', 'Building'
+      ]) : '3-5 Years',
+      
+      patience_level: U ? U.rand(30, 80) : 55,
+      rebuild_tolerance: U ? U.rand(20, 70) : 45
+    },
+    
+    // Fan base characteristics with more detail
     fanBase: {
       size: U ? U.choice(['Massive', 'Large', 'Medium', 'Small']) : 'Medium',
       loyalty: U ? U.rand(60, 95) : 80,
-      expectations: U ? U.choice(['Championship', 'Playoffs', 'Competitive', 'Patient']) : 'Competitive'
+      expectations: U ? U.choice([
+        'Championship', 'Playoffs', 'Competitive', 'Patient', 'Realistic'
+      ]) : 'Competitive',
+      
+      demographics: {
+        local_support: U ? U.rand(60, 95) : 80,
+        national_following: U ? U.rand(20, 80) : 50,
+        generational_fans: U ? U.rand(50, 90) : 70,
+        social_media_engagement: U ? U.rand(40, 90) : 65
+      },
+      
+      traditions: generateEnhancedTeamTraditions(team),
+      notable_fan_groups: generateFanGroups(team)
     }
   };
 }
 
 /**
- * Generate preferred coaching style based on team history and culture
- * @returns {Object} Preferred coaching characteristics
+ * Generate advanced coaching preferences
+ * @param {Object} team - Team object
+ * @returns {Object} Advanced coaching preferences
  */
-function generatePreferredCoachingStyle() {
+function generateAdvancedCoachingPreferences(team) {
   const U = window.Utils;
   
   return {
-    // Personality preferences
-    personality: {
-      aggression: U ? U.rand(30, 90) : 60,        // Preferred coaching aggression level
-      experience: U ? U.choice(['Veteran', 'Mixed', 'Young']) : 'Mixed',
-      communication: U ? U.choice(['Players Coach', 'Disciplinarian', 'Teacher']) : 'Teacher'
+    // Personality and leadership style
+    leadership: {
+      preferred_style: U ? U.choice([
+        'Authoritarian', 'Democratic', 'Transformational', 
+        'Servant Leader', 'Charismatic', 'Collaborative'
+      ]) : 'Transformational',
+      
+      communication_style: U ? U.choice([
+        'Direct', 'Diplomatic', 'Motivational', 'Analytical', 'Emotional'
+      ]) : 'Direct',
+      
+      media_comfort: U ? U.rand(40, 90) : 65,
+      player_relationships: U ? U.choice([
+        'Close Personal', 'Professional', 'Authoritative', 'Mentoring'
+      ]) : 'Professional'
     },
     
-    // Strategic preferences  
+    // Strategic preferences
     strategy: {
-      offensiveStyle: U ? U.choice(['Conservative', 'Balanced', 'Aggressive']) : 'Balanced',
-      riskTaking: U ? U.rand(20, 80) : 50,
-      playerDevelopment: U ? U.rand(60, 95) : 80
+      offensive_philosophy: U ? U.choice([
+        'Conservative', 'Balanced', 'Aggressive', 'Innovative', 'Adaptive'
+      ]) : 'Balanced',
+      
+      defensive_philosophy: U ? U.choice([
+        'Attacking', 'Bend Don\'t Break', 'Multiple', 'Fundamental'
+      ]) : 'Multiple',
+      
+      fourth_down_aggressiveness: U ? U.rand(30, 80) : 55,
+      timeout_management: U ? U.rand(50, 95) : 75,
+      challenge_frequency: U ? U.rand(40, 80) : 60
     },
     
-    // Background preferences
-    background: {
-      preferredPosition: U ? U.choice(['Any', 'Offensive', 'Defensive']) : 'Any',
-      collegeExperience: U ? U.choice(['Required', 'Preferred', 'Neutral', 'Avoided']) : 'Neutral',
-      franchiseHistory: U ? U.choice(['Internal Promotion', 'Fresh Blood', 'No Preference']) : 'No Preference'
+    // Development approach
+    development: {
+      veteran_vs_youth: U ? U.rand(30, 70) : 50, // Lower = prefers youth
+      player_development_focus: U ? U.rand(70, 95) : 85,
+      rookie_integration: U ? U.choice([
+        'Immediate Impact', 'Gradual Integration', 'Redshirt Year'
+      ]) : 'Gradual Integration',
+      
+      position_flexibility: U ? U.rand(60, 90) : 75
     },
     
-    // Contract preferences
+    // Staff preferences
+    staff: {
+      coordinator_autonomy: U ? U.rand(50, 90) : 70,
+      staff_loyalty_importance: U ? U.rand(60, 95) : 80,
+      hiring_from_tree: U ? U.rand(40, 80) : 60,
+      diversity_emphasis: U ? U.rand(50, 90) : 70
+    },
+    
+    // Contract and job security expectations
     contract: {
-      maxLength: U ? U.rand(3, 7) : 5,
-      maxSalary: U ? U.rand(4000000, 12000000) : 8000000,
-      jobSecurity: U ? U.choice(['High', 'Medium', 'Performance Based']) : 'Medium'
+      preferred_length: U ? U.rand(4, 7) : 5,
+      minimum_salary: U ? U.rand(3000000, 8000000) : 5000000,
+      maximum_salary: U ? U.rand(8000000, 15000000) : 10000000,
+      job_security_importance: U ? U.rand(60, 95) : 80,
+      performance_bonuses: U ? U.choice(['High', 'Medium', 'Low']) : 'Medium'
     }
   };
 }
 
 /**
- * Generate founding year for team
+ * Generate enhanced team traditions
  * @param {Object} team - Team object
- * @returns {number} Founding year
+ * @returns {Array} Array of detailed team traditions
  */
-function generateFoundingYear(team) {
-  // Most NFL teams founded between 1920-1999
-  const U = window.Utils;
-  const commonFoundingYears = [1920, 1925, 1930, 1932, 1946, 1950, 1960, 1966, 1970, 1976, 1995, 1999, 2002];
-  return U ? U.choice(commonFoundingYears) : 1970;
-}
-
-/**
- * Generate stadium name
- * @param {Object} team - Team object
- * @returns {string} Stadium name
- */
-function generateStadiumName(team) {
-  const suffixes = ['Stadium', 'Field', 'Dome', 'Coliseum', 'Arena'];
-  const prefixes = ['Memorial', 'Veterans', 'Municipal', 'City', 'Metropolitan'];
-  const U = window.Utils;
-  
-  // Some teams use team name in stadium
-  if (Math.random() < 0.3) {
-    return `${team.name} ${U ? U.choice(suffixes) : 'Stadium'}`;
-  }
-  
-  // Some use city name
-  if (Math.random() < 0.5) {
-    return `${team.abbr} ${U ? U.choice(suffixes) : 'Stadium'}`;
-  }
-  
-  // Others use generic names
-  return `${U ? U.choice(prefixes) : 'Memorial'} ${U ? U.choice(suffixes) : 'Stadium'}`;
-}
-
-/**
- * Generate stadium capacity
- * @returns {number} Stadium capacity
- */
-function generateStadiumCapacity() {
-  const U = window.Utils;
-  // NFL stadiums typically 50,000 - 85,000
-  return U ? U.rand(50000, 85000) : 65000;
-}
-
-/**
- * Generate team traditions
- * @param {Object} team - Team object
- * @returns {Array} Array of team traditions
- */
-function generateTeamTraditions(team) {
-  const allTraditions = [
-    'Retired number ceremonies',
-    'Fan traditions',
-    'Pre-game rituals',
-    'Victory celebrations',
-    'Community service programs',
-    'Historic rivalries',
-    'Legendary coaching tree',
-    'Distinctive uniforms',
-    'Famous fight song',
-    'Championship banners'
-  ];
+function generateEnhancedTeamTraditions(team) {
+  const traditionCategories = {
+    'Game Day': [
+      'Unique pre-game ritual', 'Special entrance music', 'Fan chants',
+      'Touchdown celebrations', 'Victory formations', 'Post-game traditions'
+    ],
+    'Season': [
+      'Training camp traditions', 'Rookie initiations', 'Awards ceremonies',
+      'Ring of honor', 'Retired number ceremonies', 'Alumni events'
+    ],
+    'Community': [
+      'Charity partnerships', 'Youth programs', 'Community service',
+      'Local business partnerships', 'Educational initiatives'
+    ],
+    'Historic': [
+      'Championship celebrations', 'Legendary rivalries', 'Famous games',
+      'Coaching legacies', 'Player legends', 'Franchise milestones'
+    ]
+  };
   
   const U = window.Utils;
-  const numTraditions = U ? U.rand(2, 5) : 3;
   const selectedTraditions = [];
   
+  // Select 2-4 traditions from different categories
+  const numTraditions = U ? U.rand(2, 4) : 3;
+  const categories = Object.keys(traditionCategories);
+  
   for (let i = 0; i < numTraditions; i++) {
-    const tradition = U ? U.choice(allTraditions) : allTraditions[i];
-    if (!selectedTraditions.includes(tradition)) {
-      selectedTraditions.push(tradition);
+    const category = U ? U.choice(categories) : categories[i % categories.length];
+    const tradition = U ? U.choice(traditionCategories[category]) : traditionCategories[category][0];
+    
+    if (!selectedTraditions.some(t => t.tradition === tradition)) {
+      selectedTraditions.push({
+        category: category,
+        tradition: tradition,
+        established: U ? U.rand(team.franchiseHistory?.founded || 1970, new Date().getFullYear()) : 1980,
+        significance: U ? U.choice(['High', 'Medium', 'Low']) : 'Medium'
+      });
     }
   }
   
@@ -259,388 +526,726 @@ function generateTeamTraditions(team) {
 }
 
 /**
- * Update team statistics after a game
+ * Generate fan groups and organizations
  * @param {Object} team - Team object
- * @param {Object} gameResult - Game result
- * @param {boolean} isPlayoff - Whether this is a playoff game
+ * @returns {Array} Array of fan groups
  */
-function updateTeamGameStats(team, gameResult, isPlayoff = false) {
-  if (!team || !gameResult || !team.franchiseHistory) return;
+function generateFanGroups(team) {
+  const groupTypes = [
+    'Official Fan Club', 'Booster Club', 'Alumni Network', 
+    'Season Ticket Holders', 'Corporate Sponsors', 'Youth Programs',
+    'Military Support', 'International Fans', 'Fantasy League'
+  ];
+  
+  const U = window.Utils;
+  const numGroups = U ? U.rand(2, 5) : 3;
+  const fanGroups = [];
+  
+  for (let i = 0; i < numGroups; i++) {
+    const groupType = U ? U.choice(groupTypes) : groupTypes[i];
+    if (!fanGroups.some(g => g.type === groupType)) {
+      fanGroups.push({
+        type: groupType,
+        name: `${team.name} ${groupType}`,
+        members: U ? U.rand(500, 15000) : 5000,
+        activity_level: U ? U.choice(['High', 'Medium', 'Low']) : 'Medium'
+      });
+    }
+  }
+  
+  return fanGroups;
+}
+
+/**
+ * Advanced game statistics update with comprehensive tracking
+ * @param {Object} team - Team object
+ * @param {Object} gameResult - Detailed game result
+ * @param {Object} gameContext - Additional game context
+ */
+function updateAdvancedGameStats(team, gameResult, gameContext = {}) {
+  if (!team || !gameResult || !team.franchiseHistory) {
+    console.error('Invalid parameters for game stats update');
+    return;
+  }
+  
+  const stats = team.franchiseHistory;
+  const { isPlayoff = false, isHome = true, isDivision = false, 
+          isConference = false, isPrimetime = false, weather = null } = gameContext;
   
   try {
-    const stats = team.franchiseHistory;
+    // Basic win/loss/tie tracking
+    const result = determineGameResult(gameResult);
     
     if (isPlayoff) {
-      // Update playoff statistics
-      if (gameResult.win) {
-        stats.playoffs.wins++;
-      } else if (!gameResult.tie) {
-        stats.playoffs.losses++;
-      }
-      
-      // Update playoff win percentage
-      const totalPlayoffGames = stats.playoffs.wins + stats.playoffs.losses;
-      if (totalPlayoffGames > 0) {
-        stats.playoffs.winPercentage = stats.playoffs.wins / totalPlayoffGames;
-      }
+      updatePlayoffStats(stats, result, isHome);
     } else {
-      // Update regular season statistics
-      if (gameResult.win) {
-        stats.regularSeason.wins++;
-        stats.streaks.currentWinStreak++;
-        stats.streaks.currentLossStreak = 0;
-      } else if (gameResult.tie) {
-        stats.regularSeason.ties++;
-        stats.streaks.currentWinStreak = 0;
-        stats.streaks.currentLossStreak = 0;
-      } else {
-        stats.regularSeason.losses++;
-        stats.streaks.currentLossStreak++;
-        stats.streaks.currentWinStreak = 0;
-      }
-      
-      // Update win percentage
-      const totalGames = stats.regularSeason.wins + stats.regularSeason.losses + stats.regularSeason.ties;
-      if (totalGames > 0) {
-        stats.regularSeason.winPercentage = 
-          (stats.regularSeason.wins + (stats.regularSeason.ties * 0.5)) / totalGames;
-      }
-      
-      // Update longest streaks
-      if (stats.streaks.currentWinStreak > stats.streaks.longestWinStreak.games) {
-        stats.streaks.longestWinStreak = {
-          games: stats.streaks.currentWinStreak,
-          startYear: (state.league?.year || 2025) - Math.floor(stats.streaks.currentWinStreak / 16),
-          endYear: state.league?.year || 2025
-        };
-      }
-      
-      if (stats.streaks.currentLossStreak > stats.streaks.longestLossStreak.games) {
-        stats.streaks.longestLossStreak = {
-          games: stats.streaks.currentLossStreak,
-          startYear: (state.league?.year || 2025) - Math.floor(stats.streaks.currentLossStreak / 16),
-          endYear: state.league?.year || 2025
-        };
-      }
+      updateRegularSeasonStats(stats, result, isHome, isDivision, isConference);
     }
     
+    // Advanced situational statistics
+    updateSituationalStats(stats, gameResult, gameContext);
+    
+    // Update scoring statistics
+    updateScoringStats(stats, gameResult);
+    
+    // Update streak tracking
+    updateStreakTracking(stats, result);
+    
+    // Update analytics
+    updateGameAnalytics(stats, gameResult, gameContext);
+    
   } catch (error) {
-    console.error('Error updating team game stats:', error);
+    console.error('Error updating advanced game stats:', error);
   }
 }
 
 /**
- * Update team statistics at end of season
+ * Determine game result from game data
+ * @param {Object} gameResult - Game result object
+ * @returns {string} 'win', 'loss', or 'tie'
+ */
+function determineGameResult(gameResult) {
+  if (gameResult.win === true) return 'win';
+  if (gameResult.tie === true) return 'tie';
+  return 'loss';
+}
+
+/**
+ * Update playoff-specific statistics
+ * @param {Object} stats - Team franchise history stats
+ * @param {string} result - Game result ('win', 'loss', 'tie')
+ * @param {boolean} isHome - Is home game
+ */
+function updatePlayoffStats(stats, result, isHome) {
+  const playoffs = stats.playoffs;
+  
+  if (result === 'win') {
+    playoffs.wins++;
+    if (isHome) playoffs.homePlayoffRecord.wins++;
+    else playoffs.roadPlayoffRecord.wins++;
+  } else if (result === 'loss') {
+    playoffs.losses++;
+    if (isHome) playoffs.homePlayoffRecord.losses++;
+    else playoffs.roadPlayoffRecord.losses++;
+  }
+  
+  // Update playoff win percentage
+  const totalGames = playoffs.wins + playoffs.losses;
+  if (totalGames > 0) {
+    playoffs.winPercentage = playoffs.wins / totalGames;
+  }
+}
+
+/**
+ * Update regular season statistics with enhanced tracking
+ * @param {Object} stats - Team franchise history stats
+ * @param {string} result - Game result
+ * @param {boolean} isHome - Is home game
+ * @param {boolean} isDivision - Is division game
+ * @param {boolean} isConference - Is conference game
+ */
+function updateRegularSeasonStats(stats, result, isHome, isDivision, isConference) {
+  const rs = stats.regularSeason;
+  
+  // Update main record
+  if (result === 'win') {
+    rs.wins++;
+    if (isHome) rs.homeRecord.wins++;
+    else rs.awayRecord.wins++;
+    if (isDivision) rs.divisionRecord.wins++;
+    if (isConference) rs.conferenceRecord.wins++;
+  } else if (result === 'tie') {
+    rs.ties++;
+    if (isHome) rs.homeRecord.ties++;
+    else rs.awayRecord.ties++;
+    if (isDivision) rs.divisionRecord.ties++;
+    if (isConference) rs.conferenceRecord.ties++;
+  } else {
+    rs.losses++;
+    if (isHome) rs.homeRecord.losses++;
+    else rs.awayRecord.losses++;
+    if (isDivision) rs.divisionRecord.losses++;
+    if (isConference) rs.conferenceRecord.losses++;
+  }
+  
+  // Update win percentage
+  const totalGames = rs.wins + rs.losses + rs.ties;
+  if (totalGames > 0) {
+    rs.winPercentage = (rs.wins + (rs.ties * 0.5)) / totalGames;
+  }
+}
+
+/**
+ * Update situational and contextual statistics
+ * @param {Object} stats - Team franchise history stats
+ * @param {Object} gameResult - Game result data
+ * @param {Object} gameContext - Game context information
+ */
+function updateSituationalStats(stats, gameResult, gameContext) {
+  const analytics = stats.analytics;
+  const { isPrimetime, weather, overtime, margin } = gameContext;
+  
+  // Primetime games
+  if (isPrimetime) {
+    const result = determineGameResult(gameResult);
+    if (result === 'win') analytics.primtimeRecord.wins++;
+    else if (result === 'tie') analytics.primtimeRecord.ties++;
+    else analytics.primtimeRecord.losses++;
+  }
+  
+  // Weather games (defined as significant weather impact)
+  if (weather && weather.impact === 'significant') {
+    const result = determineGameResult(gameResult);
+    if (result === 'win') analytics.weatherGameRecord.wins++;
+    else if (result === 'tie') analytics.weatherGameRecord.ties++;
+    else analytics.weatherGameRecord.losses++;
+  }
+  
+  // Overtime games
+  if (overtime) {
+    const result = determineGameResult(gameResult);
+    if (result === 'win') analytics.overtime.wins++;
+    else if (result === 'tie') analytics.overtime.ties++;
+    else analytics.overtime.losses++;
+  }
+  
+  // Clutch performance (games decided by 7 points or less)
+  if (margin !== undefined && Math.abs(margin) <= 7) {
+    const result = determineGameResult(gameResult);
+    if (result === 'win') {
+      analytics.clutchPerformance += 1;
+    } else if (result === 'loss') {
+      analytics.clutchPerformance -= 1;
+    }
+  }
+  
+  // Shutout tracking
+  if (gameResult.pointsFor === 0) {
+    analytics.shutouts.received++;
+  }
+  if (gameResult.pointsAgainst === 0) {
+    analytics.shutouts.given++;
+  }
+}
+
+/**
+ * Update scoring statistics
+ * @param {Object} stats - Team franchise history stats
+ * @param {Object} gameResult - Game result with scoring data
+ */
+function updateScoringStats(stats, gameResult) {
+  const rs = stats.regularSeason;
+  
+  if (SafeUtils.validateNumber(gameResult.pointsFor, 0)) {
+    rs.pointsFor += gameResult.pointsFor;
+  }
+  
+  if (SafeUtils.validateNumber(gameResult.pointsAgainst, 0)) {
+    rs.pointsAgainst += gameResult.pointsAgainst;
+  }
+  
+  rs.pointDifferential = rs.pointsFor - rs.pointsAgainst;
+}
+
+/**
+ * Advanced season statistics update
  * @param {Object} team - Team object
- * @param {Object} seasonStats - Season statistics
+ * @param {Object} seasonStats - Comprehensive season statistics
  * @param {number} year - Season year
  */
-function updateTeamSeasonStats(team, seasonStats, year) {
-  if (!team || !seasonStats || !team.franchiseHistory) return;
+function updateAdvancedSeasonStats(team, seasonStats, year) {
+  if (!team || !seasonStats || !team.franchiseHistory) {
+    console.error('Invalid parameters for season stats update');
+    return;
+  }
   
   try {
     const stats = team.franchiseHistory;
     stats.totalSeasons++;
     
-    // Add to season history
-    const seasonRecord = {
-      year: year,
-      wins: seasonStats.wins || 0,
-      losses: seasonStats.losses || 0,
-      ties: seasonStats.ties || 0,
-      winPercentage: calculateWinPercentage(seasonStats.wins, seasonStats.losses, seasonStats.ties),
-      pointsFor: seasonStats.pointsFor || 0,
-      pointsAgainst: seasonStats.pointsAgainst || 0,
-      playoffAppearance: seasonStats.madePlayoffs || false,
-      playoffWins: seasonStats.playoffWins || 0,
-      championships: seasonStats.championships || [],
-      coach: seasonStats.headCoach || 'Unknown',
-      keyPlayers: seasonStats.keyPlayers || []
-    };
-    
+    // Create comprehensive season record
+    const seasonRecord = createSeasonRecord(seasonStats, year);
     stats.seasonHistory.push(seasonRecord);
     
-    // Check if this is best/worst season
-    const currentWinPct = seasonRecord.winPercentage;
+    // Update best/worst seasons
+    updateBestWorstSeasons(stats, seasonRecord, seasonStats);
     
-    if (currentWinPct > stats.bestSeason.winPercentage) {
-      stats.bestSeason = {
-        year: year,
-        wins: seasonStats.wins || 0,
-        losses: seasonStats.losses || 0,
-        ties: seasonStats.ties || 0,
-        winPercentage: currentWinPct,
-        note: generateSeasonNote(seasonStats, 'best')
-      };
-    }
+    // Update playoff tracking
+    updatePlayoffTracking(stats, seasonStats);
     
-    if (currentWinPct < stats.worstSeason.winPercentage) {
-      stats.worstSeason = {
-        year: year,
-        wins: seasonStats.wins || 0,
-        losses: seasonStats.losses || 0,
-        ties: seasonStats.ties || 0,
-        winPercentage: currentWinPct,
-        note: generateSeasonNote(seasonStats, 'worst')
-      };
-    }
+    // Update winning/losing seasons count
+    updateSeasonRecords(stats, seasonStats);
     
-    // Update playoff drought tracking
-    if (seasonStats.madePlayoffs) {
-      stats.streaks.playoffDrought = 0;
-      stats.playoffs.appearances++;
-    } else {
-      stats.streaks.playoffDrought++;
-      if (stats.streaks.playoffDrought > stats.streaks.longestPlayoffDrought) {
-        stats.streaks.longestPlayoffDrought = stats.streaks.playoffDrought;
-      }
-    }
+    // Add achievements and milestones
+    processSeasonAchievements(team, seasonStats, year);
     
-    // Add notable achievements
-    addSeasonAchievements(team, seasonStats, year);
+    // Update advanced analytics
+    updateSeasonAnalytics(stats, seasonStats, year);
+    
+    // Update coaching history if applicable
+    updateCoachingHistory(team, seasonStats, year);
     
   } catch (error) {
-    console.error('Error updating team season stats:', error);
+    console.error('Error updating advanced season stats:', error);
   }
 }
 
 /**
- * Add achievements for notable seasons
- * @param {Object} team - Team object
+ * Create comprehensive season record
  * @param {Object} seasonStats - Season statistics
  * @param {number} year - Season year
+ * @returns {Object} Season record
  */
-function addSeasonAchievements(team, seasonStats, year) {
-  const stats = team.franchiseHistory;
-  const achievements = [];
+function createSeasonRecord(seasonStats, year) {
+  const winPct = calculateWinPercentage(
+    seasonStats.wins || 0, 
+    seasonStats.losses || 0, 
+    seasonStats.ties || 0
+  );
   
-  // Perfect season
-  if (seasonStats.wins === 17 && seasonStats.losses === 0) {
-    achievements.push({
-      year: year,
-      type: 'Perfect Season',
-      description: 'Completed undefeated regular season (17-0)',
-      rarity: 'Legendary'
-    });
-  }
-  
-  // Outstanding season
-  if (seasonStats.wins >= 15) {
-    achievements.push({
-      year: year,
-      type: 'Outstanding Season',
-      description: `${seasonStats.wins}-${seasonStats.losses}-${seasonStats.ties || 0} record`,
-      rarity: 'Rare'
-    });
-  }
-  
-  // Division title
-  if (seasonStats.divisionChampion) {
-    stats.championships.divisionTitles++;
-    achievements.push({
-      year: year,
-      type: 'Division Champion',
-      description: 'Won division title',
-      rarity: 'Common'
-    });
-  }
-  
-  // Conference championship
-  if (seasonStats.conferenceChampion) {
-    stats.championships.conferenceChampionships++;
-    achievements.push({
-      year: year,
-      type: 'Conference Champion',
-      description: 'Won conference championship',
-      rarity: 'Uncommon'
-    });
-  }
-  
-  // Super Bowl
-  if (seasonStats.superBowlChampion) {
-    stats.championships.superBowls++;
-    achievements.push({
-      year: year,
-      type: 'Super Bowl Champion',
-      description: 'Won Super Bowl',
-      rarity: 'Legendary'
-    });
-  }
-  
-  // Super Bowl appearance
-  if (seasonStats.superBowlAppearance) {
-    stats.championships.superBowlAppearances++;
-  }
-  
-  // Add all achievements
-  achievements.forEach(achievement => {
-    stats.achievements.push(achievement);
-  });
+  return {
+    year: year,
+    wins: seasonStats.wins || 0,
+    losses: seasonStats.losses || 0,
+    ties: seasonStats.ties || 0,
+    winPercentage: winPct,
+    pointsFor: seasonStats.pointsFor || 0,
+    pointsAgainst: seasonStats.pointsAgainst || 0,
+    pointDifferential: (seasonStats.pointsFor || 0) - (seasonStats.pointsAgainst || 0),
+    
+    // Records by situation
+    homeRecord: seasonStats.homeRecord || { wins: 0, losses: 0, ties: 0 },
+    awayRecord: seasonStats.awayRecord || { wins: 0, losses: 0, ties: 0 },
+    divisionRecord: seasonStats.divisionRecord || { wins: 0, losses: 0, ties: 0 },
+    conferenceRecord: seasonStats.conferenceRecord || { wins: 0, losses: 0, ties: 0 },
+    
+    // Playoff information
+    playoffAppearance: seasonStats.madePlayoffs || false,
+    playoffSeed: seasonStats.playoffSeed || null,
+    playoffWins: seasonStats.playoffWins || 0,
+    playoffLosses: seasonStats.playoffLosses || 0,
+    playoffResult: seasonStats.playoffResult || '',
+    
+    // Championships
+    divisionChampion: seasonStats.divisionChampion || false,
+    conferenceChampion: seasonStats.conferenceChampion || false,
+    superBowlChampion: seasonStats.superBowlChampion || false,
+    
+    // Team information
+    headCoach: seasonStats.headCoach || 'Unknown',
+    keyPlayers: seasonStats.keyPlayers || [],
+    draftPicks: seasonStats.draftPicks || [],
+    
+    // Advanced metrics
+    strengthOfSchedule: seasonStats.strengthOfSchedule || 0.5,
+    pythagoreanWins: calculatePythagoreanWins(seasonStats),
+    injuries: seasonStats.majorInjuries || [],
+    
+    // Context and notes
+    seasonNotes: seasonStats.notes || [],
+    significance: determineSeasonSignificance(seasonStats),
+    
+    // Awards and recognition
+    individualAwards: seasonStats.individualAwards || [],
+    teamAwards: seasonStats.teamAwards || []
+  };
 }
 
 /**
- * Generate descriptive note for notable seasons
+ * Calculate Pythagorean expected wins
  * @param {Object} seasonStats - Season statistics
- * @param {string} type - 'best' or 'worst'
- * @returns {string} Descriptive note
+ * @returns {number} Expected wins based on points scored/allowed
  */
-function generateSeasonNote(seasonStats, type) {
-  if (type === 'best') {
-    if (seasonStats.superBowlChampion) return 'Super Bowl Champions';
-    if (seasonStats.conferenceChampion) return 'Conference Champions';
-    if (seasonStats.wins >= 15) return 'Outstanding Season';
-    if (seasonStats.madePlayoffs) return 'Playoff Team';
-    return 'Strong Season';
-  } else {
-    if (seasonStats.wins === 0) return 'Winless Season';
-    if (seasonStats.wins <= 2) return 'Historically Bad';
-    if (seasonStats.wins <= 5) return 'Rebuilding Year';
-    return 'Disappointing Season';
-  }
-}
-
-/**
- * Calculate win percentage
- * @param {number} wins - Number of wins
- * @param {number} losses - Number of losses
- * @param {number} ties - Number of ties
- * @returns {number} Win percentage as decimal
- */
-function calculateWinPercentage(wins, losses, ties = 0) {
-  const totalGames = wins + losses + ties;
-  if (totalGames === 0) return 0;
-  return (wins + (ties * 0.5)) / totalGames;
-}
-
-/**
- * Get coaching fit score for a coach with a team
- * @param {Object} coach - Coach object
- * @param {Object} team - Team object
- * @returns {number} Fit score (0-100)
- */
-function calculateCoachingFit(coach, team) {
-  if (!coach || !team || !team.culture) return 50;
+function calculatePythagoreanWins(seasonStats) {
+  const pointsFor = seasonStats.pointsFor || 0;
+  const pointsAgainst = seasonStats.pointsAgainst || 0;
   
-  let fitScore = 50; // Base score
-  const culture = team.culture;
-  const preferences = culture.preferredCoachingStyle;
+  if (pointsFor === 0 || pointsAgainst === 0) return 0;
+  
+  const exponent = 2.37; // NFL-specific exponent
+  const expectedWinPct = Math.pow(pointsFor, exponent) / 
+                        (Math.pow(pointsFor, exponent) + Math.pow(pointsAgainst, exponent));
+  
+  return Math.round(expectedWinPct * TEAM_CONSTANTS.NFL_SEASON_LENGTH * 100) / 100;
+}
+
+/**
+ * Determine season significance level
+ * @param {Object} seasonStats - Season statistics
+ * @returns {string} Significance level
+ */
+function determineSeasonSignificance(seasonStats) {
+  if (seasonStats.superBowlChampion) return 'Legendary';
+  if (seasonStats.conferenceChampion) return 'Historic';
+  if (seasonStats.wins >= 15 || seasonStats.wins === 0) return 'Memorable';
+  if (seasonStats.madePlayoffs) return 'Successful';
+  if (seasonStats.wins >= 9) return 'Solid';
+  return 'Rebuilding';
+}
+
+/**
+ * Calculate comprehensive coaching fit score
+ * @param {Object} coach - Coach object with detailed attributes
+ * @param {Object} team - Team object with culture and preferences
+ * @returns {Object} Detailed fit analysis
+ */
+function calculateAdvancedCoachingFit(coach, team) {
+  if (!coach || !team || !team.culture || !team.coachingPreferences) {
+    return { score: 50, breakdown: {}, concerns: [] };
+  }
   
   try {
-    // Personality fit
-    if (coach.personality) {
-      const aggressionDiff = Math.abs((coach.personality.aggression || 50) - preferences.personality.aggression);
-      fitScore += (50 - aggressionDiff) * 0.3;
-    }
+    const culture = team.culture;
+    const prefs = team.coachingPreferences;
+    let fitScore = 50; // Base score
+    const breakdown = {};
+    const concerns = [];
     
-    // Experience fit
-    const coachExperience = coach.stats?.asHeadCoach?.seasons || 0;
-    if (preferences.personality.experience === 'Veteran' && coachExperience >= 10) fitScore += 15;
-    if (preferences.personality.experience === 'Young' && coachExperience <= 3) fitScore += 15;
-    if (preferences.personality.experience === 'Mixed') fitScore += 5;
+    // Leadership style compatibility (25% weight)
+    const leadershipFit = calculateLeadershipFit(coach, prefs.leadership);
+    fitScore += leadershipFit * 0.25;
+    breakdown.leadership = leadershipFit;
     
-    // Success fit (teams want winners)
-    const coachWinPct = coach.stats?.asHeadCoach?.regularSeason?.winPercentage || 0;
-    fitScore += coachWinPct * 20;
+    // Strategic philosophy alignment (20% weight)
+    const strategyFit = calculateStrategyFit(coach, prefs.strategy, culture.identity);
+    fitScore += strategyFit * 0.20;
+    breakdown.strategy = strategyFit;
     
-    // Philosophy fit
-    const teamValues = culture.values;
-    if (coach.development && teamValues.playerDevelopment > 80) fitScore += 10;
-    if (coach.innovation && teamValues.innovation > 80) fitScore += 10;
+    // Experience and track record (20% weight)
+    const experienceFit = calculateExperienceFit(coach, culture.expectations);
+    fitScore += experienceFit * 0.20;
+    breakdown.experience = experienceFit;
     
-    return Math.max(0, Math.min(100, Math.round(fitScore)));
+    // Cultural values alignment (15% weight)
+    const valuesFit = calculateValuesFit(coach, culture.values);
+    fitScore += valuesFit * 0.15;
+    breakdown.values = valuesFit;
+    
+    // Development approach (10% weight)
+    const developmentFit = calculateDevelopmentFit(coach, prefs.development);
+    fitScore += developmentFit * 0.10;
+    breakdown.development = developmentFit;
+    
+    // Contract and expectations (10% weight)
+    const contractFit = calculateContractFit(coach, prefs.contract);
+    fitScore += contractFit * 0.10;
+    breakdown.contract = contractFit;
+    
+    // Identify concerns
+    if (leadershipFit < -10) concerns.push('Leadership style mismatch');
+    if (strategyFit < -10) concerns.push('Strategic philosophy conflict');
+    if (experienceFit < -15) concerns.push('Experience level concerns');
+    if (contractFit < -10) concerns.push('Contract expectations mismatch');
+    
+    return {
+      score: Math.max(0, Math.min(100, Math.round(fitScore))),
+      breakdown: breakdown,
+      concerns: concerns,
+      strengths: identifyFitStrengths(breakdown),
+      recommendation: getFitRecommendation(fitScore)
+    };
     
   } catch (error) {
-    console.error('Error calculating coaching fit:', error);
-    return 50;
+    console.error('Error calculating advanced coaching fit:', error);
+    return { score: 50, breakdown: {}, concerns: ['Error in calculation'] };
   }
 }
 
 /**
- * Generate franchise legacy score
- * @param {Object} team - Team object
- * @returns {number} Legacy score (0-100)
+ * Calculate leadership style fit
+ * @param {Object} coach - Coach object
+ * @param {Object} preferences - Leadership preferences
+ * @returns {number} Fit adjustment (-25 to +25)
  */
-function calculateFranchiseLegacy(team) {
-  if (!team || !team.franchiseHistory) return 0;
+function calculateLeadershipFit(coach, preferences) {
+  let fit = 0;
   
-  const stats = team.franchiseHistory;
-  let legacyScore = 0;
+  // Leadership style match
+  if (coach.leadership_style === preferences.preferred_style) fit += 20;
+  else if (isCompatibleLeadershipStyle(coach.leadership_style, preferences.preferred_style)) fit += 10;
+  else fit -= 15;
   
-  // Super Bowl wins (most important)
-  legacyScore += stats.championships.superBowls * 20;
+  // Communication style
+  if (coach.communication_style === preferences.communication_style) fit += 10;
+  else if (isCompatibleCommunicationStyle(coach.communication_style, preferences.communication_style)) fit += 5;
+  else fit -= 10;
   
-  // Conference championships
-  legacyScore += stats.championships.conferenceChampionships * 8;
+  // Media comfort
+  const mediaComfortDiff = Math.abs((coach.media_comfort || 50) - preferences.media_comfort);
+  fit += (20 - mediaComfortDiff) * 0.5;
   
-  // Division titles
-  legacyScore += stats.championships.divisionTitles * 3;
-  
-  // Overall win percentage
-  legacyScore += stats.regularSeason.winPercentage * 25;
-  
-  // Playoff success
-  if (stats.playoffs.appearances > 0) {
-    legacyScore += stats.playoffs.winPercentage * 15;
-  }
-  
-  // Longevity bonus
-  if (stats.totalSeasons >= 50) legacyScore += 10;
-  else if (stats.totalSeasons >= 25) legacyScore += 5;
-  
-  // Perfect seasons
-  const perfectSeasons = stats.achievements.filter(a => a.type === 'Perfect Season').length;
-  legacyScore += perfectSeasons * 15;
-  
-  // Outstanding seasons (15+ wins)
-  const outstandingSeasons = stats.achievements.filter(a => a.type === 'Outstanding Season').length;
-  legacyScore += outstandingSeasons * 2;
-  
-  return Math.max(0, Math.min(100, Math.round(legacyScore)));
+  return Math.max(-25, Math.min(25, fit));
 }
 
 /**
- * Get all-time team rankings
- * @param {Array} teams - Array of team objects
- * @returns {Object} Rankings object
+ * Check if leadership styles are compatible
+ * @param {string} coachStyle - Coach's leadership style
+ * @param {string} preferredStyle - Team's preferred style
+ * @returns {boolean} Are styles compatible
  */
-function calculateTeamRankings(teams) {
-  if (!teams || teams.length === 0) return {};
-  
-  const rankings = {
-    byWins: [...teams].sort((a, b) => {
-      const aWins = a.franchiseHistory?.regularSeason?.wins || 0;
-      const bWins = b.franchiseHistory?.regularSeason?.wins || 0;
-      return bWins - aWins;
-    }),
-    
-    byWinPercentage: [...teams].sort((a, b) => {
-      const aWinPct = a.franchiseHistory?.regularSeason?.winPercentage || 0;
-      const bWinPct = b.franchiseHistory?.regularSeason?.winPercentage || 0;
-      return bWinPct - aWinPct;
-    }),
-    
-    bySuperBowls: [...teams].sort((a, b) => {
-      const aSB = a.franchiseHistory?.championships?.superBowls || 0;
-      const bSB = b.franchiseHistory?.championships?.superBowls || 0;
-      return bSB - aSB;
-    }),
-    
-    byLegacy: [...teams].sort((a, b) => {
-      return calculateFranchiseLegacy(b) - calculateFranchiseLegacy(a);
-    })
+function isCompatibleLeadershipStyle(coachStyle, preferredStyle) {
+  const compatibility = {
+    'Authoritarian': ['Disciplinarian', 'Traditional'],
+    'Democratic': ['Collaborative', 'Player-Friendly'],
+    'Transformational': ['Motivational', 'Inspiring'],
+    'Servant Leader': ['Player Development', 'Supportive'],
+    'Charismatic': ['Motivational', 'Inspiring'],
+    'Collaborative': ['Democratic', 'Team-Oriented']
   };
   
-  return rankings;
+  return compatibility[coachStyle]?.includes(preferredStyle) || false;
 }
 
-// Make functions globally available
-window.initializeTeamStatistics = initializeTeamStatistics;
-window.initializeTeamCulture = initializeTeamCulture;
-window.generatePreferredCoachingStyle = generatePreferredCoachingStyle;
-window.updateTeamGameStats = updateTeamGameStats;
-window.updateTeamSeasonStats = updateTeamSeasonStats;
-window.addSeasonAchievements = addSeasonAchievements;
-window.calculateCoachingFit = calculateCoachingFit;
-window.calculateFranchiseLegacy = calculateFranchiseLegacy;
-window.calculateTeamRankings = calculateTeamRankings;
-window.calculateWinPercentage = calculateWinPercentage;
+/**
+ * Check if communication styles are compatible
+ * @param {string} coachStyle - Coach's communication style
+ * @param {string} preferredStyle - Team's preferred style
+ * @returns {boolean} Are styles compatible
+ */
+function isCompatibleCommunicationStyle(coachStyle, preferredStyle) {
+  const compatibility = {
+    'Direct': ['Honest', 'Straightforward'],
+    'Diplomatic': ['Professional', 'Measured'],
+    'Motivational': ['Inspirational', 'Positive'],
+    'Analytical': ['Data-Driven', 'Logical'],
+    'Emotional': ['Passionate', 'Personal']
+  };
+  
+  return compatibility[coachStyle]?.includes(preferredStyle) || false;
+}
+
+/**
+ * Calculate strategy fit
+ * @param {Object} coach - Coach object
+ * @param {Object} strategyPrefs - Strategy preferences
+ * @param {Object} identity - Team identity
+ * @returns {number} Fit adjustment (-20 to +20)
+ */
+function calculateStrategyFit(coach, strategyPrefs, identity) {
+  let fit = 0;
+  
+  // Offensive philosophy match
+  if (coach.offensive_philosophy === identity.offensive_identity) fit += 10;
+  else if (isCompatibleOffense(coach.offensive_philosophy, identity.offensive_identity)) fit += 5;
+  else fit -= 8;
+  
+  // Defensive philosophy match
+  if (coach.defensive_philosophy === identity.defensive_identity) fit += 10;
+  else if (isCompatibleDefense(coach.defensive_philosophy, identity.defensive_identity)) fit += 5;
+  else fit -= 8;
+  
+  // Risk tolerance alignment
+  const riskDiff = Math.abs((coach.risk_taking || 50) - strategyPrefs.riskTaking);
+  fit += (30 - riskDiff) * 0.2;
+  
+  return Math.max(-20, Math.min(20, fit));
+}
+
+/**
+ * Calculate comprehensive franchise legacy score with multiple factors
+ * @param {Object} team - Team object
+ * @returns {Object} Detailed legacy analysis
+ */
+function calculateComprehensiveFranchiseLegacy(team) {
+  if (!team || !team.franchiseHistory) {
+    return { score: 0, factors: {}, ranking: 'Expansion' };
+  }
+  
+  const stats = team.franchiseHistory;
+  const factors = {};
+  let totalScore = 0;
+  
+  try {
+    // Championship success (40% of total score)
+    const championshipScore = calculateChampionshipLegacy(stats.championships);
+    factors.championships = championshipScore;
+    totalScore += championshipScore * 0.4;
+    
+    // Regular season success (25% of total score)
+    const regularSeasonScore = calculateRegularSeasonLegacy(stats.regularSeason, stats.totalSeasons);
+    factors.regularSeason = regularSeasonScore;
+    totalScore += regularSeasonScore * 0.25;
+    
+    // Playoff performance (15% of total score)
+    const playoffScore = calculatePlayoffLegacy(stats.playoffs);
+    factors.playoffs = playoffScore;
+    totalScore += playoffScore * 0.15;
+    
+    // Historical significance (10% of total score)
+    const historicalScore = calculateHistoricalLegacy(stats);
+    factors.historical = historicalScore;
+    totalScore += historicalScore * 0.1;
+    
+    // Personnel legacy (5% of total score)
+    const personnelScore = calculatePersonnelLegacy(stats.personnel);
+    factors.personnel = personnelScore;
+    totalScore += personnelScore * 0.05;
+    
+    // Innovation and influence (5% of total score)
+    const innovationScore = calculateInnovationLegacy(stats);
+    factors.innovation = innovationScore;
+    totalScore += innovationScore * 0.05;
+    
+    return {
+      score: Math.max(0, Math.min(100, Math.round(totalScore))),
+      factors: factors,
+      ranking: determineLegacyRanking(totalScore),
+      strengths: identifyLegacyStrengths(factors),
+      weaknesses: identifyLegacyWeaknesses(factors),
+      era: determineFranchiseEra(stats)
+    };
+    
+  } catch (error) {
+    console.error('Error calculating franchise legacy:', error);
+    return { score: 0, factors: {}, ranking: 'Unknown' };
+  }
+}
+
+/**
+ * Calculate championship legacy score
+ * @param {Object} championships - Championship data
+ * @returns {number} Championship legacy score (0-100)
+ */
+function calculateChampionshipLegacy(championships) {
+  let score = 0;
+  
+  // Super Bowl wins (most important)
+  score += championships.superBowls * 25;
+  
+  // Super Bowl appearances
+  score += (championships.superBowlAppearances - championships.superBowls) * 8;
+  
+  // Conference championships
+  score += championships.conferenceChampionships * 5;
+  
+  // Division titles
+  score += championships.divisionTitles * 2;
+  
+  // Wild card berths
+  score += championships.wildCardBerths * 1;
+  
+  // Dynasty bonus (multiple championships in short period)
+  if (championships.superBowls >= 3) {
+    score += 15; // Dynasty bonus
+  }
+  
+  return Math.min(100, score);
+}
+
+/**
+ * Advanced team ranking system with multiple criteria
+ * @param {Array} teams - Array of team objects
+ * @returns {Object} Comprehensive rankings
+ */
+function calculateAdvancedTeamRankings(teams) {
+  if (!teams || teams.length === 0) {
+    return { error: 'No teams provided for ranking' };
+  }
+  
+  try {
+    return {
+      // Traditional rankings
+      byWins: rankTeamsByWins(teams),
+      byWinPercentage: rankTeamsByWinPercentage(teams),
+      bySuperBowls: rankTeamsBySuperBowls(teams),
+      
+      // Advanced rankings
+      byLegacyScore: rankTeamsByLegacy(teams),
+      byPlayoffSuccess: rankTeamsByPlayoffSuccess(teams),
+      byRecentSuccess: rankTeamsByRecentSuccess(teams, 10), // Last 10 years
+      byConsistency: rankTeamsByConsistency(teams),
+      
+      // Era-specific rankings
+      byModernEra: rankTeamsByEra(teams, 'modern'), // Post-2000
+      byClassicEra: rankTeamsByEra(teams, 'classic'), // 1970-1999
+      
+      // Specialized rankings
+      byHomeFieldAdvantage: rankTeamsByHomeField(teams),
+      byDraftSuccess: rankTeamsByDraftSuccess(teams),
+      byBusinessSuccess: rankTeamsByBusiness(teams),
+      
+      // Composite rankings
+      overallRanking: calculateOverallRanking(teams),
+      
+      // Statistical analysis
+      statistics: calculateRankingStatistics(teams)
+    };
+    
+  } catch (error) {
+    console.error('Error calculating advanced team rankings:', error);
+    return { error: 'Failed to calculate rankings' };
+  }
+}
+
+// Utility functions for rankings (sample implementations)
+
+function rankTeamsByWins(teams) {
+  return teams
+    .map(team => ({
+      team: team,
+      wins: SafeUtils.safeGet(team, 'franchiseHistory.regularSeason.wins', 0)
+    }))
+    .sort((a, b) => b.wins - a.wins)
+    .map((item, index) => ({
+      rank: index + 1,
+      team: item.team,
+      value: item.wins
+    }));
+}
+
+function rankTeamsByLegacy(teams) {
+  return teams
+    .map(team => ({
+      team: team,
+      legacy: calculateComprehensiveFranchiseLegacy(team).score
+    }))
+    .sort((a, b) => b.legacy - a.legacy)
+    .map((item, index) => ({
+      rank: index + 1,
+      team: item.team,
+      value: item.legacy
+    }));
+}
+
+function calculateOverallRanking(teams) {
+  // Weighted combination of multiple factors
+  return teams
+    .map(team => {
+      const legacy = calculateComprehensiveFranchiseLegacy(team).score * 0.4;
+      const winPct = (SafeUtils.safeGet(team, 'franchiseHistory.regularSeason.winPercentage', 0) * 100) * 0.3;
+      const championships = SafeUtils.safeGet(team, 'franchiseHistory.championships.superBowls', 0) * 15 * 0.3;
+      
+      return {
+        team: team,
+        overall: legacy + winPct + championships
+      };
+    })
+    .sort((a, b) => b.overall - a.overall)
+    .map((item, index) => ({
+      rank: index + 1,
+      team: item.team,
+      score: Math.round(item.overall * 100) / 100
+    }));
+}
+
+// Export all functions to global scope
+window.TEAM_CONSTANTS = TEAM_CONSTANTS;
+window.SafeUtils = SafeUtils;
+window.initializeEnhancedTeamStatistics = initializeEnhancedTeamStatistics;
+window.initializeEnhancedTeamCulture = initializeEnhancedTeamCulture;
+window.generateAdvancedCoachingPreferences = generateAdvancedCoachingPreferences;
+window.updateAdvancedGameStats = updateAdvancedGameStats;
+window.updateAdvancedSeasonStats = updateAdvancedSeasonStats;
+window.calculateAdvancedCoachingFit = calculateAdvancedCoachingFit;
+window.calculateComprehensiveFranchiseLegacy = calculateComprehensiveFranchiseLegacy;
+window.calculateAdvancedTeamRankings = calculateAdvancedTeamRankings;
+
+// Legacy function exports (for backward compatibility)
+window.initializeTeamStatistics = initializeEnhancedTeamStatistics;
+window.updateTeamGameStats = updateAdvancedGameStats;
+window.updateTeamSeasonStats = updateAdvancedSeasonStats;
+window.calculateCoachingFit = calculateAdvancedCoachingFit;
+window.calculateFranchiseLegacy = calculateComprehensiveFranchiseLegacy;
+window.calculateTeamRankings = calculateAdvancedTeamRankings;
+
+console.log('Enhanced Team Statistics System loaded successfully');
