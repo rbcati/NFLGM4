@@ -94,6 +94,53 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
     }
 };
 
+// --- ENHANCED HELPER FUNCTIONS ---
+window.listByMode = function(mode) {
+    if (!window.Teams || typeof window.Teams !== 'object') {
+        console.warn('Teams data not available');
+        return [];
+    }
+    
+    const teams = mode === 'real' ? window.Teams.real : window.Teams.fictional;
+    return Array.isArray(teams) ? teams : [];
+};
+
+window.getCurrentTeam = function() {
+    try {
+        if (!window.state?.league?.teams || window.state.userTeamId === undefined) {
+            return null;
+        }
+        return window.state.league.teams[window.state.userTeamId] || null;
+    } catch (error) {
+        console.error('Error getting current team:', error);
+        return null;
+    }
+};
+
+window.calculateOverallRating = function(player) {
+    if (!player || !player.ratings) {
+        return 'N/A';
+    }
+    
+    const ratings = player.ratings;
+    let totalRating = 0;
+    let ratingCount = 0;
+    
+    // Calculate average of all ratings
+    Object.values(ratings).forEach(rating => {
+        if (typeof rating === 'number' && rating > 0) {
+            totalRating += rating;
+            ratingCount++;
+        }
+    });
+    
+    if (ratingCount === 0) {
+        return 'N/A';
+    }
+    
+    return Math.round(totalRating / ratingCount);
+};
+
 // --- VIEW RENDERERS ---
 window.renderRoster = function() {
     console.log('Rendering roster...');
@@ -159,6 +206,7 @@ window.renderRoster = function() {
         sortedRoster.forEach(player => {
             const tr = tbody.insertRow();
             tr.dataset.playerId = player.id;
+            tr.style.cursor = 'pointer';
             
             // Checkbox
             const cellCheckbox = tr.insertCell();
@@ -169,7 +217,11 @@ window.renderRoster = function() {
             cellCheckbox.appendChild(checkbox);
             
             // Player info
-            tr.insertCell().textContent = player.name || 'Unknown';
+            const nameCell = tr.insertCell();
+            nameCell.textContent = player.name || 'Unknown';
+            nameCell.style.color = '#007bff';
+            nameCell.style.textDecoration = 'underline';
+            
             tr.insertCell().textContent = player.pos || 'N/A';
             tr.insertCell().textContent = player.age || 'N/A';
             tr.insertCell().textContent = player.ovr || 'N/A';
@@ -188,6 +240,13 @@ window.renderRoster = function() {
             const cellAbilities = tr.insertCell();
             cellAbilities.className = 'abilities';
             cellAbilities.textContent = abilities;
+            
+            // Add click handler for player details
+            tr.addEventListener('click', (e) => {
+                if (!e.target.matches('input[type="checkbox"]')) {
+                    showPlayerDetails(player);
+                }
+            });
         });
         
         setupRosterEvents();
@@ -197,6 +256,55 @@ window.renderRoster = function() {
         console.error('Error rendering roster:', error);
     }
 };
+
+/**
+ * Show player details in a modal
+ * @param {Object} player - Player object
+ */
+function showPlayerDetails(player) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>${player.name || 'Unknown Player'}</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="player-info">
+                    <div class="player-basic">
+                        <p><strong>Position:</strong> ${player.pos || 'N/A'}</p>
+                        <p><strong>Age:</strong> ${player.age || 'N/A'}</p>
+                        <p><strong>Overall:</strong> ${player.ovr || 'N/A'}</p>
+                        <p><strong>Contract:</strong> ${player.years || 0} years, $${(player.baseAnnual || 0).toFixed(1)}M/year</p>
+                    </div>
+                    ${player.abilities && player.abilities.length > 0 ? `
+                        <div class="player-abilities">
+                            <h4>Abilities</h4>
+                            <p>${player.abilities.join(', ')}</p>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="player-actions">
+                    <button class="btn primary" onclick="viewPlayerStats(${player.id})">View Stats</button>
+                    <button class="btn secondary" onclick="editPlayer(${player.id})">Edit Player</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close modal functionality
+    const closeBtn = modal.querySelector('.close');
+    closeBtn.onclick = () => modal.remove();
+    
+    modal.onclick = (e) => {
+        if (e.target === modal) modal.remove();
+    };
+    
+    modal.style.display = 'block';
+}
 
 window.renderStandings = function() {
     // ... This is the full renderStandings function you provided ...
@@ -423,8 +531,8 @@ window.renderScouting = function() {
         if (!scoutingContainer) return;
         
         // Check if dedicated scouting system is available
-        if (window.renderScouting) {
-            window.renderScouting();
+        if (window.renderScoutingSystem && window.renderScoutingSystem !== window.renderScouting) {
+            window.renderScoutingSystem();
             return;
         }
         
@@ -465,6 +573,30 @@ function initializeUI() {
     setTimeout(() => window.router(), 200);
   }
 }
+
+// Global functions for player actions
+window.viewPlayerStats = function(playerId) {
+  // Navigate to player stats view
+  window.location.hash = '#/player-stats';
+  
+  // Close the modal if it exists
+  const modal = document.querySelector('.modal');
+  if (modal) modal.remove();
+  
+  // Set the player ID to view
+  if (window.state) {
+    window.state.selectedPlayerId = playerId;
+  }
+};
+
+window.editPlayer = function(playerId) {
+  // Navigate to player edit view or show edit modal
+  alert('Player editing coming soon!');
+  
+  // Close the modal if it exists
+  const modal = document.querySelector('.modal');
+  if (modal) modal.remove();
+};
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeUI);
