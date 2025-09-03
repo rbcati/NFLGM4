@@ -64,17 +64,27 @@ function validatePlayer(player) {
         return false;
     }
     
-    const requiredFields = ['pos', 'age', 'ovr', 'years', 'baseAnnual'];
+    // Check for required fields with more flexible validation
+    const requiredFields = ['pos', 'age', 'ovr'];
     const missingFields = [];
     
     for (const field of requiredFields) {
         if (!player.hasOwnProperty(field)) {
             missingFields.push(`missing ${field}`);
-        } else if (typeof player[field] !== 'number') {
-            missingFields.push(`${field} is not a number (got ${typeof player[field]})`);
-        } else if (isNaN(player[field])) {
-            missingFields.push(`${field} is NaN`);
+        } else if (field === 'pos' && typeof player[field] !== 'string') {
+            missingFields.push(`${field} is not a string (got ${typeof player[field]})`);
+        } else if ((field === 'age' || field === 'ovr') && (typeof player[field] !== 'number' || isNaN(player[field]))) {
+            missingFields.push(`${field} is not a valid number (got ${typeof player[field]})`);
         }
+    }
+    
+    // Optional fields with defaults
+    if (!player.hasOwnProperty('years') || typeof player.years !== 'number' || isNaN(player.years)) {
+        player.years = 0; // Default to 0 years remaining
+    }
+    
+    if (!player.hasOwnProperty('baseAnnual') || typeof player.baseAnnual !== 'number' || isNaN(player.baseAnnual)) {
+        player.baseAnnual = 1; // Default to $1M salary
     }
     
     if (missingFields.length > 0) {
