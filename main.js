@@ -257,6 +257,48 @@ class GameController {
         }
     }
 
+    // --- HUB RENDERING ---
+    async renderHub() {
+        try {
+            console.log('Rendering hub...');
+            
+            const hubContainer = this.getElement('hub');
+            if (!hubContainer) {
+                console.warn('Hub container not found');
+                return;
+            }
+            
+            // Simple hub content
+            hubContainer.innerHTML = `
+                <div class="card">
+                    <h2>Team Hub</h2>
+                    <div class="grid two">
+                        <div>
+                            <h3>Quick Actions</h3>
+                            <div class="actions">
+                                <button class="btn primary" onclick="location.hash='#/roster'">View Roster</button>
+                                <button class="btn" onclick="location.hash='#/schedule'">View Schedule</button>
+                                <button class="btn" onclick="location.hash='#/trade'">Trade Center</button>
+                            </div>
+                        </div>
+                        <div>
+                            <h3>Team Status</h3>
+                            <div id="teamStatus">
+                                <p>Team information will be displayed here</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            console.log('✅ Hub rendered successfully');
+            
+        } catch (error) {
+            console.error('Error rendering hub:', error);
+            this.setStatus('Failed to render hub', 'error');
+        }
+    }
+
     // --- ENHANCED GAME RESULTS DISPLAY ---
     async renderGameResults() {
         try {
@@ -680,6 +722,33 @@ class GameController {
         }
     }
 
+    // --- ROUTER FUNCTION ---
+    router(viewName = null) {
+        if (!viewName) {
+            viewName = location.hash.slice(2) || 'hub';
+        }
+        
+        console.log('🔄 Router navigating to:', viewName);
+        
+        // Handle different views
+        switch(viewName) {
+            case 'hub':
+                if (this.renderHub) this.renderHub();
+                break;
+            case 'roster':
+                if (this.renderRoster) this.renderRoster();
+                break;
+            case 'schedule':
+                if (this.renderSchedule) this.renderSchedule();
+                break;
+            case 'game-results':
+                if (this.renderGameResults) this.renderGameResults();
+                break;
+            default:
+                console.log('No renderer for view:', viewName);
+        }
+    }
+
     // --- IMPROVED REFRESH SYSTEM ---
     async refreshAll() {
         if (!window.state?.onboarded || !window.state?.league) {
@@ -693,9 +762,7 @@ class GameController {
             
             // Refresh current view
             const currentHash = location.hash.slice(2) || 'hub';
-            if (window.router && typeof window.router === 'function') {
-                window.router(currentHash);
-            }
+            this.router(currentHash);
             
         } catch (error) {
             console.error('Error in refreshAll:', error);
@@ -780,8 +847,7 @@ window.router = gameController.router.bind(gameController);
 window.renderRoster = gameController.renderRoster.bind(gameController);
 window.renderHub = gameController.renderHub.bind(gameController);
 window.renderGameResults = gameController.renderGameResults.bind(gameController);
-window.renderPowerRankings = gameController.renderPowerRankings.bind(gameController);
-window.renderLastWeekResults = gameController.renderLastWeekResults.bind(gameController);
+window.renderSchedule = gameController.renderSchedule.bind(gameController);
 window.getElement = gameController.getElement.bind(gameController);
 window.listByMode = gameController.listByMode.bind(gameController);
 window.populateTeamDropdown = gameController.populateTeamDropdown.bind(gameController);
