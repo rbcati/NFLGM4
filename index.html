@@ -19,6 +19,7 @@
             <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
             <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
             <a href="#/scouting" class="nav-pill" data-view="scouting">Scouting</a>
+            <a href="#/coaching" class="nav-pill" data-view="coaching">Coaching</a>
             <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
             <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
         </nav>
@@ -140,6 +141,15 @@
                 </div>
             </section>
 
+            <section id="coaching" class="view" hidden>
+                <div class="card">
+                    <h2>Coaching Statistics</h2>
+                    <div id="coaching-content">
+                        <p>Loading coaching statistics...</p>
+                    </div>
+                </div>
+            </section>
+
             <section id="settings" class="view" hidden>
                 <div class="card">
                     <h2>Settings</h2>
@@ -198,6 +208,8 @@
     <script src="player.js"></script>
     <script src="player.legacy.js"></script>
     <script src="staff.js"></script>
+    <script src="coaching.js"></script>
+    <script src="coaching-integration.js"></script>
     <script src="league.js"></script>
     <script src="simulation.js"></script>
     <script src="schedule.js"></script>
