@@ -2085,3 +2085,56 @@ select:focus, input:focus {
 .rating-low {
   color: #FF453A;
 }
+
+/* Trade Team Ratings Styles */
+.trade-team-ratings {
+  margin-bottom: var(--space-6);
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+}
+
+.trade-ratings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+
+.trade-team-rating {
+  padding: var(--space-4);
+  background: var(--surface-strong);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+
+.trade-team-rating h4 {
+  margin: 0 0 var(--space-3) 0;
+  color: var(--accent);
+  font-size: var(--text-lg);
+  text-align: center;
+  border-bottom: 1px solid var(--hairline);
+  padding-bottom: var(--space-2);
+}
+
+.trade-team-rating .rating-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--hairline-strong);
+}
+
+.trade-team-rating .rating-item:last-child {
+  border-bottom: none;
+}
+
+.trade-team-rating .rating-label {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.trade-team-rating .rating-value {
+  font-weight: 700;
+  font-size: var(--text-lg);
+}
