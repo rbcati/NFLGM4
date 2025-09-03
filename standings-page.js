@@ -1,414 +1,690 @@
-// coaching.js - Comprehensive Coaching Statistics System
+// standings-page.js - Comprehensive Standings System
 'use strict';
 
 /**
- * Initialize coaching stats for a coach
- * @param {Object} coach - Coach object
- * @returns {Object} Coach with initialized stats
+ * Renders the complete standings view with multiple tabs and sorting options
  */
-function initializeCoachingStats(coach) {
-  if (!coach) return null;
+function renderStandingsPage() {
+  console.log('Rendering dedicated standings page...');
   
-  if (!coach.stats) {
-    coach.stats = {
-      asHeadCoach: {
-        seasons: 0,
-        regularSeason: {
-          wins: 0,
-          losses: 0,
-          ties: 0,
-          winPercentage: 0.0
-        },
-        playoffs: {
-          wins: 0,
-          losses: 0,
-          winPercentage: 0.0,
-          appearances: 0
-        },
-        championships: {
-          superBowls: 0,
-          conferenceChampionships: 0
-        },
-        teamHistory: [],
-        bestSeason: {
-          year: 0,
-          team: '',
-          wins: 0,
-          losses: 17,
-          ties: 0,
-          winPercentage: 0.0
-        },
-        awards: []
-      },
-      asCoordinator: {
-        OC: {
-          seasons: 0,
-          teams: [],
-          pointsPerGame: [],
-          rankings: [], // Offensive rankings by season
-          awards: []
-        },
-        DC: {
-          seasons: 0,
-          teams: [],
-          pointsAllowedPerGame: [],
-          rankings: [], // Defensive rankings by season  
-          awards: []
-        }
-      },
-      careerStart: 0,
-      totalSeasons: 0
-    };
+  const L = state.league;
+  if (!L || !L.teams) {
+    console.error('No league data available for standings');
+    return;
   }
   
-  // Initialize career tracking
-  if (!coach.careerHistory) {
-    coach.careerHistory = [];
+  // Check if we should use the dedicated standings view or the simple one
+  const standingsView = document.getElementById('standings');
+  const standingsWrap = document.getElementById('standingsWrap');
+  
+  if (!standingsView && !standingsWrap) {
+    console.error('No standings container found');
+    return;
   }
   
-  return coach;
+  // Calculate all standings data
+  const standingsData = calculateAllStandings(L);
+  
+  // Use the dedicated standings view if available, otherwise use the simple wrapper
+  const targetContainer = standingsView || standingsWrap;
+  
+  if (standingsView) {
+    // Use the dedicated standings view with tabs
+    standingsView.innerHTML = `
+      <div class="card">
+        <div class="standings-header">
+          <h2>NFL Standings</h2>
+          <div class="standings-controls">
+            <div class="season-info">
+              <span class="season-year">${L.year}</span>
+              <span class="week-info">Week ${L.week}</span>
+            </div>
+            <div class="standings-tabs">
+              <button class="standings-tab active" data-tab="division">Division</button>
+              <button class="standings-tab" data-tab="conference">Conference</button>
+              <button class="standings-tab" data-tab="overall">Overall</button>
+              <button class="standings-tab" data-tab="schedule">Schedule</button>
+              <button class="standings-tab" data-tab="playoff">Playoff Picture</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="standings-content">
+          <div id="standings-division" class="standings-section active">
+            ${renderDivisionStandings(standingsData)}
+          </div>
+          
+          <div id="standings-conference" class="standings-section">
+            ${renderConferenceStandings(standingsData)}
+          </div>
+          
+          <div id="standings-overall" class="standings-section">
+            ${renderOverallStandings(standingsData)}
+          </div>
+          
+          <div id="standings-schedule" class="standings-section">
+            ${renderScheduleStandings(standingsData)}
+          </div>
+          
+          <div id="standings-playoff" class="standings-section">
+            ${renderPlayoffPicture(standingsData)}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Set up tab switching
+    setupStandingsTabs();
+    
+    // Make teams clickable
+    setTimeout(() => makeTeamsClickable(), 100);
+  } else {
+    // Use the simple standings wrapper
+    targetContainer.innerHTML = `
+      <div class="card">
+        <h2>League Standings</h2>
+        <div class="conferences-grid">
+          <div class="conference-standings">
+            <h3 class="conference-title">AFC</h3>
+            ${renderSimpleConferenceStandings(standingsData.afc)}
+          </div>
+          <div class="conference-standings">
+            <h3 class="conference-title">NFC</h3>
+            ${renderSimpleConferenceStandings(standingsData.nfc)}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Make teams clickable in simple standings too
+    setTimeout(() => makeTeamsClickable(), 100);
+  }
+  
+  console.log('✅ Standings page rendered successfully');
 }
 
 /**
- * Update coaching stats after a regular season game
- * @param {Object} coach - Coach object
- * @param {Object} gameResult - Game result object
- * @param {Object} team - Team object
+ * Calculate all standings data needed for different views
+ * @param {Object} league - League object
+ * @returns {Object} Complete standings data
  */
-function updateCoachingGameStats(coach, gameResult, team) {
-  if (!coach || !gameResult || !coach.stats) return;
+function calculateAllStandings(league) {
+  const teams = [...league.teams];
   
-  try {
-    const isHeadCoach = coach.position === 'HC' || coach.position === 'Head Coach';
-    
-    if (isHeadCoach) {
-      const stats = coach.stats.asHeadCoach;
-      
-      if (gameResult.win) {
-        stats.regularSeason.wins++;
-      } else if (gameResult.tie) {
-        stats.regularSeason.ties++;
-      } else {
-        stats.regularSeason.losses++;
-      }
-      
-      // Update win percentage
-      const totalGames = stats.regularSeason.wins + stats.regularSeason.losses + stats.regularSeason.ties;
-      if (totalGames > 0) {
-        stats.regularSeason.winPercentage = 
-          (stats.regularSeason.wins + (stats.regularSeason.ties * 0.5)) / totalGames;
-      }
-    }
-    
-    // Track coordinator performance (points scored/allowed)
-    if (coach.position === 'OC') {
-      const coordinatorStats = coach.stats.asCoordinator.OC;
-      if (!coordinatorStats.currentSeasonStats) {
-        coordinatorStats.currentSeasonStats = { points: 0, games: 0 };
-      }
-      coordinatorStats.currentSeasonStats.points += (gameResult.pointsFor || 0);
-      coordinatorStats.currentSeasonStats.games++;
-    }
-    
-    if (coach.position === 'DC') {
-      const coordinatorStats = coach.stats.asCoordinator.DC;
-      if (!coordinatorStats.currentSeasonStats) {
-        coordinatorStats.currentSeasonStats = { points: 0, games: 0 };
-      }
-      coordinatorStats.currentSeasonStats.points += (gameResult.pointsAgainst || 0);
-      coordinatorStats.currentSeasonStats.games++;
-    }
-    
-  } catch (error) {
-    console.error('Error updating coaching game stats:', error);
-  }
+  // Add calculated fields to each team
+  teams.forEach(team => {
+    // Use the direct team properties that are set by simulation
+    team.wins = team.wins || 0;
+    team.losses = team.losses || 0;
+    team.ties = team.ties || 0;
+    team.pointsFor = team.ptsFor || 0;
+    team.pointsAgainst = team.ptsAgainst || 0;
+    team.pointDifferential = team.pointsFor - team.pointsAgainst;
+    team.winPercentage = calculateWinPercentage(team.wins, team.losses, team.ties);
+    team.gamesPlayed = team.wins + team.losses + team.ties;
+    team.remaining = 17 - team.gamesPlayed;
+  });
+  
+  // Group by conference and division
+  const afc = teams.filter(t => t.conf === 0);
+  const nfc = teams.filter(t => t.conf === 1);
+  
+  const afcDivisions = groupByDivision(afc);
+  const nfcDivisions = groupByDivision(nfc);
+  
+  // Sort each division
+  Object.keys(afcDivisions).forEach(div => {
+    afcDivisions[div] = sortTeamsByRecord(afcDivisions[div]);
+  });
+  Object.keys(nfcDivisions).forEach(div => {
+    nfcDivisions[div] = sortTeamsByRecord(nfcDivisions[div]);
+  });
+  
+  // Sort conferences
+  const afcSorted = sortTeamsByRecord(afc);
+  const nfcSorted = sortTeamsByRecord(nfc);
+  
+  // Calculate playoff scenarios
+  const playoffPicture = calculatePlayoffPicture(afcSorted, nfcSorted);
+  
+  return {
+    afc: {
+      teams: afcSorted,
+      divisions: afcDivisions
+    },
+    nfc: {
+      teams: nfcSorted,
+      divisions: nfcDivisions
+    },
+    overall: sortTeamsByRecord(teams),
+    playoffs: playoffPicture
+  };
 }
 
 /**
- * Update coaching stats at the end of a season
- * @param {Object} coach - Coach object
- * @param {Object} seasonStats - Season statistics
- * @param {Object} team - Team object
- * @param {number} year - Season year
+ * Group teams by division
+ * @param {Array} teams - Teams in conference
+ * @returns {Object} Teams grouped by division
  */
-function updateCoachingSeasonStats(coach, seasonStats, team, year) {
-  if (!coach || !seasonStats || !team || !coach.stats) return;
+function groupByDivision(teams) {
+  const divisions = {
+    0: [], // East
+    1: [], // North
+    2: [], // South
+    3: []  // West
+  };
   
-  try {
-    const isHeadCoach = coach.position === 'HC' || coach.position === 'Head Coach';
-    
-    if (isHeadCoach) {
-      const stats = coach.stats.asHeadCoach;
-      stats.seasons++;
-      
-      // Update team history
-      let teamRecord = stats.teamHistory.find(th => th.team === team.abbr && th.endYear === undefined);
-      
-      if (!teamRecord) {
-        teamRecord = {
-          team: team.abbr,
-          teamName: team.name,
-          startYear: year,
-          endYear: undefined,
-          seasons: 0,
-          wins: 0,
-          losses: 0,
-          ties: 0,
-          playoffAppearances: 0,
-          championships: 0,
-          superBowls: 0
-        };
-        stats.teamHistory.push(teamRecord);
-      }
-      
-      teamRecord.seasons++;
-      teamRecord.wins += seasonStats.wins || 0;
-      teamRecord.losses += seasonStats.losses || 0;
-      teamRecord.ties += seasonStats.ties || 0;
-      
-      // Check if this is the best season
-      const currentWinPct = calculateWinPercentage(seasonStats.wins, seasonStats.losses, seasonStats.ties);
-      const bestWinPct = calculateWinPercentage(stats.bestSeason.wins, stats.bestSeason.losses, stats.bestSeason.ties);
-      
-      if (currentWinPct > bestWinPct) {
-        stats.bestSeason = {
-          year: year,
-          team: team.abbr,
-          teamName: team.name,
-          wins: seasonStats.wins || 0,
-          losses: seasonStats.losses || 0,
-          ties: seasonStats.ties || 0,
-          winPercentage: currentWinPct
-        };
-      }
-      
-      // Add season awards
-      if (seasonStats.wins >= 15) {
-        stats.awards.push({
-          year: year,
-          team: team.abbr,
-          award: '15+ Win Season',
-          details: `${seasonStats.wins}-${seasonStats.losses}-${seasonStats.ties || 0}`
-        });
-      }
-      
-      if (seasonStats.wins >= 16) {
-        stats.awards.push({
-          year: year,
-          team: team.abbr,
-          award: 'Outstanding Season',
-          details: `${seasonStats.wins}-${seasonStats.losses}-${seasonStats.ties || 0}`
-        });
-      }
+  teams.forEach(team => {
+    if (divisions[team.div]) {
+      divisions[team.div].push(team);
+    }
+  });
+  
+  return divisions;
+}
+
+/**
+ * Sort teams by record using NFL tiebreaker rules
+ * @param {Array} teams - Teams to sort
+ * @returns {Array} Sorted teams
+ */
+function sortTeamsByRecord(teams) {
+  return teams.sort((a, b) => {
+    // First: Win percentage
+    if (a.winPercentage !== b.winPercentage) {
+      return b.winPercentage - a.winPercentage;
     }
     
-    // Handle coordinator season stats
-    if (coach.position === 'OC') {
-      const coordinatorStats = coach.stats.asCoordinator.OC;
-      coordinatorStats.seasons++;
-      
-      if (coordinatorStats.currentSeasonStats) {
-        const ppg = coordinatorStats.currentSeasonStats.points / coordinatorStats.currentSeasonStats.games;
-        coordinatorStats.pointsPerGame.push({
-          year: year,
-          team: team.abbr,
-          ppg: Math.round(ppg * 10) / 10
-        });
-        
-        // Calculate offensive ranking (simplified)
-        const ranking = calculateOffensiveRanking(team, ppg);
-        coordinatorStats.rankings.push({
-          year: year,
-          team: team.abbr,
-          ranking: ranking,
-          ppg: Math.round(ppg * 10) / 10
-        });
-        
-        // Reset for next season
-        coordinatorStats.currentSeasonStats = null;
-      }
-      
-      if (!coordinatorStats.teams.includes(team.abbr)) {
-        coordinatorStats.teams.push(team.abbr);
-      }
+    // Second: Head-to-head (simplified - not implemented)
+    // Third: Division record (simplified - not implemented)
+    // Fourth: Conference record (simplified - not implemented)
+    
+    // Fifth: Point differential
+    if (a.pointDifferential !== b.pointDifferential) {
+      return b.pointDifferential - a.pointDifferential;
     }
     
-    if (coach.position === 'DC') {
-      const coordinatorStats = coach.stats.asCoordinator.DC;
-      coordinatorStats.seasons++;
-      
-      if (coordinatorStats.currentSeasonStats) {
-        const papg = coordinatorStats.currentSeasonStats.points / coordinatorStats.currentSeasonStats.games;
-        coordinatorStats.pointsAllowedPerGame.push({
-          year: year,
-          team: team.abbr,
-          papg: Math.round(papg * 10) / 10
-        });
-        
-        // Calculate defensive ranking (simplified)
-        const ranking = calculateDefensiveRanking(team, papg);
-        coordinatorStats.rankings.push({
-          year: year,
-          team: team.abbr,
-          ranking: ranking,
-          papg: Math.round(papg * 10) / 10
-        });
-        
-        // Reset for next season
-        coordinatorStats.currentSeasonStats = null;
-      }
-      
-      if (!coordinatorStats.teams.includes(team.abbr)) {
-        coordinatorStats.teams.push(team.abbr);
-      }
+    // Sixth: Points for
+    if (a.pointsFor !== b.pointsFor) {
+      return b.pointsFor - a.pointsFor;
     }
     
-    // Update career history
-    coach.careerHistory.push({
-      year: year,
-      team: team.abbr,
-      teamName: team.name,
-      position: coach.position,
-      record: seasonStats,
-      awards: (seasonStats.awards || []).slice()
+    // Seventh: Points against (lower is better)
+    return a.pointsAgainst - b.pointsAgainst;
+  });
+}
+
+/**
+ * Calculate playoff picture
+ * @param {Array} afcTeams - AFC teams sorted by record
+ * @param {Array} nfcTeams - NFC teams sorted by record
+ * @returns {Object} Playoff picture data
+ */
+function calculatePlayoffPicture(afcTeams, nfcTeams) {
+  const afcPlayoffs = afcTeams.slice(0, 7);
+  const nfcPlayoffs = nfcTeams.slice(0, 7);
+  
+  const afcBubble = afcTeams.slice(7, 10);
+  const nfcBubble = nfcTeams.slice(7, 10);
+  
+  return {
+    afc: {
+      playoffs: afcPlayoffs,
+      bubble: afcBubble
+    },
+    nfc: {
+      playoffs: nfcPlayoffs,
+      bubble: nfcBubble
+    }
+  };
+}
+
+/**
+ * Render division standings
+ * @param {Object} standingsData - All standings data
+ * @returns {string} HTML string
+ */
+function renderDivisionStandings(standingsData) {
+  const divisionNames = ['East', 'North', 'South', 'West'];
+  const userTeamId = state.userTeamId || 0;
+  
+  return `
+    <div class="conferences-grid">
+      <div class="conference-standings">
+        <h3 class="conference-title">AFC</h3>
+        <div class="divisions-grid">
+          ${divisionNames.map((divName, divIndex) => {
+            const teams = standingsData.afc.divisions[divIndex] || [];
+            return `
+              <div class="division-card">
+                <h4 class="division-title">AFC ${divName}</h4>
+                <table class="standings-table">
+                  <thead>
+                    <tr>
+                      <th>Team</th>
+                      <th>W</th>
+                      <th>L</th>
+                      <th>T</th>
+                      <th>PCT</th>
+                      <th>PF</th>
+                      <th>PA</th>
+                      <th>DIFF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${teams.map((team, index) => `
+                      <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index === 0 ? 'division-leader' : ''}">
+                        <td class="team-name">
+                          ${index === 0 ? '<span class="division-crown">👑</span>' : ''}
+                          ${team.name}
+                        </td>
+                        <td>${team.wins}</td>
+                        <td>${team.losses}</td>
+                        <td>${team.ties}</td>
+                        <td>${team.winPercentage.toFixed(3)}</td>
+                        <td>${team.pointsFor}</td>
+                        <td>${team.pointsAgainst}</td>
+                        <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+                          ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+      
+      <div class="conference-standings">
+        <h3 class="conference-title">NFC</h3>
+        <div class="divisions-grid">
+          ${divisionNames.map((divName, divIndex) => {
+            const teams = standingsData.nfc.divisions[divIndex] || [];
+            return `
+              <div class="division-card">
+                <h4 class="division-title">NFC ${divName}</h4>
+                <table class="standings-table">
+                  <thead>
+                    <tr>
+                      <th>Team</th>
+                      <th>W</th>
+                      <th>L</th>
+                      <th>T</th>
+                      <th>PCT</th>
+                      <th>PF</th>
+                      <th>PA</th>
+                      <th>DIFF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${teams.map((team, index) => `
+                      <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index === 0 ? 'division-leader' : ''}">
+                        <td class="team-name">
+                          ${index === 0 ? '<span class="division-crown">👑</span>' : ''}
+                          ${team.name}
+                        </td>
+                        <td>${team.wins}</td>
+                        <td>${team.losses}</td>
+                        <td>${team.ties}</td>
+                        <td>${team.winPercentage.toFixed(3)}</td>
+                        <td>${team.pointsFor}</td>
+                        <td>${team.pointsAgainst}</td>
+                        <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+                          ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render conference standings
+ * @param {Object} standingsData - All standings data
+ * @returns {string} HTML string
+ */
+function renderConferenceStandings(standingsData) {
+  const userTeamId = state.userTeamId || 0;
+  
+  return `
+    <div class="conferences-grid">
+      <div class="conference-standings">
+        <h3 class="conference-title">AFC Conference Standings</h3>
+        <table class="standings-table conference-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Team</th>
+              <th>W</th>
+              <th>L</th>
+              <th>T</th>
+              <th>PCT</th>
+              <th>PF</th>
+              <th>PA</th>
+              <th>DIFF</th>
+              <th>Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${standingsData.afc.teams.map((team, index) => `
+              <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index < 7 ? 'playoff-team' : ''}">
+                <td class="rank">${index + 1}</td>
+                <td class="team-name">
+                  ${index < 7 ? '<span class="playoff-indicator">🏆</span>' : ''}
+                  ${team.name}
+                  ${team.div !== undefined ? `<span class="division-indicator">${getDivisionName(team.conf, team.div)}</span>` : ''}
+                </td>
+                <td>${team.wins}</td>
+                <td>${team.losses}</td>
+                <td>${team.ties}</td>
+                <td>${team.winPercentage.toFixed(3)}</td>
+                <td>${team.pointsFor}</td>
+                <td>${team.pointsAgainst}</td>
+                <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+                  ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+                </td>
+                <td>${team.remaining}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="conference-standings">
+        <h3 class="conference-title">NFC Conference Standings</h3>
+        <table class="standings-table conference-table">
+          <thead>
+            <tr>
+              <th>Rank</th>
+              <th>Team</th>
+              <th>W</th>
+              <th>L</th>
+              <th>T</th>
+              <th>PCT</th>
+              <th>PF</th>
+              <th>PA</th>
+              <th>DIFF</th>
+              <th>Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${standingsData.nfc.teams.map((team, index) => `
+              <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index < 7 ? 'playoff-team' : ''}">
+                <td class="rank">${index + 1}</td>
+                <td class="team-name">
+                  ${index < 7 ? '<span class="playoff-indicator">🏆</span>' : ''}
+                  ${team.name}
+                  ${team.div !== undefined ? `<span class="division-indicator">${getDivisionName(team.conf, team.div)}</span>` : ''}
+                </td>
+                <td>${team.wins}</td>
+                <td>${team.losses}</td>
+                <td>${team.ties}</td>
+                <td>${team.winPercentage.toFixed(3)}</td>
+                <td>${team.pointsFor}</td>
+                <td>${team.pointsAgainst}</td>
+                <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+                  ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+                </td>
+                <td>${team.remaining}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render overall league standings
+ * @param {Object} standingsData - All standings data
+ * @returns {string} HTML string
+ */
+function renderOverallStandings(standingsData) {
+  const userTeamId = state.userTeamId || 0;
+  
+  return `
+    <div class="overall-standings">
+      <h3 class="standings-title">Overall League Standings</h3>
+      <table class="standings-table overall-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Team</th>
+            <th>Conference</th>
+            <th>W</th>
+            <th>L</th>
+            <th>T</th>
+            <th>PCT</th>
+            <th>PF</th>
+            <th>PA</th>
+            <th>DIFF</th>
+            <th>Games Remaining</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${standingsData.overall.map((team, index) => `
+            <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+              <td class="rank">${index + 1}</td>
+              <td class="team-name">${team.name}</td>
+              <td class="conference-name">${team.conf === 0 ? 'AFC' : 'NFC'} ${getDivisionName(team.conf, team.div)}</td>
+              <td>${team.wins}</td>
+              <td>${team.losses}</td>
+              <td>${team.ties}</td>
+              <td>${team.winPercentage.toFixed(3)}</td>
+              <td>${team.pointsFor}</td>
+              <td>${team.pointsAgainst}</td>
+              <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+                ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+              </td>
+              <td>${team.remaining}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+/**
+ * Render playoff picture
+ * @param {Object} standingsData - All standings data
+ * @returns {string} HTML string
+ */
+function renderPlayoffPicture(standingsData) {
+  const userTeamId = state.userTeamId || 0;
+  
+  return `
+    <div class="playoff-picture">
+      <div class="conferences-grid">
+        <div class="conference-playoffs">
+          <h3 class="conference-title">AFC Playoff Picture</h3>
+          
+          <div class="playoff-teams">
+            <h4 class="playoff-section-title">In the Playoffs (7 teams)</h4>
+            <table class="standings-table playoff-table">
+              <thead>
+                <tr>
+                  <th>Seed</th>
+                  <th>Team</th>
+                  <th>Record</th>
+                  <th>Division</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${standingsData.playoffs.afc.playoffs.map((team, index) => `
+                  <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index < 4 ? 'division-winner' : 'wildcard'}">
+                    <td class="seed">${index + 1}</td>
+                    <td class="team-name">${team.name}</td>
+                    <td>${team.wins}-${team.losses}-${team.ties}</td>
+                    <td>${getDivisionName(team.conf, team.div)}</td>
+                    <td class="playoff-status">
+                      ${index === 0 ? '1st Seed' : index < 2 ? 'Bye Week' : index < 4 ? 'Division Winner' : 'Wild Card'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          ${standingsData.playoffs.afc.bubble.length > 0 ? `
+            <div class="bubble-teams">
+              <h4 class="playoff-section-title">On the Bubble</h4>
+              <table class="standings-table bubble-table">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Record</th>
+                    <th>Games Back</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${standingsData.playoffs.afc.bubble.map(team => `
+                    <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+                      <td class="team-name">${team.name}</td>
+                      <td>${team.wins}-${team.losses}-${team.ties}</td>
+                      <td>${calculateGamesBack(team, standingsData.playoffs.afc.playoffs[6])}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+        </div>
+        
+        <div class="conference-playoffs">
+          <h3 class="conference-title">NFC Playoff Picture</h3>
+          
+          <div class="playoff-teams">
+            <h4 class="playoff-section-title">In the Playoffs (7 teams)</h4>
+            <table class="standings-table playoff-table">
+              <thead>
+                <tr>
+                  <th>Seed</th>
+                  <th>Team</th>
+                  <th>Record</th>
+                  <th>Division</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${standingsData.playoffs.nfc.playoffs.map((team, index) => `
+                  <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index < 4 ? 'division-winner' : 'wildcard'}">
+                    <td class="seed">${index + 1}</td>
+                    <td class="team-name">${team.name}</td>
+                    <td>${team.wins}-${team.losses}-${team.ties}</td>
+                    <td>${getDivisionName(team.conf, team.div)}</td>
+                    <td class="playoff-status">
+                      ${index === 0 ? '1st Seed' : index < 2 ? 'Bye Week' : index < 4 ? 'Division Winner' : 'Wild Card'}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          ${standingsData.playoffs.nfc.bubble.length > 0 ? `
+            <div class="bubble-teams">
+              <h4 class="playoff-section-title">On the Bubble</h4>
+              <table class="standings-table bubble-table">
+                <thead>
+                  <tr>
+                    <th>Team</th>
+                    <th>Record</th>
+                    <th>Games Back</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${standingsData.playoffs.nfc.bubble.map(team => `
+                    <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+                      <td class="team-name">${team.name}</td>
+                      <td>${team.wins}-${team.losses}-${team.ties}</td>
+                      <td>${calculateGamesBack(team, standingsData.playoffs.nfc.playoffs[6])}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Set up tab switching for standings
+ */
+function setupStandingsTabs() {
+  const tabs = document.querySelectorAll('.standings-tab');
+  const sections = document.querySelectorAll('.standings-section');
+  
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetTab = tab.dataset.tab;
+      
+      // Update active tab
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Update active section
+      sections.forEach(section => {
+        section.classList.remove('active');
+      });
+      
+      const targetSection = document.getElementById(`standings-${targetTab}`);
+      if (targetSection) {
+        targetSection.classList.add('active');
+      }
     });
-    
-    coach.stats.totalSeasons++;
-    
-  } catch (error) {
-    console.error('Error updating coaching season stats:', error);
-  }
+  });
 }
 
 /**
- * Update coaching playoff statistics
- * @param {Object} coach - Coach object
- * @param {Object} playoffResult - Playoff result
- * @param {number} year - Season year
+ * Get division name
+ * @param {number} conf - Conference (0 = AFC, 1 = NFC)
+ * @param {number} div - Division (0-3)
+ * @returns {string} Division name
  */
-function updateCoachingPlayoffStats(coach, playoffResult, year) {
-  if (!coach || !playoffResult || !coach.stats) return;
-  
-  try {
-    const isHeadCoach = coach.position === 'HC' || coach.position === 'Head Coach';
-    
-    if (isHeadCoach) {
-      const stats = coach.stats.asHeadCoach;
-      const playoffStats = stats.playoffs;
-      
-      // Update playoff appearances
-      if (playoffResult.madePlayoffs) {
-        playoffStats.appearances++;
-        
-        // Update current team record
-        const currentTeamRecord = stats.teamHistory[stats.teamHistory.length - 1];
-        if (currentTeamRecord) {
-          currentTeamRecord.playoffAppearances++;
-        }
-      }
-      
-      // Update playoff wins/losses
-      if (playoffResult.wins) playoffStats.wins += playoffResult.wins;
-      if (playoffResult.losses) playoffStats.losses += playoffResult.losses;
-      
-      // Update win percentage
-      const totalPlayoffGames = playoffStats.wins + playoffStats.losses;
-      if (totalPlayoffGames > 0) {
-        playoffStats.winPercentage = playoffStats.wins / totalPlayoffGames;
-      }
-      
-      // Championship tracking
-      if (playoffResult.wonConferenceChampionship) {
-        stats.championships.conferenceChampionships++;
-        stats.awards.push({
-          year: year,
-          team: playoffResult.team,
-          award: 'Conference Championship',
-          details: 'Won conference championship game'
-        });
-        
-        if (currentTeamRecord) {
-          currentTeamRecord.championships++;
-        }
-      }
-      
-      if (playoffResult.wonSuperBowl) {
-        stats.championships.superBowls++;
-        stats.awards.push({
-          year: year,
-          team: playoffResult.team,
-          award: 'Super Bowl Champion',
-          details: 'Won Super Bowl'
-        });
-        
-        if (currentTeamRecord) {
-          currentTeamRecord.superBowls++;
-        }
-      }
-    }
-    
-  } catch (error) {
-    console.error('Error updating coaching playoff stats:', error);
-  }
+function getDivisionName(conf, div) {
+  const divisions = ['East', 'North', 'South', 'West'];
+  const conference = conf === 0 ? 'AFC' : 'NFC';
+  return `${conference} ${divisions[div] || 'Unknown'}`;
 }
 
 /**
- * Promote a coordinator to head coach
- * @param {Object} coordinator - Coordinator being promoted
- * @param {Object} newTeam - Team hiring the coordinator
- * @param {number} year - Year of promotion
+ * Calculate games back from playoff position
+ * @param {Object} team - Team to check
+ * @param {Object} lastPlayoffTeam - Last team in playoffs
+ * @returns {string} Games back description
  */
-function promoteCoordinatorToHeadCoach(coordinator, newTeam, year) {
-  if (!coordinator || !newTeam) return null;
+function calculateGamesBack(team, lastPlayoffTeam) {
+  if (!lastPlayoffTeam) return '0';
   
-  try {
-    // Initialize coaching stats if not present
-    initializeCoachingStats(coordinator);
-    
-    // End current coordinator tenure
-    const currentTeamRecord = coordinator.stats.teamHistory[coordinator.stats.teamHistory.length - 1];
-    if (currentTeamRecord && !currentTeamRecord.endYear) {
-      currentTeamRecord.endYear = year - 1;
-    }
-    
-    // Change position
-    const oldPosition = coordinator.position;
-    coordinator.position = 'HC';
-    coordinator.currentTeam = newTeam.abbr;
-    
-    // Add promotion to career history
-    coordinator.careerHistory.push({
-      year: year,
-      event: 'promotion',
-      from: oldPosition,
-      to: 'HC',
-      fromTeam: coordinator.currentTeam,
-      toTeam: newTeam.abbr,
-      toTeamName: newTeam.name
-    });
-    
-    // Add to awards
-    coordinator.stats.asHeadCoach.awards.push({
-      year: year,
-      team: newTeam.abbr,
-      award: 'Head Coach Promotion',
-      details: `Promoted from ${oldPosition} to Head Coach`
-    });
-    
-    console.log(`${coordinator.name} promoted from ${oldPosition} to HC of ${newTeam.name}`);
-    
-    return coordinator;
-    
-  } catch (error) {
-    console.error('Error promoting coordinator:', error);
-    return coordinator;
-  }
+  const winDiff = lastPlayoffTeam.wins - team.wins;
+  const lossDiff = team.losses - lastPlayoffTeam.losses;
+  const gamesBack = (winDiff + lossDiff) / 2;
+  
+  if (gamesBack === 0) return '0';
+  if (gamesBack === 0.5) return '½';
+  if (gamesBack % 1 === 0.5) return `${Math.floor(gamesBack)}½`;
+  return gamesBack.toString();
 }
 
 /**
  * Calculate win percentage
  * @param {number} wins - Number of wins
- * @param {number} losses - Number of losses  
+ * @param {number} losses - Number of losses
  * @param {number} ties - Number of ties
  * @returns {number} Win percentage as decimal
  */
@@ -419,504 +695,387 @@ function calculateWinPercentage(wins, losses, ties = 0) {
 }
 
 /**
- * Calculate offensive ranking (simplified)
- * @param {Object} team - Team object
- * @param {number} ppg - Points per game
- * @returns {number} Ranking (1-32)
+ * Render simple conference standings for the basic view
+ * @param {Object} conferenceData - Conference data
+ * @returns {string} HTML string
  */
-function calculateOffensiveRanking(team, ppg) {
-  // Simplified ranking based on points per game
-  // In a full implementation, this would compare against all teams
-  if (ppg >= 28) return Math.floor(Math.random() * 5) + 1; // Top 5
-  if (ppg >= 24) return Math.floor(Math.random() * 10) + 6; // 6-15
-  if (ppg >= 20) return Math.floor(Math.random() * 10) + 16; // 16-25
-  return Math.floor(Math.random() * 7) + 26; // 26-32
-}
-
-/**
- * Calculate defensive ranking (simplified)
- * @param {Object} team - Team object
- * @param {number} papg - Points allowed per game
- * @returns {number} Ranking (1-32, lower papg = better ranking)
- */
-function calculateDefensiveRanking(team, papg) {
-  // Simplified ranking based on points allowed per game
-  if (papg <= 17) return Math.floor(Math.random() * 5) + 1; // Top 5
-  if (papg <= 21) return Math.floor(Math.random() * 10) + 6; // 6-15
-  if (papg <= 25) return Math.floor(Math.random() * 10) + 16; // 16-25
-  return Math.floor(Math.random() * 7) + 26; // 26-32
-}
-
-/**
- * Get coaching Hall of Fame candidates
- * @param {Array} allCoaches - Array of all coaches
- * @returns {Array} Hall of Fame worthy coaches
- */
-function getCoachingHallOfFame(allCoaches) {
-  if (!allCoaches || allCoaches.length === 0) return [];
+function renderSimpleConferenceStandings(conferenceData) {
+  if (!conferenceData || !conferenceData.teams) return '<p>No data available</p>';
   
-  return allCoaches.filter(coach => {
-    if (!coach.stats || !coach.stats.asHeadCoach) return false;
-    
-    const stats = coach.stats.asHeadCoach;
-    let hofScore = 0;
-    
-    // Super Bowl wins (most important)
-    hofScore += stats.championships.superBowls * 50;
-    
-    // Conference championships
-    hofScore += stats.championships.conferenceChampionships * 25;
-    
-    // Regular season wins
-    hofScore += stats.regularSeason.wins * 1;
-    
-    // Win percentage bonus (minimum 5 seasons)
-    if (stats.seasons >= 5) {
-      if (stats.regularSeason.winPercentage >= 0.700) hofScore += 30;
-      else if (stats.regularSeason.winPercentage >= 0.650) hofScore += 20;
-      else if (stats.regularSeason.winPercentage >= 0.600) hofScore += 10;
+  const userTeamId = state.userTeamId || 0;
+  
+  return `
+    <table class="standings-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Team</th>
+          <th>W</th>
+          <th>L</th>
+          <th>T</th>
+          <th>PCT</th>
+          <th>PF</th>
+          <th>PA</th>
+          <th>DIFF</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${conferenceData.teams.map((team, index) => `
+          <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index < 7 ? 'playoff-team' : ''}">
+            <td class="rank">${index + 1}</td>
+            <td class="team-name">
+              ${index < 7 ? '<span class="playoff-indicator">🏆</span>' : ''}
+              ${team.name}
+            </td>
+            <td>${team.wins}</td>
+            <td>${team.losses}</td>
+            <td>${team.ties}</td>
+            <td>${team.winPercentage.toFixed(3)}</td>
+            <td>${team.pointsFor}</td>
+            <td>${team.pointsAgainst}</td>
+            <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+              ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+/**
+ * Make teams clickable in standings tables
+ */
+function makeTeamsClickable() {
+  const teamRows = document.querySelectorAll('.standings-table tbody tr');
+  teamRows.forEach(row => {
+    const teamNameCell = row.querySelector('.team-name');
+    if (teamNameCell) {
+      teamNameCell.style.cursor = 'pointer';
+      teamNameCell.style.color = '#007bff';
+      teamNameCell.style.textDecoration = 'underline';
+      
+      teamNameCell.addEventListener('click', (e) => {
+        e.preventDefault();
+        const teamName = teamNameCell.textContent.replace('👑', '').trim();
+        // Use enhanced team details for more comprehensive information
+        if (typeof showEnhancedTeamDetails === 'function') {
+          showEnhancedTeamDetails(teamName);
+        } else {
+          showTeamDetails(teamName);
+        }
+      });
     }
-    
-    // Longevity bonus
-    if (stats.seasons >= 15) hofScore += 20;
-    else if (stats.seasons >= 10) hofScore += 10;
-    
-    // Playoff success
-    if (stats.playoffs.appearances >= 8) hofScore += 15;
-    if (stats.playoffs.winPercentage >= 0.600 && stats.playoffs.wins >= 10) hofScore += 15;
-    
-    // Outstanding seasons (15+ wins)
-    const outstandingSeasons = stats.awards.filter(a => a.award === '15+ Win Season').length;
-    hofScore += outstandingSeasons * 5;
-    
-    // Hall of Fame threshold
-    return hofScore >= 100;
   });
 }
 
 /**
- * Render coaching statistics page
+ * Show team details when clicked
+ * @param {string} teamName - Name of the team
  */
-function renderCoachingStats() {
-  console.log('Rendering coaching statistics...');
-  console.log('State:', state);
-  console.log('League:', state.league);
-  
+function showTeamDetails(teamName) {
   const L = state.league;
-  if (!L) {
-    console.warn('No league data available for coaching stats');
-    const coachingContent = document.getElementById('coaching-content');
-    if (coachingContent) {
-      coachingContent.innerHTML = `
-        <div class="coaching-empty">
-          <h3>No League Data</h3>
-          <p>Please start a new league or load an existing one to view coaching statistics.</p>
+  if (!L || !L.teams) return;
+  
+  // Find team by name
+  const team = Object.values(L.teams).find(t => t.name === teamName);
+  if (!team) return;
+  
+  // Create modal to show team details
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>${team.name}</h2>
+        <span class="close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="team-info">
+          <p><strong>Conference:</strong> ${team.conference || 'Unknown'}</p>
+          <p><strong>Division:</strong> ${team.division || 'Unknown'}</p>
+          <p><strong>Record:</strong> ${team.wins || 0}-${team.losses || 0}-${team.ties || 0}</p>
+          <p><strong>Points For:</strong> ${team.pointsFor || 0}</p>
+          <p><strong>Points Against:</strong> ${team.pointsAgainst || 0}</p>
         </div>
-      `;
-    }
+        <div class="team-actions">
+          <button class="btn primary" onclick="viewTeamRoster(${team.id})">View Roster</button>
+          <button class="btn secondary" onclick="viewTeamSchedule(${team.id})">View Schedule</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close modal functionality
+  const closeBtn = modal.querySelector('.close');
+  closeBtn.onclick = () => modal.remove();
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.remove();
+  };
+  
+  modal.style.display = 'block';
+}
+
+/**
+ * Enhanced team details function with comprehensive statistics
+ */
+function showEnhancedTeamDetails(teamName) {
+  const L = state.league;
+  if (!L || !L.teams) {
+    console.error('No league data available for team details');
     return;
   }
   
-  console.log('Teams in league:', L.teams?.length);
-  console.log('First team staff:', L.teams?.[0]?.staff);
+  // Find team by name
+  const team = Object.values(L.teams).find(t => t.name === teamName);
+  if (!team) {
+    console.error('Team not found:', teamName);
+    return;
+  }
   
-  try {
-    // Get all coaches (head coaches and coordinators)
-    const allCoaches = [];
-    
-    L.teams.forEach(team => {
-      if (team.staff) {
-        if (team.staff.headCoach) {
-          initializeCoachingStats(team.staff.headCoach);
-          allCoaches.push({...team.staff.headCoach, currentTeam: team.abbr, currentTeamName: team.name});
-        }
-        if (team.staff.offCoordinator) {
-          initializeCoachingStats(team.staff.offCoordinator);
-          allCoaches.push({...team.staff.offCoordinator, currentTeam: team.abbr, currentTeamName: team.name});
-        }
-        if (team.staff.defCoordinator) {
-          initializeCoachingStats(team.staff.defCoordinator);
-          allCoaches.push({...team.staff.defCoordinator, currentTeam: team.abbr, currentTeamName: team.name});
-        }
-      } else {
-        console.warn(`Team ${team.name} has no staff data`);
-      }
-    });
-    
-    if (allCoaches.length === 0) {
-      console.warn('No coaches found in league');
-      const coachingContent = document.getElementById('coaching-content');
-      if (coachingContent) {
-        coachingContent.innerHTML = `
-          <div class="coaching-empty">
-            <h3>No Coaches Found</h3>
-            <p>No coaching staff has been generated for this league yet.</p>
-          </div>
-        `;
-      }
-      return;
-    }
-    
-    // Add user coach if in career mode
-    if (state.playerRole && state.playerRole !== 'GM') {
-      try {
-        const userTeam = window.currentTeam();
-        if (userTeam) {
-          const userCoach = {
-            name: 'You',
-            position: state.playerRole === 'OC' ? 'OC' : 'DC',
-            currentTeam: userTeam.abbr,
-            currentTeamName: userTeam.name,
-            isUser: true
-          };
-          initializeCoachingStats(userCoach);
-          allCoaches.unshift(userCoach); // Put user first
-        }
-      } catch (error) {
-        console.warn('Could not add user coach:', error);
-      }
-    }
-    
-    const coachingContent = document.getElementById('coaching-content');
-    if (!coachingContent) {
-      console.error('Coaching content area not found');
-      return;
-    }
-    
-    coachingContent.innerHTML = `
-      <div class="coaching-tabs">
-        <button class="tab-btn active" data-tab="active">Active Coaches</button>
-        <button class="tab-btn" data-tab="hof">Hall of Fame</button>
-        <button class="tab-btn" data-tab="records">Records</button>
+  // Initialize team statistics if not present
+  if (window.initializeTeamStatistics) {
+    window.initializeTeamStatistics(team);
+  }
+  
+  // Calculate additional stats
+  const pointDifferential = (team.pointsFor || 0) - (team.pointsAgainst || 0);
+  const winPercentage = team.wins + team.losses + team.ties > 0 ? 
+    ((team.wins + (team.ties * 0.5)) / (team.wins + team.losses + team.ties) * 100).toFixed(1) : '0.0';
+  
+  // Get team staff info
+  const staffInfo = team.staff ? `
+    <div class="team-staff">
+      <h4>Coaching Staff</h4>
+      <div class="staff-grid">
+        <div class="staff-member">
+          <strong>Head Coach:</strong> ${team.staff.headCoach?.name || 'Vacant'}
+        </div>
+        <div class="staff-member">
+          <strong>Offensive Coordinator:</strong> ${team.staff.offCoordinator?.name || 'Vacant'}
+        </div>
+        <div class="staff-member">
+          <strong>Defensive Coordinator:</strong> ${team.staff.defCoordinator?.name || 'Vacant'}
+        </div>
       </div>
-      
-      <div id="coaching-tab-content">
-        ${renderActiveCoaches(allCoaches)}
+    </div>
+  ` : '';
+  
+  // Get team roster info
+  const rosterInfo = team.players ? `
+    <div class="team-roster">
+      <h4>Roster Overview</h4>
+      <div class="roster-stats">
+        <div class="roster-stat">
+          <strong>Total Players:</strong> ${team.players.length}
+        </div>
+        <div class="roster-stat">
+          <strong>Offense:</strong> ${team.players.filter(p => p.position && ['QB', 'RB', 'WR', 'TE', 'OL'].includes(p.position)).length}
+        </div>
+        <div class="roster-stat">
+          <strong>Defense:</strong> ${team.players.filter(p => p.position && ['DL', 'LB', 'CB', 'S'].includes(p.position)).length}
+        </div>
+        <div class="roster-stat">
+          <strong>Special Teams:</strong> ${team.players.filter(p => p.position && ['K', 'P'].includes(p.position)).length}
+        </div>
       </div>
-    `;
-    
-    // Set up tab switching
-    const tabButtons = coachingContent.querySelectorAll('.tab-btn');
-    tabButtons.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        tabButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        
-        const tabContent = document.getElementById('coaching-tab-content');
-        
-        if (tab === 'active') {
-          tabContent.innerHTML = renderActiveCoaches(allCoaches);
-        } else if (tab === 'hof') {
-          tabContent.innerHTML = renderCoachingHallOfFame(allCoaches);
-        } else if (tab === 'records') {
-          tabContent.innerHTML = renderCoachingRecords(allCoaches);
-        }
-      });
-    });
-    
-  } catch (error) {
-    console.error('Error rendering coaching stats:', error);
-  }
-}
-
-/**
- * Render active coaches table
- * @param {Array} coaches - Array of coach objects
- * @returns {string} HTML string
- */
-function renderActiveCoaches(coaches) {
-  const headCoaches = coaches.filter(c => c.position === 'HC' || c.position === 'Head Coach');
-  const coordinators = coaches.filter(c => c.position === 'OC' || c.position === 'DC');
-  
-  return `
-    <div class="coaching-section">
-      <h3>Head Coaches</h3>
-      <table class="coaching-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Seasons</th>
-            <th>W-L-T</th>
-            <th>Win %</th>
-            <th>Playoff Record</th>
-            <th>Super Bowls</th>
-            <th>Conf. Championships</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${headCoaches.map(coach => renderCoachRow(coach, 'HC')).join('')}
-        </tbody>
-      </table>
     </div>
-    
-    <div class="coaching-section">
-      <h3>Coordinators</h3>
-      <table class="coaching-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Team</th>
-            <th>Seasons</th>
-            <th>Avg PPG/PAPG</th>
-            <th>Best Ranking</th>
-            <th>HC Experience</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${coordinators.map(coach => renderCoachRow(coach, 'COORD')).join('')}
-        </tbody>
-      </table>
+  ` : '';
+  
+  // Get franchise history if available
+  const franchiseInfo = team.franchiseHistory ? `
+    <div class="franchise-history">
+      <h4>Franchise History</h4>
+      <div class="franchise-stats">
+        <div class="franchise-stat">
+          <strong>Founded:</strong> ${team.franchiseHistory.founded || 'Unknown'}
+        </div>
+        <div class="franchise-stat">
+          <strong>All-Time Record:</strong> ${team.franchiseHistory.regularSeason?.wins || 0}-${team.franchiseHistory.regularSeason?.losses || 0}-${team.franchiseHistory.regularSeason?.ties || 0}
+        </div>
+        <div class="franchise-stat">
+          <strong>Super Bowls:</strong> ${team.franchiseHistory.championships?.superBowls || 0}
+        </div>
+        <div class="franchise-stat">
+          <strong>Conference Championships:</strong> ${team.franchiseHistory.championships?.conferenceChampionships || 0}
+        </div>
+      </div>
     </div>
-  `;
-}
-
-/**
- * Render individual coach row
- * @param {Object} coach - Coach object
- * @param {string} type - 'HC' or 'COORD'
- * @returns {string} HTML string
- */
-function renderCoachRow(coach, type) {
-  const userClass = coach.isUser ? ' class="user-row"' : '';
+  ` : '';
   
-  if (type === 'HC') {
-    const stats = coach.stats.asHeadCoach;
-    const record = `${stats.regularSeason.wins}-${stats.regularSeason.losses}-${stats.regularSeason.ties}`;
-    const winPct = (stats.regularSeason.winPercentage * 100).toFixed(1);
-    const playoffRecord = `${stats.playoffs.wins}-${stats.playoffs.losses}`;
-    
-    return `
-      <tr${userClass}>
-        <td>${coach.name}${coach.isUser ? ' (You)' : ''}</td>
-        <td>${coach.currentTeamName}</td>
-        <td>${stats.seasons}</td>
-        <td>${record}</td>
-        <td>${winPct}%</td>
-        <td>${playoffRecord}</td>
-        <td>${stats.championships.superBowls}</td>
-        <td>${stats.championships.conferenceChampionships}</td>
-      </tr>
-    `;
-  } else {
-    const coordStats = coach.stats.asCoordinator[coach.position] || {};
-    const avgStat = coach.position === 'OC' ? 
-      calculateAverage(coordStats.pointsPerGame, 'ppg') :
-      calculateAverage(coordStats.pointsAllowedPerGame, 'papg');
-    const bestRanking = calculateBestRanking(coordStats.rankings);
-    const hcExperience = coach.stats.asHeadCoach.seasons;
-    
-    return `
-      <tr${userClass}>
-        <td>${coach.name}${coach.isUser ? ' (You)' : ''}</td>
-        <td>${coach.position}</td>
-        <td>${coach.currentTeamName}</td>
-        <td>${coordStats.seasons || 0}</td>
-        <td>${avgStat.toFixed(1)}</td>
-        <td>${bestRanking > 0 ? `#${bestRanking}` : 'N/A'}</td>
-        <td>${hcExperience > 0 ? `${hcExperience} seasons` : 'None'}</td>
-      </tr>
-    `;
-  }
-}
-
-/**
- * Render coaching hall of fame
- * @param {Array} coaches - Array of coach objects
- * @returns {string} HTML string
- */
-function renderCoachingHallOfFame(coaches) {
-  const hofCoaches = getCoachingHallOfFame(coaches);
-  
-  if (hofCoaches.length === 0) {
-    return '<div class="coaching-section"><p>No coaches have achieved Hall of Fame status yet.</p></div>';
-  }
-  
-  return `
-    <div class="coaching-section">
-      <h3>Coaching Hall of Fame</h3>
-      ${hofCoaches.map(coach => `
-        <div class="hof-coach-card">
-          <h4>${coach.name}</h4>
-          <div class="hof-stats">
-            <div class="hof-stat">
-              <span class="stat-value">${coach.stats.asHeadCoach.regularSeason.wins}</span>
-              <span class="stat-label">Career Wins</span>
-            </div>
-            <div class="hof-stat">
-              <span class="stat-value">${(coach.stats.asHeadCoach.regularSeason.winPercentage * 100).toFixed(1)}%</span>
-              <span class="stat-label">Win Percentage</span>
-            </div>
-            <div class="hof-stat">
-              <span class="stat-value">${coach.stats.asHeadCoach.championships.superBowls}</span>
-              <span class="stat-label">Super Bowls</span>
-            </div>
-            <div class="hof-stat">
-              <span class="stat-value">${coach.stats.asHeadCoach.seasons}</span>
-              <span class="stat-label">Seasons</span>
+  // Create enhanced modal
+  const modal = document.createElement('div');
+  modal.className = 'modal team-details-modal';
+  modal.innerHTML = `
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h2>${team.name} - Comprehensive Team Details</h2>
+        <span class="close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="team-details-grid">
+          <div class="team-section">
+            <h3>Current Season</h3>
+            <div class="team-info">
+              <div class="info-row">
+                <span class="label">Conference:</span>
+                <span class="value">${team.conference || 'Unknown'}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Division:</span>
+                <span class="value">${team.division || 'Unknown'}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Record:</span>
+                <span class="value">${team.wins || 0}-${team.losses || 0}-${team.ties || 0}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Win %:</span>
+                <span class="value">${winPercentage}%</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Points For:</span>
+                <span class="value">${team.pointsFor || 0}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Points Against:</span>
+                <span class="value">${team.pointsAgainst || 0}</span>
+              </div>
+              <div class="info-row">
+                <span class="label">Point Differential:</span>
+                <span class="value ${pointDifferential >= 0 ? 'positive' : 'negative'}">${pointDifferential >= 0 ? '+' : ''}${pointDifferential}</span>
+              </div>
             </div>
           </div>
-          <div class="team-history">
-            <h5>Team History:</h5>
-            ${coach.stats.asHeadCoach.teamHistory.map(th => 
-              `<span class="team-stint">${th.team} (${th.startYear}-${th.endYear || 'present'}): ${th.wins}-${th.losses}-${th.ties}</span>`
-            ).join(', ')}
-          </div>
-        </div>
-      `).join('')}
-    </div>
-  `;
-}
-
-/**
- * Render coaching records
- * @param {Array} coaches - Array of coach objects
- * @returns {string} HTML string
- */
-function renderCoachingRecords(coaches) {
-  const records = calculateCoachingRecords(coaches);
-  
-  return `
-    <div class="coaching-section">
-      <h3>Coaching Records</h3>
-      <div class="records-grid">
-        <div class="record-card">
-          <h4>Most Career Wins</h4>
-          <ol>
-            ${records.mostWins.slice(0, 5).map(r => 
-              `<li>${r.name}: ${r.value} wins</li>`
-            ).join('')}
-          </ol>
+          
+          ${staffInfo}
+          ${rosterInfo}
+          ${franchiseInfo}
         </div>
         
-        <div class="record-card">
-          <h4>Highest Win Percentage (min. 5 seasons)</h4>
-          <ol>
-            ${records.bestWinPct.slice(0, 5).map(r => 
-              `<li>${r.name}: ${(r.value * 100).toFixed(1)}%</li>`
-            ).join('')}
-          </ol>
-        </div>
-        
-        <div class="record-card">
-          <h4>Most Super Bowl Wins</h4>
-          <ol>
-            ${records.mostSuperBowls.slice(0, 5).map(r => 
-              `<li>${r.name}: ${r.value} titles</li>`
-            ).join('')}
-          </ol>
-        </div>
-        
-        <div class="record-card">
-          <h4>Best Single Season</h4>
-          <ol>
-            ${records.bestSeason.slice(0, 5).map(r => 
-              `<li>${r.name}: ${r.record} (${r.year})</li>`
-            ).join('')}
-          </ol>
+        <div class="team-actions">
+          <button class="btn primary" onclick="viewTeamRoster('${team.name}')">View Full Roster</button>
+          <button class="btn secondary" onclick="viewTeamSchedule('${team.name}')">View Schedule</button>
+          <button class="btn secondary" onclick="viewTeamStats('${team.name}')">View Detailed Stats</button>
         </div>
       </div>
     </div>
   `;
-}
-
-/**
- * Calculate various coaching records
- * @param {Array} coaches - Array of coach objects
- * @returns {Object} Object containing different record categories
- */
-function calculateCoachingRecords(coaches) {
-  const records = {
-    mostWins: [],
-    bestWinPct: [],
-    mostSuperBowls: [],
-    bestSeason: []
+  
+  document.body.appendChild(modal);
+  
+  // Close modal functionality
+  const closeBtn = modal.querySelector('.close');
+  closeBtn.onclick = () => modal.remove();
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.remove();
   };
   
-  coaches.forEach(coach => {
-    const stats = coach.stats.asHeadCoach;
-    
-    // Most wins
-    records.mostWins.push({
-      name: coach.name,
-      value: stats.regularSeason.wins
+  modal.style.display = 'block';
+}
+
+/**
+ * Render schedule standings
+ * @param {Object} standingsData - All standings data
+ * @returns {string} HTML string
+ */
+function renderScheduleStandings(standingsData) {
+  const L = state.league;
+  if (!L || !L.schedule) {
+    return '<p>No schedule data available.</p>';
+  }
+  
+  let html = '<div class="schedule-view">';
+  html += '<h3>Season Schedule</h3>';
+  
+  // Group games by week
+  const gamesByWeek = {};
+  if (L.resultsByWeek) {
+    Object.entries(L.resultsByWeek).forEach(([week, results]) => {
+      if (Array.isArray(results)) {
+        gamesByWeek[week] = results;
+      }
     });
-    
-    // Best win percentage (minimum 5 seasons)
-    if (stats.seasons >= 5) {
-      records.bestWinPct.push({
-        name: coach.name,
-        value: stats.regularSeason.winPercentage
-      });
-    }
-    
-    // Most Super Bowls
-    if (stats.championships.superBowls > 0) {
-      records.mostSuperBowls.push({
-        name: coach.name,
-        value: stats.championships.superBowls
-      });
-    }
-    
-    // Best season
-    if (stats.bestSeason.wins > 0) {
-      records.bestSeason.push({
-        name: coach.name,
-        record: `${stats.bestSeason.wins}-${stats.bestSeason.losses}-${stats.bestSeason.ties}`,
-        value: stats.bestSeason.winPercentage,
-        year: stats.bestSeason.year,
-        team: stats.bestSeason.team
-      });
-    }
-  });
+  }
   
-  // Sort each category
-  records.mostWins.sort((a, b) => b.value - a.value);
-  records.bestWinPct.sort((a, b) => b.value - a.value);
-  records.mostSuperBowls.sort((a, b) => b.value - a.value);
-  records.bestSeason.sort((a, b) => b.value - a.value);
+  // Render schedule by week
+  for (let week = 1; week <= 17; week++) {
+    const weekGames = gamesByWeek[week] || [];
+    html += `<div class="week-schedule">`;
+    html += `<h4>Week ${week}</h4>`;
+    
+    if (weekGames.length === 0) {
+      html += '<p class="no-games">No games scheduled</p>';
+    } else {
+      html += '<div class="games-grid">';
+      weekGames.forEach(game => {
+        if (game.home && game.away) {
+          const homeTeam = L.teams[game.home];
+          const awayTeam = L.teams[game.away];
+          if (homeTeam && awayTeam) {
+            html += `
+              <div class="game-item">
+                <div class="away-team">${awayTeam.name}</div>
+                <div class="vs">@</div>
+                <div class="home-team">${homeTeam.name}</div>
+              </div>
+            `;
+          }
+        }
+      });
+      html += '</div>';
+    }
+    
+    html += '</div>';
+  }
   
-  return records;
-}
-
-// Helper functions
-function calculateAverage(dataArray, key) {
-  if (!dataArray || dataArray.length === 0) return 0;
-  const sum = dataArray.reduce((acc, item) => acc + item[key], 0);
-  return sum / dataArray.length;
-}
-
-function calculateBestRanking(rankings) {
-  if (!rankings || rankings.length === 0) return 0;
-  return Math.min(...rankings.map(r => r.ranking));
+  html += '</div>';
+  return html;
 }
 
 // Make functions globally available
-window.initializeCoachingStats = initializeCoachingStats;
-window.updateCoachingGameStats = updateCoachingGameStats;
-window.updateCoachingSeasonStats = updateCoachingSeasonStats;
-window.updateCoachingPlayoffStats = updateCoachingPlayoffStats;
-window.promoteCoordinatorToHeadCoach = promoteCoordinatorToHeadCoach;
-window.calculateWinPercentage = calculateWinPercentage;
-window.getCoachingHallOfFame = getCoachingHallOfFame;
-window.renderCoachingStats = renderCoachingStats;
+window.renderStandingsPage = renderStandingsPage;
+window.renderStandings = renderStandingsPage;
+window.calculateAllStandings = calculateAllStandings;
+window.setupStandingsTabs = setupStandingsTabs;
 
-/**
- * Main coaching system entry point
- * This function renders the main coaching interface
- */
-function renderCoaching() {
-    // Check if we have a content area to render into
-    const content = document.getElementById('content');
-    if (!content) {
-        console.error('Content area not found for coaching interface');
-        return;
-    }
-    
-    // Render the main coaching stats interface
-    renderCoachingStats();
-}
+// Global functions for team actions
+window.viewTeamRoster = function(teamId) {
+  // Switch to roster view and select the team
+  if (window.state) {
+    window.state.userTeamId = teamId;
+  }
+  
+  // Navigate to roster view
+  window.location.hash = '#/roster';
+  
+  // Close the modal if it exists
+  const modal = document.querySelector('.modal');
+  if (modal) modal.remove();
+};
 
-// Expose the main coaching function globally
-window.renderCoaching = renderCoaching;
+window.viewTeamSchedule = function(teamId) {
+  // Switch to schedule view and show team's schedule
+  if (window.state) {
+    window.state.userTeamId = teamId;
+  }
+  
+  // Navigate to standings view (which includes schedule)
+  window.location.hash = '#/standings';
+  
+  // Close the modal if it exists
+  const modal = document.querySelector('.modal');
+  modal.remove();
+  
+  // Show schedule tab if available
+  setTimeout(() => {
+    const scheduleTab = document.querySelector('[data-tab="schedule"]');
+    if (scheduleTab) scheduleTab.click();
+  }, 200);
+};
+
+console.log('✅ Dedicated Standings Page loaded successfully');
