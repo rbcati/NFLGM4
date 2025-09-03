@@ -499,9 +499,26 @@ function getCoachingHallOfFame(allCoaches) {
  */
 function renderCoachingStats() {
   console.log('Rendering coaching statistics...');
+  console.log('State:', state);
+  console.log('League:', state.league);
   
   const L = state.league;
-  if (!L) return;
+  if (!L) {
+    console.warn('No league data available for coaching stats');
+    const coachingContent = document.getElementById('coaching-content');
+    if (coachingContent) {
+      coachingContent.innerHTML = `
+        <div class="coaching-empty">
+          <h3>No League Data</h3>
+          <p>Please start a new league or load an existing one to view coaching statistics.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+  
+  console.log('Teams in league:', L.teams?.length);
+  console.log('First team staff:', L.teams?.[0]?.staff);
   
   try {
     // Get all coaches (head coaches and coordinators)
@@ -521,22 +538,42 @@ function renderCoachingStats() {
           initializeCoachingStats(team.staff.defCoordinator);
           allCoaches.push({...team.staff.defCoordinator, currentTeam: team.abbr, currentTeamName: team.name});
         }
+      } else {
+        console.warn(`Team ${team.name} has no staff data`);
       }
     });
     
+    if (allCoaches.length === 0) {
+      console.warn('No coaches found in league');
+      const coachingContent = document.getElementById('coaching-content');
+      if (coachingContent) {
+        coachingContent.innerHTML = `
+          <div class="coaching-empty">
+            <h3>No Coaches Found</h3>
+            <p>No coaching staff has been generated for this league yet.</p>
+          </div>
+        `;
+      }
+      return;
+    }
+    
     // Add user coach if in career mode
     if (state.playerRole && state.playerRole !== 'GM') {
-      const userTeam = window.currentTeam();
-      if (userTeam) {
-        const userCoach = {
-          name: 'You',
-          position: state.playerRole === 'OC' ? 'OC' : 'DC',
-          currentTeam: userTeam.abbr,
-          currentTeamName: userTeam.name,
-          isUser: true
-        };
-        initializeCoachingStats(userCoach);
-        allCoaches.unshift(userCoach); // Put user first
+      try {
+        const userTeam = window.currentTeam();
+        if (userTeam) {
+          const userCoach = {
+            name: 'You',
+            position: state.playerRole === 'OC' ? 'OC' : 'DC',
+            currentTeam: userTeam.abbr,
+            currentTeamName: userTeam.name,
+            isUser: true
+          };
+          initializeCoachingStats(userCoach);
+          allCoaches.unshift(userCoach); // Put user first
+        }
+      } catch (error) {
+        console.warn('Could not add user coach:', error);
       }
     }
     
