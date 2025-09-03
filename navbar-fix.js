@@ -106,6 +106,8 @@
             if (window.renderCoachingStats) {
               window.renderCoachingStats();
               console.log('✅ Coaching rendered');
+            } else {
+              console.warn('⚠️ renderCoachingStats function not found');
             }
             break;
           case 'settings':
@@ -378,6 +380,7 @@
       { href: '#/freeagency', text: 'Free Agency', view: 'freeagency' },
       { href: '#/draft', text: 'Draft', view: 'draft' },
       { href: '#/scouting', text: 'Scouting', view: 'scouting' },
+      { href: '#/coaching', text: 'Coaching', view: 'coaching' },
       { href: '#/settings', text: 'Settings', view: 'settings' }
     ];
     
@@ -460,3 +463,17 @@
   window.fixNavigation = initializeNavigationFix;
   window.diagnoseNavigation = diagnoseNavigation;
   window.fixedRouter = fixedRouter;
+  
+  // Auto-initialize
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeNavigationFix);
+  } else {
+    // Run immediately if DOM is ready
+    setTimeout(initializeNavigationFix, 100);
+  }
+  
+  console.log('💡 Navigation fix loaded. Available commands:');
+  console.log('- fixNavigation() - Apply complete navigation fix');
+  console.log('- diagnoseNavigation() - Show navigation diagnostic');
+  
+})();
