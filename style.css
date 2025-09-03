@@ -876,6 +876,42 @@ select:focus, input:focus {
   /* Same as conference-standings */
 }
 
+/* Schedule View */
+.schedule-week {
+  margin: 10px 0;
+  padding: 10px;
+  background: var(--surface);
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+}
+
+.schedule-game {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.schedule-game:last-child {
+  border-bottom: none;
+}
+
+.away-team {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.at {
+  color: var(--text-subtle);
+  margin: 0 10px;
+}
+
+.home-team {
+  font-weight: 500;
+  color: var(--text);
+}
+
 .playoff-section-title {
   color: var(--text-muted);
   font-size: var(--text-sm);
