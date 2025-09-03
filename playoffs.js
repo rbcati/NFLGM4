@@ -7,7 +7,9 @@
 
 // --- PLAYOFF STRUCTURE & GENERATION ---
 function generatePlayoffs(teams) {
-    const C = window.Constants.PLAYOFFS;
+    // Define playoff constants since window.Constants.PLAYOFFS doesn't exist
+    const TEAMS_PER_CONF = 7; // 7 teams per conference make playoffs
+    
     const bracket = {
         year: window.state?.league?.year || 2025,
         rounds: { afc: [[], [], []], nfc: [[], [], []], superbowl: [] },
@@ -24,8 +26,8 @@ function generatePlayoffs(teams) {
     const afcTeams = getConferenceTeams(0);
     const nfcTeams = getConferenceTeams(1);
 
-    const afcSeeds = afcTeams.slice(0, C.TEAMS_PER_CONF);
-    const nfcSeeds = nfcTeams.slice(0, C.TEAMS_PER_CONF);
+    const afcSeeds = afcTeams.slice(0, TEAMS_PER_CONF);
+    const nfcSeeds = nfcTeams.slice(0, TEAMS_PER_CONF);
 
     // Add seed property to teams for easier sorting later
     afcSeeds.forEach((t, i) => t.seed = i + 1);
