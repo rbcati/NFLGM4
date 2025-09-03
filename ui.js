@@ -621,18 +621,93 @@ function initializeUI() {
 
 // Global functions for player actions
 window.viewPlayerStats = function(playerId) {
-  // Navigate to player stats view
-  window.location.hash = '#/player-stats';
+  console.log('🔍 viewPlayerStats called with ID:', playerId);
   
-  // Close the modal if it exists
-  const modal = document.querySelector('.modal');
-  if (modal) modal.remove();
-  
-  // Set the player ID to view
-  if (window.state) {
-    window.state.selectedPlayerId = playerId;
+  // Try to show player stats directly using the player stats viewer
+  if (window.playerStatsViewer && window.playerStatsViewer.showPlayerStats) {
+    window.playerStatsViewer.showPlayerStats(playerId);
+  } else if (window.playerStatsViewer) {
+    // Fallback: create a simple modal
+    showSimplePlayerStats(playerId);
+  } else {
+    console.warn('Player stats viewer not available');
+    alert('Player stats viewer not available');
   }
 };
+
+// Fallback function for when player stats viewer isn't ready
+function showSimplePlayerStats(playerId) {
+  console.log('Using fallback player stats display for ID:', playerId);
+  
+  // Find player in current team roster
+  if (!window.state?.league?.teams || !window.state?.userTeamId) {
+    alert('No league data available');
+    return;
+  }
+  
+  const currentTeam = window.state.league.teams[window.state.userTeamId];
+  if (!currentTeam?.roster) {
+    alert('No roster data available');
+    return;
+  }
+  
+  const player = currentTeam.roster.find(p => p.id === playerId);
+  if (!player) {
+    alert('Player not found');
+    return;
+  }
+  
+  // Create simple modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>${player.name} - Statistics</h2>
+        <span class="close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="stats-section">
+          <h3>Player Information</h3>
+          <div class="stats-row">
+            <span class="stat-label">Position:</span>
+            <span class="stat-value">${player.pos || 'N/A'}</span>
+          </div>
+          <div class="stats-row">
+            <span class="stat-label">Age:</span>
+            <span class="stat-value">${player.age || 'N/A'}</span>
+          </div>
+          <div class="stats-row">
+            <span class="stat-label">Overall:</span>
+            <span class="stat-value">${player.ovr || 'N/A'}</span>
+          </div>
+        </div>
+        ${player.ratings ? `
+        <div class="stats-section">
+          <h3>Ratings</h3>
+          <div class="ratings-grid">
+            ${Object.entries(player.ratings).map(([rating, value]) => `
+              <div class="rating-item">
+                <span class="rating-name">${rating}</span>
+                <span class="rating-value">${value}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+  
+  // Add close functionality
+  const closeBtn = modal.querySelector('.close');
+  closeBtn.onclick = () => modal.remove();
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.remove();
+  };
+  
+  document.body.appendChild(modal);
+}
 
 window.editPlayer = function(playerId) {
   // Navigate to player edit view or show edit modal
