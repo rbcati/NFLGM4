@@ -43,6 +43,7 @@ function renderStandingsPage() {
               <button class="standings-tab active" data-tab="division">Division</button>
               <button class="standings-tab" data-tab="conference">Conference</button>
               <button class="standings-tab" data-tab="overall">Overall</button>
+              <button class="standings-tab" data-tab="schedule">Schedule</button>
               <button class="standings-tab" data-tab="playoff">Playoff Picture</button>
             </div>
           </div>
@@ -61,6 +62,10 @@ function renderStandingsPage() {
             ${renderOverallStandings(standingsData)}
           </div>
           
+          <div id="standings-schedule" class="standings-section">
+            ${renderScheduleStandings(standingsData)}
+          </div>
+          
           <div id="standings-playoff" class="standings-section">
             ${renderPlayoffPicture(standingsData)}
           </div>
@@ -70,6 +75,9 @@ function renderStandingsPage() {
     
     // Set up tab switching
     setupStandingsTabs();
+    
+    // Make teams clickable
+    setTimeout(() => makeTeamsClickable(), 100);
   } else {
     // Use the simple standings wrapper
     targetContainer.innerHTML = `
@@ -87,6 +95,9 @@ function renderStandingsPage() {
         </div>
       </div>
     `;
+    
+    // Make teams clickable in simple standings too
+    setTimeout(() => makeTeamsClickable(), 100);
   }
   
   console.log('✅ Standings page rendered successfully');
@@ -732,12 +743,175 @@ function renderSimpleConferenceStandings(conferenceData) {
   `;
 }
 
+/**
+ * Make teams clickable in standings tables
+ */
+function makeTeamsClickable() {
+  const teamRows = document.querySelectorAll('.standings-table tbody tr');
+  teamRows.forEach(row => {
+    const teamNameCell = row.querySelector('.team-name');
+    if (teamNameCell) {
+      teamNameCell.style.cursor = 'pointer';
+      teamNameCell.style.color = '#007bff';
+      teamNameCell.style.textDecoration = 'underline';
+      
+      teamNameCell.addEventListener('click', (e) => {
+        e.preventDefault();
+        const teamName = teamNameCell.textContent.replace('👑', '').trim();
+        showTeamDetails(teamName);
+      });
+    }
+  });
+}
+
+/**
+ * Show team details when clicked
+ * @param {string} teamName - Name of the team
+ */
+function showTeamDetails(teamName) {
+  const L = state.league;
+  if (!L || !L.teams) return;
+  
+  // Find team by name
+  const team = Object.values(L.teams).find(t => t.name === teamName);
+  if (!team) return;
+  
+  // Create modal to show team details
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.innerHTML = `
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>${team.name}</h2>
+        <span class="close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <div class="team-info">
+          <p><strong>Conference:</strong> ${team.conference || 'Unknown'}</p>
+          <p><strong>Division:</strong> ${team.division || 'Unknown'}</p>
+          <p><strong>Record:</strong> ${team.wins || 0}-${team.losses || 0}-${team.ties || 0}</p>
+          <p><strong>Points For:</strong> ${team.pointsFor || 0}</p>
+          <p><strong>Points Against:</strong> ${team.pointsAgainst || 0}</p>
+        </div>
+        <div class="team-actions">
+          <button class="btn primary" onclick="viewTeamRoster(${team.id})">View Roster</button>
+          <button class="btn secondary" onclick="viewTeamSchedule(${team.id})">View Schedule</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Close modal functionality
+  const closeBtn = modal.querySelector('.close');
+  closeBtn.onclick = () => modal.remove();
+  
+  modal.onclick = (e) => {
+    if (e.target === modal) modal.remove();
+  };
+  
+  modal.style.display = 'block';
+}
+
+/**
+ * Render schedule standings
+ * @param {Object} standingsData - All standings data
+ * @returns {string} HTML string
+ */
+function renderScheduleStandings(standingsData) {
+  const L = state.league;
+  if (!L || !L.schedule) {
+    return '<p>No schedule data available.</p>';
+  }
+  
+  let html = '<div class="schedule-view">';
+  html += '<h3>Season Schedule</h3>';
+  
+  // Group games by week
+  const gamesByWeek = {};
+  if (L.resultsByWeek) {
+    Object.entries(L.resultsByWeek).forEach(([week, results]) => {
+      if (Array.isArray(results)) {
+        gamesByWeek[week] = results;
+      }
+    });
+  }
+  
+  // Render schedule by week
+  for (let week = 1; week <= 17; week++) {
+    const weekGames = gamesByWeek[week] || [];
+    html += `<div class="week-schedule">`;
+    html += `<h4>Week ${week}</h4>`;
+    
+    if (weekGames.length === 0) {
+      html += '<p class="no-games">No games scheduled</p>';
+    } else {
+      html += '<div class="games-grid">';
+      weekGames.forEach(game => {
+        if (game.home && game.away) {
+          const homeTeam = L.teams[game.home];
+          const awayTeam = L.teams[game.away];
+          if (homeTeam && awayTeam) {
+            html += `
+              <div class="game-item">
+                <div class="away-team">${awayTeam.name}</div>
+                <div class="vs">@</div>
+                <div class="home-team">${homeTeam.name}</div>
+              </div>
+            `;
+          }
+        }
+      });
+      html += '</div>';
+    }
+    
+    html += '</div>';
+  }
+  
+  html += '</div>';
+  return html;
+}
+
 // Make functions globally available
 window.renderStandingsPage = renderStandingsPage;
+window.renderStandings = renderStandingsPage;
 window.calculateAllStandings = calculateAllStandings;
 window.setupStandingsTabs = setupStandingsTabs;
 
-// Override the existing renderStandings function to use the new dedicated page
-window.renderStandings = renderStandingsPage;
+// Global functions for team actions
+window.viewTeamRoster = function(teamId) {
+  // Switch to roster view and select the team
+  if (window.state) {
+    window.state.userTeamId = teamId;
+  }
+  
+  // Navigate to roster view
+  window.location.hash = '#/roster';
+  
+  // Close the modal if it exists
+  const modal = document.querySelector('.modal');
+  if (modal) modal.remove();
+};
+
+window.viewTeamSchedule = function(teamId) {
+  // Switch to schedule view and show team's schedule
+  if (window.state) {
+    window.state.userTeamId = teamId;
+  }
+  
+  // Navigate to standings view (which includes schedule)
+  window.location.hash = '#/standings';
+  
+  // Close the modal if it exists
+  const modal = document.querySelector('.modal');
+  modal.remove();
+  
+  // Show schedule tab if available
+  setTimeout(() => {
+    const scheduleTab = document.querySelector('[data-tab="schedule"]');
+    if (scheduleTab) scheduleTab.click();
+  }, 200);
+};
 
 console.log('✅ Dedicated Standings Page loaded successfully');
