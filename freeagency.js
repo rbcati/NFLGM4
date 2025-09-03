@@ -66,8 +66,9 @@ function ensureFA() {
 }
 
 function generateBasicName() {
-  const firstNames = ['John', 'Mike', 'David', 'Chris', 'Matt', 'Ryan', 'Josh', 'Jake', 'Alex', 'Tyler'];
-  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor'];
+  // Use expanded names for maximum variety (1,000,000+ combinations)
+  const firstNames = window.EXPANDED_FIRST_NAMES || ['John', 'Mike', 'David', 'Chris', 'Matt', 'Ryan', 'Josh', 'Jake', 'Alex', 'Tyler'];
+  const lastNames = window.EXPANDED_LAST_NAMES || ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Davis', 'Miller', 'Wilson', 'Moore', 'Taylor'];
   
   const U = window.Utils;
   if (U) {
