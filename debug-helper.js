@@ -515,3 +515,100 @@ window.debugNFLGM.quickFixTeamSelection = function() {
   
   console.log('✅ Event listeners added');
 };
+
+// Add comprehensive team loading test
+window.testTeamLoading = function() {
+    console.log('🧪 === COMPREHENSIVE TEAM LOADING TEST ===');
+    
+    // Test 1: Check if basic objects exist
+    console.log('1️⃣ Basic objects check:');
+    console.log('window.Teams:', !!window.Teams);
+    console.log('window.Constants:', !!window.Constants);
+    console.log('window.listByMode:', !!window.listByMode);
+    console.log('window.populateTeamDropdown:', !!window.populateTeamDropdown);
+    
+    // Test 2: Check team data
+    console.log('2️⃣ Team data check:');
+    if (window.Teams) {
+        console.log('Teams.real:', window.Teams.real?.length || 'missing');
+        console.log('Teams.fictional:', window.Teams.fictional?.length || 'missing');
+        console.log('Teams.TEAM_META_REAL:', window.Teams.TEAM_META_REAL?.length || 'missing');
+        console.log('Teams.TEAM_META_FICTIONAL:', window.Teams.TEAM_META_FICTIONAL?.length || 'missing');
+    }
+    
+    if (window.Constants) {
+        console.log('Constants.TEAMS_REAL:', window.Constants.TEAMS_REAL?.length || 'missing');
+        console.log('Constants.TEAMS_FICTIONAL:', window.Constants.TEAMS_FICTIONAL?.length || 'missing');
+    }
+    
+    // Test 3: Test listByMode function
+    console.log('3️⃣ listByMode function test:');
+    if (window.listByMode) {
+        try {
+            const fictional = window.listByMode('fictional');
+            const real = window.listByMode('real');
+            console.log('Fictional teams returned:', fictional.length);
+            console.log('Real teams returned:', real.length);
+            
+            if (fictional.length > 0) {
+                console.log('Sample fictional team:', fictional[0]);
+            }
+            if (real.length > 0) {
+                console.log('Sample real team:', real[0]);
+            }
+        } catch (error) {
+            console.error('Error calling listByMode:', error);
+        }
+    }
+    
+    // Test 4: Test populateTeamDropdown function
+    console.log('4️⃣ populateTeamDropdown function test:');
+    if (window.populateTeamDropdown) {
+        try {
+            const teamSelect = document.getElementById('onboardTeam');
+            if (teamSelect) {
+                console.log('Team select element found, testing population...');
+                const result = window.populateTeamDropdown('fictional');
+                console.log('Population result:', result);
+                console.log('Options in dropdown:', teamSelect.options.length);
+            } else {
+                console.log('Team select element not found');
+            }
+        } catch (error) {
+            console.error('Error calling populateTeamDropdown:', error);
+        }
+    }
+    
+    // Test 5: Check onboarding modal
+    console.log('5️⃣ Onboarding modal check:');
+    const modal = document.getElementById('onboardModal');
+    const teamSelect = document.getElementById('onboardTeam');
+    console.log('Modal element:', !!modal);
+    console.log('Team select element:', !!teamSelect);
+    
+    if (modal) {
+        console.log('Modal display:', modal.style.display);
+        console.log('Modal hidden:', modal.hidden);
+    }
+    
+    if (teamSelect) {
+        console.log('Team select options:', teamSelect.options.length);
+        console.log('Team select value:', teamSelect.value);
+        console.log('Team select selectedIndex:', teamSelect.selectedIndex);
+    }
+    
+    // Test 6: Check game state
+    console.log('6️⃣ Game state check:');
+    console.log('window.state:', !!window.state);
+    if (window.state) {
+        console.log('State onboarded:', window.state.onboarded);
+        console.log('State namesMode:', window.state.namesMode);
+        console.log('State userTeamId:', window.state.userTeamId);
+        console.log('State league:', !!window.state.league);
+        if (window.state.league) {
+            console.log('League teams:', window.state.league.teams?.length || 'missing');
+        }
+    }
+    
+    console.log('🧪 === END TEAM LOADING TEST ===');
+};
