@@ -551,6 +551,14 @@ function renderCoachingStats() {
           <div class="coaching-empty">
             <h3>No Coaches Found</h3>
             <p>No coaching staff has been generated for this league yet.</p>
+            <div class="coaching-actions">
+              <button class="btn primary" onclick="addCoachingStaffToLeague()">
+                Generate Coaching Staff
+              </button>
+              <p class="coaching-help">
+                Click the button above to generate coaching staff for all teams in the league.
+              </p>
+            </div>
           </div>
         `;
       }
