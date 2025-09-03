@@ -13,55 +13,81 @@ function renderStandingsPage() {
     return;
   }
   
+  // Check if we should use the dedicated standings view or the simple one
   const standingsView = document.getElementById('standings');
-  if (!standingsView) {
-    console.error('Standings view element not found');
+  const standingsWrap = document.getElementById('standingsWrap');
+  
+  if (!standingsView && !standingsWrap) {
+    console.error('No standings container found');
     return;
   }
   
   // Calculate all standings data
   const standingsData = calculateAllStandings(L);
   
-  standingsView.innerHTML = `
-    <div class="card">
-      <div class="standings-header">
-        <h2>NFL Standings</h2>
-        <div class="standings-controls">
-          <div class="season-info">
-            <span class="season-year">${L.year}</span>
-            <span class="week-info">Week ${L.week}</span>
-          </div>
-          <div class="standings-tabs">
-            <button class="standings-tab active" data-tab="division">Division</button>
-            <button class="standings-tab" data-tab="conference">Conference</button>
-            <button class="standings-tab" data-tab="overall">Overall</button>
-            <button class="standings-tab" data-tab="playoff">Playoff Picture</button>
-          </div>
-        </div>
-      </div>
-      
-      <div class="standings-content">
-        <div id="standings-division" class="standings-section active">
-          ${renderDivisionStandings(standingsData)}
-        </div>
-        
-        <div id="standings-conference" class="standings-section">
-          ${renderConferenceStandings(standingsData)}
-        </div>
-        
-        <div id="standings-overall" class="standings-section">
-          ${renderOverallStandings(standingsData)}
-        </div>
-        
-        <div id="standings-playoff" class="standings-section">
-          ${renderPlayoffPicture(standingsData)}
-        </div>
-      </div>
-    </div>
-  `;
+  // Use the dedicated standings view if available, otherwise use the simple wrapper
+  const targetContainer = standingsView || standingsWrap;
   
-  // Set up tab switching
-  setupStandingsTabs();
+  if (standingsView) {
+    // Use the dedicated standings view with tabs
+    standingsView.innerHTML = `
+      <div class="card">
+        <div class="standings-header">
+          <h2>NFL Standings</h2>
+          <div class="standings-controls">
+            <div class="season-info">
+              <span class="season-year">${L.year}</span>
+              <span class="week-info">Week ${L.week}</span>
+            </div>
+            <div class="standings-tabs">
+              <button class="standings-tab active" data-tab="division">Division</button>
+              <button class="standings-tab" data-tab="conference">Conference</button>
+              <button class="standings-tab" data-tab="overall">Overall</button>
+              <button class="standings-tab" data-tab="playoff">Playoff Picture</button>
+            </div>
+          </div>
+        </div>
+        
+        <div class="standings-content">
+          <div id="standings-division" class="standings-section active">
+            ${renderDivisionStandings(standingsData)}
+          </div>
+          
+          <div id="standings-conference" class="standings-section">
+            ${renderConferenceStandings(standingsData)}
+          </div>
+          
+          <div id="standings-overall" class="standings-section">
+            ${renderOverallStandings(standingsData)}
+          </div>
+          
+          <div id="standings-playoff" class="standings-section">
+            ${renderPlayoffPicture(standingsData)}
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Set up tab switching
+    setupStandingsTabs();
+  } else {
+    // Use the simple standings wrapper
+    targetContainer.innerHTML = `
+      <div class="card">
+        <h2>League Standings</h2>
+        <div class="conferences-grid">
+          <div class="conference-standings">
+            <h3 class="conference-title">AFC</h3>
+            ${renderSimpleConferenceStandings(standingsData.afc)}
+          </div>
+          <div class="conference-standings">
+            <h3 class="conference-title">NFC</h3>
+            ${renderSimpleConferenceStandings(standingsData.nfc)}
+          </div>
+        </div>
+      </div>
+    `;
+  }
   
   console.log('✅ Standings page rendered successfully');
 }
@@ -655,6 +681,55 @@ function calculateWinPercentage(wins, losses, ties = 0) {
   const totalGames = wins + losses + ties;
   if (totalGames === 0) return 0;
   return (wins + (ties * 0.5)) / totalGames;
+}
+
+/**
+ * Render simple conference standings for the basic view
+ * @param {Object} conferenceData - Conference data
+ * @returns {string} HTML string
+ */
+function renderSimpleConferenceStandings(conferenceData) {
+  if (!conferenceData || !conferenceData.teams) return '<p>No data available</p>';
+  
+  const userTeamId = state.userTeamId || 0;
+  
+  return `
+    <table class="standings-table">
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Team</th>
+          <th>W</th>
+          <th>L</th>
+          <th>T</th>
+          <th>PCT</th>
+          <th>PF</th>
+          <th>PA</th>
+          <th>DIFF</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${conferenceData.teams.map((team, index) => `
+          <tr class="${team.id === userTeamId ? 'user-team' : ''} ${index < 7 ? 'playoff-team' : ''}">
+            <td class="rank">${index + 1}</td>
+            <td class="team-name">
+              ${index < 7 ? '<span class="playoff-indicator">🏆</span>' : ''}
+              ${team.name}
+            </td>
+            <td>${team.wins}</td>
+            <td>${team.losses}</td>
+            <td>${team.ties}</td>
+            <td>${team.winPercentage.toFixed(3)}</td>
+            <td>${team.pointsFor}</td>
+            <td>${team.pointsAgainst}</td>
+            <td class="${team.pointDifferential >= 0 ? 'positive' : 'negative'}">
+              ${team.pointDifferential > 0 ? '+' : ''}${team.pointDifferential}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 // Make functions globally available
