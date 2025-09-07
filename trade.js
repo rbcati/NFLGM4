@@ -306,12 +306,22 @@ function renderTradeCenter() {
         // Set default teams
         const tradeA = document.getElementById('tradeA');
         const tradeB = document.getElementById('tradeB');
+        const userTeamId = state.userTeamId || 0;
         
+        // Team A is always the user's team (set in populateTradeTeamSelectors)
         if (tradeA && !tradeA.value) {
-            tradeA.value = state.userTeamId || 0;
+            tradeA.value = userTeamId;
         }
+        
+        // Team B defaults to the first available team that's not the user's team
         if (tradeB && !tradeB.value) {
-            tradeB.value = (state.userTeamId || 0) === 0 ? 1 : 0;
+            const availableTeams = L.teams
+                .map((team, index) => index)
+                .filter(index => index !== userTeamId);
+            
+            if (availableTeams.length > 0) {
+                tradeB.value = availableTeams[0];
+            }
         }
         
         // Render team ratings for both teams
@@ -430,6 +440,7 @@ function getRatingClass(rating) {
 
 /**
  * Populates the team selectors in the trade interface
+ * Team A is locked to user's team, only Team B can be changed
  */
 function populateTradeTeamSelectors() {
     const L = state.league;
@@ -437,17 +448,26 @@ function populateTradeTeamSelectors() {
     
     const tradeA = document.getElementById('tradeA');
     const tradeB = document.getElementById('tradeB');
+    const userTeamId = state.userTeamId || 0;
     
+    // Team A is locked to user's team
     if (tradeA) {
-        tradeA.innerHTML = L.teams.map((team, index) => 
-            `<option value="${index}">${team.name}</option>`
-        ).join('');
+        const userTeam = L.teams[userTeamId];
+        if (userTeam) {
+            tradeA.innerHTML = `<option value="${userTeamId}">${userTeam.name}</option>`;
+            tradeA.value = userTeamId; // Set to user's team
+        }
     }
     
+    // Team B can be any other team
     if (tradeB) {
-        tradeB.innerHTML = L.teams.map((team, index) => 
-            `<option value="${index}">${team.name}</option>`
-        ).join('');
+        tradeB.innerHTML = L.teams
+            .map((team, index) => {
+                if (index === userTeamId) return null; // Skip user's team
+                return `<option value="${index}">${team.name}</option>`;
+            })
+            .filter(option => option !== null) // Remove null entries
+            .join('');
     }
 }
 
@@ -562,6 +582,13 @@ function validateTrade() {
         
         const teamAId = parseInt(document.getElementById('tradeA')?.value || '0');
         const teamBId = parseInt(document.getElementById('tradeB')?.value || '0');
+        const userTeamId = state.userTeamId || 0;
+        
+        // Ensure Team A is always the user's team
+        if (teamAId !== userTeamId) {
+            showTradeInfo('Team A must be your team!', 'error');
+            return;
+        }
         
         if (teamAId === teamBId) {
             showTradeInfo('Cannot trade with yourself!', 'error');
@@ -676,6 +703,13 @@ function executeTrade() {
         
         const teamAId = parseInt(document.getElementById('tradeA')?.value || '0');
         const teamBId = parseInt(document.getElementById('tradeB')?.value || '0');
+        const userTeamId = state.userTeamId || 0;
+        
+        // Ensure Team A is always the user's team
+        if (teamAId !== userTeamId) {
+            showTradeInfo('Team A must be your team!', 'error');
+            return;
+        }
         
         const teamA = L.teams[teamAId];
         const teamB = L.teams[teamBId];
