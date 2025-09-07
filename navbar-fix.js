@@ -71,6 +71,12 @@
               console.log('✅ Roster rendered');
             }
             break;
+          case 'contracts':
+            if (window.renderContractManagement) {
+              window.renderContractManagement(window.state.league, window.state.userTeamId);
+              console.log('✅ Contract Management rendered');
+            }
+            break;
           case 'standings':
             if (window.renderStandingsPage) {
               window.renderStandingsPage();
