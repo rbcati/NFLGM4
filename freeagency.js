@@ -168,29 +168,29 @@ function calculateRealisticSalary(overall, position, age) {
   
   const multiplier = positionMultipliers[position] || 1.0;
   
-  // Base salary calculation based on overall rating
+  // Base salary calculation based on overall rating - more realistic scale
   let baseSalary;
   if (overall >= 90) {
-    // Elite players: $15-25M
-    baseSalary = U.rand(15, 25);
+    // Elite players: $3-6M
+    baseSalary = U.rand(3, 6);
   } else if (overall >= 85) {
-    // Star players: $8-15M
-    baseSalary = U.rand(8, 15);
-  } else if (overall >= 80) {
-    // Good players: $4-8M
-    baseSalary = U.rand(4, 8);
-  } else if (overall >= 75) {
-    // Solid players: $2-4M
+    // Star players: $2-4M
     baseSalary = U.rand(2, 4);
-  } else if (overall >= 70) {
-    // Average players: $1-2M
+  } else if (overall >= 80) {
+    // Good players: $1.5-3M
+    baseSalary = U.rand(1.5, 3);
+  } else if (overall >= 75) {
+    // Solid players: $1-2M
     baseSalary = U.rand(1, 2);
+  } else if (overall >= 70) {
+    // Average players: $0.5-1.5M
+    baseSalary = U.rand(0.5, 1.5);
   } else if (overall >= 65) {
-    // Below average: $0.5-1M
-    baseSalary = U.rand(0.5, 1);
+    // Below average: $0.3-1M
+    baseSalary = U.rand(0.3, 1);
   } else {
-    // Depth players: $0.3-0.8M
-    baseSalary = U.rand(0.3, 0.8);
+    // Depth players: $0.2-0.6M
+    baseSalary = U.rand(0.2, 0.6);
   }
   
   // Apply position multiplier
