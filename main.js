@@ -147,7 +147,7 @@ class GameController {
                         <div>
                             <h3>League Actions</h3>
                             <div class="actions">
-                                <button class="btn primary" id="btnSimWeek" onclick="handleSimulateWeek()">Simulate Week</button>
+                                <button class="btn primary" id="btnSimWeek">Simulate Week</button>
                                 <button class="btn" id="btnSimSeason" onclick="handleSimulateSeason()">Simulate Season</button>
                                 <button class="btn" onclick="location.hash='#/standings'">View Standings</button>
                             </div>
@@ -167,9 +167,7 @@ class GameController {
             const btnSimWeek = hubContainer.querySelector('#btnSimWeek');
             const btnSimSeason = hubContainer.querySelector('#btnSimSeason');
             
-            if (btnSimWeek) {
-                btnSimWeek.addEventListener('click', () => this.handleSimulateWeek());
-            }
+            // Note: btnSimWeek event listener is handled in events.js to avoid duplicates
             
             if (btnSimSeason) {
                 btnSimSeason.addEventListener('click', () => this.handleSimulateSeason());
