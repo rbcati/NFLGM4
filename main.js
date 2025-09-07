@@ -1,4 +1,4 @@
- 'use strict';
+  'use strict';
 
 /**
  * Enhanced Main Game Controller with improved performance and error handling
@@ -167,6 +167,19 @@ class GameController {
             const btnSimSeason = hubContainer.querySelector('#btnSimSeason');
             
             // Note: btnSimWeek event listener is handled in events.js to avoid duplicates
+            
+            // Render additional interfaces
+            setTimeout(() => {
+                // Render coaching role interface
+                if (window.renderCoachingRoleInterface) {
+                    window.renderCoachingRoleInterface();
+                }
+                
+                // Render owner mode interface
+                if (window.renderOwnerModeInterface) {
+                    window.renderOwnerModeInterface();
+                }
+            }, 100);
             
             if (btnSimSeason) {
                 btnSimSeason.addEventListener('click', () => this.handleSimulateSeason());
