@@ -109,9 +109,8 @@ class GameController {
     // --- ROSTER MANAGEMENT ---
     // Note: renderRoster is implemented in ui.js to avoid conflicts
     async renderRoster() {
-        // Delegate to the ui.js implementation, but avoid infinite recursion
+        // Delegate to the ui.js implementation
         if (window.renderRoster && typeof window.renderRoster === 'function') {
-            // Call the global function directly, not through this.renderRoster
             window.renderRoster();
         } else {
             console.warn('renderRoster not available from ui.js');
@@ -840,7 +839,7 @@ window.saveGameState = gameController.saveGameState.bind(gameController);
 window.loadGameState = gameController.loadGameState.bind(gameController);
 window.setStatus = gameController.setStatus.bind(gameController);
 window.router = gameController.router.bind(gameController);
-window.renderRoster = gameController.renderRoster.bind(gameController);
+// Note: window.renderRoster is defined in ui.js, don't override it here to avoid infinite recursion
 window.renderHub = gameController.renderHub.bind(gameController);
 window.renderGameResults = gameController.renderGameResults.bind(gameController);
 window.renderSchedule = gameController.renderSchedule.bind(gameController);
