@@ -70,6 +70,10 @@ function recalcCap(league, team) {
     }, 0);
     
     // Get dead money for current season
+    // Initialize deadCapBook if it doesn't exist
+    if (!team.deadCapBook) {
+      team.deadCapBook = {};
+    }
     const dead = team.deadCapBook[league.season] || 0;
     
     // Calculate total cap with rollover
