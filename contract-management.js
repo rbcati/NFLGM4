@@ -460,21 +460,24 @@ function renderExpiringPlayerCard(player, league) {
   const franchiseSalary = calculateFranchiseTagSalary(player.pos, league);
   const transitionSalary = calculateTransitionTagSalary(player.pos, league);
   
+  // Ensure player has a valid ID
+  const playerId = player.id || `player_${Math.random().toString(36).substr(2, 9)}`;
+  
   return `
-    <div class="player-card" data-player-id="${player.id}">
+    <div class="player-card" data-player-id="${playerId}">
       <div class="player-info">
-        <h4>${player.name}</h4>
-        <p>${player.pos} | ${player.ovr} OVR | Age ${player.age}</p>
-        <p>Current: $${player.baseAnnual.toFixed(1)}M/year</p>
+        <h4>${player.name || 'Unknown Player'}</h4>
+        <p>${player.pos || 'N/A'} | ${player.ovr || 0} OVR | Age ${player.age || 0}</p>
+        <p>Current: $${(player.baseAnnual || 0).toFixed(1)}M/year</p>
       </div>
       <div class="contract-actions">
-        <button class="btn btn-sm" onclick="openContractExtensionModal(${player.id})">Extend</button>
-        <button class="btn btn-sm" onclick="applyFranchiseTagToPlayer(${player.id})" 
-                ${window.state.league.teams[window.state.userTeamId].franchiseTagged ? 'disabled' : ''}>
+        <button class="btn btn-sm" onclick="openContractExtensionModal('${playerId}')">Extend</button>
+        <button class="btn btn-sm" onclick="applyFranchiseTagToPlayer('${playerId}')" 
+                ${window.state?.league?.teams?.[window.state?.userTeamId]?.franchiseTagged ? 'disabled' : ''}>
           Franchise Tag ($${franchiseSalary.toFixed(1)}M)
         </button>
-        <button class="btn btn-sm" onclick="applyTransitionTagToPlayer(${player.id})"
-                ${window.state.league.teams[window.state.userTeamId].transitionTagged ? 'disabled' : ''}>
+        <button class="btn btn-sm" onclick="applyTransitionTagToPlayer('${playerId}')"
+                ${window.state?.league?.teams?.[window.state?.userTeamId]?.transitionTagged ? 'disabled' : ''}>
           Transition Tag ($${transitionSalary.toFixed(1)}M)
         </button>
       </div>
@@ -490,19 +493,22 @@ function renderExpiringPlayerCard(player, league) {
 function renderFifthYearPlayerCard(player) {
   const fifthYearSalary = calculateFifthYearOptionSalary(player);
   
+  // Ensure player has a valid ID
+  const playerId = player.id || `player_${Math.random().toString(36).substr(2, 9)}`;
+  
   return `
-    <div class="player-card" data-player-id="${player.id}">
+    <div class="player-card" data-player-id="${playerId}">
       <div class="player-info">
-        <h4>${player.name}</h4>
-        <p>${player.pos} | ${player.ovr} OVR | Age ${player.age}</p>
-        <p>Current: $${player.baseAnnual.toFixed(1)}M/year</p>
-        <p>Draft: Round ${player.draftRound}, Pick ${player.draftPick} (${player.draftYear})</p>
+        <h4>${player.name || 'Unknown Player'}</h4>
+        <p>${player.pos || 'N/A'} | ${player.ovr || 0} OVR | Age ${player.age || 0}</p>
+        <p>Current: $${(player.baseAnnual || 0).toFixed(1)}M/year</p>
+        <p>Draft: Round ${player.draftRound || 'N/A'}, Pick ${player.draftPick || 'N/A'} (${player.draftYear || 'N/A'})</p>
       </div>
       <div class="contract-actions">
-        <button class="btn btn-sm" onclick="exerciseFifthYearOptionOnPlayer(${player.id})">
+        <button class="btn btn-sm" onclick="exerciseFifthYearOptionOnPlayer('${playerId}')">
           5th Year Option ($${fifthYearSalary.toFixed(1)}M)
         </button>
-        <button class="btn btn-sm" onclick="openContractExtensionModal(${player.id})">Extend</button>
+        <button class="btn btn-sm" onclick="openContractExtensionModal('${playerId}')">Extend</button>
       </div>
     </div>
   `;
@@ -520,9 +526,15 @@ function addContractManagementEventListeners(league, userTeamId) {
 
 // Global functions for UI interactions
 window.applyFranchiseTagToPlayer = function(playerId) {
-  const league = window.state.league;
-  const team = league.teams[window.state.userTeamId];
-  const player = team.roster.find(p => p.id === playerId);
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  
+  if (!league || !team) {
+    window.setStatus('League or team not found');
+    return;
+  }
+  
+  const player = team.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
   
   if (!player) {
     window.setStatus('Player not found');
@@ -538,9 +550,15 @@ window.applyFranchiseTagToPlayer = function(playerId) {
 };
 
 window.applyTransitionTagToPlayer = function(playerId) {
-  const league = window.state.league;
-  const team = league.teams[window.state.userTeamId];
-  const player = team.roster.find(p => p.id === playerId);
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  
+  if (!league || !team) {
+    window.setStatus('League or team not found');
+    return;
+  }
+  
+  const player = team.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
   
   if (!player) {
     window.setStatus('Player not found');
@@ -556,9 +574,15 @@ window.applyTransitionTagToPlayer = function(playerId) {
 };
 
 window.exerciseFifthYearOptionOnPlayer = function(playerId) {
-  const league = window.state.league;
-  const team = league.teams[window.state.userTeamId];
-  const player = team.roster.find(p => p.id === playerId);
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  
+  if (!league || !team) {
+    window.setStatus('League or team not found');
+    return;
+  }
+  
+  const player = team.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
   
   if (!player) {
     window.setStatus('Player not found');
@@ -576,9 +600,15 @@ window.exerciseFifthYearOptionOnPlayer = function(playerId) {
 window.openContractExtensionModal = function(playerId) {
   // This would open a modal for contract extension negotiation
   // For now, just show a simple prompt
-  const league = window.state.league;
-  const team = league.teams[window.state.userTeamId];
-  const player = team.roster.find(p => p.id === playerId);
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  
+  if (!league || !team) {
+    window.setStatus('League or team not found');
+    return;
+  }
+  
+  const player = team.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
   
   if (!player) {
     window.setStatus('Player not found');
@@ -586,7 +616,7 @@ window.openContractExtensionModal = function(playerId) {
   }
   
   const years = prompt(`How many years to extend ${player.name}? (2-5):`, '3');
-  const baseSalary = prompt(`Base salary per year (millions):`, player.baseAnnual.toFixed(1));
+  const baseSalary = prompt(`Base salary per year (millions):`, (player.baseAnnual || 0).toFixed(1));
   const signingBonus = prompt(`Signing bonus (millions):`, '0');
   
   if (years && baseSalary && signingBonus) {
