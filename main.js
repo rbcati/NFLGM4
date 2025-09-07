@@ -1,4 +1,4 @@
-  'use strict';
+ 'use strict';
 
 /**
  * Enhanced Main Game Controller with improved performance and error handling
@@ -850,5 +850,15 @@ window.calculateOverallRating = gameController.calculateOverallRating.bind(gameC
 
 // Note: Team rating functions are defined in team-ratings.js
 // Note: Trade, Settings, Playoffs, Scouting functions are defined in their respective files
+
+// Global function for simulate season button
+window.handleSimulateSeason = function() {
+    if (window.gameController && window.gameController.handleSimulateSeason) {
+        window.gameController.handleSimulateSeason();
+    } else {
+        console.error('GameController not available');
+        window.setStatus('Game not ready', 'error');
+    }
+};
 
 console.log('✅ GameController functions exported globally');
