@@ -2615,22 +2615,751 @@ select:disabled {
   background: #545b62;
 }
 
+/* Coaching Role Styles */
+.coaching-role-interface {
+    margin: var(--space-4) 0;
+}
+
+.coaching-role-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+@media (max-width: 768px) {
+    .coaching-role-info {
+        grid-template-columns: 1fr;
+    }
+}
+
+.current-role {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+}
+
+.current-role h3 {
+    color: var(--accent);
+    margin-bottom: var(--space-2);
+}
+
+.role-responsibilities {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+}
+
+.role-responsibilities h4 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.role-responsibilities ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.role-responsibilities li {
+    padding: 4px 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.role-responsibilities li:last-child {
+    border-bottom: none;
+}
+
+.performance-metrics {
+    grid-column: 1 / -1;
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+}
+
+.performance-metrics h4 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.metric {
+    text-align: center;
+    padding: var(--space-2);
+    background: var(--background);
+    border-radius: var(--radius-sm);
+}
+
+.metric .label {
+    display: block;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.metric .value {
+    display: block;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.promotion-available {
+    background: var(--success);
+    color: white;
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin: var(--space-3) 0;
+    text-align: center;
+}
+
+.promotion-available h4 {
+    margin-bottom: var(--space-2);
+}
+
+.promotion-requirements {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+    margin: var(--space-3) 0;
+}
+
+.promotion-requirements h4 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.promotion-requirements ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.promotion-requirements li {
+    padding: 6px 0;
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.promotion-requirements li:last-child {
+    border-bottom: none;
+}
+
+.promotion-requirements li.met {
+    color: var(--success);
+}
+
+.promotion-requirements li.unmet {
+    color: var(--text-muted);
+}
+
+.achievements {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+    margin-top: var(--space-3);
+}
+
+.achievements h4 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.achievements-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.achievement {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2);
+    background: var(--background);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent);
+}
+
+.achievement-title {
+    font-weight: 500;
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.achievement-year {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+/* Promotion Modal */
+.promotion-modal {
+    z-index: 1001;
+}
+
+.promotion-content {
+    text-align: center;
+    max-width: 500px;
+}
+
+.promotion-content h2 {
+    color: var(--success);
+    margin-bottom: var(--space-3);
+}
+
+.promotion-benefits {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin: var(--space-3) 0;
+    text-align: left;
+}
+
+.promotion-benefits h3 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 1rem;
+}
+
+.promotion-benefits ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.promotion-benefits li {
+    padding: 4px 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    border-bottom: 1px solid var(--hairline);
+}
+
+.promotion-benefits li:last-child {
+    border-bottom: none;
+}
+
+/* Owner Mode Styles */
+.owner-mode-interface {
+    margin: var(--space-4) 0;
+}
+
+.owner-mode-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+}
+
+@media (max-width: 768px) {
+    .owner-mode-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.business-section {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+}
+
+.business-section h3 {
+    color: var(--text);
+    margin-bottom: var(--space-3);
+}
+
+.pricing-controls h4 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.price-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.price-input {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.price-input label {
+    color: var(--text);
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+
+.price-input input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--hairline);
+    outline: none;
+    -webkit-appearance: none;
+}
+
+.price-input input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+}
+
+.price-input input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: none;
+}
+
+.financial-summary {
+    margin-top: var(--space-3);
+}
+
+.financial-summary h4 {
+    color: var(--text);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.financial-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+    .financial-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.financial-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2);
+    background: var(--background);
+    border-radius: var(--radius-sm);
+}
+
+.financial-item .label {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.financial-item .value {
+    font-weight: 600;
+    font-size: 0.875rem;
+}
+
+.financial-item .value.good {
+    color: var(--success);
+}
+
+.financial-item .value.ok {
+    color: var(--warning);
+}
+
+.financial-item .value.bad {
+    color: var(--error);
+}
+
+.staff-management {
+    background: var(--surface);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    border: 1px solid var(--hairline);
+}
+
+.staff-management h3 {
+    color: var(--text);
+    margin-bottom: var(--space-3);
+}
+
+.firing-recommendations {
+    margin-top: var(--space-3);
+}
+
+.firing-recommendations h4 {
+    color: var(--warning);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.firing-recommendation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-2);
+    background: var(--background);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-2);
+    border-left: 3px solid var(--warning);
+}
+
+.firing-recommendation.high {
+    border-left-color: var(--error);
+}
+
+.firing-recommendation.medium {
+    border-left-color: var(--warning);
+}
+
+.recommendation-info {
+    flex: 1;
+}
+
+.recommendation-info strong {
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.recommendation-info small {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.btn-danger {
+    background: var(--error);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+    background: var(--error-dark);
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 0.7rem;
+}
+
+.staff-status {
+    margin-top: var(--space-3);
+}
+
+.staff-status h4 {
+    color: var(--success);
+    margin-bottom: var(--space-2);
+    font-size: 0.875rem;
+}
+
+.staff-status p {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+
+.owner-actions {
+    grid-column: 1 / -1;
+    text-align: center;
+    margin-top: var(--space-3);
+}
+
+/* Improved Contract Management Styles */
+.contract-management {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--space-4);
+    background: var(--background);
+    border-radius: var(--radius-lg);
+}
+
+.contract-management h2 {
+    color: var(--text);
+    margin-bottom: var(--space-4);
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.contract-sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-4);
+    margin-bottom: var(--space-4);
+}
+
+@media (max-width: 768px) {
+    .contract-sections {
+        grid-template-columns: 1fr;
+    }
+}
+
+.contract-section {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-4);
+    border: 1px solid var(--hairline);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.contract-section h3 {
+    color: var(--text);
+    margin-bottom: var(--space-3);
+    font-size: 1.1rem;
+    font-weight: 600;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: var(--space-2);
+}
+
+.player-card {
+    background: var(--background);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.player-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+}
+
+.player-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-2);
+}
+
+.player-name {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 1rem;
+}
+
+.player-position {
+    background: var(--accent);
+    color: white;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.player-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+    font-size: 0.875rem;
+}
+
+.stat-item {
+    text-align: center;
+    padding: var(--space-1);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.stat-value {
+    font-weight: 600;
+    color: var(--text);
+    font-size: 0.875rem;
+}
+
+.contract-info {
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: var(--space-2);
+    margin-bottom: var(--space-3);
+    font-size: 0.875rem;
+    border-left: 3px solid var(--accent);
+}
+
+.contract-info-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    padding: 2px 0;
+}
+
+.contract-info-item:last-child {
+    margin-bottom: 0;
+    font-weight: 600;
+    color: var(--accent);
+    border-top: 1px solid var(--hairline);
+    padding-top: 4px;
+}
+
+.contract-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.btn-contract {
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    flex: 1;
+    min-width: 120px;
+}
+
+.btn-extend {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-extend:hover {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+}
+
+.btn-franchise {
+    background: var(--warning);
+    color: white;
+}
+
+.btn-franchise:hover {
+    background: var(--warning-dark);
+    transform: translateY(-1px);
+}
+
+.btn-transition {
+    background: var(--info);
+    color: white;
+}
+
+.btn-transition:hover {
+    background: var(--info-dark);
+    transform: translateY(-1px);
+}
+
+.btn-fifth-year {
+    background: var(--success);
+    color: white;
+}
+
+.btn-fifth-year:hover {
+    background: var(--success-dark);
+    transform: translateY(-1px);
+}
+
+.tag-status {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: var(--space-1);
+}
+
+.tag-franchise {
+    background: var(--warning);
+    color: white;
+}
+
+.tag-transition {
+    background: var(--info);
+    color: white;
+}
+
+.tag-fifth-year {
+    background: var(--success);
+    color: white;
+}
+
 /* Responsive design for contract management */
 @media (max-width: 768px) {
-  .player-list {
-    grid-template-columns: 1fr;
-  }
-  
-  .contract-actions {
-    flex-direction: column;
-  }
-  
-  .contract-actions .btn {
-    width: 100%;
-  }
-  
-  .contract-extension-modal-content {
-    margin: 10% auto;
-    width: 95%;
-  }
+    .contract-management {
+        padding: var(--space-2);
+    }
+    
+    .contract-sections {
+        gap: var(--space-2);
+    }
+    
+    .contract-section {
+        padding: var(--space-3);
+    }
+    
+    .player-stats {
+        grid-template-columns: 1fr;
+        gap: var(--space-1);
+    }
+    
+    .contract-actions {
+        flex-direction: column;
+    }
+    
+    .btn-contract {
+        width: 100%;
+        text-align: center;
+    }
+    
+    .coaching-role-info {
+        grid-template-columns: 1fr;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .owner-mode-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .financial-grid {
+        grid-template-columns: 1fr;
+    }
 }
