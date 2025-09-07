@@ -247,6 +247,27 @@ function renderFreeAgency() {
         <td>${abilities}</td>
         <td><button class="btn btn-primary btn-sm" onclick="openContractNegotiation(${i})">Negotiate</button></td>
       `;
+      
+      // Make row clickable for selection
+      tr.addEventListener('click', function(e) {
+        // Don't select if clicking the button
+        if (e.target.tagName === 'BUTTON') return;
+        
+        // Remove selection from other rows
+        document.querySelectorAll('#faTable tbody tr').forEach(row => {
+          row.classList.remove('selected');
+        });
+        
+        // Add selection to this row
+        tr.classList.add('selected');
+        
+        // Enable the sign button
+        const signBtn = document.getElementById('btnSignFA');
+        if (signBtn) {
+          signBtn.disabled = false;
+        }
+      });
+      
       tbody.appendChild(tr);
     });
     
@@ -259,6 +280,15 @@ function renderFreeAgency() {
         window.fillTeamSelect(sel);
         sel.dataset.filled = '1';
       }
+    }
+    
+    // Set up sign button
+    const signBtn = document.getElementById('btnSignFA');
+    if (signBtn && !signBtn.dataset.hasListener) {
+      signBtn.addEventListener('click', function() {
+        signFreeAgent();
+      });
+      signBtn.dataset.hasListener = '1';
     }
     
     console.log('Free agency rendered successfully');
@@ -278,12 +308,16 @@ function signFreeAgent(playerIndex) {
   
   let idx = playerIndex;
   if (idx === undefined || idx === null) {
-    const selectedRadio = document.querySelector('input[name=fa]:checked');
-    if (!selectedRadio) {
-      window.setStatus('No free agent selected.');
+    // Look for selected row in the table
+    const selectedRow = document.querySelector('#faTable tbody tr.selected');
+    if (!selectedRow) {
+      window.setStatus('No free agent selected. Click on a row to select a player.');
       return;
     }
-    idx = parseInt(selectedRadio.value, 10);
+    // Get the row index from the table
+    const tbody = document.querySelector('#faTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    idx = rows.indexOf(selectedRow);
   }
 
   if (isNaN(idx) || idx < 0 || idx >= window.state.freeAgents.length) {
@@ -341,7 +375,8 @@ function signFreeAgent(playerIndex) {
 
     // Add player to team
     team.roster.push(player);
-    team.roster.sort((a, b) => b.ovr - a.ovr);
+    // Sort roster by overall rating (best players first)
+    team.roster.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
     
     // Remove from free agents
     window.state.freeAgents.splice(idx, 1);
@@ -688,7 +723,8 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
 
     // Add player to team
     team.roster.push(player);
-    team.roster.sort((a, b) => b.ovr - a.ovr);
+    // Sort roster by overall rating (best players first)
+    team.roster.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
     
     // Remove from free agents
     window.state.freeAgents.splice(playerIndex, 1);
@@ -718,6 +754,31 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
   }
 }
 
+// Update cap sidebar display
+function updateCapSidebar() {
+  const L = window.state?.league;
+  if (!L) return;
+  
+  const teamSelect = document.getElementById('userTeam') || document.getElementById('faTeam');
+  const teamId = parseInt(teamSelect?.value || '0', 10);
+  const team = L.teams[teamId];
+  
+  if (!team) return;
+  
+  // Update cap display elements
+  const capUsedEl = document.getElementById('capUsed');
+  const capTotalEl = document.getElementById('capTotal');
+  const deadCapEl = document.getElementById('deadCap');
+  const capRoomEl = document.getElementById('capRoom');
+  const seasonEl = document.getElementById('seasonNow');
+  
+  if (capUsedEl) capUsedEl.textContent = `$${team.capUsed?.toFixed(1) || '0.0'}M`;
+  if (capTotalEl) capTotalEl.textContent = `$${team.capTotal?.toFixed(1) || '0.0'}M`;
+  if (deadCapEl) deadCapEl.textContent = `$${team.deadCap?.toFixed(1) || '0.0'}M`;
+  if (capRoomEl) capRoomEl.textContent = `$${team.capRoom?.toFixed(1) || '0.0'}M`;
+  if (seasonEl) seasonEl.textContent = L.season || '1';
+}
+
 // Make sure both function names are available globally
 window.generateFreeAgents = generateFreeAgents;
 window.ensureFA = ensureFA;
@@ -725,3 +786,4 @@ window.openContractNegotiation = openContractNegotiation;
 window.updateContractTotal = updateContractTotal;
 window.closeContractModal = closeContractModal;
 window.submitContractOffer = submitContractOffer;
+window.updateCapSidebar = updateCapSidebar;
