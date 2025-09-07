@@ -17,7 +17,7 @@ function prorationPerYear(p) {
  * @returns {number} Cap hit in millions, rounded to 1 decimal
  */
 function capHitFor(p, relSeason) {
-  if (!p || p.years <= 0 || relSeason >= p.years) return 0;
+  if (!p || p.years <= 0 || relSeason >= p.years || !p.baseAnnual || !p.signingBonus || !p.yearsTotal) return 0;
   
   const base = p.baseAnnual;
   const pr = prorationPerYear(p);
@@ -240,6 +240,27 @@ function getCapSummary(team) {
   };
 }
 
+/**
+ * Recalculates cap for all teams in the league
+ * @param {Object} league - League object
+ */
+function recalcAllTeamCaps(league) {
+  if (!league || !league.teams) {
+    console.error('Invalid league for recalcAllTeamCaps');
+    return;
+  }
+  
+  console.log('Recalculating cap for all teams...');
+  league.teams.forEach((team, index) => {
+    try {
+      recalcCap(league, team);
+      console.log(`Team ${index + 1} (${team.name || team.abbr}): $${team.capUsed?.toFixed(1) || '0.0'}M used / $${team.capTotal?.toFixed(1) || '0.0'}M total`);
+    } catch (error) {
+      console.error(`Error recalculating cap for team ${index + 1}:`, error);
+    }
+  });
+}
+
 // Make functions available globally
 window.prorationPerYear = prorationPerYear;
 window.capHitFor = capHitFor;
@@ -250,3 +271,4 @@ window.releaseWithProration = releaseWithProration;
 window.validateSigning = validateSigning;
 window.processCapRollover = processCapRollover;
 window.getCapSummary = getCapSummary;
+window.recalcAllTeamCaps = recalcAllTeamCaps;
