@@ -229,7 +229,7 @@ function renderFreeAgency() {
     }
     
     // Clear and rebuild table
-    tbl.innerHTML = '<thead><tr><th></th><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Base</th><th>Bonus</th><th>Years</th><th>Abilities</th></tr></thead>';
+    tbl.innerHTML = '<thead><tr><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Base</th><th>Bonus</th><th>Years</th><th>Abilities</th><th>Action</th></tr></thead>';
     const tbody = document.createElement('tbody');
     
     window.state.freeAgents.forEach((p, i) => {
@@ -237,7 +237,6 @@ function renderFreeAgency() {
       const abilities = (p.abilities || []).join(', ') || 'None';
       
       tr.innerHTML = `
-        <td><input type="radio" name="fa" value="${i}"></td>
         <td>${p.name}</td>
         <td>${p.pos}</td>
         <td>${p.ovr}</td>
@@ -246,6 +245,7 @@ function renderFreeAgency() {
         <td>$${p.signingBonus.toFixed(1)}M</td>
         <td>${p.yearsTotal}</td>
         <td>${abilities}</td>
+        <td><button class="btn btn-primary btn-sm" onclick="openContractNegotiation(${i})">Negotiate</button></td>
       `;
       tbody.appendChild(tr);
     });
@@ -259,19 +259,6 @@ function renderFreeAgency() {
         window.fillTeamSelect(sel);
         sel.dataset.filled = '1';
       }
-    }
-    
-    // Set up sign button
-    const btnSign = document.getElementById('btnSignFA');
-    if (btnSign) {
-      btnSign.disabled = true;
-      
-      // Enable button when a player is selected
-      tbl.addEventListener('change', function(e) {
-        if (e.target && e.target.name === 'fa') {
-          btnSign.disabled = false;
-        }
-      });
     }
     
     console.log('Free agency rendered successfully');
@@ -402,6 +389,332 @@ function generateFreeAgents() {
   return window.state?.freeAgents || [];
 }
 
+// Contract negotiation functions
+function openContractNegotiation(playerIndex) {
+  const player = window.state.freeAgents[playerIndex];
+  if (!player) {
+    window.setStatus('Player not found');
+    return;
+  }
+  
+  // Create modal if it doesn't exist
+  let modal = document.getElementById('contractModal');
+  if (!modal) {
+    modal = createContractModal();
+    document.body.appendChild(modal);
+  }
+  
+  // Populate modal with player data
+  document.getElementById('contractPlayerName').textContent = player.name;
+  document.getElementById('contractPlayerPos').textContent = player.pos;
+  document.getElementById('contractPlayerOvr').textContent = player.ovr;
+  document.getElementById('contractPlayerAge').textContent = player.age;
+  
+  // Set initial contract values
+  const baseSalary = player.baseAnnual;
+  const signingBonus = player.signingBonus;
+  const years = player.yearsTotal;
+  
+  document.getElementById('contractYears').value = years;
+  document.getElementById('contractBaseSalary').value = baseSalary.toFixed(1);
+  document.getElementById('contractSigningBonus').value = signingBonus.toFixed(1);
+  
+  // Calculate and display total contract value
+  updateContractTotal();
+  
+  // Store player index for later use
+  modal.dataset.playerIndex = playerIndex;
+  
+  // Show modal
+  modal.style.display = 'flex';
+}
+
+function createContractModal() {
+  const modal = document.createElement('div');
+  modal.id = 'contractModal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'none';
+  
+  modal.innerHTML = `
+    <div class="modal-content contract-modal">
+      <div class="modal-header">
+        <h3>Contract Negotiation</h3>
+        <button class="modal-close" onclick="closeContractModal()">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="player-info">
+          <h4 id="contractPlayerName"></h4>
+          <p><strong>Position:</strong> <span id="contractPlayerPos"></span> | 
+             <strong>Overall:</strong> <span id="contractPlayerOvr"></span> | 
+             <strong>Age:</strong> <span id="contractPlayerAge"></span></p>
+        </div>
+        
+        <div class="contract-form">
+          <div class="form-group">
+            <label for="contractYears">Contract Length (Years):</label>
+            <input type="number" id="contractYears" min="1" max="7" value="2" 
+                   onchange="updateContractTotal()" oninput="updateContractTotal()">
+          </div>
+          
+          <div class="form-group">
+            <label for="contractBaseSalary">Base Annual Salary ($M):</label>
+            <input type="number" id="contractBaseSalary" min="0.1" step="0.1" 
+                   onchange="updateContractTotal()" oninput="updateContractTotal()">
+          </div>
+          
+          <div class="form-group">
+            <label for="contractSigningBonus">Signing Bonus ($M):</label>
+            <input type="number" id="contractSigningBonus" min="0" step="0.1" 
+                   onchange="updateContractTotal()" oninput="updateContractTotal()">
+          </div>
+          
+          <div class="contract-summary">
+            <h4>Contract Summary</h4>
+            <p><strong>Total Contract Value:</strong> $<span id="contractTotalValue">0.0</span>M</p>
+            <p><strong>Average Annual Value:</strong> $<span id="contractAAV">0.0</span>M</p>
+            <p><strong>First Year Cap Hit:</strong> $<span id="contractCapHit">0.0</span>M</p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeContractModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitContractOffer()">Submit Offer</button>
+      </div>
+    </div>
+  `;
+  
+  return modal;
+}
+
+function updateContractTotal() {
+  const years = parseFloat(document.getElementById('contractYears').value) || 0;
+  const baseSalary = parseFloat(document.getElementById('contractBaseSalary').value) || 0;
+  const signingBonus = parseFloat(document.getElementById('contractSigningBonus').value) || 0;
+  
+  const totalValue = (baseSalary * years) + signingBonus;
+  const aav = years > 0 ? totalValue / years : 0;
+  const capHit = baseSalary + (signingBonus / years);
+  
+  document.getElementById('contractTotalValue').textContent = totalValue.toFixed(1);
+  document.getElementById('contractAAV').textContent = aav.toFixed(1);
+  document.getElementById('contractCapHit').textContent = capHit.toFixed(1);
+}
+
+function closeContractModal() {
+  const modal = document.getElementById('contractModal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+}
+
+function submitContractOffer() {
+  const modal = document.getElementById('contractModal');
+  const playerIndex = parseInt(modal.dataset.playerIndex, 10);
+  
+  if (isNaN(playerIndex)) {
+    window.setStatus('Invalid player selection');
+    return;
+  }
+  
+  const player = window.state.freeAgents[playerIndex];
+  if (!player) {
+    window.setStatus('Player not found');
+    return;
+  }
+  
+  const years = parseInt(document.getElementById('contractYears').value, 10);
+  const baseSalary = parseFloat(document.getElementById('contractBaseSalary').value);
+  const signingBonus = parseFloat(document.getElementById('contractSigningBonus').value);
+  
+  if (years < 1 || baseSalary < 0.1 || signingBonus < 0) {
+    window.setStatus('Please enter valid contract terms');
+    return;
+  }
+  
+  // Simulate player decision
+  const accepted = simulatePlayerDecision(player, years, baseSalary, signingBonus);
+  
+  if (accepted) {
+    // Player accepts the offer
+    signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus);
+    closeContractModal();
+    window.setStatus(`${player.name} accepted your contract offer!`);
+  } else {
+    // Player rejects the offer
+    closeContractModal();
+    window.setStatus(`${player.name} rejected your contract offer. Try a better deal.`);
+  }
+}
+
+function simulatePlayerDecision(player, offeredYears, offeredBaseSalary, offeredSigningBonus) {
+  const U = window.Utils;
+  
+  // Base acceptance rate starts at 50%
+  let acceptanceRate = 0.5;
+  
+  // Compare with player's asking price
+  const askingBaseSalary = player.baseAnnual;
+  const askingSigningBonus = player.signingBonus;
+  const askingYears = player.yearsTotal;
+  
+  // Salary comparison (most important factor)
+  const salaryRatio = offeredBaseSalary / askingBaseSalary;
+  if (salaryRatio >= 1.0) {
+    acceptanceRate += 0.3; // 30% bonus for meeting or exceeding asking price
+  } else if (salaryRatio >= 0.9) {
+    acceptanceRate += 0.1; // 10% bonus for close to asking price
+  } else if (salaryRatio >= 0.8) {
+    acceptanceRate -= 0.1; // 10% penalty for being 20% below
+  } else {
+    acceptanceRate -= 0.3; // 30% penalty for being significantly below
+  }
+  
+  // Signing bonus comparison
+  const bonusRatio = offeredSigningBonus / askingSigningBonus;
+  if (bonusRatio >= 1.0) {
+    acceptanceRate += 0.15;
+  } else if (bonusRatio >= 0.8) {
+    acceptanceRate += 0.05;
+  } else if (bonusRatio < 0.5) {
+    acceptanceRate -= 0.2;
+  }
+  
+  // Contract length preference
+  const yearsDiff = Math.abs(offeredYears - askingYears);
+  if (yearsDiff === 0) {
+    acceptanceRate += 0.1;
+  } else if (yearsDiff === 1) {
+    acceptanceRate += 0.05;
+  } else if (yearsDiff >= 3) {
+    acceptanceRate -= 0.15;
+  }
+  
+  // Age factor (older players more likely to accept shorter deals)
+  if (player.age >= 30 && offeredYears <= 3) {
+    acceptanceRate += 0.1;
+  } else if (player.age < 27 && offeredYears >= 4) {
+    acceptanceRate += 0.1;
+  }
+  
+  // Overall rating factor (better players are pickier)
+  if (player.ovr >= 85) {
+    acceptanceRate -= 0.1;
+  } else if (player.ovr <= 70) {
+    acceptanceRate += 0.1;
+  }
+  
+  // Add some randomness
+  const randomFactor = U.rand(-0.1, 0.1);
+  acceptanceRate += randomFactor;
+  
+  // Clamp between 0 and 1
+  acceptanceRate = Math.max(0, Math.min(1, acceptanceRate));
+  
+  return Math.random() < acceptanceRate;
+}
+
+function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus) {
+  console.log('Signing free agent with negotiated contract:', playerIndex);
+  
+  if (!window.state?.freeAgents || window.state.freeAgents.length === 0) {
+    window.setStatus('No free agents available');
+    return;
+  }
+
+  if (isNaN(playerIndex) || playerIndex < 0 || playerIndex >= window.state.freeAgents.length) {
+    window.setStatus('Invalid free agent selection.');
+    return;
+  }
+
+  try {
+    const L = window.state.league;
+    if (!L) {
+      window.setStatus('No league available');
+      return;
+    }
+    
+    const teamSelect = document.getElementById('faTeam') || document.getElementById('userTeam');
+    const teamId = parseInt(teamSelect?.value || '0', 10);
+    const team = L.teams[teamId];
+    
+    if (!team) {
+      window.setStatus('Invalid team selected');
+      return;
+    }
+    
+    const player = window.state.freeAgents[playerIndex];
+    if (!player) {
+      window.setStatus('Player not found');
+      return;
+    }
+    
+    // Check role permissions if in career mode
+    if (window.state.playerRole && window.state.playerRole !== 'GM') {
+      const C = window.Constants;
+      const isOffensive = C.OFFENSIVE_POSITIONS.includes(player.pos);
+      const canSign = window.state.playerRole === 'GM' || 
+                      (window.state.playerRole === 'OC' && isOffensive) || 
+                      (window.state.playerRole === 'DC' && !isOffensive);
+
+      if (!canSign) {
+        window.setStatus(`As ${window.state.playerRole}, you cannot sign ${player.pos}s.`);
+        return;
+      }
+    }
+    
+    // Update player contract with negotiated terms
+    player.years = years;
+    player.yearsTotal = years;
+    player.baseAnnual = baseSalary;
+    player.signingBonus = signingBonus;
+    
+    // Check salary cap
+    const capHit = window.capHitFor ? window.capHitFor(player, 0) : baseSalary + (signingBonus / years);
+    const capAfter = team.capUsed + capHit;
+    
+    if (capAfter > team.capTotal) {
+      window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
+      return;
+    }
+
+    // Add player to team
+    team.roster.push(player);
+    team.roster.sort((a, b) => b.ovr - a.ovr);
+    
+    // Remove from free agents
+    window.state.freeAgents.splice(playerIndex, 1);
+    
+    // Update team ratings after roster change
+    if (window.updateTeamRatings) {
+      window.updateTeamRatings(team);
+    }
+    
+    // Update salary cap
+    if (window.recalcCap) {
+      window.recalcCap(L, team);
+    }
+    
+    // Refresh displays
+    renderFreeAgency();
+    if (window.updateCapSidebar) {
+      window.updateCapSidebar();
+    }
+    
+    window.setStatus(`Signed ${player.name} (${player.pos}) for $${capHit.toFixed(1)}M cap hit`);
+    console.log('Free agent signed successfully with negotiated contract:', player.name);
+    
+  } catch (error) {
+    console.error('Error signing free agent:', error);
+    window.setStatus('Error signing free agent');
+  }
+}
+
 // Make sure both function names are available globally
 window.generateFreeAgents = generateFreeAgents;
 window.ensureFA = ensureFA;
+window.openContractNegotiation = openContractNegotiation;
+window.updateContractTotal = updateContractTotal;
+window.closeContractModal = closeContractModal;
+window.submitContractOffer = submitContractOffer;
