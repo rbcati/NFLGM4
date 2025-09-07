@@ -14,6 +14,7 @@
         <nav id="site-nav" class="nav-pills" aria-label="Primary">
             <a href="#/hub" class="nav-pill" data-view="hub">Home</a>
             <a href="#/roster" class="nav-pill" data-view="roster">Roster</a>
+            <a href="#/contracts" class="nav-pill" data-view="contracts">Contracts</a>
             <a href="#/trade" class="nav-pill" data-view="trade">Trades</a>
             <a href="#/standings" class="nav-pill" data-view="standings">Standings</a>
             <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
@@ -88,6 +89,15 @@
               </div>
             </section>
             
+            <section id="contracts" class="view" hidden>
+              <div class="card">
+                <h2>Contract Management</h2>
+                <div id="contractManagement">
+                  <p>Loading contract management...</p>
+                </div>
+              </div>
+            </section>
+            
             <section id="standings" class="view" hidden>
                 <div class="card">
                     <h2>Standings</h2>
@@ -114,13 +124,13 @@
                 <h2>Trade Center</h2>
                 <div class="grid two">
                   <div>
-                    <label for="tradeA">Team A</label>
-                    <select id="tradeA"></select>
+                    <label for="tradeA">Your Team</label>
+                    <select id="tradeA" disabled></select>
                     <div id="tradeListA" class="list"></div>
                     <div id="pickListA" class="list"></div>
                   </div>
                   <div>
-                    <label for="tradeB">Team B</label>
+                    <label for="tradeB">Trade With</label>
                     <select id="tradeB"></select>
                     <div id="tradeListB" class="list"></div>
                     <div id="pickListB" class="list"></div>
@@ -250,6 +260,7 @@
     <script src="training.js"></script>
     <script src="picks.js"></script>
     <script src="cap.js"></script>
+    <script src="contract-management.js"></script>
     <script src="coaching.js"></script>
     <script src="coaching-advanced.js"></script>
     <script src="coaching-integration.js"></script>
@@ -321,6 +332,7 @@
                   switch(viewName) {
                     case 'hub': if (window.renderHub) window.renderHub(); break;
                     case 'roster': if (window.renderRoster) window.renderRoster(); break;
+                    case 'contracts': if (window.renderContractManagement) window.renderContractManagement(window.state.league, window.state.userTeamId); break;
                     case 'standings': if (window.renderStandingsPage) window.renderStandingsPage(); else if (window.renderStandings) window.renderStandings(); break;
                     case 'freeagency': if (window.renderFreeAgency) window.renderFreeAgency(); break;
                     case 'draft': if (window.renderDraft) window.renderDraft(); break;
