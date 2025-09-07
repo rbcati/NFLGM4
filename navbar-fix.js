@@ -116,6 +116,14 @@
               console.warn('⚠️ renderCoachingStats function not found');
             }
             break;
+          case 'schedule':
+            if (window.renderSchedule) {
+              window.renderSchedule();
+              console.log('✅ Schedule rendered');
+            } else {
+              console.warn('⚠️ renderSchedule function not found');
+            }
+            break;
           case 'settings':
             renderSettings();
             console.log('✅ Settings rendered');
