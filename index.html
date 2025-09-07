@@ -186,6 +186,15 @@
                 </div>
             </section>
 
+            <section id="schedule" class="view" hidden>
+                <div class="card">
+                    <h2>Schedule</h2>
+                    <div id="scheduleWrap">
+                        <p>Loading schedule...</p>
+                    </div>
+                </div>
+            </section>
+
             <section id="settings" class="view" hidden>
                 <div class="card">
                     <h2>Settings</h2>
@@ -338,9 +347,9 @@
                     case 'draft': if (window.renderDraft) window.renderDraft(); break;
                     case 'scouting': if (window.renderScouting) window.renderScouting(); break;
                     case 'coaching': if (window.renderCoachingStats) window.renderCoachingStats(); break;
+                    case 'schedule': if (window.renderSchedule) window.renderSchedule(); break;
                     case 'trade': if (window.renderTradeCenter) window.renderTradeCenter(); else if (window.renderTrade) window.renderTrade(); break;
-                                       case 'settings': if (window.renderSettings) window.renderSettings(); break;
-                   case 'schedule': if (window.renderSchedule) window.renderSchedule(); break;
+                    case 'settings': if (window.renderSettings) window.renderSettings(); break;
                    case 'player-stats': 
                      // Player stats view - this is handled by the player stats viewer
                      // The viewPlayerStats function should have already shown the modal
