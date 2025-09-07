@@ -14,7 +14,7 @@
 
     SAVE_KEY: 'nflGM4.league',
 
-    ROUTES: ['hub','roster','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame', 'scouting']
+    ROUTES: ['hub','roster','contracts','cap','schedule','standings','trade','freeagency','draft','playoffs','settings', 'hallOfFame', 'scouting']
 
   };
 
@@ -250,9 +250,9 @@
 
 
 
-  // Names arrays (using the ones from state.js)
+  // Names arrays (now using expanded names for 1,000,000+ combinations)
 
-  const FIRST_NAMES = [
+  const FIRST_NAMES = window.EXPANDED_FIRST_NAMES || [
 
     'James', 'Michael', 'John', 'Robert', 'David', 'William', 'Richard', 'Joseph', 'Thomas', 'Christopher',
 
@@ -268,7 +268,7 @@
 
 
 
-  const LAST_NAMES = [
+  const LAST_NAMES = window.EXPANDED_LAST_NAMES || [
 
     'Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
 
