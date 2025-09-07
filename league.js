@@ -41,8 +41,8 @@ window.makeLeague = function(teams) {
         
         team.roster = [];
         team.capUsed = 0;
-        team.capTotal = 220;
-        team.capRoom = 220;
+        team.capTotal = C.SALARY_CAP.BASE;
+        team.capRoom = C.SALARY_CAP.BASE;
         team.deadCap = 0;
 
         // Check if DEPTH_NEEDS exists before using it
