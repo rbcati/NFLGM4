@@ -427,6 +427,13 @@ function openContractNegotiation(playerIndex) {
   
   // Show modal
   modal.style.display = 'flex';
+  
+  // Close modal when clicking outside
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      closeContractModal();
+    }
+  });
 }
 
 function createContractModal() {
