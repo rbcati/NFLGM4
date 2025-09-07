@@ -245,9 +245,9 @@ function generateContract(ovr, pos) {
   const U = window.Utils;
   const C = window.Constants;
   
-  // Base salary calculation using constants instead of magic numbers
+  // Base salary calculation using constants instead of magic numbers - realistic scale
   const positionMultiplier = C.POSITION_VALUES[pos] || 1.0;
-  const baseAnnual = Math.round((0.42 * ovr * positionMultiplier) * 10) / 10;
+  const baseAnnual = Math.round((0.15 * ovr * positionMultiplier) * 10) / 10;
   
   const years = U.rand(1, 4);
   const bonusPercent = C.SALARY_CAP.SIGNING_BONUS_MIN + 
