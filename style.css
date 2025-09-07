@@ -71,6 +71,10 @@
   --success-rgb: 34, 197, 94;
   --error-rgb: 239, 68, 68;
   --warning-rgb: 245, 158, 11;
+  
+  /* Modal specific variables */
+  --modal-bg: rgba(10, 12, 16, 0.95);
+  --modal-backdrop: rgba(0, 0, 0, 0.7);
 }
 
 /* Base Styles with Enhanced Background */
@@ -2173,4 +2177,225 @@ select:focus, input:focus {
 .trade-team-rating .rating-value {
   font-weight: 700;
   font-size: var(--text-lg);
+}
+
+/* Contract Negotiation Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--modal-backdrop);
+  backdrop-filter: var(--glass-blur);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--space-4);
+}
+
+.contract-modal {
+  background: var(--modal-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+  backdrop-filter: var(--glass-blur);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-6);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-xl);
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: var(--text-2xl);
+  cursor: pointer;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  transition: all var(--dur) var(--ease);
+}
+
+.modal-close:hover {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.modal-body {
+  padding: var(--space-6);
+}
+
+.player-info {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-bottom: var(--space-6);
+  border: 1px solid var(--hairline);
+}
+
+.player-info h4 {
+  margin: 0 0 var(--space-2) 0;
+  color: var(--accent);
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.player-info p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.contract-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.form-group label {
+  color: var(--text);
+  font-weight: 500;
+  font-size: var(--text-sm);
+}
+
+.form-group input {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  color: var(--text);
+  font-size: var(--text-base);
+  transition: all var(--dur) var(--ease);
+}
+
+.form-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-muted);
+}
+
+.contract-summary {
+  background: var(--surface-strong);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.contract-summary h4 {
+  margin: 0 0 var(--space-3) 0;
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.contract-summary p {
+  margin: var(--space-2) 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  display: flex;
+  justify-content: space-between;
+}
+
+.contract-summary strong {
+  color: var(--text);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border-top: 1px solid var(--hairline);
+}
+
+/* Button styles for modal */
+.btn {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: none;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--hairline);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-strong);
+  border-color: var(--hairline-strong);
+}
+
+.btn-sm {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-xs);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal-overlay {
+    padding: var(--space-2);
+  }
+  
+  .contract-modal {
+    max-width: 100%;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: var(--space-4);
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
 }
