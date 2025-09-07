@@ -400,12 +400,12 @@ function renderPowerRankings() {
     
     // Calculate power rankings based on record and point differential
     const teamsWithPower = L.teams.map(team => {
-        // Use the direct team properties that are set by simulation
-        const wins = team.wins || 0;
-        const losses = team.losses || 0;
-        const ties = team.ties || 0;
-        const pointsFor = team.ptsFor || 0;
-        const pointsAgainst = team.ptsAgainst || 0;
+        // Use the team.record structure that is actually used
+        const wins = team.record?.w || team.wins || 0;
+        const losses = team.record?.l || team.losses || 0;
+        const ties = team.record?.t || team.ties || 0;
+        const pointsFor = team.record?.pf || team.ptsFor || 0;
+        const pointsAgainst = team.record?.pa || team.ptsAgainst || 0;
         
         // Power score calculation using team ratings
         const winPct = (wins + ties * 0.5) / Math.max(1, wins + losses + ties);
@@ -422,6 +422,14 @@ function renderPowerRankings() {
             if (window.calculateTeamRating) {
                 const ratings = window.calculateTeamRating(team);
                 teamRating = ratings.overall;
+            } else {
+                // Fallback: calculate basic rating from roster
+                if (team.roster && team.roster.length > 0) {
+                    const avgOvr = team.roster.reduce((sum, player) => sum + (player.ovr || 0), 0) / team.roster.length;
+                    teamRating = Math.round(avgOvr);
+                } else {
+                    teamRating = 50; // Default rating for teams without roster data
+                }
             }
         }
         
@@ -440,8 +448,8 @@ function renderPowerRankings() {
     // Render top 10
     powerList.innerHTML = teamsWithPower.slice(0, 10).map((team, index) => {
         const record = team.record;
-        const recordStr = `${record.wins}-${record.losses}-${record.ties}`;
-        const pointDiff = record.pointsFor - record.pointsAgainst;
+        const recordStr = `${record.w}-${record.l}-${record.t}`;
+        const pointDiff = record.pf - record.pa;
         const pointDiffStr = pointDiff >= 0 ? `+${pointDiff}` : pointDiff.toString();
         
         return `
@@ -773,5 +781,6 @@ if (document.readyState === 'loading') {
 window.enhanceNavigation = enhanceNavigation;
 window.setupRosterEvents = setupRosterEvents;
 window.initializeUIFixes = initializeUI;
+window.renderPowerRankings = renderPowerRankings;
 
 console.log('🎉 UI master file loaded successfully!');
