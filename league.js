@@ -12,6 +12,7 @@ window.makeLeague = function(teams) {
     const L = {
         teams: [],
         year: currentYear,
+        season: 1, // Add season property for cap calculations
         week: 1,
         schedule: null,
         resultsByWeek: []
@@ -167,4 +168,3 @@ window.makeLeague = function(teams) {
 
     return L;
 };
-
