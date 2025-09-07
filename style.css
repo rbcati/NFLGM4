@@ -363,6 +363,15 @@ select:disabled {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.table tbody tr.selected {
+  background: var(--accent-muted);
+  border-left: 3px solid var(--accent);
+}
+
+.table tbody tr.selected:hover {
+  background: var(--accent-muted);
+}
+
 .table tbody tr:last-child td {
   border-bottom: none;
 }
