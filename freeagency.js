@@ -1,4 +1,4 @@
-// freeAgency.js - Fixed Syntax Error
+// freeAgency.js
 'use strict';
 
 function ensureFA() {
@@ -232,7 +232,8 @@ function renderFreeAgency() {
     tbl.innerHTML = '<thead><tr><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Base</th><th>Bonus</th><th>Years</th><th>Abilities</th><th>Action</th></tr></thead>';
     const tbody = document.createElement('tbody');
     
-    window.state.freeAgents.forEach((p, i) => {
+    const freeAgents = window.state.freeAgents || [];
+    freeAgents.forEach((p, i) => {
       const tr = document.createElement('tr');
       const abilities = (p.abilities || []).join(', ') || 'None';
       
@@ -273,13 +274,22 @@ function renderFreeAgency() {
     
     tbl.appendChild(tbody);
 
-    // Set up team selector
+    // Lock team selector to USER TEAM only
     const sel = document.getElementById('faTeam');
-    if (sel && !sel.dataset.filled) {
-      if (window.fillTeamSelect) {
-        window.fillTeamSelect(sel);
-        sel.dataset.filled = '1';
+    if (sel) {
+      const userTeamId = window.state?.userTeamId ?? 0;
+      const userTeam = L.teams[userTeamId];
+
+      sel.innerHTML = '';
+      if (userTeam) {
+        const opt = document.createElement('option');
+        opt.value = String(userTeamId);
+        opt.textContent = userTeam.name || 'Your Team';
+        sel.appendChild(opt);
+        sel.value = String(userTeamId);
       }
+      sel.disabled = true;
+      sel.dataset.filled = '1';
     }
     
     // Set up sign button
@@ -332,12 +342,12 @@ function signFreeAgent(playerIndex) {
       return;
     }
     
-    const teamSelect = document.getElementById('faTeam') || document.getElementById('userTeam');
-    const teamId = parseInt(teamSelect?.value || '0', 10);
-    const team = L.teams[teamId];
+    // FORCE: use user team only
+    const userTeamId = window.state?.userTeamId ?? 0;
+    const team = L.teams[userTeamId];
     
     if (!team) {
-      window.setStatus('Invalid team selected');
+      window.setStatus('User team not found');
       return;
     }
     
@@ -405,14 +415,6 @@ function signFreeAgent(playerIndex) {
     window.setStatus('Error signing free agent');
   }
 }
-
-// Make the functions globally available
-window.ensureFA = ensureFA;
-window.renderFreeAgency = renderFreeAgency;
-window.signFreeAgent = signFreeAgent;
-window.generateBasicName = generateBasicName;
-
-// Add this to the END of your freeAgency.js file
 
 /**
  * Alternative name for ensureFA function (for compatibility)
@@ -537,7 +539,7 @@ function updateContractTotal() {
   
   const totalValue = (baseSalary * years) + signingBonus;
   const aav = years > 0 ? totalValue / years : 0;
-  const capHit = baseSalary + (signingBonus / years);
+  const capHit = years > 0 ? baseSalary + (signingBonus / years) : baseSalary;
   
   document.getElementById('contractTotalValue').textContent = totalValue.toFixed(1);
   document.getElementById('contractAAV').textContent = aav.toFixed(1);
@@ -677,12 +679,12 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
       return;
     }
     
-    const teamSelect = document.getElementById('faTeam') || document.getElementById('userTeam');
-    const teamId = parseInt(teamSelect?.value || '0', 10);
-    const team = L.teams[teamId];
+    // FORCE: use user team only
+    const userTeamId = window.state?.userTeamId ?? 0;
+    const team = L.teams[userTeamId];
     
     if (!team) {
-      window.setStatus('Invalid team selected');
+      window.setStatus('User team not found');
       return;
     }
     
@@ -759,9 +761,9 @@ function updateCapSidebar() {
   const L = window.state?.league;
   if (!L) return;
   
-  const teamSelect = document.getElementById('userTeam') || document.getElementById('faTeam');
-  const teamId = parseInt(teamSelect?.value || '0', 10);
-  const team = L.teams[teamId];
+  // ALWAYS use user team
+  const userTeamId = window.state?.userTeamId ?? 0;
+  const team = L.teams[userTeamId];
   
   if (!team) return;
   
@@ -779,11 +781,15 @@ function updateCapSidebar() {
   if (seasonEl) seasonEl.textContent = L.season || '1';
 }
 
-// Make sure both function names are available globally
-window.generateFreeAgents = generateFreeAgents;
+// Make functions globally available
 window.ensureFA = ensureFA;
+window.renderFreeAgency = renderFreeAgency;
+window.signFreeAgent = signFreeAgent;
+window.generateBasicName = generateBasicName;
+window.generateFreeAgents = generateFreeAgents;
 window.openContractNegotiation = openContractNegotiation;
 window.updateContractTotal = updateContractTotal;
 window.closeContractModal = closeContractModal;
 window.submitContractOffer = submitContractOffer;
 window.updateCapSidebar = updateCapSidebar;
+window.signFreeAgentWithContract = signFreeAgentWithContract;
