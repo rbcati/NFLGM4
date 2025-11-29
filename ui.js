@@ -787,42 +787,279 @@ if (document.readyState === 'loading') {
   setTimeout(initializeUI, 100);
 }
 
-// … existing imports and code …
-
-// Add CSS rules to enhancedCSS in ui.js:
-.asset-item {
-  background: var(--surface);
-  padding: 4px 6px;
-  margin: 2px 0;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 0.875rem;
-}
-.asset-item.selected {
-  background-color: var(--accent);
-  color: var(--on-accent);
-}
-
 /**
  * Renders the full trade center: lets users pick players/picks, validates trades,
  * and executes them via the trade engine.
+ *
+ * Requires these IDs in your trade view:
+ *  - tradeA (select, your team – usually disabled)
+ *  - tradeB (select, CPU team)
+ *  - tradeListA, tradeListB (divs for player lists)
+ *  - pickListA, pickListB (divs for pick lists)
+ *  - tradeValidate, tradeExecute (buttons)
+ *  - tradeInfo (div/span for messages)
  */
-window.renderTradeCenter = function() {
+window.renderTradeCenter = function () {
+  console.log('Rendering Trade Center…');
+
   const L = window.state?.league;
-  const userTeamId = window.state.userTeamId;
-  // locate all DOM elements (tradeA, tradeB, lists, buttons, info div)
-  // populate tradeA with user's team and disable it; populate tradeB with other teams
-  // maintain sets for selected players/picks on each side
-  // define renderTeamLists() to display players and picks for both teams, toggling the
-  // .selected class on click to mark selection
-  // define validateBtn.onclick to build userAssets/cpuAssets using assetPlayer() and
-  // assetPick(), call evaluateTrade() and display the results; enable executeBtn only
-  // when CPU's delta >= –15
-  // define executeBtn.onclick to call proposeUserTrade(); if accepted, show success
-  // message and re-render lists; otherwise show rejection
+  if (!L || !Array.isArray(L.teams)) {
+    console.error('renderTradeCenter: no league/teams');
+    return;
+  }
+
+  const userTeamId = window.state?.userTeamId ?? 0;
+  const userTeam = L.teams[userTeamId];
+  if (!userTeam) {
+    console.error('renderTradeCenter: user team not found', userTeamId);
+    return;
+  }
+
+  const tradeContainer = document.getElementById('trade');
+  if (!tradeContainer) {
+    console.error('renderTradeCenter: #trade not found');
+    return;
+  }
+
+  const selectA     = document.getElementById('tradeA');
+  const selectB     = document.getElementById('tradeB');
+  const listA       = document.getElementById('tradeListA');
+  const listB       = document.getElementById('tradeListB');
+  const pickListA   = document.getElementById('pickListA');
+  const pickListB   = document.getElementById('pickListB');
+  const btnValidate = document.getElementById('tradeValidate');
+  const btnExecute  = document.getElementById('tradeExecute');
+  const info        = document.getElementById('tradeInfo');
+
+  if (!selectA || !selectB || !listA || !listB || !pickListA || !pickListB || !btnValidate || !btnExecute || !info) {
+    console.error('renderTradeCenter: missing one or more trade DOM elements');
+    return;
+  }
+
+  // Avoid re-attaching listeners on every navigation
+  if (!tradeContainer._tradeState) {
+    tradeContainer._tradeState = {
+      fromAssets: [],
+      toAssets: []
+    };
+  }
+  const state = tradeContainer._tradeState;
+
+  // --- 1) Setup YOUR TEAM select (tradeA) ---
+
+  selectA.innerHTML = '';
+  const optA = document.createElement('option');
+  optA.value = String(userTeamId);
+  optA.textContent = userTeam.name || 'Your Team';
+  selectA.appendChild(optA);
+  selectA.value = String(userTeamId);
+  selectA.disabled = true; // keep as your controlled team
+
+  // --- 2) Setup OPPONENT TEAM select (tradeB) ---
+
+  selectB.innerHTML = '';
+  L.teams.forEach((t, idx) => {
+    if (!t) return;
+    if (idx === userTeamId) return; // skip your own team
+    const opt = document.createElement('option');
+    opt.value = String(idx);
+    opt.textContent = t.name || `Team ${idx}`;
+    selectB.appendChild(opt);
+  });
+  selectB.disabled = false;
+
+  if (!selectB.options.length) {
+    info.textContent = 'No other teams available to trade with.';
+    btnValidate.disabled = true;
+    btnExecute.disabled = true;
+    return;
+  }
+
+  if (!selectB.value && selectB.options.length > 0) {
+    selectB.value = selectB.options[0].value;
+  }
+
+  // --- 3) Helpers for asset selection ---
+
+  function clearSelections() {
+    state.fromAssets = [];
+    state.toAssets = [];
+    btnExecute.disabled = true;
+    info.textContent = '';
+    // also clear visual selection
+    tradeContainer.querySelectorAll('.asset-item.selected').forEach(el => {
+      el.classList.remove('selected');
+    });
+  }
+
+  function toggleAsset(targetArray, asset, element) {
+    const idx = targetArray.findIndex(a =>
+      a.kind === asset.kind &&
+      (a.playerId
+        ? a.playerId === asset.playerId
+        : (a.year === asset.year && a.round === asset.round))
+    );
+
+    if (idx === -1) {
+      targetArray.push(asset);
+      element.classList.add('selected');
+    } else {
+      targetArray.splice(idx, 1);
+      element.classList.remove('selected');
+    }
+
+    btnExecute.disabled = true; // force re-validate after any change
+  }
+
+  function renderTeamLists() {
+    const oppId = parseInt(selectB.value, 10);
+    const oppTeam = L.teams[oppId];
+    if (!oppTeam) {
+      console.error('renderTradeCenter: opponent team not found', oppId);
+      return;
+    }
+
+    listA.innerHTML = '<h4>Your Players</h4>';
+    listB.innerHTML = '<h4>Their Players</h4>';
+    pickListA.innerHTML = '<h4>Your Picks</h4>';
+    pickListB.innerHTML = '<h4>Their Picks</h4>';
+
+    function renderRosterList(team, container, isUserSide) {
+      (team.roster || []).forEach(player => {
+        const item = document.createElement('div');
+        item.className = 'asset-item';
+        item.textContent = `${player.name} (${player.pos || 'POS'} • OVR ${player.ovr ?? 'N/A'})`;
+
+        const asset = { kind: 'player', playerId: player.id };
+
+        item.addEventListener('click', () => {
+          if (isUserSide) {
+            toggleAsset(state.fromAssets, asset, item);
+          } else {
+            toggleAsset(state.toAssets, asset, item);
+          }
+        });
+
+        container.appendChild(item);
+      });
+    }
+
+    function renderPickList(team, container, isUserSide) {
+      (team.picks || []).forEach(pk => {
+        const item = document.createElement('div');
+        item.className = 'asset-item';
+        item.textContent = `${pk.year} Round ${pk.round}`;
+
+        const asset = { kind: 'pick', year: pk.year, round: pk.round };
+
+        item.addEventListener('click', () => {
+          if (isUserSide) {
+            toggleAsset(state.fromAssets, asset, item);
+          } else {
+            toggleAsset(state.toAssets, asset, item);
+          }
+        });
+
+        container.appendChild(item);
+      });
+    }
+
+    renderRosterList(userTeam, listA, true);
+    renderRosterList(oppTeam, listB, false);
+    renderPickList(userTeam, pickListA, true);
+    renderPickList(oppTeam, pickListB, false);
+  }
+
+  // Initial render
+  clearSelections();
+  renderTeamLists();
+
+  // --- 4) When you change the CPU team, re-render lists ---
+
+  if (!selectB._hasTradeListener) {
+    selectB.addEventListener('change', () => {
+      clearSelections();
+      renderTeamLists();
+    });
+    selectB._hasTradeListener = true;
+  }
+
+  // --- 5) Validate and Execute buttons ---
+
+  if (!btnValidate._hasTradeListener) {
+    btnValidate.addEventListener('click', () => {
+      const oppId = parseInt(selectB.value, 10);
+      if (isNaN(oppId)) {
+        info.textContent = 'Select a team to trade with.';
+        return;
+      }
+
+      if (!state.fromAssets.length && !state.toAssets.length) {
+        info.textContent = 'Select at least one player or pick on either side.';
+        return;
+      }
+
+      if (typeof window.evaluateTrade !== 'function') {
+        info.textContent = 'Trade engine not loaded.';
+        return;
+      }
+
+      const evalResult = window.evaluateTrade(
+        userTeamId,
+        oppId,
+        state.fromAssets,
+        state.toAssets
+      );
+
+      if (!evalResult) {
+        info.textContent = 'Unable to evaluate trade.';
+        btnExecute.disabled = true;
+        return;
+      }
+
+      const from = evalResult.fromValue;
+      const to   = evalResult.toValue;
+
+      info.textContent =
+        `You give: ${from.give.toFixed(1)} | You get: ${from.get.toFixed(1)} ` +
+        `(Δ ${from.delta.toFixed(1)}) | CPU Δ ${to.delta.toFixed(1)} (CPU must be ≥ -15).`;
+
+      const cpuLossLimit = -15;
+      btnExecute.disabled = to.delta < cpuLossLimit;
+    });
+    btnValidate._hasTradeListener = true;
+  }
+
+  if (!btnExecute._hasTradeListener) {
+    btnExecute.addEventListener('click', () => {
+      const oppId = parseInt(selectB.value, 10);
+      if (isNaN(oppId)) return;
+
+      if (typeof window.proposeUserTrade !== 'function') {
+        info.textContent = 'Trade engine not loaded.';
+        return;
+      }
+
+      const result = window.proposeUserTrade(oppId, state.fromAssets, state.toAssets, {
+        cpuLossLimit: -15
+      });
+
+      if (!result || !result.accepted) {
+        info.textContent = 'Trade rejected by CPU.';
+        btnExecute.disabled = true;
+        return;
+      }
+
+      info.textContent = 'Trade completed!';
+      clearSelections();
+      // league mutated in-place by trade.js; just re-render lists
+      renderTeamLists();
+    });
+    btnExecute._hasTradeListener = true;
+  }
+
+  console.log('✅ Trade Center rendered');
 };
-
-
 // --- GLOBAL EXPORTS ---
 window.enhanceNavigation = enhanceNavigation;
 window.setupRosterEvents = setupRosterEvents;
