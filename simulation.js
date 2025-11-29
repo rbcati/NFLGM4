@@ -1,3 +1,17 @@
+/*
+ * Updated Simulation Module with Season Progression Fix
+ *
+ * This file is based on the original simulation.js from the NFLGM4 project.
+ * A key enhancement has been added: after the playoffs conclude and a Super Bowl
+ * champion is crowned, the game will now correctly advance to a new season
+ * instead of re-running the same year's playoffs when the user clicks
+ * “Simulate Week.” The new season logic increments the league year and
+ * season counters, resets team records and weekly results, generates a new
+ * schedule, processes salary cap rollover (if available), and clears
+ * playoff data. A helper function `startNewSeason` is exposed globally
+ * for reuse.
+ */
+
 'use strict';
 
 /**
@@ -168,6 +182,86 @@ function simGameStats(home, away) {
 }
 
 /**
+ * Advances the game world to the next season.
+ *
+ * This function processes end-of-season operations, including salary cap rollover
+ * (if available), incrementing the global year and season counters, resetting
+ * team records and per-game stats, clearing playoff data, regenerating the
+ * schedule, and updating the UI. It is safe to call multiple times but will
+ * only perform actions when a league is loaded.
+ */
+function startNewSeason() {
+  try {
+    const L = window.state?.league;
+    if (!L) {
+      console.error('No league loaded to start new season');
+      return;
+    }
+
+    // Process salary cap rollover for each team, if supported
+    if (typeof window.processCapRollover === 'function') {
+      L.teams.forEach(team => {
+        try {
+          window.processCapRollover(L, team);
+        } catch (error) {
+          console.error('Error processing cap rollover for team', team?.abbr || team?.name, error);
+        }
+      });
+    }
+
+    // Increment global year and season counters
+    window.state.year = (window.state.year || 2025) + 1;
+    window.state.season = (window.state.season || 1) + 1;
+
+    // Reset playoff data
+    window.state.playoffs = null;
+
+    // Update league year and season. Increment league.season for salary cap tracking.
+    L.year = window.state.year;
+    L.season = (L.season || 1) + 1;
+    
+    // Reset week and clear previous results
+    L.week = 1;
+    L.resultsByWeek = [];
+
+    // Reset team records and clear per-game player stats
+    L.teams.forEach(team => {
+      team.record = { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
+      if (team.roster) {
+        team.roster.forEach(p => {
+          if (p && p.stats && p.stats.game) {
+            delete p.stats.game;
+          }
+        });
+      }
+    });
+
+    // Generate a new schedule for the upcoming season
+    if (typeof window.makeSchedule === 'function') {
+      try {
+        L.schedule = window.makeSchedule(L.teams);
+      } catch (schedErr) {
+        console.error('Error generating new schedule:', schedErr);
+      }
+    }
+
+    // Persist the updated state
+    if (typeof window.saveState === 'function') window.saveState();
+
+    // Refresh the UI for the new season
+    if (typeof window.renderHub === 'function') window.renderHub();
+    if (typeof window.setStatus === 'function') {
+      window.setStatus(`Welcome to the ${window.state.year} season!`);
+    }
+  } catch (err) {
+    console.error('Error starting new season:', err);
+    if (typeof window.setStatus === 'function') {
+      window.setStatus(`Error starting new season: ${err.message}`);
+    }
+  }
+}
+
+/**
  * Simulates all games for the current week in the league.
  */
 function simulateWeek() {
@@ -208,6 +302,18 @@ function simulateWeek() {
 
     console.log(`Simulating week ${L.week}...`);
     window.setStatus(`Simulating week ${L.week}...`);
+
+    // NEW SEASON PROGRESSION CHECK
+    // If the regular season is over and a Super Bowl champion has been crowned,
+    // advance to a new season instead of restarting playoffs.
+    if (window.state && window.state.playoffs && window.state.playoffs.winner && L.week > scheduleWeeks.length) {
+      console.log('Season complete, starting new season');
+      window.setStatus('Season complete! Preparing new season...');
+      if (typeof window.startNewSeason === 'function') {
+        window.startNewSeason();
+      }
+      return;
+    }
 
     // Check if season is over
     if (L.week > scheduleWeeks.length) {
@@ -381,9 +487,10 @@ function simulateWeek() {
   }
 }
 
-// Make sure function is available globally
+// Expose functions globally for compatibility
 if (typeof window !== 'undefined') {
   window.simulateWeek = simulateWeek;
   window.simGameStats = simGameStats;
   window.applyResult = applyResult;
+  window.startNewSeason = startNewSeason;
 }
