@@ -1,9 +1,35 @@
-// trades.js – core trade / trade block / CPU offer logic
 (function (global) {
   'use strict';
 
   const C = global.Constants || {};
   const U = global.Utils || {};
+
+  // Default constants if not defined (add to your Constants if needed)
+  if (!C.POSITION_VALUES) {
+    C.POSITION_VALUES = { QB: 1.5, WR: 1.2, RB: 1.0, TE: 1.1, OL: 1.1, DL: 1.0, LB: 1.0, CB: 1.1, S: 1.0 }; // Example: QB most valuable
+  }
+  if (!C.DEPTH_NEEDS) {
+    C.DEPTH_NEEDS = { QB: 2, WR: 5, RB: 3, TE: 3, OL: 8, DL: 6, LB: 6, CB: 5, S: 4 }; // Example min depth per pos
+  }
+  if (!C.TRADE_VALUES) {
+    C.TRADE_VALUES = {};
+  }
+  if (!C.TRADE_VALUES.FUTURE_DISCOUNT) {
+    C.TRADE_VALUES.FUTURE_DISCOUNT = 0.85; // 15% discount per year out
+  }
+  if (!C.TRADE_VALUES.PICKS) {
+    // Averaged from Drafttek 2026 chart (classic Jimmy Johnson style)
+    // Round averages: R1 ~1476, R2 ~418, R3 ~175, R4 ~57, R5 ~28, R6 ~11, R7 ~1.5 (scaled down for balance if needed)
+    C.TRADE_VALUES.PICKS = {
+      1: { avg: 1476 },
+      2: { avg: 418 },
+      3: { avg: 175 },
+      4: { avg: 57 },
+      5: { avg: 28 },
+      6: { avg: 11 },
+      7: { avg: 1.5 }
+    };
+  }
 
   /**
    * Trade asset format:
@@ -54,13 +80,12 @@
   function getPlayerAge(player, leagueYear) {
     if (typeof player.age === 'number') return player.age;
     if (player.year && typeof leagueYear === 'number') {
-      return Math.max(21, leagueYear - player.year + 22); // hand-wavey fallback
+      return Math.max(21, leagueYear - player.year + 22); // hand-wavey fallback (assumes draft year)
     }
     return 25;
   }
 
   function getPositionMultiplier(pos) {
-    if (!C.POSITION_VALUES) return 1;
     return C.POSITION_VALUES[pos] || 1;
   }
 
@@ -92,7 +117,7 @@
 
     base *= getContractFactor(player);
 
-    return base;
+    return Math.max(0, base); // Ensure non-negative
   }
 
   function calcPickTradeValue(pick, leagueYear) {
@@ -101,40 +126,35 @@
       return global.pickValue(pick);
     }
 
-    // Fallback: use Constants.TRADE_VALUES if present
+    // Use C.TRADE_VALUES.PICKS if present (now with averages)
     if (C.TRADE_VALUES && C.TRADE_VALUES.PICKS) {
       const roundMap = C.TRADE_VALUES.PICKS[pick.round];
       if (roundMap) {
-        // use mid slot if slot not known
-        const slotValues = Object.values(roundMap);
-        const avg = slotValues.reduce((a, b) => a + b, 0) / slotValues.length;
-        const yearsOut = (pick.year || leagueYear) - (leagueYear || 2025);
-        const discount = Math.pow(C.TRADE_VALUES.FUTURE_DISCOUNT || 0.8, Math.max(0, yearsOut));
+        const avg = roundMap.avg; // Use precomputed average since no slot
+        const yearsOut = Math.max(0, (pick.year || leagueYear) - leagueYear);
+        const discount = Math.pow(C.TRADE_VALUES.FUTURE_DISCOUNT, yearsOut);
         return avg * discount;
       }
     }
 
-    // Simple fallback
-    const baseValues = { 1: 25, 2: 15, 3: 8, 4: 5, 5: 3, 6: 2, 7: 1 };
+    // Simple fallback (improved slightly)
+    const baseValues = { 1: 1000, 2: 500, 3: 250, 4: 100, 5: 50, 6: 20, 7: 10 };
     const base = baseValues[pick.round] || 1;
-    const yearsOut = (pick.year || leagueYear) - (leagueYear || 2025);
-    const discount = Math.pow(0.8, Math.max(0, yearsOut));
+    const yearsOut = Math.max(0, (pick.year || leagueYear) - leagueYear);
+    const discount = Math.pow(0.85, yearsOut);
     return base * discount;
   }
 
   function calcAssetsValue(team, assets, leagueYear) {
     let total = 0;
-    const picks = team.picks || [];
 
     assets.forEach(a => {
       if (a.kind === 'player') {
         const p = findPlayerOnTeam(team, a.playerId);
-        total += calcPlayerTradeValue(p, leagueYear);
+        if (p) total += calcPlayerTradeValue(p, leagueYear);
       } else if (a.kind === 'pick') {
-        const pk = picks.find(p => p.year === a.year && p.round === a.round);
-        if (pk) {
-          total += calcPickTradeValue(pk, leagueYear);
-        }
+        const pk = findPickOnTeam(team, a.year, a.round);
+        if (pk) total += calcPickTradeValue(pk, leagueYear);
       }
     });
 
@@ -158,11 +178,10 @@
     }
 
     const fromGive = calcAssetsValue(fromTeam, fromAssets, leagueYear);
-const fromGet  = calcAssetsValue(toTeam,   toAssets,   leagueYear);
+    const fromGet  = calcAssetsValue(toTeam,   toAssets,   leagueYear);
 
-const toGive   = calcAssetsValue(toTeam,   toAssets,   leagueYear);
-const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
-m, fromAssets, leagueYear);
+    const toGive   = calcAssetsValue(toTeam,   toAssets,   leagueYear);
+    const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
 
     return {
       fromValue: { give: fromGive, get: fromGet, delta: fromGet - fromGive },
@@ -179,6 +198,14 @@ m, fromAssets, leagueYear);
     const toTeam   = L.teams[toTeamId];
 
     if (!fromTeam || !toTeam) return false;
+
+    // Generate news strings BEFORE moving assets (fix for finding players)
+    let fromStr = '';
+    let toStr = '';
+    if (L.news) {
+      fromStr = fromAssets.map(a => formatAssetString(fromTeam, a)).filter(s => s).join(', ') || 'nothing';
+      toStr   = toAssets.map(a => formatAssetString(toTeam, a)).filter(s => s).join(', ') || 'nothing';
+    }
 
     // Phase 1 – collect assets to move
     const fromPlayers = [];
@@ -237,10 +264,8 @@ m, fromAssets, leagueYear);
       global.saveLeague();
     }
 
-    // Give news
+    // Give news (now using pre-generated strings)
     if (L.news) {
-      const fromStr = fromAssets.map(a => formatAssetString(fromTeam, a)).join(', ');
-      const toStr   = toAssets.map(a => formatAssetString(toTeam, a)).join(', ');
       L.news.push(`${fromTeam.name} traded ${fromStr} to ${toTeam.name} for ${toStr}`);
     }
 
@@ -251,7 +276,7 @@ m, fromAssets, leagueYear);
     if (!team) return '';
     if (asset.kind === 'player') {
       const p = (team.roster || []).find(pl => pl.id === asset.playerId);
-      return p ? `${p.name} (${p.pos})` : 'player';
+      return p ? `${p.name} (${p.pos})` : 'unknown player';
     }
     if (asset.kind === 'pick') {
       return `${asset.year} R${asset.round} pick`;
@@ -325,9 +350,8 @@ m, fromAssets, leagueYear);
 
     // Helper to compute if a team "needs" a pos vs DEPTH_NEEDS
     function teamNeedsPosition(teamIndex, pos) {
-      const team = L.teams[teamIndex];
       const counts = teamPosCounts[teamIndex];
-      const needed = (C.DEPTH_NEEDS && C.DEPTH_NEEDS[pos]) || 2;
+      const needed = C.DEPTH_NEEDS[pos] || 2;
       const have = counts[pos] || 0;
       return have < needed;
     }
@@ -337,11 +361,11 @@ m, fromAssets, leagueYear);
       const cpuTeam = L.teams[t];
 
       // small chance this team is active in trades right now
-      if (Math.random() > 0.5) continue;
+      if (Math.random() > 0.3) continue; // Increased chance for more offers
 
       // Look through user trade block players
       for (const playerId of userBlock) {
-        const player = userTeam.roster.find(p => p.id === playerId);
+        const player = findPlayerOnTeam(userTeam, playerId);
         if (!player) continue;
 
         const pos = player.pos || 'RB';
@@ -350,31 +374,35 @@ m, fromAssets, leagueYear);
         const playerVal = calcPlayerTradeValue(player, leagueYear);
 
         // Option A: CPU offers a pick
-        const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
         let cpuOfferAssets = [];
-        let userReturnAssets = [];
+        let userReturnAssets = [{ kind: 'player', playerId }];
 
+        const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
         if (cpuOfferPick) {
           cpuOfferAssets = [cpuOfferPick];
-          userReturnAssets = [{ kind: 'player', playerId }];
         } else {
           // Option B: CPU offers a player
           const cpuOfferPlayer = pickCpuPlayerForValue(cpuTeam, playerVal, leagueYear);
           if (!cpuOfferPlayer) continue;
-
           cpuOfferAssets = [{ kind: 'player', playerId: cpuOfferPlayer.id }];
-          userReturnAssets = [{ kind: 'player', playerId }];
         }
 
-        const evalResult = evaluateTrade(L, t, userTeamId, cpuOfferAssets, userReturnAssets);
+        let evalResult = evaluateTrade(L, t, userTeamId, cpuOfferAssets, userReturnAssets);
         if (!evalResult) continue;
 
-        // CPU only sends offer if it's slightly favorable or roughly even
-        const cpuDelta = evalResult.fromValue.delta; // from CPU perspective (team t)
-        if (cpuDelta < -10) {
-          // Really bad for CPU; skip
-          continue;
+        // If slightly unfavorable for CPU, add a low-value sweetener (e.g., late pick)
+        let cpuDelta = evalResult.fromValue.delta;
+        if (cpuDelta < -5 && cpuDelta > -20) {
+          const sweetener = pickCpuTradeAssetForValue(cpuTeam, 10, leagueYear); // Low value ~ Round 6-7
+          if (sweetener) {
+            cpuOfferAssets.push(sweetener);
+            evalResult = evaluateTrade(L, t, userTeamId, cpuOfferAssets, userReturnAssets); // Re-eval
+            cpuDelta = evalResult.fromValue.delta;
+          }
         }
+
+        // CPU only sends offer if it's roughly even or better (adjusted threshold)
+        if (cpuDelta < -5) continue; // Allow slight loss for realism
 
         offers.push({
           fromTeamId: t,
@@ -404,7 +432,7 @@ m, fromAssets, leagueYear);
     valued.sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target));
 
     const best = valued[0];
-    if (!best) return null;
+    if (!best || best.value <= 0) return null;
 
     return {
       kind: 'pick',
@@ -420,13 +448,13 @@ m, fromAssets, leagueYear);
     const valued = roster.map(p => ({
       player: p,
       value: calcPlayerTradeValue(p, leagueYear)
-    }));
+    })).filter(v => v.value > 0); // Skip worthless
+
+    if (!valued.length) return null;
 
     valued.sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target));
 
-    const best = valued[0];
-    if (!best) return null;
-    return best.player;
+    return valued[0].player;
   }
 
   // --- Expose API ---------------------------------------------------
