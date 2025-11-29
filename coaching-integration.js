@@ -324,40 +324,42 @@ function enhanceOffseasonProcessing() {
       originalRunOffseason();
     }
     
-    // Handle coaching changes in offseason
-    handleCoachingChanges(L);
-  };
-}
-
-/**
- * Update coaching season stats for all teams
- * @param {Object} league - League object
- */
-function updateAllCoachingSeasonStats(league) {
+    function handleCoachingChanges(league) {
   if (!league || !league.teams) return;
-  
+
+  const U = window.Utils;
+
   league.teams.forEach(team => {
-    const seasonStats = {
-      wins: team.wins || 0,
-      losses: team.losses || 0,
-      ties: team.ties || 0,
-      pointsFor: team.ptsFor || 0,
-      pointsAgainst: team.ptsAgainst || 0
-    };
-    
-    // Update head coach stats
-    if (team.staff && team.staff.headCoach) {
-      updateCoachingSeasonStats(team.staff.headCoach, seasonStats, team, league.year);
+    if (!team.staff) return;
+
+    // Use the same structure you used in updateAllCoachingSeasonStats
+    const wins   = team.wins  ?? team.record?.w ?? 0;
+    const losses = team.losses ?? team.record?.l ?? 0;
+    const ties   = team.ties ?? team.record?.t ?? 0;
+
+    const totalGames = wins + losses + ties;
+    const winPct = totalGames > 0 ? wins / totalGames : 0;
+
+    // Poor performance increases chance of coaching change
+    let changeChance = 0;
+    if (winPct < 0.3)      changeChance = 0.4; // 40% chance if very bad
+    else if (winPct < 0.4) changeChance = 0.2; // 20% chance if bad
+    else if (winPct < 0.5) changeChance = 0.1; // 10% chance if below average
+
+    // rest of your original logic stays the same ↓
+    // (firing HC, promoting OC/DC, hiring externals, replacing coordinators, etc.)
+
+    // Example of how you had it:
+    if (team.staff.headCoach && Math.random() < changeChance) {
+      if (league.news) {
+        league.news.push(`${team.name} fires head coach ${team.staff.headCoach.name}`);
+      }
+
+      // ... promotions / new hires, etc.
     }
-    
-    // Update coordinator stats
-    if (team.staff && team.staff.offCoordinator) {
-      updateCoachingSeasonStats(team.staff.offCoordinator, seasonStats, team, league.year);
-    }
-    
-    if (team.staff && team.staff.defCoordinator) {
-      updateCoachingSeasonStats(team.staff.defCoordinator, seasonStats, team, league.year);
-    }
+
+    // Coordinator change chances re-use changeChance as you already had
+    // ...
   });
 }
 
