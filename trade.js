@@ -1,822 +1,459 @@
-// trade.js - Enhanced trade evaluation system
+// trades.js – core trade / trade block / CPU offer logic
+(function (global) {
+  'use strict';
 
-/**
- * Configuration constants for trade evaluations
- */
-const TRADE_CONFIG = {
-    // Position value multipliers - how important each position is in trades
-    POSITION_MULTIPLIERS: {
-        'QB': 1.6,   // Quarterbacks are most valuable
-        'WR': 1.25,  // Wide receivers
-        'CB': 1.2,   // Cornerbacks
-        'DL': 1.15,  // Defensive line
-        'OL': 1.1,   // Offensive line
-        'RB': 1.0,   // Running backs (baseline)
-        'LB': 1.0,   // Linebackers
-        'S': 1.0,    // Safeties
-        'TE': 0.9,   // Tight ends
-        'K': 0.5,    // Kickers
-        'P': 0.5     // Punters
-    },
-    
-    // Age-related constants
-    AGE_DECLINE_THRESHOLD: 27,    // Age when decline penalties start
-    AGE_PENALTY_PER_YEAR: 0.75,  // Value lost per year over threshold
-    
-    // Contract evaluation
-    CONTRACT_VALUE_MULTIPLIER: 0.1,  // How much contract years add to value
-    
-    // Value bounds
-    MIN_TRADE_VALUE: 5,  // Minimum trade value for any player
-    
-    // Team need evaluation
-    LEAGUE_AVERAGE_STARTER_OVR: 82,  // Baseline for starter quality comparison
-    COUNT_GAP_WEIGHT: 15,            // Weight for missing players at position
-    QUALITY_GAP_WEIGHT: 0.5,         // Weight for starter quality deficit
-    SEVERE_QUALITY_GAP: 20           // Default gap when no players at position
-};
+  const C = global.Constants || {};
+  const U = global.Utils || {};
 
-/**
- * Default depth chart requirements by position
- */
-const DEFAULT_DEPTH_NEEDS = {
-    'QB': 2,
-    'RB': 3,
-    'WR': 5,
-    'TE': 3,
-    'OL': 8,
-    'DL': 6,
-    'LB': 6,
-    'CB': 5,
-    'S': 4,
-    'K': 1,
-    'P': 1
-};
+  /**
+   * Trade asset format:
+   * { kind: 'player', playerId: 'abc123' }
+   * { kind: 'pick',   year: 2027, round: 2 }
+   */
 
-/**
- * Validates a player object has required properties for trade evaluation
- * @param {Object} player - Player object to validate
- * @returns {boolean} - True if valid, false otherwise
- */
-function validatePlayer(player) {
-    if (!player || typeof player !== 'object') {
-        console.warn('validatePlayer: player is null, undefined, or not an object:', player);
-        return false;
+  // --- Helpers ------------------------------------------------------
+
+  function findPlayerOnTeam(team, playerId) {
+    if (!team || !team.roster) return null;
+    return team.roster.find(p => p.id === playerId) || null;
+  }
+
+  function removePlayerFromTeam(team, playerId) {
+    if (!team || !team.roster) return null;
+    const idx = team.roster.findIndex(p => p.id === playerId);
+    if (idx === -1) return null;
+    const [player] = team.roster.splice(idx, 1);
+    return player;
+  }
+
+  function findPickOnTeam(team, year, round) {
+    const picks = team.picks || [];
+    return picks.find(p => p.year === year && p.round === round) || null;
+  }
+
+  function removePickFromTeam(team, year, round) {
+    const picks = team.picks || [];
+    const idx = picks.findIndex(p => p.year === year && p.round === round);
+    if (idx === -1) return null;
+    const [pick] = picks.splice(idx, 1);
+    return pick;
+  }
+
+  // --- Value functions ----------------------------------------------
+
+  // Basic overall from ratings if needed
+  function getPlayerOvr(player) {
+    if (typeof player.ovr === 'number') return player.ovr;
+    if (!player.ratings) return 60;
+    // crude fallback: average all rating numbers
+    const values = Object.values(player.ratings).filter(v => typeof v === 'number');
+    if (!values.length) return 60;
+    return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+  }
+
+  function getPlayerAge(player, leagueYear) {
+    if (typeof player.age === 'number') return player.age;
+    if (player.year && typeof leagueYear === 'number') {
+      return Math.max(21, leagueYear - player.year + 22); // hand-wavey fallback
     }
-    
-    // Check for required fields with more flexible validation
-    const requiredFields = ['pos', 'age', 'ovr'];
-    const missingFields = [];
-    
-    for (const field of requiredFields) {
-        if (!player.hasOwnProperty(field)) {
-            missingFields.push(`missing ${field}`);
-        } else if (field === 'pos' && typeof player[field] !== 'string') {
-            missingFields.push(`${field} is not a string (got ${typeof player[field]})`);
-        } else if ((field === 'age' || field === 'ovr') && (typeof player[field] !== 'number' || isNaN(player[field]))) {
-            missingFields.push(`${field} is not a valid number (got ${typeof player[field]})`);
+    return 25;
+  }
+
+  function getPositionMultiplier(pos) {
+    if (!C.POSITION_VALUES) return 1;
+    return C.POSITION_VALUES[pos] || 1;
+  }
+
+  function getContractFactor(player) {
+    // Favors cheap, long-term players; penalizes older, expensive ones
+    const salary = player.baseAnnual || player.salary || 1;
+    const yearsLeft = player.years || player.yearsRemaining || 1;
+
+    // Cheap, multi-year deals are more valuable
+    const costFactor = 1 / Math.max(0.5, salary / 5); // assume 5 = "starter money"
+    const termFactor = 0.8 + Math.min(3, yearsLeft) * 0.1; // 0.8 – 1.1 or so
+
+    return costFactor * termFactor;
+  }
+
+  function calcPlayerTradeValue(player, leagueYear) {
+    if (!player) return 0;
+
+    const ovr = getPlayerOvr(player);
+    const age = getPlayerAge(player, leagueYear);
+    const pos = player.pos || player.position || 'RB';
+
+    let base = ovr * getPositionMultiplier(pos);
+
+    // Age curve – prime ~24–28
+    if (age < 23) base *= 0.9;
+    else if (age >= 23 && age <= 28) base *= 1.05;
+    else if (age > 30) base *= 0.8;
+
+    base *= getContractFactor(player);
+
+    return base;
+  }
+
+  function calcPickTradeValue(pick, leagueYear) {
+    // If you already have a pickValue function from draft.js, re-use it:
+    if (typeof global.pickValue === 'function') {
+      return global.pickValue(pick);
+    }
+
+    // Fallback: use Constants.TRADE_VALUES if present
+    if (C.TRADE_VALUES && C.TRADE_VALUES.PICKS) {
+      const roundMap = C.TRADE_VALUES.PICKS[pick.round];
+      if (roundMap) {
+        // use mid slot if slot not known
+        const slotValues = Object.values(roundMap);
+        const avg = slotValues.reduce((a, b) => a + b, 0) / slotValues.length;
+        const yearsOut = (pick.year || leagueYear) - (leagueYear || 2025);
+        const discount = Math.pow(C.TRADE_VALUES.FUTURE_DISCOUNT || 0.8, Math.max(0, yearsOut));
+        return avg * discount;
+      }
+    }
+
+    // Simple fallback
+    const baseValues = { 1: 25, 2: 15, 3: 8, 4: 5, 5: 3, 6: 2, 7: 1 };
+    const base = baseValues[pick.round] || 1;
+    const yearsOut = (pick.year || leagueYear) - (leagueYear || 2025);
+    const discount = Math.pow(0.8, Math.max(0, yearsOut));
+    return base * discount;
+  }
+
+  function calcAssetsValue(team, assets, leagueYear) {
+    let total = 0;
+    const picks = team.picks || [];
+
+    assets.forEach(a => {
+      if (a.kind === 'player') {
+        const p = findPlayerOnTeam(team, a.playerId);
+        total += calcPlayerTradeValue(p, leagueYear);
+      } else if (a.kind === 'pick') {
+        const pk = picks.find(p => p.year === a.year && p.round === a.round);
+        if (pk) {
+          total += calcPickTradeValue(pk, leagueYear);
         }
-    }
-    
-    // Optional fields with defaults
-    if (!player.hasOwnProperty('years') || typeof player.years !== 'number' || isNaN(player.years)) {
-        player.years = 0; // Default to 0 years remaining
-    }
-    
-    if (!player.hasOwnProperty('baseAnnual') || typeof player.baseAnnual !== 'number' || isNaN(player.baseAnnual)) {
-        player.baseAnnual = 1; // Default to $1M salary
-    }
-    
-    if (missingFields.length > 0) {
-        console.warn('validatePlayer: validation failed for player:', player, 'Issues:', missingFields);
-        return false;
-    }
-    
-    return true;
-}
-
-/**
- * Calculates the trade value of a player based on multiple factors
- * @param {Object} player - Player object with pos, age, ovr, years, baseAnnual
- * @param {Object} config - Optional configuration overrides
- * @returns {number} - Calculated trade value
- */
-function calculatePlayerTradeValue(player, config = {}) {
-    // Input validation
-    if (!validatePlayer(player)) {
-        console.error('calculatePlayerTradeValue: Invalid player object:', player);
-        // Return a default value instead of throwing an error
-        return TRADE_CONFIG.MIN_TRADE_VALUE || 1;
-    }
-    
-    // Merge config with defaults
-    const cfg = { ...TRADE_CONFIG, ...config };
-    
-    // Position value multiplier
-    const positionMultiplier = cfg.POSITION_MULTIPLIERS[player.pos] || 1.0;
-    
-    // Age penalty calculation - players decline after threshold age
-    const yearsOverThreshold = Math.max(0, player.age - cfg.AGE_DECLINE_THRESHOLD);
-    const agePenalty = yearsOverThreshold * cfg.AGE_PENALTY_PER_YEAR;
-    
-    // Contract value - having years left on contract adds value
-    const contractYearsRemaining = Math.max(0, player.years - 1);
-    const contractBonus = contractYearsRemaining * (player.baseAnnual * cfg.CONTRACT_VALUE_MULTIPLIER);
-    
-    // Calculate base value adjusted by all factors
-    const adjustedOverall = player.ovr - agePenalty + contractBonus;
-    const finalValue = adjustedOverall * positionMultiplier;
-    
-    // Ensure minimum value
-    return Math.max(cfg.MIN_TRADE_VALUE, Math.round(finalValue * 100) / 100);
-}
-
-/**
- * Validates a team object for need analysis
- * @param {Object} team - Team object to validate
- * @returns {boolean} - True if valid, false otherwise
- */
-function validateTeam(team) {
-    return team && 
-           typeof team === 'object' && 
-           Array.isArray(team.roster) &&
-           team.roster.every(player => 
-               player && 
-               typeof player.pos === 'string' && 
-               typeof player.ovr === 'number'
-           );
-}
-
-/**
- * Groups roster players by position
- * @param {Array} roster - Array of player objects
- * @param {Array} positions - List of valid positions
- * @returns {Object} - Players grouped by position
- */
-function groupPlayersByPosition(roster, positions) {
-    const grouped = {};
-    
-    // Initialize all positions with empty arrays
-    positions.forEach(pos => {
-        grouped[pos] = [];
+      }
     });
-    
-    // Group players by position
-    roster.forEach(player => {
-        if (grouped.hasOwnProperty(player.pos)) {
-            grouped[player.pos].push(player);
-        }
-    });
-    
-    // Sort each position group by overall rating (highest first)
-    Object.keys(grouped).forEach(pos => {
-        grouped[pos].sort((a, b) => b.ovr - a.ovr);
-    });
-    
-    return grouped;
-}
 
-/**
- * Calculates team needs across all positions
- * @param {Object} team - Team object with roster array
- * @param {Object} options - Configuration options
- * @returns {Object} - Detailed needs analysis by position
- */
-function calculateTeamNeeds(team, options = {}) {
-    // Input validation
-    if (!validateTeam(team)) {
-        throw new Error('Invalid team object provided to calculateTeamNeeds');
+    return total;
+  }
+
+  // --- Trade evaluation & execution --------------------------------
+
+  /**
+   * Evaluate trade fairness from each side's perspective.
+   * Returns { fromValue, toValue, deltaFrom, deltaTo }
+   */
+  function evaluateTrade(league, fromTeamId, toTeamId, fromAssets, toAssets) {
+    const L = league;
+    const leagueYear = L.year || C.GAME_CONFIG?.YEAR_START || 2025;
+    const fromTeam = L.teams[fromTeamId];
+    const toTeam = L.teams[toTeamId];
+
+    if (!fromTeam || !toTeam) {
+      return null;
     }
-    
-    // Configuration with defaults
-    const depthNeeds = options.depthNeeds || DEFAULT_DEPTH_NEEDS;
-    const positions = options.positions || Object.keys(DEFAULT_DEPTH_NEEDS);
-    const config = { ...TRADE_CONFIG, ...options.config };
-    
-    // Group players by position
-    const playersByPosition = groupPlayersByPosition(team.roster, positions);
-    
-    // Calculate needs for each position
-    const needs = {};
-    
-    positions.forEach(position => {
-        const targetDepth = depthNeeds[position] || 1;
-        const currentPlayers = playersByPosition[position] || [];
-        const playerCount = currentPlayers.length;
-        
-        // Quantity need - how many players short at this position
-        const countGap = Math.max(0, targetDepth - playerCount);
-        
-        // Quality need - how much better does the starter need to be
-        let qualityGap = 0;
-        if (playerCount === 0) {
-            // No players at position - severe need
-            qualityGap = config.SEVERE_QUALITY_GAP;
-        } else {
-            // Compare best player to league average
-            const bestPlayer = currentPlayers[0];
-            qualityGap = Math.max(0, config.LEAGUE_AVERAGE_STARTER_OVR - bestPlayer.ovr);
-        }
-        
-        // Calculate composite need score
-        const needScore = (countGap * config.COUNT_GAP_WEIGHT) + 
-                         (qualityGap * config.QUALITY_GAP_WEIGHT);
-        
-        needs[position] = {
-            countGap,
-            qualityGap,
-            score: Math.round(needScore * 100) / 100,
-            currentDepth: playerCount,
-            targetDepth,
-            topPlayerOvr: currentPlayers.length > 0 ? currentPlayers[0].ovr : null,
-            priority: needScore > 10 ? 'High' : needScore > 5 ? 'Medium' : 'Low'
-        };
-    });
-    
-    return needs;
-}
 
-/**
- * Gets the top team needs sorted by priority
- * @param {Object} team - Team object
- * @param {number} limit - Maximum number of needs to return
- * @param {Object} options - Configuration options
- * @returns {Array} - Array of position needs sorted by score
- */
-function getTopTeamNeeds(team, limit = 5, options = {}) {
-    const needs = calculateTeamNeeds(team, options);
-    
-    return Object.entries(needs)
-        .map(([position, need]) => ({ position, ...need }))
-        .sort((a, b) => b.score - a.score)
-        .slice(0, limit);
-}
+    const fromGive = calcAssetsValue(fromTeam, fromAssets, leagueYear);
+    const fromGet  = calcAssetsValue(toTeam, toAssets, leagueYear);
 
-/**
- * Evaluates trade compatibility between two teams
- * @param {Object} givingTeam - Team giving up players
- * @param {Object} receivingTeam - Team receiving players
- * @param {Array} playersGiven - Players being traded away
- * @param {Array} playersReceived - Players being received
- * @returns {Object} - Trade evaluation results
- */
-function evaluateTrade(givingTeam, receivingTeam, playersGiven, playersReceived) {
-    // Calculate total values
-    const valueGiven = playersGiven.reduce((sum, player) => 
-        sum + calculatePlayerTradeValue(player), 0);
-    const valueReceived = playersReceived.reduce((sum, player) => 
-        sum + calculatePlayerTradeValue(player), 0);
-    
-    // Get team needs
-    const givingTeamNeeds = calculateTeamNeeds(givingTeam);
-    const receivingTeamNeeds = calculateTeamNeeds(receivingTeam);
-    
-    // Calculate need fulfillment
-    const needsFulfilled = playersReceived.reduce((needs, player) => {
-        const positionNeed = givingTeamNeeds[player.pos]?.score || 0;
-        return needs + positionNeed;
-    }, 0);
-    
+    const toGive   = calcAssetsValue(toTeam, toAssets, leagueYear);
+    const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
+
     return {
-        valueGiven: Math.round(valueGiven * 100) / 100,
-        valueReceived: Math.round(valueReceived * 100) / 100,
-        valueDifference: Math.round((valueReceived - valueGiven) * 100) / 100,
-        needsFulfilled: Math.round(needsFulfilled * 100) / 100,
-        recommendation: valueReceived >= valueGiven * 0.9 && needsFulfilled > 10 ? 
-                       'Favorable' : 'Unfavorable'
+      fromValue: { give: fromGive, get: fromGet, delta: fromGet - fromGive },
+      toValue:   { give: toGive,   get: toGet,   delta: toGet - toGive }
     };
-}
+  }
 
-/**
- * Renders the trade center interface
- */
-function renderTradeCenter() {
-    console.log('Rendering trade center...');
-    
-    try {
-        const L = state.league;
-        if (!L || !L.teams) {
-            console.error('No league data available for trade center');
-            return;
-        }
-        
-        // Populate team selectors
-        populateTradeTeamSelectors();
-        
-        // Set default teams
-        const tradeA = document.getElementById('tradeA');
-        const tradeB = document.getElementById('tradeB');
-        const userTeamId = state.userTeamId || 0;
-        
-        // Team A is always the user's team (set in populateTradeTeamSelectors)
-        if (tradeA && !tradeA.value) {
-            tradeA.value = userTeamId;
-        }
-        
-        // Team B defaults to the first available team that's not the user's team
-        if (tradeB && !tradeB.value) {
-            const availableTeams = L.teams
-                .map((team, index) => index)
-                .filter(index => index !== userTeamId);
-            
-            if (availableTeams.length > 0) {
-                tradeB.value = availableTeams[0];
-            }
-        }
-        
-        // Render team ratings for both teams
-        renderTradeTeamRatings();
-        
-        // Render initial trade lists
-        renderTradeTeamList('A');
-        renderTradeTeamList('B');
-        
-        // Setup trade validation
-        setupTradeValidation();
-        
-        console.log('✅ Trade center rendered successfully');
-        
-    } catch (error) {
-        console.error('Error rendering trade center:', error);
-    }
-}
+  /**
+   * Apply a trade if valid. Returns true/false.
+   */
+  function applyTrade(league, fromTeamId, toTeamId, fromAssets, toAssets) {
+    const L = league;
+    const fromTeam = L.teams[fromTeamId];
+    const toTeam   = L.teams[toTeamId];
 
-/**
- * Renders team ratings for both teams in the trade interface
- */
-function renderTradeTeamRatings() {
-    const L = state.league;
-    if (!L || !L.teams) return;
-    
-    const tradeA = document.getElementById('tradeA');
-    const tradeB = document.getElementById('tradeB');
-    
-    if (!tradeA || !tradeB) return;
-    
-    const teamAId = parseInt(tradeA.value);
-    const teamBId = parseInt(tradeB.value);
-    
-    const teamA = L.teams[teamAId];
-    const teamB = L.teams[teamBId];
-    
-    if (!teamA || !teamB) return;
-    
-    // Create ratings container if it doesn't exist
-    let ratingsContainer = document.getElementById('tradeTeamRatings');
-    if (!ratingsContainer) {
-        ratingsContainer = document.createElement('div');
-        ratingsContainer.id = 'tradeTeamRatings';
-        ratingsContainer.className = 'trade-team-ratings';
-        
-        // Insert before the trade lists
-        const tradeLists = document.querySelector('.trade-lists');
-        if (tradeLists) {
-            tradeLists.parentNode.insertBefore(ratingsContainer, tradeLists);
-        }
+    if (!fromTeam || !toTeam) return false;
+
+    // Phase 1 – collect assets to move
+    const fromPlayers = [];
+    const fromPicks   = [];
+    const toPlayers   = [];
+    const toPicks     = [];
+
+    // Remove from "fromTeam"
+    fromAssets.forEach(a => {
+      if (a.kind === 'player') {
+        const p = removePlayerFromTeam(fromTeam, a.playerId);
+        if (p) fromPlayers.push(p);
+      } else if (a.kind === 'pick') {
+        const pk = removePickFromTeam(fromTeam, a.year, a.round);
+        if (pk) fromPicks.push(pk);
+      }
+    });
+
+    // Remove from "toTeam"
+    toAssets.forEach(a => {
+      if (a.kind === 'player') {
+        const p = removePlayerFromTeam(toTeam, a.playerId);
+        if (p) toPlayers.push(p);
+      } else if (a.kind === 'pick') {
+        const pk = removePickFromTeam(toTeam, a.year, a.round);
+        if (pk) toPicks.push(pk);
+      }
+    });
+
+    // Phase 2 – add to opposite teams
+    fromPlayers.forEach(p => toTeam.roster.push(p));
+    toPlayers.forEach(p   => fromTeam.roster.push(p));
+
+    fromPicks.forEach(pk => {
+      toTeam.picks = toTeam.picks || [];
+      toTeam.picks.push(pk);
+    });
+
+    toPicks.forEach(pk => {
+      fromTeam.picks = fromTeam.picks || [];
+      fromTeam.picks.push(pk);
+    });
+
+    // Optional: sort rosters by ovr
+    fromTeam.roster.sort((a, b) => getPlayerOvr(b) - getPlayerOvr(a));
+    toTeam.roster.sort((a, b) => getPlayerOvr(b) - getPlayerOvr(a));
+
+    // Recalc caps if available
+    if (typeof global.recalcCap === 'function') {
+      global.recalcCap(L, fromTeam);
+      global.recalcCap(L, toTeam);
     }
-    
-    // Calculate ratings for both teams
-    const teamARatings = {
-        offensive: window.calculateOffensiveRating ? window.calculateOffensiveRating(teamA) : 'N/A',
-        defensive: window.calculateDefensiveRating ? window.calculateDefensiveRating(teamA) : 'N/A',
-        overall: window.calculateTeamRating ? window.calculateTeamRating(teamA) : 'N/A'
+
+    // Save game if save system exists
+    if (typeof global.saveLeague === 'function') {
+      global.saveLeague();
+    }
+
+    // Give news
+    if (L.news) {
+      const fromStr = fromAssets.map(a => formatAssetString(fromTeam, a)).join(', ');
+      const toStr   = toAssets.map(a => formatAssetString(toTeam, a)).join(', ');
+      L.news.push(`${fromTeam.name} traded ${fromStr} to ${toTeam.name} for ${toStr}`);
+    }
+
+    return true;
+  }
+
+  function formatAssetString(team, asset) {
+    if (!team) return '';
+    if (asset.kind === 'player') {
+      const p = (team.roster || []).find(pl => pl.id === asset.playerId);
+      return p ? `${p.name} (${p.pos})` : 'player';
+    }
+    if (asset.kind === 'pick') {
+      return `${asset.year} R${asset.round} pick`;
+    }
+    return '';
+  }
+
+  // --- Trade block --------------------------------------------------
+
+  function ensureTradeBlock(team) {
+    if (!team.tradeBlock) {
+      team.tradeBlock = []; // array of playerId
+    }
+    return team.tradeBlock;
+  }
+
+  function addToTradeBlock(league, teamId, playerId) {
+    const team = league.teams[teamId];
+    if (!team) return false;
+    const block = ensureTradeBlock(team);
+    if (!block.includes(playerId)) block.push(playerId);
+    if (typeof global.saveLeague === 'function') global.saveLeague();
+    return true;
+  }
+
+  function removeFromTradeBlock(league, teamId, playerId) {
+    const team = league.teams[teamId];
+    if (!team || !team.tradeBlock) return false;
+    team.tradeBlock = team.tradeBlock.filter(id => id !== playerId);
+    if (typeof global.saveLeague === 'function') global.saveLeague();
+    return true;
+  }
+
+  function getTeamTradeBlock(league, teamId) {
+    const team = league.teams[teamId];
+    if (!team) return [];
+    return ensureTradeBlock(team).slice();
+  }
+
+  // --- CPU trade offers ---------------------------------------------
+
+  /**
+   * Very simple CPU trade AI:
+   * - Other teams look at your trade block.
+   * - If they "need" that position and value is close, they offer a pick or a player.
+   */
+  function generateCpuTradeOffers(league, userTeamId, maxOffers) {
+    const L = league;
+    const offers = [];
+    if (!L || !L.teams || userTeamId == null) return offers;
+
+    const userTeam = L.teams[userTeamId];
+    const leagueYear = L.year || C.GAME_CONFIG?.YEAR_START || 2025;
+
+    // Make sure trade block exists
+    const userBlock = ensureTradeBlock(userTeam);
+
+    if (!userBlock.length) return offers;
+
+    const max = maxOffers || 3;
+
+    // Precompute counts by position for each team
+    const teamPosCounts = L.teams.map(team => {
+      const counts = {};
+      (team.roster || []).forEach(p => {
+        const pos = p.pos || 'RB';
+        counts[pos] = (counts[pos] || 0) + 1;
+      });
+      return counts;
+    });
+
+    // Helper to compute if a team "needs" a pos vs DEPTH_NEEDS
+    function teamNeedsPosition(teamIndex, pos) {
+      const team = L.teams[teamIndex];
+      const counts = teamPosCounts[teamIndex];
+      const needed = (C.DEPTH_NEEDS && C.DEPTH_NEEDS[pos]) || 2;
+      const have = counts[pos] || 0;
+      return have < needed;
+    }
+
+    for (let t = 0; t < L.teams.length; t++) {
+      if (t === userTeamId) continue;
+      const cpuTeam = L.teams[t];
+
+      // small chance this team is active in trades right now
+      if (Math.random() > 0.5) continue;
+
+      // Look through user trade block players
+      for (const playerId of userBlock) {
+        const player = userTeam.roster.find(p => p.id === playerId);
+        if (!player) continue;
+
+        const pos = player.pos || 'RB';
+        if (!teamNeedsPosition(t, pos)) continue;
+
+        const playerVal = calcPlayerTradeValue(player, leagueYear);
+
+        // Option A: CPU offers a pick
+        const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
+        let cpuOfferAssets = [];
+        let userReturnAssets = [];
+
+        if (cpuOfferPick) {
+          cpuOfferAssets = [cpuOfferPick];
+          userReturnAssets = [{ kind: 'player', playerId }];
+        } else {
+          // Option B: CPU offers a player
+          const cpuOfferPlayer = pickCpuPlayerForValue(cpuTeam, playerVal, leagueYear);
+          if (!cpuOfferPlayer) continue;
+
+          cpuOfferAssets = [{ kind: 'player', playerId: cpuOfferPlayer.id }];
+          userReturnAssets = [{ kind: 'player', playerId }];
+        }
+
+        const evalResult = evaluateTrade(L, t, userTeamId, cpuOfferAssets, userReturnAssets);
+        if (!evalResult) continue;
+
+        // CPU only sends offer if it's slightly favorable or roughly even
+        const cpuDelta = evalResult.fromValue.delta; // from CPU perspective (team t)
+        if (cpuDelta < -10) {
+          // Really bad for CPU; skip
+          continue;
+        }
+
+        offers.push({
+          fromTeamId: t,
+          toTeamId: userTeamId,
+          fromAssets: cpuOfferAssets,
+          toAssets: userReturnAssets,
+          eval: evalResult
+        });
+
+        if (offers.length >= max) return offers;
+      }
+    }
+
+    return offers;
+  }
+
+  function pickCpuTradeAssetForValue(team, target, leagueYear) {
+    const picks = team.picks || [];
+    if (!picks.length) return null;
+
+    // sort picks by value closest to target
+    const valued = picks.map(p => ({
+      pick: p,
+      value: calcPickTradeValue(p, leagueYear)
+    }));
+
+    valued.sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target));
+
+    const best = valued[0];
+    if (!best) return null;
+
+    return {
+      kind: 'pick',
+      year: best.pick.year,
+      round: best.pick.round
     };
-    
-    const teamBRatings = {
-        offensive: window.calculateOffensiveRating ? window.calculateOffensiveRating(teamB) : 'N/A',
-        defensive: window.calculateDefensiveRating ? window.calculateDefensiveRating(teamB) : 'N/A',
-        overall: window.calculateTeamRating ? window.calculateTeamRating(teamB) : 'N/A'
-    };
-    
-    ratingsContainer.innerHTML = `
-        <div class="trade-ratings-grid">
-            <div class="trade-team-rating">
-                <h4>${teamA.name} Ratings</h4>
-                <div class="rating-item">
-                    <span class="rating-label">Offense:</span>
-                    <span class="rating-value ${getRatingClass(teamARatings.offensive)}">${teamARatings.offensive}</span>
-                </div>
-                <div class="rating-item">
-                    <span class="rating-label">Defense:</span>
-                    <span class="rating-value ${getRatingClass(teamARatings.defensive)}">${teamARatings.defensive}</span>
-                </div>
-                <div class="rating-item">
-                    <span class="rating-label">Overall:</span>
-                    <span class="rating-value ${getRatingClass(teamARatings.overall)}">${teamARatings.overall}</span>
-                </div>
-            </div>
-            <div class="trade-team-rating">
-                <h4>${teamB.name} Ratings</h4>
-                <div class="rating-item">
-                    <span class="rating-label">Offense:</span>
-                    <span class="rating-value ${getRatingClass(teamBRatings.offensive)}">${teamBRatings.offensive}</span>
-                </div>
-                <div class="rating-item">
-                    <span class="rating-label">Defense:</span>
-                    <span class="rating-value ${getRatingClass(teamBRatings.defensive)}">${teamBRatings.defensive}</span>
-                </div>
-                <div class="rating-item">
-                    <span class="rating-label">Overall:</span>
-                    <span class="rating-value ${getRatingClass(teamBRatings.overall)}">${teamBRatings.overall}</span>
-                </div>
-            </div>
-        </div>
-    `;
-}
+  }
 
-/**
- * Helper function to get rating CSS class
- */
-function getRatingClass(rating) {
-    if (rating === 'N/A') return '';
-    const numRating = parseInt(rating);
-    if (isNaN(numRating)) return '';
-    if (numRating >= 85) return 'rating-elite';
-    if (numRating >= 80) return 'rating-excellent';
-    if (numRating >= 75) return 'rating-good';
-    if (numRating >= 70) return 'rating-average';
-    return 'rating-below-average';
-}
+  function pickCpuPlayerForValue(team, target, leagueYear) {
+    const roster = team.roster || [];
+    if (!roster.length) return null;
 
-/**
- * Populates the team selectors in the trade interface
- * Team A is locked to user's team, only Team B can be changed
- */
-function populateTradeTeamSelectors() {
-    const L = state.league;
-    if (!L || !L.teams) return;
-    
-    const tradeA = document.getElementById('tradeA');
-    const tradeB = document.getElementById('tradeB');
-    const userTeamId = state.userTeamId || 0;
-    
-    // Team A is locked to user's team
-    if (tradeA) {
-        const userTeam = L.teams[userTeamId];
-        if (userTeam) {
-            tradeA.innerHTML = `<option value="${userTeamId}">${userTeam.name}</option>`;
-            tradeA.value = userTeamId; // Set to user's team
-        }
-    }
-    
-    // Team B can be any other team
-    if (tradeB) {
-        tradeB.innerHTML = L.teams
-            .map((team, index) => {
-                if (index === userTeamId) return null; // Skip user's team
-                return `<option value="${index}">${team.name}</option>`;
-            })
-            .filter(option => option !== null) // Remove null entries
-            .join('');
-    }
-}
+    const valued = roster.map(p => ({
+      player: p,
+      value: calcPlayerTradeValue(p, leagueYear)
+    }));
 
-/**
- * Renders the trade list for a specific team
- * @param {string} teamLetter - 'A' or 'B'
- */
-function renderTradeTeamList(teamLetter) {
-    const L = state.league;
-    if (!L || !L.teams) return;
-    
-    const teamSelect = document.getElementById(`trade${teamLetter}`);
-    const playerList = document.getElementById(`tradeList${teamLetter}`);
-    const pickList = document.getElementById(`pickList${teamLetter}`);
-    
-    if (!teamSelect || !playerList || !pickList) return;
-    
-    const teamId = parseInt(teamSelect.value);
-    const team = L.teams[teamId];
-    
-    if (!team) return;
-    
-    // Render players
-    if (team.roster && team.roster.length > 0) {
-        const sortedRoster = [...team.roster].sort((a, b) => {
-            if (a.pos !== b.pos) return a.pos.localeCompare(b.pos);
-            return (b.ovr || 0) - (a.ovr || 0);
-        });
-        
-        playerList.innerHTML = `
-            <h4>Players</h4>
-            <div class="trade-players">
-                ${sortedRoster.map(player => `
-                    <div class="trade-player" data-player-id="${player.id}">
-                        <input type="checkbox" name="trade${teamLetter}Players" value="${player.id}">
-                        <span class="player-name">${player.name}</span>
-                        <span class="player-pos">${player.pos}</span>
-                        <span class="player-ovr">${player.ovr}</span>
-                        <span class="player-age">${player.age}</span>
-                        <span class="player-contract">${player.years}yr</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else {
-        playerList.innerHTML = '<p class="muted">No players on roster</p>';
-    }
-    
-    // Render draft picks
-    if (team.picks && team.picks.length > 0) {
-        pickList.innerHTML = `
-            <h4>Draft Picks</h4>
-            <div class="trade-picks">
-                ${team.picks.map(pick => `
-                    <div class="trade-pick" data-pick-id="${pick.id}">
-                        <input type="checkbox" name="trade${teamLetter}Picks" value="${pick.id}">
-                        <span class="pick-round">${pick.round}</span>
-                        <span class="pick-year">${pick.year}</span>
-                        <span class="pick-team">${L.teams[pick.team]?.name || 'Unknown'}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else {
-        pickList.innerHTML = '<p class="muted">No draft picks available</p>';
-    }
-}
+    valued.sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target));
 
-/**
- * Sets up trade validation functionality
- */
-function setupTradeValidation() {
-    const tradeA = document.getElementById('tradeA');
-    const tradeB = document.getElementById('tradeB');
-    const validateBtn = document.getElementById('tradeValidate');
-    const executeBtn = document.getElementById('tradeExecute');
-    
-    if (tradeA) {
-        tradeA.addEventListener('change', () => {
-            renderTradeTeamList('A');
-            renderTradeTeamRatings(); // Update team ratings
-            clearTradeValidation();
-        });
-    }
-    
-    if (tradeB) {
-        tradeB.addEventListener('change', () => {
-            renderTradeTeamList('B');
-            renderTradeTeamRatings(); // Update team ratings
-            clearTradeValidation();
-        });
-    }
-    
-    if (validateBtn) {
-        validateBtn.addEventListener('click', validateTrade);
-    }
-    
-    if (executeBtn) {
-        executeBtn.addEventListener('click', executeTrade);
-    }
-}
+    const best = valued[0];
+    if (!best) return null;
+    return best.player;
+  }
 
-/**
- * Validates the current trade
- */
-function validateTrade() {
-    console.log('Validating trade...');
-    
-    try {
-        const L = state.league;
-        if (!L || !L.teams) return;
-        
-        const teamAId = parseInt(document.getElementById('tradeA')?.value || '0');
-        const teamBId = parseInt(document.getElementById('tradeB')?.value || '0');
-        const userTeamId = state.userTeamId || 0;
-        
-        // Ensure Team A is always the user's team
-        if (teamAId !== userTeamId) {
-            showTradeInfo('Team A must be your team!', 'error');
-            return;
-        }
-        
-        if (teamAId === teamBId) {
-            showTradeInfo('Cannot trade with yourself!', 'error');
-            return;
-        }
-        
-        const teamA = L.teams[teamAId];
-        const teamB = L.teams[teamBId];
-        
-        // Get selected players and picks
-        const playersA = getSelectedTradeItems('tradeAPlayers');
-        const picksA = getSelectedTradeItems('tradeAPicks');
-        const playersB = getSelectedTradeItems('tradeBPlayers');
-        const picksB = getSelectedTradeItems('tradeBPicks');
-        
-        if (playersA.length === 0 && picksA.length === 0 && 
-            playersB.length === 0 && picksB.length === 0) {
-            showTradeInfo('Please select players or picks to trade', 'warning');
-            return;
-        }
-        
-        // Calculate trade values
-        const valueA = calculateTradeValue(teamA, playersA, picksA);
-        const valueB = calculateTradeValue(teamB, playersB, picksB);
-        
-        // Evaluate trade
-        const evaluation = evaluateTrade(teamA, teamB, playersA, playersB);
-        
-        // Show trade info
-        const tradeInfo = document.getElementById('tradeInfo');
-        if (tradeInfo) {
-            tradeInfo.innerHTML = `
-                <div class="trade-evaluation">
-                    <div class="trade-values">
-                        <div>Team A Value: ${valueA.toFixed(1)}</div>
-                        <div>Team B Value: ${valueB.toFixed(1)}</div>
-                        <div>Difference: ${(valueB - valueA).toFixed(1)}</div>
-                    </div>
-                    <div class="trade-recommendation ${evaluation.recommendation.toLowerCase()}">
-                        ${evaluation.recommendation}
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Enable execute button if trade is valid
-        const executeBtn = document.getElementById('tradeExecute');
-        if (executeBtn) {
-            executeBtn.disabled = false;
-        }
-        
-        console.log('✅ Trade validated');
-        
-    } catch (error) {
-        console.error('Error validating trade:', error);
-        showTradeInfo('Error validating trade', 'error');
-    }
-}
+  // --- Expose API ---------------------------------------------------
 
-/**
- * Gets selected trade items by name
- * @param {string} name - Name attribute of checkboxes
- * @returns {Array} Array of selected values
- */
-function getSelectedTradeItems(name) {
-    const checkboxes = document.querySelectorAll(`input[name="${name}"]:checked`);
-    return Array.from(checkboxes).map(cb => cb.value);
-}
+  global.evaluateTrade = function (fromTeamId, toTeamId, fromAssets, toAssets) {
+    return evaluateTrade(global.state.league, fromTeamId, toTeamId, fromAssets, toAssets);
+  };
 
-/**
- * Calculates the total value of a trade package
- * @param {Object} team - Team object
- * @param {Array} players - Array of player IDs
- * @param {Array} picks - Array of pick IDs
- * @returns {number} Total trade value
- */
-function calculateTradeValue(team, players, picks) {
-    let totalValue = 0;
-    
-    // Add player values
-    if (team.roster) {
-        players.forEach(playerId => {
-            const player = team.roster.find(p => p.id === playerId);
-            if (player) {
-                totalValue += calculatePlayerTradeValue(player);
-            }
-        });
-    }
-    
-    // Add pick values (simplified)
-    picks.forEach(pickId => {
-        const pick = team.picks?.find(p => p.id === pickId);
-        if (pick) {
-            // Basic pick value: 1st round = 100, 2nd = 50, 3rd = 25, etc.
-            const pickValue = Math.max(10, 100 / Math.pow(2, pick.round - 1));
-            totalValue += pickValue;
-        }
-    });
-    
-    return totalValue;
-}
+  global.applyTrade = function (fromTeamId, toTeamId, fromAssets, toAssets) {
+    return applyTrade(global.state.league, fromTeamId, toTeamId, fromAssets, toAssets);
+  };
 
-/**
- * Executes the validated trade
- */
-function executeTrade() {
-    console.log('Executing trade...');
-    
-    try {
-        const L = state.league;
-        if (!L || !L.teams) return;
-        
-        const teamAId = parseInt(document.getElementById('tradeA')?.value || '0');
-        const teamBId = parseInt(document.getElementById('tradeB')?.value || '0');
-        const userTeamId = state.userTeamId || 0;
-        
-        // Ensure Team A is always the user's team
-        if (teamAId !== userTeamId) {
-            showTradeInfo('Team A must be your team!', 'error');
-            return;
-        }
-        
-        const teamA = L.teams[teamAId];
-        const teamB = L.teams[teamBId];
-        
-        // Get selected items
-        const playersA = getSelectedTradeItems('tradeAPlayers');
-        const picksA = getSelectedTradeItems('tradeAPicks');
-        const playersB = getSelectedTradeItems('tradeBPlayers');
-        const picksB = getSelectedTradeItems('tradeBPicks');
-        
-        // Execute the trade
-        executeTradeTransfer(teamA, teamB, playersA, picksA, playersB, picksB);
-        
-        // Clear selections and re-render
-        clearTradeSelections();
-        renderTradeTeamList('A');
-        renderTradeTeamList('B');
-        clearTradeValidation();
-        
-        showTradeInfo('Trade executed successfully!', 'success');
-        
-        console.log('✅ Trade executed');
-        
-    } catch (error) {
-        console.error('Error executing trade:', error);
-        showTradeInfo('Error executing trade', 'error');
-    }
-}
+  global.addToTradeBlock = function (teamId, playerId) {
+    return addToTradeBlock(global.state.league, teamId, playerId);
+  };
 
-/**
- * Executes the actual player and pick transfers
- * @param {Object} teamA - First team
- * @param {Object} teamB - Second team
- * @param {Array} playersA - Players from team A
- * @param {Array} picksA - Picks from team A
- * @param {Array} playersB - Players from team B
- * @param {Array} picksB - Picks from team B
- */
-function executeTradeTransfer(teamA, teamB, playersA, picksA, playersB, picksB) {
-    // Transfer players from A to B
-    playersA.forEach(playerId => {
-        const playerIndex = teamA.roster.findIndex(p => p.id === playerId);
-        if (playerIndex !== -1) {
-            const player = teamA.roster.splice(playerIndex, 1)[0];
-            teamB.roster.push(player);
-        }
-    });
-    
-    // Transfer players from B to A
-    playersB.forEach(playerId => {
-        const playerIndex = teamB.roster.findIndex(p => p.id === playerId);
-        if (playerIndex !== -1) {
-            const player = teamB.roster.splice(playerIndex, 1)[0];
-            teamA.roster.push(player);
-        }
-    });
-    
-    // Transfer picks (simplified - would need more complex logic for actual pick management)
-    // This is a placeholder for the actual pick transfer logic
-}
+  global.removeFromTradeBlock = function (teamId, playerId) {
+    return removeFromTradeBlock(global.state.league, teamId, playerId);
+  };
 
-/**
- * Clears trade selections
- */
-function clearTradeSelections() {
-    document.querySelectorAll('input[name^="trade"]').forEach(cb => {
-        cb.checked = false;
-    });
-}
+  global.getTeamTradeBlock = function (teamId) {
+    return getTeamTradeBlock(global.state.league, teamId);
+  };
 
-/**
- * Clears trade validation display
- */
-function clearTradeValidation() {
-    const tradeInfo = document.getElementById('tradeInfo');
-    if (tradeInfo) tradeInfo.innerHTML = '';
-    
-    const executeBtn = document.getElementById('tradeExecute');
-    if (executeBtn) executeBtn.disabled = true;
-}
+  global.generateCpuTradeOffers = function (userTeamId, maxOffers) {
+    return generateCpuTradeOffers(global.state.league, userTeamId, maxOffers);
+  };
 
-/**
- * Shows trade information message
- * @param {string} message - Message to display
- * @param {string} type - Message type (success, error, warning)
- */
-function showTradeInfo(message, type = 'info') {
-    const tradeInfo = document.getElementById('tradeInfo');
-    if (tradeInfo) {
-        tradeInfo.innerHTML = `<div class="trade-message ${type}">${message}</div>`;
-    }
-}
+  console.log('✅ Trade system loaded');
 
-// Export functions for use
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        calculatePlayerTradeValue,
-        calculateTeamNeeds,
-        getTopTeamNeeds,
-        evaluateTrade,
-        renderTradeCenter,
-        TRADE_CONFIG,
-        DEFAULT_DEPTH_NEEDS
-    };
-}
-
-// Make functions globally available
-window.renderTradeCenter = renderTradeCenter;
-window.validateTrade = validateTrade;
-window.executeTrade = executeTrade;
+})(window);
