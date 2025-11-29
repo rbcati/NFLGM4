@@ -777,6 +777,42 @@ if (document.readyState === 'loading') {
   setTimeout(initializeUI, 100);
 }
 
+// … existing imports and code …
+
+// Add CSS rules to enhancedCSS in ui.js:
+.asset-item {
+  background: var(--surface);
+  padding: 4px 6px;
+  margin: 2px 0;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 0.875rem;
+}
+.asset-item.selected {
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/**
+ * Renders the full trade center: lets users pick players/picks, validates trades,
+ * and executes them via the trade engine.
+ */
+window.renderTradeCenter = function() {
+  const L = window.state?.league;
+  const userTeamId = window.state.userTeamId;
+  // locate all DOM elements (tradeA, tradeB, lists, buttons, info div)
+  // populate tradeA with user's team and disable it; populate tradeB with other teams
+  // maintain sets for selected players/picks on each side
+  // define renderTeamLists() to display players and picks for both teams, toggling the
+  // .selected class on click to mark selection
+  // define validateBtn.onclick to build userAssets/cpuAssets using assetPlayer() and
+  // assetPick(), call evaluateTrade() and display the results; enable executeBtn only
+  // when CPU's delta >= –15
+  // define executeBtn.onclick to call proposeUserTrade(); if accepted, show success
+  // message and re-render lists; otherwise show rejection
+};
+
+
 // --- GLOBAL EXPORTS ---
 window.enhanceNavigation = enhanceNavigation;
 window.setupRosterEvents = setupRosterEvents;
