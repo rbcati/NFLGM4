@@ -35,7 +35,13 @@ const enhancedCSS = `
   color: var(--on-accent, #fff);
 }
 `;
-
+// inside window.router switch:
+case 'trade-proposals':
+  window.show('tradeProposals');   // the view wrapper
+  if (window.renderTradeProposals) {
+    window.renderTradeProposals();
+  }
+  break;
 /* Your original existing styles */
 .user-team{background:rgba(10,132,255,.1)!important;border-left:3px solid var(--accent)!important}.standings-table .user-team td{color:var(--text)!important;font-weight:600!important}.conference{margin-bottom:2rem}.conference h3{color:var(--text);margin-bottom:1rem;font-size:1.25rem}.divisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}.division{background:var(--surface);border-radius:var(--radius-lg);padding:1rem;border:1px solid var(--hairline)}.division h4{color:var(--text-muted);margin-bottom:.5rem;font-size:.875rem;text-transform:uppercase;letter-spacing:.5px}.standings-table{margin:0;font-size:.875rem}.standings-table td{padding:.5rem}.result-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem;background:var(--surface);border-radius:var(--radius-md);margin-bottom:.25rem;font-size:.875rem}.result-item .teams{color:var(--text)}.result-item .winner{color:var(--accent);font-weight:600}.abilities{font-size:.75rem;color:var(--text-subtle);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media (max-width:768px){.divisions{grid-template-columns:1fr}.standings-table{font-size:.75rem}.standings-table th,.standings-table td{padding:.25rem}}
 `;
