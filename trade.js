@@ -5,6 +5,14 @@
   const C = global.Constants || {};
   const U = global.Utils || {};
 
+  // Ensure global state / league exist
+  global.state = global.state || {};
+  global.state.league = global.state.league || {
+    year: 2025,
+    teams: global.state.league?.teams || [],
+    news: global.state.league?.news || []
+  };
+
   /**
    * Trade asset format:
    * { kind: 'player', playerId: 'abc123' }
@@ -41,11 +49,9 @@
 
   // --- Value functions ----------------------------------------------
 
-  // Basic overall from ratings if needed
   function getPlayerOvr(player) {
     if (typeof player.ovr === 'number') return player.ovr;
     if (!player.ratings) return 60;
-    // crude fallback: average all rating numbers
     const values = Object.values(player.ratings).filter(v => typeof v === 'number');
     if (!values.length) return 60;
     return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
@@ -54,7 +60,7 @@
   function getPlayerAge(player, leagueYear) {
     if (typeof player.age === 'number') return player.age;
     if (player.year && typeof leagueYear === 'number') {
-      return Math.max(21, leagueYear - player.year + 22); // hand-wavey fallback
+      return Math.max(21, leagueYear - player.year + 22);
     }
     return 25;
   }
@@ -65,14 +71,10 @@
   }
 
   function getContractFactor(player) {
-    // Favors cheap, long-term players; penalizes older, expensive ones
     const salary = player.baseAnnual || player.salary || 1;
     const yearsLeft = player.years || player.yearsRemaining || 1;
-
-    // Cheap, multi-year deals are more valuable
-    const costFactor = 1 / Math.max(0.5, salary / 5); // assume 5 = "starter money"
-    const termFactor = 0.8 + Math.min(3, yearsLeft) * 0.1; // 0.8 – 1.1 or so
-
+    const costFactor = 1 / Math.max(0.5, salary / 5);
+    const termFactor = 0.8 + Math.min(3, yearsLeft) * 0.1;
     return costFactor * termFactor;
   }
 
@@ -85,7 +87,6 @@
 
     let base = ovr * getPositionMultiplier(pos);
 
-    // Age curve – prime ~24–28
     if (age < 23) base *= 0.9;
     else if (age >= 23 && age <= 28) base *= 1.05;
     else if (age > 30) base *= 0.8;
@@ -96,16 +97,13 @@
   }
 
   function calcPickTradeValue(pick, leagueYear) {
-    // If you already have a pickValue function from draft.js, re-use it:
     if (typeof global.pickValue === 'function') {
       return global.pickValue(pick);
     }
 
-    // Fallback: use Constants.TRADE_VALUES if present
     if (C.TRADE_VALUES && C.TRADE_VALUES.PICKS) {
       const roundMap = C.TRADE_VALUES.PICKS[pick.round];
       if (roundMap) {
-        // use mid slot if slot not known
         const slotValues = Object.values(roundMap);
         const avg = slotValues.reduce((a, b) => a + b, 0) / slotValues.length;
         const yearsOut = (pick.year || leagueYear) - (leagueYear || 2025);
@@ -114,7 +112,6 @@
       }
     }
 
-    // Simple fallback
     const baseValues = { 1: 25, 2: 15, 3: 8, 4: 5, 5: 3, 6: 2, 7: 1 };
     const base = baseValues[pick.round] || 1;
     const yearsOut = (pick.year || leagueYear) - (leagueYear || 2025);
@@ -143,10 +140,6 @@
 
   // --- Trade evaluation & execution --------------------------------
 
-  /**
-   * Evaluate trade fairness from each side's perspective.
-   * Returns { fromValue, toValue, deltaFrom, deltaTo }
-   */
   function evaluateTrade(league, fromTeamId, toTeamId, fromAssets, toAssets) {
     const L = league;
     const leagueYear = L.year || C.GAME_CONFIG?.YEAR_START || 2025;
@@ -157,12 +150,13 @@
       return null;
     }
 
+    // fromTeam: giving fromAssets, getting toAssets
     const fromGive = calcAssetsValue(fromTeam, fromAssets, leagueYear);
-const fromGet  = calcAssetsValue(toTeam,   toAssets,   leagueYear);
+    const fromGet  = calcAssetsValue(toTeam,   toAssets,   leagueYear);
 
-const toGive   = calcAssetsValue(toTeam,   toAssets,   leagueYear);
-const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
-m, fromAssets, leagueYear);
+    // toTeam: giving toAssets, getting fromAssets
+    const toGive   = calcAssetsValue(toTeam,   toAssets,   leagueYear);
+    const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
 
     return {
       fromValue: { give: fromGive, get: fromGet, delta: fromGet - fromGive },
@@ -170,9 +164,6 @@ m, fromAssets, leagueYear);
     };
   }
 
-  /**
-   * Apply a trade if valid. Returns true/false.
-   */
   function applyTrade(league, fromTeamId, toTeamId, fromAssets, toAssets) {
     const L = league;
     const fromTeam = L.teams[fromTeamId];
@@ -180,13 +171,11 @@ m, fromAssets, leagueYear);
 
     if (!fromTeam || !toTeam) return false;
 
-    // Phase 1 – collect assets to move
     const fromPlayers = [];
     const fromPicks   = [];
     const toPlayers   = [];
     const toPicks     = [];
 
-    // Remove from "fromTeam"
     fromAssets.forEach(a => {
       if (a.kind === 'player') {
         const p = removePlayerFromTeam(fromTeam, a.playerId);
@@ -197,7 +186,6 @@ m, fromAssets, leagueYear);
       }
     });
 
-    // Remove from "toTeam"
     toAssets.forEach(a => {
       if (a.kind === 'player') {
         const p = removePlayerFromTeam(toTeam, a.playerId);
@@ -208,7 +196,6 @@ m, fromAssets, leagueYear);
       }
     });
 
-    // Phase 2 – add to opposite teams
     fromPlayers.forEach(p => toTeam.roster.push(p));
     toPlayers.forEach(p   => fromTeam.roster.push(p));
 
@@ -222,22 +209,18 @@ m, fromAssets, leagueYear);
       fromTeam.picks.push(pk);
     });
 
-    // Optional: sort rosters by ovr
     fromTeam.roster.sort((a, b) => getPlayerOvr(b) - getPlayerOvr(a));
     toTeam.roster.sort((a, b) => getPlayerOvr(b) - getPlayerOvr(a));
 
-    // Recalc caps if available
     if (typeof global.recalcCap === 'function') {
       global.recalcCap(L, fromTeam);
       global.recalcCap(L, toTeam);
     }
 
-    // Save game if save system exists
     if (typeof global.saveLeague === 'function') {
       global.saveLeague();
     }
 
-    // Give news
     if (L.news) {
       const fromStr = fromAssets.map(a => formatAssetString(fromTeam, a)).join(', ');
       const toStr   = toAssets.map(a => formatAssetString(toTeam, a)).join(', ');
@@ -293,11 +276,6 @@ m, fromAssets, leagueYear);
 
   // --- CPU trade offers ---------------------------------------------
 
-  /**
-   * Very simple CPU trade AI:
-   * - Other teams look at your trade block.
-   * - If they "need" that position and value is close, they offer a pick or a player.
-   */
   function generateCpuTradeOffers(league, userTeamId, maxOffers) {
     const L = league;
     const offers = [];
@@ -306,14 +284,11 @@ m, fromAssets, leagueYear);
     const userTeam = L.teams[userTeamId];
     const leagueYear = L.year || C.GAME_CONFIG?.YEAR_START || 2025;
 
-    // Make sure trade block exists
     const userBlock = ensureTradeBlock(userTeam);
-
     if (!userBlock.length) return offers;
 
     const max = maxOffers || 3;
 
-    // Precompute counts by position for each team
     const teamPosCounts = L.teams.map(team => {
       const counts = {};
       (team.roster || []).forEach(p => {
@@ -323,9 +298,7 @@ m, fromAssets, leagueYear);
       return counts;
     });
 
-    // Helper to compute if a team "needs" a pos vs DEPTH_NEEDS
     function teamNeedsPosition(teamIndex, pos) {
-      const team = L.teams[teamIndex];
       const counts = teamPosCounts[teamIndex];
       const needed = (C.DEPTH_NEEDS && C.DEPTH_NEEDS[pos]) || 2;
       const have = counts[pos] || 0;
@@ -336,10 +309,9 @@ m, fromAssets, leagueYear);
       if (t === userTeamId) continue;
       const cpuTeam = L.teams[t];
 
-      // small chance this team is active in trades right now
-      if (Math.random() > 0.5) continue;
+      // Loosened: 80% chance this team is active instead of 50%
+      if (Math.random() > 0.8) continue;
 
-      // Look through user trade block players
       for (const playerId of userBlock) {
         const player = userTeam.roster.find(p => p.id === playerId);
         if (!player) continue;
@@ -349,30 +321,26 @@ m, fromAssets, leagueYear);
 
         const playerVal = calcPlayerTradeValue(player, leagueYear);
 
-        // Option A: CPU offers a pick
-        const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
         let cpuOfferAssets = [];
-        let userReturnAssets = [];
+        let userReturnAssets = [{ kind: 'player', playerId }];
+
+        const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
 
         if (cpuOfferPick) {
           cpuOfferAssets = [cpuOfferPick];
-          userReturnAssets = [{ kind: 'player', playerId }];
         } else {
-          // Option B: CPU offers a player
           const cpuOfferPlayer = pickCpuPlayerForValue(cpuTeam, playerVal, leagueYear);
           if (!cpuOfferPlayer) continue;
-
           cpuOfferAssets = [{ kind: 'player', playerId: cpuOfferPlayer.id }];
-          userReturnAssets = [{ kind: 'player', playerId }];
         }
 
         const evalResult = evaluateTrade(L, t, userTeamId, cpuOfferAssets, userReturnAssets);
         if (!evalResult) continue;
 
-        // CPU only sends offer if it's slightly favorable or roughly even
-        const cpuDelta = evalResult.fromValue.delta; // from CPU perspective (team t)
-        if (cpuDelta < -10) {
-          // Really bad for CPU; skip
+        const cpuDelta = evalResult.fromValue.delta; // CPU perspective (team t)
+
+        // Looser threshold so CPU will offer more often
+        if (cpuDelta < -20) {
           continue;
         }
 
@@ -395,7 +363,6 @@ m, fromAssets, leagueYear);
     const picks = team.picks || [];
     if (!picks.length) return null;
 
-    // sort picks by value closest to target
     const valued = picks.map(p => ({
       pick: p,
       value: calcPickTradeValue(p, leagueYear)
@@ -414,7 +381,8 @@ m, fromAssets, leagueYear);
   }
 
   function pickCpuPlayerForValue(team, target, leagueYear) {
-    const roster = team.roster || [];
+    // Optional filter: skip untouchables if you use that flag
+    const roster = (team.roster || []).filter(p => !p.untouchable);
     if (!roster.length) return null;
 
     const valued = roster.map(p => ({
