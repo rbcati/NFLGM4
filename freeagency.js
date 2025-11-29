@@ -332,13 +332,24 @@ function signFreeAgent(playerIndex) {
       return;
     }
     
-    const teamSelect = document.getElementById('faTeam') || document.getElementById('userTeam');
-    const teamId = parseInt(teamSelect?.value || '0', 10);
-    const team = L.teams[teamId];
-    
-    if (!team) {
-      window.setStatus('Invalid team selected');
-      return;
+    // Set up team selector: LOCK TO USER TEAM ONLY
+const sel = document.getElementById('faTeam');
+if (sel) {
+  const userTeamId = window.state?.userTeamId ?? 0;
+  const userTeam = L.teams[userTeamId];
+
+  sel.innerHTML = '';
+  if (userTeam) {
+    const opt = document.createElement('option');
+    opt.value = String(userTeamId);
+    opt.textContent = userTeam.name || 'Your Team';
+    sel.appendChild(opt);
+    sel.value = String(userTeamId);
+  }
+  // User can’t change this; FA is user-team only
+  sel.disabled = true;
+  sel.dataset.filled = '1';
+}
     }
     
     const player = window.state.freeAgents[idx];
