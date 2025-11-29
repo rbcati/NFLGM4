@@ -158,10 +158,11 @@
     }
 
     const fromGive = calcAssetsValue(fromTeam, fromAssets, leagueYear);
-    const fromGet  = calcAssetsValue(toTeam, toAssets, leagueYear);
+const fromGet  = calcAssetsValue(toTeam,   toAssets,   leagueYear);
 
-    const toGive   = calcAssetsValue(toTeam, toAssets, leagueYear);
-    const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
+const toGive   = calcAssetsValue(toTeam,   toAssets,   leagueYear);
+const toGet    = calcAssetsValue(fromTeam, fromAssets, leagueYear);
+m, fromAssets, leagueYear);
 
     return {
       fromValue: { give: fromGive, get: fromGet, delta: fromGet - fromGive },
