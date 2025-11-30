@@ -18,10 +18,7 @@ const enhancedCSS = `
     background-color: #2a2a2e;
 }
 
-/* Your original existing styles */
-.user-team{background:rgba(10,132,255,.1)!important;border-left:3px solid var(--accent)!important}.standings-table .user-team td{color:var(--text)!important;font-weight:600!important}.conference{margin-bottom:2rem}.conference h3{color:var(--text);margin-bottom:1rem;font-size:1.25rem}.divisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}.division{background:var(--surface);border-radius:var(--radius-lg);padding:1rem;border:1px solid var(--hairline)}.division h4{color:var(--text-muted);margin-bottom:.5rem;font-size:.875rem;text-transform:uppercase;letter-spacing:.5px}.standings-table{margin:0;font-size:.875rem}.standings-table td{padding:.5rem}.result-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem;background:var(--surface);border-radius:var(--radius-md);margin-bottom:.25rem;font-size:.875rem}.result-item .teams{color:var(--text)}.result-item .winner{color:var(--accent);font-weight:600}.abilities{font-size:.75rem;color:var(--text-subtle);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media (max-width:768px){.divisions{grid-template-columns:1fr}.standings-table{font-size:.75rem}.standings-table th,.standings-table td{padding:.25rem}}
-
-/* Trade center asset styles */
+/* 🏆 ENHANCED: Trade center asset selection for visual clarity */
 .asset-item {
   background: var(--surface);
   padding: 4px 6px;
@@ -29,15 +26,63 @@ const enhancedCSS = `
   cursor: pointer;
   border-radius: 4px;
   font-size: 0.875rem;
+  /* Added transitions for smoother feedback */
+  transition: background-color 0.15s ease-in-out, transform 0.1s ease-out, box-shadow 0.15s ease-in-out; 
+}
+.asset-item:hover {
+    background-color: color-mix(in srgb, var(--surface) 80%, var(--accent));
+    transform: translateY(-1px);
 }
 .asset-item.selected {
   background-color: var(--accent);
   color: var(--on-accent, #fff);
+  font-weight: 600;
+  transform: scale(1.02); /* Slight scale to pop out */
+  box-shadow: 0 0 8px rgba(10, 132, 255, 0.5); /* Subtle glowing border effect */
 }
-`;
 
-/* Your original existing styles */
-.user-team{background:rgba(10,132,255,.1)!important;border-left:3px solid var(--accent)!important}.standings-table .user-team td{color:var(--text)!important;font-weight:600!important}.conference{margin-bottom:2rem}.conference h3{color:var(--text);margin-bottom:1rem;font-size:1.25rem}.divisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}.division{background:var(--surface);border-radius:var(--radius-lg);padding:1rem;border:1px solid var(--hairline)}.division h4{color:var(--text-muted);margin-bottom:.5rem;font-size:.875rem;text-transform:uppercase;letter-spacing:.5px}.standings-table{margin:0;font-size:.875rem}.standings-table td{padding:.5rem}.result-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem;background:var(--surface);border-radius:var(--radius-md);margin-bottom:.25rem;font-size:.875rem}.result-item .teams{color:var(--text)}.result-item .winner{color:var(--accent);font-weight:600}.abilities{font-size:.75rem;color:var(--text-subtle);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media (max-width:768px){.divisions{grid-template-columns:1fr}.standings-table{font-size:.75rem}.standings-table th,.standings-table td{padding:.25rem}}
+/* 🏆 ENHANCED: Standings readability and hierarchy */
+.user-team{
+    /* Use color-mix for high contrast but still readable */
+    background: color-mix(in srgb, var(--accent) 15%, var(--surface-secondary, #1e1e1e)) !important; 
+    border-left:5px solid var(--accent)!important; /* Thicker border */
+}
+.standings-table .user-team td{color:var(--text)!important;font-weight:600!important}
+.conference{margin-bottom:2rem}
+.conference h3{color:var(--text);margin-bottom:1rem;font-size:1.25rem}
+.divisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}
+.division{
+    /* Use a slightly darker surface for clear separation */
+    background: var(--surface-secondary, #1e1e1e); 
+    border-radius:var(--radius-lg);
+    padding:1rem;
+    border:1px solid var(--hairline);
+}
+.division h4{color:var(--text-muted);margin-bottom:.5rem;font-size:.875rem;text-transform:uppercase;letter-spacing:.5px}
+.standings-table{margin:0;font-size:.875rem}
+.standings-table td{padding:.5rem}
+.result-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem;background:var(--surface);border-radius:var(--radius-md);margin-bottom:.25rem;font-size:.875rem}
+.result-item .teams{color:var(--text)}.result-item .winner{color:var(--accent);font-weight:600}
+
+/* 🏆 ENHANCED: Roster table clarity */
+#rosterTable tr:hover {
+    background-color: color-mix(in srgb, var(--surface) 95%, var(--accent) 5%);
+}
+#rosterTable td:nth-child(2) { 
+    color: var(--accent-light, #3da8ff);
+    text-decoration: none; /* Remove underline */
+}
+.abilities{
+    font-size:.75rem;
+    color:var(--text-subtle);
+    max-width:150px; /* Slightly wider */
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-style: italic; /* Secondary info emphasis */
+}
+
+@media (max-width:768px){.divisions{grid-template-columns:1fr}.standings-table{font-size:.75rem}.standings-table th,.standings-table td{padding:.25rem}}
 `;
 const styleElement = document.createElement('style');
 styleElement.textContent = enhancedCSS;
@@ -71,42 +116,7 @@ window.show = function(viewId) {
  * @param {HTMLSelectElement} selectElement - The select element to populate
  * @param {string} mode - 'fictional' or 'real' team names
  */
-window.fillTeamSelect = function(selectElement, mode = 'fictional') {
-    if (!selectElement) return;
-    
-    try {
-        const L = window.state?.league;
-        if (!L || !L.teams) {
-            console.error('No league data available for team selection');
-            return;
-        }
-        
-        // Clear existing options
-        selectElement.innerHTML = '';
-        
-        // Add teams
-        L.teams.forEach((team, index) => {
-            const option = document.createElement('option');
-            option.value = index;
-            option.textContent = team.name;
-            selectElement.appendChild(option);
-        });
-        
-        // Set default selection if user team is available
-        if (window.state?.userTeamId !== undefined && window.state.userTeamId < L.teams.length) {
-            selectElement.value = window.state.userTeamId;
-        }
-        
-        console.log(`✅ Team select populated with ${L.teams.length} teams`);
-        
-    } catch (error) {
-        console.error('Error filling team select:', error);
-    }
-};
-
-// --- ENHANCED HELPER FUNCTIONS ---
-// Note: listByMode is defined in teams.js, don't override it here
-
+// 🏆 ENHANCED: Refactored fillTeamSelect for better error handling and team abbreviation display
 window.fillTeamSelect = function(selectElement, mode = 'fictional') {
     try {
         if (!selectElement) {
@@ -114,8 +124,25 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
             return false;
         }
         
+        // Ensure listByMode is available (assuming it's loaded elsewhere in your code)
         if (!window.listByMode) {
             console.error('fillTeamSelect: listByMode function not available');
+            // Fallback for immediate testing if window.state is defined
+            if (window.state?.league?.teams) {
+                const L = window.state.league;
+                selectElement.innerHTML = '';
+                L.teams.forEach((team, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = team.name;
+                    selectElement.appendChild(option);
+                });
+                if (window.state?.userTeamId !== undefined && window.state.userTeamId < L.teams.length) {
+                    selectElement.value = window.state.userTeamId;
+                }
+                console.log(`✅ Fallback team select populated with ${L.teams.length} teams`);
+                return true;
+            }
             return false;
         }
         
@@ -128,11 +155,12 @@ window.fillTeamSelect = function(selectElement, mode = 'fictional') {
         // Clear existing options
         selectElement.innerHTML = '';
         
-        // Add team options
+        // Add team options with abbreviation
         teams.forEach((team, index) => {
             const option = document.createElement('option');
             option.value = String(index);
-            option.textContent = `${team.abbr} — ${team.name}`;
+            // Display both abbreviation and name for better clarity
+            option.textContent = `${team.abbr || team.name.substring(0, 3).toUpperCase()} — ${team.name}`; 
             selectElement.appendChild(option);
         });
         
@@ -199,6 +227,7 @@ window.renderRoster = function() {
         }
         
         const teamSelect = document.getElementById('rosterTeam');
+        // Ensure team select is filled only once
         if (teamSelect && !teamSelect.dataset.filled && window.fillTeamSelect) {
             window.fillTeamSelect(teamSelect);
             teamSelect.dataset.filled = '1';
@@ -272,8 +301,7 @@ window.renderRoster = function() {
             // Player info
             const nameCell = tr.insertCell();
             nameCell.textContent = player.name || 'Unknown';
-            nameCell.style.color = '#007bff';
-            nameCell.style.textDecoration = 'underline';
+            // nameCell.style.color and text-decoration removed, handled by CSS fix
             
             tr.insertCell().textContent = player.pos || 'N/A';
             tr.insertCell().textContent = player.age || 'N/A';
@@ -285,6 +313,7 @@ window.renderRoster = function() {
             tr.insertCell().textContent = `${years}yr / $${baseAnnual.toFixed(1)}M`;
             
             // Cap hit
+            // Assuming window.capHitFor is defined elsewhere for full calculation
             const capHit = window.capHitFor ? window.capHitFor(player, 0) : baseAnnual;
             tr.insertCell().textContent = `$${capHit.toFixed(1)}M`;
             
@@ -296,13 +325,17 @@ window.renderRoster = function() {
             
             // Add click handler for player details
             tr.addEventListener('click', (e) => {
+                // Ensure clicking the checkbox doesn't trigger details
                 if (!e.target.matches('input[type="checkbox"]')) {
                     showPlayerDetails(player);
                 }
             });
         });
         
-        setupRosterEvents();
+        // Assuming these functions are defined elsewhere or not strictly needed for this file's logic
+        if (typeof setupRosterEvents === 'function') {
+            setupRosterEvents();
+        }
         console.log('✅ Roster rendered successfully');
         
     } catch (error) {
@@ -317,28 +350,42 @@ window.renderRoster = function() {
 function showPlayerDetails(player) {
     const modal = document.createElement('div');
     modal.className = 'modal';
+    // 🏆 ENHANCED: Added a ratings grid for better display of specific stats
     modal.innerHTML = `
         <div class="modal-content">
             <div class="modal-header">
-                <h2>${player.name || 'Unknown Player'}</h2>
+                <h2>${player.name || 'Unknown Player'} <span class="muted-tag">${player.pos || 'N/A'} (OVR ${player.ovr || 'N/A'})</span></h2>
                 <span class="close">&times;</span>
             </div>
             <div class="modal-body">
-                <div class="player-info">
+                <div class="player-info grid two">
                     <div class="player-basic">
-                        <p><strong>Position:</strong> ${player.pos || 'N/A'}</p>
+                        <h4>Basic Info</h4>
                         <p><strong>Age:</strong> ${player.age || 'N/A'}</p>
-                        <p><strong>Overall:</strong> ${player.ovr || 'N/A'}</p>
                         <p><strong>Contract:</strong> ${player.years || 0} years, $${(player.baseAnnual || 0).toFixed(1)}M/year</p>
+                        <p><strong>Cap Hit (Current):</strong> $${(window.capHitFor ? window.capHitFor(player, 0) : player.baseAnnual || 0).toFixed(1)}M</p>
                     </div>
-                    ${player.abilities && player.abilities.length > 0 ? `
-                        <div class="player-abilities">
-                            <h4>Abilities</h4>
-                            <p>${player.abilities.join(', ')}</p>
+                    ${player.ratings ? `
+                        <div class="player-ratings">
+                            <h4>Ratings Breakdown</h4>
+                            <div class="ratings-grid">
+                            ${Object.entries(player.ratings).map(([rating, value]) => `
+                                <div class="rating-item">
+                                    <span class="rating-name">${rating.toUpperCase()}:</span>
+                                    <span class="rating-value">${value}</span>
+                                </div>
+                            `).join('')}
+                            </div>
                         </div>
                     ` : ''}
                 </div>
-                <div class="player-actions">
+                ${player.abilities && player.abilities.length > 0 ? `
+                    <div class="player-abilities mt">
+                        <h4>Abilities/Traits</h4>
+                        <p class="trait-list">${player.abilities.join(', ')}</p>
+                    </div>
+                ` : ''}
+                <div class="player-actions mt">
                     <button class="btn primary" onclick="window.viewPlayerStats('${player.id}')">View Stats</button>
                     <button class="btn secondary" onclick="window.editPlayer('${player.id}')">Edit Player</button>
                 </div>
@@ -346,21 +393,59 @@ function showPlayerDetails(player) {
         </div>
     `;
     
+    // Add temporary modal styles for the enhanced content
+    const tempModalStyles = document.createElement('style');
+    tempModalStyles.textContent = `
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1000;
+        }
+        .modal-content {
+            background: var(--background, #111111); padding: 20px; border-radius: 12px; width: 90%; max-width: 700px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+        }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-header h2 { margin: 0; color: var(--text); font-size: 1.5rem; }
+        .modal-header .muted-tag { font-size: 0.9rem; color: var(--text-muted); font-weight: 400; margin-left: 10px; }
+        .close { cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
+        .player-info { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .player-basic p { margin: 5px 0; font-size: 0.95rem; }
+        .player-ratings h4, .player-abilities h4 { color: var(--accent); margin-top: 0; margin-bottom: 10px; }
+        .ratings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 15px; font-size: 0.9rem; }
+        .rating-item { display: flex; justify-content: space-between; }
+        .rating-value { font-weight: 600; color: var(--text); }
+        .trait-list { font-style: italic; color: var(--text); }
+        .mt { margin-top: 20px; }
+        .player-actions button { margin-right: 10px; padding: 8px 15px; border: none; border-radius: 6px; cursor: pointer; }
+        .player-actions .primary { background: var(--accent); color: var(--on-accent, #fff); }
+        .player-actions .secondary { background: var(--surface-secondary, #333); color: var(--text); }
+        @media (max-width: 600px) { .player-info { grid-template-columns: 1fr; } }
+    `;
+    document.head.appendChild(tempModalStyles);
+
     document.body.appendChild(modal);
     
     // Close modal functionality
     const closeBtn = modal.querySelector('.close');
-    closeBtn.onclick = () => modal.remove();
-    
-    modal.onclick = (e) => {
-        if (e.target === modal) modal.remove();
+    closeBtn.onclick = () => {
+        modal.remove();
+        tempModalStyles.remove();
     };
     
-    modal.style.display = 'block';
+    modal.onclick = (e) => {
+        if (e.target === modal) {
+            modal.remove();
+            tempModalStyles.remove();
+        }
+    };
+    
+    modal.style.display = 'flex'; // Use flex to center
 }
 
+// window.renderStandings remains the same structure
 window.renderStandings = function() {
-    // ... This is the full renderStandings function you provided ...
+    // ... This is where the renderStandings function goes ...
+    // Placeholder to keep context
+    console.log('Rendering Standings...'); 
+    // This function needs the full logic from your game files.
 };
 
 window.renderHub = function() {
@@ -386,7 +471,7 @@ window.renderHub = function() {
         // Render power rankings
         renderPowerRankings();
         
-        // Render team ratings overview
+        // Render team ratings overview (assuming renderLeagueTeamRatings exists)
         if (window.renderLeagueTeamRatings) {
             window.renderLeagueTeamRatings(L, 'leagueTeamRatings');
         }
@@ -443,12 +528,13 @@ function renderPowerRankings() {
             }
         }
         
-        const powerScore = (winPct * 100) + (pointDiff * 0.1) + teamRating;
+        // Simplified power score calculation
+        const powerScore = (winPct * 100) + (pointDiff * 0.1) + teamRating; 
         
         return {
             ...team,
             powerScore,
-            record: { wins, losses, ties, pointsFor, pointsAgainst }
+            record: { w: wins, l: losses, t: ties, pf: pointsFor, pa: pointsAgainst } // Re-include full record
         };
     });
     
@@ -462,6 +548,7 @@ function renderPowerRankings() {
         const pointDiff = record.pf - record.pa;
         const pointDiffStr = pointDiff >= 0 ? `+${pointDiff}` : pointDiff.toString();
         
+        // 🏆 ENHANCED: Use the 'user-team' class we fixed in CSS
         return `
             <li class="power-ranking-item ${team.id === window.state?.userTeamId ? 'user-team' : ''}">
                 <span class="rank">${index + 1}</span>
@@ -482,7 +569,8 @@ function renderLastWeekResults() {
     
     // Find last week's results from the resultsByWeek storage
     const lastWeek = Math.max(1, (L.week || 1) - 1);
-    const lastWeekResults = L.resultsByWeek?.[lastWeek - 1] || [];
+    // Note: Assuming L.resultsByWeek is an array indexed by week (0-indexed for Week 1)
+    const lastWeekResults = L.resultsByWeek?.[lastWeek - 1] || []; 
     
     if (lastWeekResults.length === 0) {
         resultsContainer.innerHTML = '<div class="muted">No games played yet</div>';
@@ -530,33 +618,36 @@ window.renderTrade = function() {
         const tradeContainer = document.getElementById('trade');
         if (!tradeContainer) return;
         
-        // Check if trade system is available
-        if (window.renderTradeCenter) {
+        // Check if trade system is available (will use the full renderTradeCenter below if the DOM elements exist)
+        if (window.renderTradeCenter && document.getElementById('tradeValidate')) {
             window.renderTradeCenter();
             return;
         }
         
-        // Fallback trade interface
+        // Fallback trade interface if no DOM structure or engine function is found
         tradeContainer.innerHTML = `
             <div class="card">
                 <h2>Trade Center</h2>
-                <div class="muted">Trade system not fully implemented yet.</div>
+                <div class="muted">Trade system not fully implemented yet or required DOM elements are missing.</div>
                 <div class="actions mt">
                     <button class="btn primary" onclick="alert('Trade system coming soon!')">Make Trade</button>
                 </div>
             </div>
         `;
         
-        console.log('✅ Trade center rendered successfully');
+        console.log('✅ Trade center rendered successfully (Fallback)');
         
     } catch (error) {
         console.error('Error rendering trade center:', error);
     }
 };
 
-// --- ROUTING & EVENT HANDLING ---
+// window.router remains the same structure
 window.router = function() {
-    // ... This is the full router function you provided ...
+    // ... This is where the router function goes ...
+    // Placeholder to keep context
+    console.log('Running router...'); 
+    // This function needs the full logic from your game files.
 };
 window.renderSettings = function() {
     console.log('Rendering settings...');
@@ -611,13 +702,12 @@ window.handleTeamSelectionChange = function() {
     const teamSelect = document.getElementById('rosterTeam');
     if (teamSelect) {
         const selectedTeamId = parseInt(teamSelect.value);
-        console.log('Selected team ID:', selectedTeamId);
-        console.log('Current state:', window.state);
-        console.log('League teams:', window.state?.league?.teams?.length);
         
         if (!isNaN(selectedTeamId) && window.state?.league?.teams) {
-            window.state.userTeamId = selectedTeamId;
-            console.log('Updated userTeamId to:', selectedTeamId);
+            // Update the userTeamId temporarily for rendering purposes
+            // Note: If you want this change to persist across views, you should handle state management globally.
+            window.state.userTeamId = selectedTeamId; 
+            
             if (window.renderRoster) {
                 console.log('Calling renderRoster...');
                 window.renderRoster();
@@ -661,24 +751,36 @@ window.renderScouting = function() {
         console.error('Error rendering scouting:', error);
     }
 };
+
+// 🏆 NOTE: enhanceNavigation, setupRosterEvents, updateReleaseButton are assumed to be defined elsewhere
 function enhanceNavigation() {
-    // ... This is the full enhanceNavigation function you provided ...
+    // ... Function body for navigation enhancement ...
+    console.log('Navigation enhancement called.');
 }
 
 function setupRosterEvents() {
-    // ... This is the full setupRosterEvents function you provided ...
+    // ... Function body for roster events setup ...
+    console.log('Roster events setup called.');
 }
 
 function updateReleaseButton() {
-    // ... This is the full updateReleaseButton function you provided ...
+    // ... Function body for update release button ...
+    console.log('Update release button called.');
 }
+
 
 // --- INITIALIZATION ---
 function initializeUI() {
   console.log('🎯 Initializing UI...');
   enhanceNavigation();
   if (window.state?.league && window.state?.onboarded) {
-    setTimeout(() => window.router(), 200);
+    // Use hash to route on startup
+    const initialView = window.location.hash ? window.location.hash.substring(2) : 'hub';
+    window.show(initialView);
+    // If router is defined, run it after a short delay
+    if (typeof window.router === 'function') {
+        setTimeout(() => window.router(), 200); 
+    }
   }
 }
 
@@ -693,8 +795,8 @@ window.viewPlayerStats = function(playerId) {
     // Fallback: create a simple modal
     showSimplePlayerStats(playerId);
   } else {
-    console.warn('Player stats viewer not available');
-    alert('Player stats viewer not available');
+    console.warn('Player stats viewer not available. Using simple fallback.');
+    showSimplePlayerStats(playerId);
   }
 };
 
@@ -703,24 +805,26 @@ function showSimplePlayerStats(playerId) {
   console.log('Using fallback player stats display for ID:', playerId);
   
   // Find player in current team roster
-  if (!window.state?.league?.teams || !window.state?.userTeamId) {
+  if (!window.state?.league?.teams) {
     alert('No league data available');
     return;
   }
   
-  const currentTeam = window.state.league.teams[window.state.userTeamId];
-  if (!currentTeam?.roster) {
-    alert('No roster data available');
-    return;
+  // Search all teams since userTeamId might be changed in Roster view
+  let player = null;
+  for (const team of window.state.league.teams) {
+      if (team.roster) {
+          player = team.roster.find(p => p.id === playerId);
+          if (player) break;
+      }
   }
   
-  const player = currentTeam.roster.find(p => p.id === playerId);
   if (!player) {
     alert('Player not found');
     return;
   }
   
-  // Create simple modal
+  // Create simple modal (This is a simplified version of the one used in showPlayerDetails)
   const modal = document.createElement('div');
   modal.className = 'modal';
   modal.innerHTML = `
@@ -732,26 +836,17 @@ function showSimplePlayerStats(playerId) {
       <div class="modal-body">
         <div class="stats-section">
           <h3>Player Information</h3>
-          <div class="stats-row">
-            <span class="stat-label">Position:</span>
-            <span class="stat-value">${player.pos || 'N/A'}</span>
-          </div>
-          <div class="stats-row">
-            <span class="stat-label">Age:</span>
-            <span class="stat-value">${player.age || 'N/A'}</span>
-          </div>
-          <div class="stats-row">
-            <span class="stat-label">Overall:</span>
-            <span class="stat-value">${player.ovr || 'N/A'}</span>
-          </div>
+          <p><strong>Position:</strong> ${player.pos || 'N/A'}</p>
+          <p><strong>Age:</strong> ${player.age || 'N/A'}</p>
+          <p><strong>Overall:</strong> ${player.ovr || 'N/A'}</p>
         </div>
         ${player.ratings ? `
-        <div class="stats-section">
+        <div class="stats-section mt">
           <h3>Ratings</h3>
           <div class="ratings-grid">
             ${Object.entries(player.ratings).map(([rating, value]) => `
               <div class="rating-item">
-                <span class="rating-name">${rating}</span>
+                <span class="rating-name">${rating.toUpperCase()}:</span>
                 <span class="rating-value">${value}</span>
               </div>
             `).join('')}
@@ -762,14 +857,40 @@ function showSimplePlayerStats(playerId) {
     </div>
   `;
   
+  // Temporary modal styles (reused from showPlayerDetails, ensure it's removed on close)
+  const tempModalStyles = document.createElement('style');
+  tempModalStyles.textContent = `
+    .modal {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: flex; justify-content: center; align-items: center; z-index: 1000;
+    }
+    .modal-content {
+        background: var(--background, #111111); padding: 20px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--hairline); padding-bottom: 10px; margin-bottom: 15px; }
+    .modal-header h2 { margin: 0; color: var(--text); font-size: 1.5rem; }
+    .close { cursor: pointer; font-size: 1.5rem; color: var(--text-muted); }
+    .ratings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px 15px; font-size: 0.9rem; }
+    .rating-item { display: flex; justify-content: space-between; }
+    .rating-value { font-weight: 600; color: var(--text); }
+    .mt { margin-top: 20px; }
+  `;
+  document.head.appendChild(tempModalStyles);
+  
   // Add close functionality
   const closeBtn = modal.querySelector('.close');
-  closeBtn.onclick = () => modal.remove();
+  closeBtn.onclick = () => {
+    modal.remove();
+    tempModalStyles.remove();
+  };
   modal.onclick = (e) => {
-    if (e.target === modal) modal.remove();
+    if (e.target === modal) {
+        modal.remove();
+        tempModalStyles.remove();
+    }
   };
   
   document.body.appendChild(modal);
+  modal.style.display = 'flex';
 }
 
 window.editPlayer = function(playerId) {
@@ -790,14 +911,6 @@ if (document.readyState === 'loading') {
 /**
  * Renders the full trade center: lets users pick players/picks, validates trades,
  * and executes them via the trade engine.
- *
- * Requires these IDs in your trade view:
- *  - tradeA (select, your team – usually disabled)
- *  - tradeB (select, CPU team)
- *  - tradeListA, tradeListB (divs for player lists)
- *  - pickListA, pickListB (divs for pick lists)
- *  - tradeValidate, tradeExecute (buttons)
- *  - tradeInfo (div/span for messages)
  */
 window.renderTradeCenter = function () {
   console.log('Rendering Trade Center…');
@@ -832,7 +945,9 @@ window.renderTradeCenter = function () {
   const info        = document.getElementById('tradeInfo');
 
   if (!selectA || !selectB || !listA || !listB || !pickListA || !pickListB || !btnValidate || !btnExecute || !info) {
-    console.error('renderTradeCenter: missing one or more trade DOM elements');
+    // This happens if the HTML structure for the trade view is missing/incomplete
+    console.error('renderTradeCenter: missing one or more trade DOM elements. Falling back.');
+    tradeContainer.innerHTML = `<div class="card"><h2 class="error">Trade Center Error</h2><p>Missing required HTML elements. Please check the trade view structure.</p></div>`;
     return;
   }
 
@@ -909,6 +1024,7 @@ window.renderTradeCenter = function () {
     }
 
     btnExecute.disabled = true; // force re-validate after any change
+    info.textContent = 'Selections changed. Re-validate trade.';
   }
 
   function renderTeamLists() {
@@ -923,6 +1039,9 @@ window.renderTradeCenter = function () {
     listB.innerHTML = '<h4>Their Players</h4>';
     pickListA.innerHTML = '<h4>Your Picks</h4>';
     pickListB.innerHTML = '<h4>Their Picks</h4>';
+    
+    // Clear selection state and visuals for the new opponent
+    clearSelections();
 
     function renderRosterList(team, container, isUserSide) {
       (team.roster || []).forEach(player => {
@@ -945,7 +1064,8 @@ window.renderTradeCenter = function () {
     }
 
     function renderPickList(team, container, isUserSide) {
-      (team.picks || []).forEach(pk => {
+      // Assuming team.picks is an array of {year, round}
+      (team.picks || []).forEach(pk => { 
         const item = document.createElement('div');
         item.className = 'asset-item';
         item.textContent = `${pk.year} Round ${pk.round}`;
@@ -978,8 +1098,8 @@ window.renderTradeCenter = function () {
 
   if (!selectB._hasTradeListener) {
     selectB.addEventListener('change', () => {
-      clearSelections();
-      renderTeamLists();
+      // We call clearSelections and renderTeamLists inside the listener
+      renderTeamLists(); 
     });
     selectB._hasTradeListener = true;
   }
@@ -999,6 +1119,7 @@ window.renderTradeCenter = function () {
         return;
       }
 
+      // 🏆 CRITICAL: Check for evaluateTrade function existence (assumed to be loaded)
       if (typeof window.evaluateTrade !== 'function') {
         info.textContent = 'Trade engine not loaded.';
         return;
@@ -1012,20 +1133,28 @@ window.renderTradeCenter = function () {
       );
 
       if (!evalResult) {
-        info.textContent = 'Unable to evaluate trade.';
+        info.textContent = 'Unable to evaluate trade. Check asset types.';
         btnExecute.disabled = true;
         return;
       }
 
       const from = evalResult.fromValue;
       const to   = evalResult.toValue;
+      const cpuLossLimit = -15; // Assuming the rule is -15
 
-      info.textContent =
-        `You give: ${from.give.toFixed(1)} | You get: ${from.get.toFixed(1)} ` +
-        `(Δ ${from.delta.toFixed(1)}) | CPU Δ ${to.delta.toFixed(1)} (CPU must be ≥ -15).`;
+      // Show results clearly (ADHD friendly!)
+      info.innerHTML =
+        `You Give (Value): <span style="font-weight:700; color: #ff9900;">${from.give.toFixed(1)}</span> ` +
+        `| You Get (Value): <span style="font-weight:700; color: var(--accent);">${from.get.toFixed(1)}</span>. ` +
+        `<br>Net Gain: <span style="font-weight:700; color: ${from.delta >= 0 ? '#3c9' : '#f66'};">${from.delta.toFixed(1)}</span>. ` +
+        `CPU's Net: ${to.delta.toFixed(1)} (Must be > ${cpuLossLimit}).`;
 
-      const cpuLossLimit = -15;
       btnExecute.disabled = to.delta < cpuLossLimit;
+      if (!btnExecute.disabled) {
+          info.innerHTML += '<br>✅ **Trade is viable!** Hit Execute.'
+      } else {
+          info.innerHTML += '<br>❌ **Trade rejected by CPU rules.** Try adding more assets.'
+      }
     });
     btnValidate._hasTradeListener = true;
   }
@@ -1035,25 +1164,36 @@ window.renderTradeCenter = function () {
       const oppId = parseInt(selectB.value, 10);
       if (isNaN(oppId)) return;
 
+      // 🏆 CRITICAL: Check for proposeUserTrade function existence (assumed to be loaded)
       if (typeof window.proposeUserTrade !== 'function') {
         info.textContent = 'Trade engine not loaded.';
         return;
       }
 
+      // Check if validation was skipped (must re-validate)
+      if (btnExecute.disabled && info.textContent.indexOf('viable') === -1) {
+          info.textContent = 'Must validate trade before executing!';
+          return;
+      }
+      
       const result = window.proposeUserTrade(oppId, state.fromAssets, state.toAssets, {
         cpuLossLimit: -15
       });
 
       if (!result || !result.accepted) {
-        info.textContent = 'Trade rejected by CPU.';
+        info.textContent = 'Trade rejected by CPU. (Check console for details).';
         btnExecute.disabled = true;
         return;
       }
 
-      info.textContent = 'Trade completed!';
+      info.textContent = 'Trade completed! 🥳 Time to check the roster.';
       clearSelections();
       // league mutated in-place by trade.js; just re-render lists
       renderTeamLists();
+      // Trigger a global update if available
+      if (typeof window.updateAllViews === 'function') {
+          window.updateAllViews();
+      }
     });
     btnExecute._hasTradeListener = true;
   }
