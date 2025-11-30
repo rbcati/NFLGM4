@@ -164,9 +164,10 @@ function applyFranchiseTag(league, team, player) {
   }
   
   // Apply franchise tag contract (1 year, fully guaranteed)
-  player.years = 1; 
+  player.years = 1;
+  player.yearsTotal = 1;
   player.baseAnnual = franchiseSalary;
-  player.signingBonus = 0; 
+  player.signingBonus = 0;
   player.franchiseTagged = true;
   player.franchiseTagYear = league.season;
   player.guaranteedPct = 1.0; // Fully guaranteed
@@ -184,6 +185,86 @@ function applyFranchiseTag(league, team, player) {
 }
 
 // ... (applyTransitionTag, exerciseFifthYearOption functions remain similar but use U.round and setStatus)
+
+/**
+ * Applies transition tag to a player
+ * @param {Object} league - League object
+ * @param {Object} team - Team object
+ * @param {Object} player - Player to transition tag
+ * @returns {Object} Result object with success status and details
+ */
+function applyTransitionTag(league, team, player) {
+  if (!player || player.years !== 1) {
+    return { success: false, message: 'Player must have an expiring contract to use the transition tag.' };
+  }
+  if (team.transitionTagged) {
+    return { success: false, message: 'Team has already used the transition tag this year. 😭' };
+  }
+
+  const transitionSalary = calculateTransitionTagSalary(player.pos, league);
+  const capImpact = transitionSalary - capHitFor(player, 0);
+
+  if (team.capRoom < capImpact) {
+    return {
+      success: false,
+      message: `Transition tag costs $${transitionSalary.toFixed(1)}M and you only have $${team.capRoom.toFixed(1)}M in cap space.`
+    };
+  }
+
+  player.years = 1;
+  player.yearsTotal = 1;
+  player.baseAnnual = transitionSalary;
+  player.signingBonus = 0;
+  player.transitionTagged = true;
+  player.transitionTagYear = league.season;
+  player.guaranteedPct = 0.8;
+
+  team.transitionTagged = true;
+  team.transitionTaggedPlayer = player.id;
+
+  recalcCap(league, team);
+
+  return {
+    success: true,
+    message: `Applied **Transition Tag** to **${player.name}** for **$${transitionSalary.toFixed(1)}M**.`,
+    salary: transitionSalary
+  };
+}
+
+/**
+ * Exercises the fifth-year option for eligible players
+ * @param {Object} league - League object
+ * @param {Object} team - Team object
+ * @param {Object} player - Player to exercise option on
+ * @returns {Object} Result object with success status and details
+ */
+function exerciseFifthYearOption(league, team, player) {
+  const eligiblePlayers = getFifthYearOptionEligible(league, team.teamId || window.state?.userTeamId);
+  if (!eligiblePlayers.includes(player)) {
+    return { success: false, message: 'Player is not eligible for the 5th year option.' };
+  }
+
+  const optionSalary = calculateFifthYearOptionSalary(player);
+  const currentCapHit = capHitFor(player, 0);
+  const capImpact = optionSalary - currentCapHit;
+
+  if (team.capRoom < capImpact) {
+    return { success: false, message: `5th year option adds $${capImpact.toFixed(1)}M to the cap, exceeding available room.` };
+  }
+
+  player.years += 1;
+  player.yearsTotal = (player.yearsTotal || CONTRACT_CONSTANTS.ROOKIE_CONTRACT_LENGTH) + 1;
+  player.fifthYearOption = true;
+  player.fifthYearSalary = optionSalary;
+
+  recalcCap(league, team);
+
+  return {
+    success: true,
+    message: `5th year option exercised for **${player.name}** at **$${optionSalary.toFixed(1)}M**!`,
+    salary: optionSalary
+  };
+}
 
 /**
  * Extends a player's contract
@@ -266,7 +347,36 @@ window.applyFranchiseTagToPlayer = function(playerId) {
     window.renderContractManagement(league, window.state.userTeamId);
   }
 };
-// ... (Similar global wrappers for applyTransitionTagToPlayer and exerciseFifthYearOptionOnPlayer)
+
+window.applyTransitionTagToPlayer = function(playerId) {
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  const player = team?.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
+
+  if (!player) return setStatus('Player not found, rip.');
+
+  const result = applyTransitionTag(league, team, player);
+  setStatus(result.message);
+
+  if (result.success) {
+    window.renderContractManagement(league, window.state.userTeamId);
+  }
+};
+
+window.exerciseFifthYearOptionOnPlayer = function(playerId) {
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  const player = team?.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
+
+  if (!player) return setStatus('Player not found, rip.');
+
+  const result = exerciseFifthYearOption(league, team, player);
+  setStatus(result.message);
+
+  if (result.success) {
+    window.renderContractManagement(league, window.state.userTeamId);
+  }
+};
 
 window.openContractExtensionModal = function(playerId) {
   const league = window.state?.league;
