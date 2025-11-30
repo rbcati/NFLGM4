@@ -1,14 +1,11 @@
-// standings-page.js - Comprehensive Standings System (Enhanced)
+// standings-page-fixed.js - Comprehensive Standings System (Enhanced & Fixed)
+
 'use strict';
 
-// --- Utility Functions (Defined locally for robustness) ---
+// --- Utility Functions (Defined Locally) ---
 
 /**
- * Calculate win percentage
- * @param {number} wins - Number of wins
- * @param {number} losses - Number of losses
- * @param {number} ties - Number of ties
- * @returns {number} Win percentage as decimal
+ * Calculate win percentage (W + 0.5 * T) / (W + L + T)
  */
 function calculateWinPercentage(wins, losses, ties = 0) {
   const totalGames = wins + losses + ties;
@@ -17,24 +14,67 @@ function calculateWinPercentage(wins, losses, ties = 0) {
 }
 
 /**
- * Get division name
- * @param {number} conf - Conference (0 = AFC, 1 = NFC)
- * @param {number} div - Division (0-3)
- * @returns {string} Division name
+ * Get division name (AFC/NFC East, North, South, West)
  */
 function getDivisionName(conf, div) {
   const divisions = ['East', 'North', 'South', 'West'];
-  // We don't need the conference prefix here, it's implied by the calling function context
-  return divisions[div] || 'Unknown';
+  return `${getConferenceName(conf)} ${divisions[div] || 'Unknown'}`;
 }
 
 /**
  * Get conference name
- * @param {number} conf - Conference (0 = AFC, 1 = NFC)
- * @returns {string} Conference name
  */
 function getConferenceName(conf) {
   return conf === 0 ? 'AFC' : 'NFC';
+}
+
+/**
+ * CORE UTILITY: Groups teams by their division (0-3) within their conference.
+ */
+function groupByDivision(teams) {
+  const groups = { 0: [], 1: [], 2: [], 3: [] };
+  teams.forEach(team => {
+    if (team.div !== undefined && team.div !== null) {
+      groups[team.div].push(team);
+    }
+  });
+  return groups;
+}
+
+/**
+ * CORE UTILITY: Sorts teams primarily by Win Percentage.
+ * TODO: Implement advanced tiebreakers (Head-to-Head, Division/Conference Record, Point Differential).
+ */
+function sortTeamsByRecord(teams) {
+  // Use a stable sort if available, but simple sort on WPCT is usually fine for a base game.
+  return teams.slice().sort((a, b) => {
+    // 1. Primary: Win Percentage (higher is better)
+    if (b.winPercentage !== a.winPercentage) {
+      return b.winPercentage - a.winPercentage;
+    }
+    // 2. Secondary: Point Differential (higher is better)
+    return b.pointDifferential - a.pointDifferential;
+  });
+}
+
+/**
+ * CORE UTILITY: Calculates the number of games separating two teams.
+ * Formula: (Leader Wins - Challenger Wins) + (Challenger Losses - Leader Losses) / 2
+ */
+function calculateGamesBack(teamA, teamB) {
+  if (!teamA || !teamB) return 0;
+  
+  const leadWins = teamA.wins || 0;
+  const leadLosses = teamA.losses || 0;
+  const followWins = teamB.wins || 0;
+  const followLosses = teamB.losses || 0;
+
+  // The 'leader' is always the team that is ahead in the standings (first argument)
+  // When calculating "Games Back" on the bubble, we calculate relative to the 7th seed (teamB)
+  const gamesBack = ((leadWins - followWins) + (followLosses - leadLosses)) / 2;
+  
+  // Return positive value indicating how far back teamB is from teamA
+  return Math.max(0, gamesBack.toFixed(1)); 
 }
 
 
@@ -58,18 +98,16 @@ function renderStandingsPage() {
   const targetContainer = standingsView || standingsWrap;
   
   if (!targetContainer) {
-    console.error('No standings container found');
+    console.error('No standings container found, that’s rough.');
     return;
   }
   
   // Calculate all standings data
-  // Pass the league object directly instead of relying on global state access inside
   const standingsData = calculateAllStandings(L); 
-  
-  // ... (The rest of renderStandingsPage remains the same, using the updated functions) ...
   
   if (standingsView) {
     // Use the dedicated standings view with tabs
+    // NOTE: Requires external CSS for styling and setupStandingsTabs() for logic
     standingsView.innerHTML = `
       <div class="card">
         <div class="standings-header">
@@ -91,15 +129,15 @@ function renderStandingsPage() {
         
         <div class="standings-content">
           <div id="standings-division" class="standings-section active">
-            ${renderDivisionStandings(standingsData)}
+            ${window.renderDivisionStandings(standingsData)}
           </div>
           
           <div id="standings-conference" class="standings-section">
-            ${renderConferenceStandings(standingsData)}
+            ${window.renderConferenceStandings(standingsData)}
           </div>
           
           <div id="standings-overall" class="standings-section">
-            ${renderOverallStandings(standingsData)}
+            ${window.renderOverallStandings(standingsData)}
           </div>
           
           <div id="standings-schedule" class="standings-section">
@@ -112,55 +150,61 @@ function renderStandingsPage() {
       </div>
     `;
     
-    // Set up tab switching
-    setupStandingsTabs();
+    // Set up tab switching (MUST BE DEFINED GLOBALLY)
+    if (typeof window.setupStandingsTabs === 'function') {
+      window.setupStandingsTabs();
+    } else {
+      console.warn('Missing function: setupStandingsTabs.');
+    }
     
-    // Make teams clickable
-    setTimeout(() => makeTeamsClickable(), 100);
+    // Make teams clickable (MUST BE DEFINED GLOBALLY)
+    if (typeof window.makeTeamsClickable === 'function') {
+      setTimeout(() => window.makeTeamsClickable(), 100);
+    } else {
+      console.warn('Missing function: makeTeamsClickable.');
+    }
+
   } else {
-    // Use the simple standings wrapper
+    // Use the simple standings wrapper (Fallback)
     targetContainer.innerHTML = `
       <div class="card">
         <h2>League Standings</h2>
         <div class="conferences-grid">
           <div class="conference-standings">
             <h3 class="conference-title">AFC</h3>
-            ${renderSimpleConferenceStandings(standingsData.afc)}
+            ${window.renderSimpleConferenceStandings(standingsData.afc)}
           </div>
           <div class="conference-standings">
             <h3 class="conference-title">NFC</h3>
-            ${renderSimpleConferenceStandings(standingsData.nfc)}
+            ${window.renderSimpleConferenceStandings(standingsData.nfc)}
           </div>
         </div>
       </div>
     `;
     
-    // Make teams clickable in simple standings too
-    setTimeout(() => makeTeamsClickable(), 100);
+    if (typeof window.makeTeamsClickable === 'function') {
+        setTimeout(() => window.makeTeamsClickable(), 100);
+    }
   }
   
-  console.log('✅ Standings page rendered successfully');
+  console.log('✅ Standings page rendered successfully, period.');
 }
 
 
 /**
  * Calculate all standings data needed for different views
- * @param {Object} league - League object
- * @returns {Object} Complete standings data
  */
 function calculateAllStandings(league) {
   const teams = [...league.teams];
   
   // Add calculated fields to each team
   teams.forEach(team => {
-    // Ensure all stats are present, even if 0
     team.wins = team.wins || 0;
     team.losses = team.losses || 0;
     team.ties = team.ties || 0;
     team.pointsFor = team.ptsFor || 0;
     team.pointsAgainst = team.ptsAgainst || 0;
     team.pointDifferential = team.pointsFor - team.pointsAgainst;
-    // Using local utility function
     team.winPercentage = calculateWinPercentage(team.wins, team.losses, team.ties);
     team.gamesPlayed = team.wins + team.losses + team.ties;
     team.remaining = 17 - team.gamesPlayed; // Assuming 17-game season
@@ -202,206 +246,139 @@ function calculateAllStandings(league) {
   };
 }
 
-// ... (groupByDivision remains the same)
-
-// ... (sortTeamsByRecord remains the same)
 
 /**
  * Calculate playoff picture (UPDATED for Division Winners)
- * @param {Array} afcTeams - AFC teams sorted by record
- * @param {Array} nfcTeams - NFC teams sorted by record
- * @param {Object} afcDivisions - AFC teams grouped/sorted by division
- * @param {Object} nfcDivisions - NFC teams grouped/sorted by division
- * @returns {Object} Playoff picture data
  */
 function calculatePlayoffPicture(afcTeams, nfcTeams, afcDivisions, nfcDivisions) {
-  const afcWinners = Object.values(afcDivisions).map(div => div[0]).filter(t => t); // Top team in each div
+  // Get the top team in each division (which is the first element after sorting)
+  const afcWinners = Object.values(afcDivisions).map(div => div[0]).filter(t => t);
   const nfcWinners = Object.values(nfcDivisions).map(div => div[0]).filter(t => t);
   
-  // Combine all teams and remove division winners from the wild card pool
-  const afcWildCardPool = afcTeams.filter(team => !afcWinners.includes(team));
-  const nfcWildCardPool = nfcTeams.filter(team => !nfcWinners.includes(team));
+  // Separate Wild Card Pool: All teams that are NOT Division Winners
+  const afcWinnerIds = afcWinners.map(t => t.id);
+  const nfcWinnerIds = nfcWinners.map(t => t.id);
+
+  const afcWildCardPool = afcTeams.filter(team => !afcWinnerIds.includes(team.id));
+  const nfcWildCardPool = nfcTeams.filter(team => !nfcWinnerIds.includes(team.id));
   
-  // Sort Division Winners and Wild Card Pool separately
-  const afcDivisionSeeded = sortTeamsByRecord(afcWinners); // Seed 1-4
-  const nfcDivisionSeeded = sortTeamsByRecord(nfcWinners); // Seed 1-4
+  // Seed 1-4: Division Winners, sorted by record
+  const afcDivisionSeeded = sortTeamsByRecord(afcWinners);
+  const nfcDivisionSeeded = sortTeamsByRecord(nfcWinners);
   
-  const afcWildCardSeeded = sortTeamsByRecord(afcWildCardPool).slice(0, 3); // Seed 5-7
-  const nfcWildCardSeeded = sortTeamsByRecord(nfcWildCardPool).slice(0, 3); // Seed 5-7
+  // Seed 5-7: Top 3 Wild Card teams, sorted by record
+  const afcWildCardSeeded = sortTeamsByRecord(afcWildCardPool).slice(0, 3);
+  const nfcWildCardSeeded = sortTeamsByRecord(nfcWildCardPool).slice(0, 3);
   
   // Final Playoff List (Seeds 1-7)
   const afcPlayoffs = [...afcDivisionSeeded, ...afcWildCardSeeded];
   const nfcPlayoffs = [...nfcDivisionSeeded, ...nfcWildCardSeeded];
   
   // Bubble Teams (The next 3 teams after the 7 playoff teams)
-  const afcBubble = afcTeams.filter(t => !afcPlayoffs.includes(t)).slice(0, 3);
-  const nfcBubble = nfcTeams.filter(t => !nfcPlayoffs.includes(t)).slice(0, 3);
-
-  // Re-sort the final 7 for display to ensure the actual *best* records get higher seeds (even if Wild Card)
-  // HOWEVER, NFL rules mandate Division Winners get the top 4 spots regardless of record vs WC teams.
-  // We'll stick to the NFL standard: 1-4 are Division Winners (seeded by record), 5-7 are Wild Cards (seeded by record).
+  // Find teams not already in the playoff array
+  const afcPlayoffIds = afcPlayoffs.map(t => t.id);
+  const nfcPlayoffIds = nfcPlayoffs.map(t => t.id);
   
+  const afcBubble = afcTeams.filter(t => !afcPlayoffIds.includes(t.id)).slice(0, 3);
+  const nfcBubble = nfcTeams.filter(t => !nfcPlayoffIds.includes(t.id)).slice(0, 3);
+
   return {
     afc: {
       playoffs: afcPlayoffs,
       bubble: afcBubble,
-      divisionWinners: afcWinners.map(t => t.id)
+      divisionWinners: afcWinnerIds
     },
     nfc: {
       playoffs: nfcPlayoffs,
       bubble: nfcBubble,
-      divisionWinners: nfcWinners.map(t => t.id)
+      divisionWinners: nfcWinnerIds
     }
   };
 }
 
-// ... (renderDivisionStandings remains the same, using local getDivisionName)
-
-// ... (renderConferenceStandings remains the same, using local getDivisionName)
-
-// ... (renderOverallStandings remains the same, using local getDivisionName)
 
 /**
  * Render playoff picture (UPDATED for better status)
- * @param {Object} standingsData - All standings data
- * @returns {string} HTML string
  */
 function renderPlayoffPicture(standingsData) {
   const userTeamId = window.state.userTeamId || 0;
   
   const getPlayoffStatus = (team, seed, divisionWinners) => {
-    if (seed === 1) return '1st Seed & Bye';
+    if (seed === 1) return '1st Seed & **Bye**';
     if (divisionWinners.includes(team.id)) {
-      return 'Division Winner';
+      return '**Division Winner**';
     }
-    return 'Wild Card';
+    return '**Wild Card**';
   };
   
+  const renderConfPlayoffs = (confData, confName) => `
+    <div class="conference-playoffs">
+      <h3 class="conference-title">${confName} Playoff Picture</h3>
+      
+      <div class="playoff-teams">
+        <h4 class="playoff-section-title">In the Playoffs (7 teams)</h4>
+        <table class="standings-table playoff-table">
+          <thead>
+            <tr>
+              <th>Seed</th>
+              <th>Team</th>
+              <th>Record</th>
+              <th>Division</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${confData.playoffs.map((team, index) => `
+              <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+                <td class="seed">${index + 1}</td>
+                <td class="team-name">${team.name}</td>
+                <td>${team.wins}-${team.losses}-${team.ties}</td>
+                <td>${getDivisionName(team.conf, team.div).replace(confName + ' ', '')}</td>
+                <td class="playoff-status">${getPlayoffStatus(team, index + 1, confData.divisionWinners)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      
+      ${confData.bubble.length > 0 ? `
+        <div class="bubble-teams">
+          <h4 class="playoff-section-title">On the Bubble</h4>
+          <table class="standings-table bubble-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>Record</th>
+                <th>Games Back</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${confData.bubble.map(team => `
+                <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+                  <td class="team-name">${team.name}</td>
+                  <td>${team.wins}-${team.losses}-${team.ties}</td>
+                  <td>${calculateGamesBack(confData.playoffs[6], team)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
   return `
     <div class="playoff-picture">
       <div class="conferences-grid">
-        <div class="conference-playoffs">
-          <h3 class="conference-title">AFC Playoff Picture</h3>
-          
-          <div class="playoff-teams">
-            <h4 class="playoff-section-title">In the Playoffs (7 teams)</h4>
-            <table class="standings-table playoff-table">
-              <thead>
-                <tr>
-                  <th>Seed</th>
-                  <th>Team</th>
-                  <th>Record</th>
-                  <th>Division</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${standingsData.playoffs.afc.playoffs.map((team, index) => `
-                  <tr class="${team.id === userTeamId ? 'user-team' : ''}">
-                    <td class="seed">${index + 1}</td>
-                    <td class="team-name">${team.name}</td>
-                    <td>${team.wins}-${team.losses}-${team.ties}</td>
-                    <td>${getDivisionName(team.conf, team.div)}</td>
-                    <td class="playoff-status">
-                      **${getPlayoffStatus(team, index + 1, standingsData.playoffs.afc.divisionWinners)}**
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          
-          ${standingsData.playoffs.afc.bubble.length > 0 ? `
-            <div class="bubble-teams">
-              <h4 class="playoff-section-title">On the Bubble</h4>
-              <table class="standings-table bubble-table">
-                <thead>
-                  <tr>
-                    <th>Team</th>
-                    <th>Record</th>
-                    <th>Games Back</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${standingsData.playoffs.afc.bubble.map(team => `
-                    <tr class="${team.id === userTeamId ? 'user-team' : ''}">
-                      <td class="team-name">${team.name}</td>
-                      <td>${team.wins}-${team.losses}-${team.ties}</td>
-                      <td>${calculateGamesBack(team, standingsData.playoffs.afc.playoffs[6])}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-        </div>
-        
-        <div class="conference-playoffs">
-          <h3 class="conference-title">NFC Playoff Picture</h3>
-          
-          <div class="playoff-teams">
-            <h4 class="playoff-section-title">In the Playoffs (7 teams)</h4>
-            <table class="standings-table playoff-table">
-              <thead>
-                <tr>
-                  <th>Seed</th>
-                  <th>Team</th>
-                  <th>Record</th>
-                  <th>Division</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${standingsData.playoffs.nfc.playoffs.map((team, index) => `
-                  <tr class="${team.id === userTeamId ? 'user-team' : ''}">
-                    <td class="seed">${index + 1}</td>
-                    <td class="team-name">${team.name}</td>
-                    <td>${team.wins}-${team.losses}-${team.ties}</td>
-                    <td>${getDivisionName(team.conf, team.div)}</td>
-                    <td class="playoff-status">
-                      **${getPlayoffStatus(team, index + 1, standingsData.playoffs.nfc.divisionWinners)}**
-                    </td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-          
-          ${standingsData.playoffs.nfc.bubble.length > 0 ? `
-            <div class="bubble-teams">
-              <h4 class="playoff-section-title">On the Bubble</h4>
-              <table class="standings-table bubble-table">
-                <thead>
-                  <tr>
-                    <th>Team</th>
-                    <th>Record</th>
-                    <th>Games Back</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${standingsData.playoffs.nfc.bubble.map(team => `
-                    <tr class="${team.id === userTeamId ? 'user-team' : ''}">
-                      <td class="team-name">${team.name}</td>
-                      <td>${team.wins}-${team.losses}-${team.ties}</td>
-                      <td>${calculateGamesBack(team, standingsData.playoffs.nfc.playoffs[6])}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          ` : ''}
-        </div>
+        ${renderConfPlayoffs(standingsData.playoffs.afc, 'AFC')}
+        ${renderConfPlayoffs(standingsData.playoffs.nfc, 'NFC')}
       </div>
     </div>
   `;
 }
 
-// ... (setupStandingsTabs and calculateGamesBack remain the same)
-
 /**
  * Render schedule standings (UPDATED to show results)
- * @param {Object} league - League object
- * @returns {string} HTML string
  */
 function renderScheduleStandings(league) {
   if (!league || !league.schedule || !league.teams) {
@@ -417,8 +394,6 @@ function renderScheduleStandings(league) {
     return map;
   }, {});
   
-  // Render schedule by week
-  // Render up to 17 weeks for a standard season
   const maxWeeks = Math.max(17, Object.keys(gamesByWeek).length); 
   
   for (let week = 1; week <= maxWeeks; week++) {
@@ -426,11 +401,9 @@ function renderScheduleStandings(league) {
     html += `<div class="week-schedule">`;
     html += `<h4>Week **${week}** ${week < league.week ? '(Completed)' : week === league.week ? '(Current)' : ''}</h4>`;
     
-    if (weekGames.length === 0 && week < league.week) {
-        html += '<p class="no-games">Bye Week or missing results.</p>';
-    } else if (weekGames.length === 0) {
-        html += '<p class="no-games">Schedule not yet generated.</p>';
-    } else {
+    if (weekGames.length === 0 && week < 18) {
+        html += '<p class="no-games">Bye Week or schedule not yet generated.</p>';
+    } else if (weekGames.length > 0) {
       html += '<div class="games-grid">';
       weekGames.forEach(game => {
         const homeTeam = teamMap[game.home];
@@ -475,20 +448,26 @@ function renderScheduleStandings(league) {
   return html;
 }
 
-// ... (renderSimpleConferenceStandings remains the same)
+// --- Global Exports ---
 
-// ... (makeTeamsClickable remains the same, but uses window.state)
+// Make utility functions available globally for other scripts that might need them
+window.calculateWinPercentage = calculateWinPercentage;
+window.getDivisionName = getDivisionName;
+window.getConferenceName = getConferenceName;
+window.groupByDivision = groupByDivision;
+window.sortTeamsByRecord = sortTeamsByRecord;
+window.calculateGamesBack = calculateGamesBack;
 
-// ... (showTeamDetails remains the same, but uses window.state)
-
-// ... (showEnhancedTeamDetails remains the same, but uses window.state)
-
-// Make functions globally available
+// Primary page function
 window.renderStandingsPage = renderStandingsPage;
 window.renderStandings = renderStandingsPage;
 window.calculateAllStandings = calculateAllStandings;
-window.setupStandingsTabs = setupStandingsTabs;
 
-// ... (The rest of the function exports remain the same) ...
-
-console.log('✅ Dedicated Standings Page loaded successfully and enhanced.');
+// NOTE: These rendering functions must be defined *outside* this file (or added here) 
+// for the main renderStandingsPage to work:
+// window.renderDivisionStandings = renderDivisionStandings;
+// window.renderConferenceStandings = renderConferenceStandings;
+// window.renderOverallStandings = renderOverallStandings;
+// window.renderSimpleConferenceStandings = renderSimpleConferenceStandings;
+// window.setupStandingsTabs = setupStandingsTabs; 
+// window.makeTeamsClickable = makeTeamsClickable;
