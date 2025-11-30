@@ -96,6 +96,16 @@ function canPerformAction(action) {
 // ... (getAvailableActions remains the same)
 
 /**
+ * Get actions available to the current coaching role
+ * @returns {Array<string>} List of permitted actions for the active role
+ */
+function getAvailableActions() {
+  const role = window.state?.playerRole || 'HC';
+  const roleConfig = COACHING_ROLES[role];
+  return roleConfig ? roleConfig.permissions.slice() : [];
+}
+
+/**
  * Check if player is eligible for promotion
  * @returns {Object} Promotion eligibility status
  */

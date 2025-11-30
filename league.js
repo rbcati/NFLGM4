@@ -167,5 +167,3 @@ window.makeLeague = function(teams) {
     console.log('✨ League creation complete!');
     return L;
 };
-    return L;
-};

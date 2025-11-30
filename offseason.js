@@ -203,7 +203,7 @@ function releaseWithProration(league, team, p, isPostJune1) {
   return deadMoneyHit;
 }
 
-// ... (validateSigning, processCapRollover, getCapSummary remain similar, using C)
+// ... (validateSigning, getCapSummary remain similar, using C)
 
 /**
  * Validates that a team can afford to sign a player
@@ -257,5 +257,4 @@ window.calculateRollover = calculateRollover;
 window.recalcCap = recalcCap;
 window.releaseWithProration = releaseWithProration;
 window.validateSigning = validateSigning;
-window.processCapRollover = processCapRollover;
 window.getCapSummary = getCapSummary;

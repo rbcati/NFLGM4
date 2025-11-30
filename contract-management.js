@@ -1,12 +1,13 @@
+(function(global) {
 // contract-management.js - Comprehensive contract management system
 'use strict';
 
 // Ensure necessary helper functions exist before use (prevents crashes)
-const U = window.Utils;
-const C = window.Constants;
-const capHitFor = window.capHitFor || ((player) => player.baseAnnual || 0);
-const recalcCap = window.recalcCap || (() => console.warn('recalcCap not found, skipping cap update.'));
-const setStatus = window.setStatus || ((msg) => console.log('Status:', msg));
+const U = global.Utils;
+const C = global.Constants;
+const capHitFor = global.capHitFor || ((player) => player.baseAnnual || 0);
+const recalcCap = global.recalcCap || (() => console.warn('recalcCap not found, skipping cap update.'));
+const setStatus = global.setStatus || ((msg) => console.log('Status:', msg));
 
 
 // Contract management constants
@@ -239,6 +240,18 @@ function extendContract(league, team, player, years, baseSalary, signingBonus) {
 
 // --- Global Functions (Make sure they use the safer checks!) ---
 
+  global.contractManagement = {
+    getExpiringContracts,
+    getFifthYearOptionEligible,
+    calculateFranchiseTagSalary,
+    calculateTransitionTagSalary,
+    calculateFifthYearOptionSalary,
+    applyFranchiseTag,
+    applyTransitionTag,
+    exerciseFifthYearOption,
+    updateContract
+  };
+
 window.applyFranchiseTagToPlayer = function(playerId) {
   const league = window.state?.league;
   const team = league?.teams?.[window.state?.userTeamId];
@@ -289,3 +302,4 @@ window.openContractExtensionModal = function(playerId) {
 
 // Make functions available globally
 // ... (All original exports remain)
+})(window);
