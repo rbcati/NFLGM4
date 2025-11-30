@@ -2,6 +2,14 @@
 
 /**
  * Enhanced Main Game Controller with improved performance and error handling
+ *
+ * This patched version addresses two issues that prevented saved games from loading
+ * correctly after recent refactoring. First, it standardises the return shape of
+ * the save and load helpers so callers can reliably inspect a `success` flag.
+ * Second, it relaxes the load condition so that any saved state with a league
+ * present is considered onboarded. This allows older saves (which may lack
+ * an explicit `onboarded` flag) to be loaded and migrated to the new state
+ * schema instead of forcing players through the onboarding flow again.
  */
 
 class GameController {
@@ -22,7 +30,6 @@ class GameController {
             }
             this.domCache.delete(id);
         }
-        
         const element = document.getElementById(id);
         if (element && cache) {
             this.domCache.set(id, element);
@@ -41,16 +48,13 @@ class GameController {
             console.warn('Status element not found:', msg);
             return;
         }
-
         // Clear any existing timeout
         if (statusEl.timeoutId) {
             clearTimeout(statusEl.timeoutId);
         }
-
         statusEl.textContent = msg;
         statusEl.className = `status-message status-${type}`;
         statusEl.style.display = 'block';
-        
         if (duration > 0) {
             statusEl.timeoutId = setTimeout(() => {
                 if (statusEl.textContent === msg) {
@@ -60,7 +64,6 @@ class GameController {
                 statusEl.timeoutId = null;
             }, duration);
         }
-
         // Also log important messages
         if (type === 'error') {
             console.error('Status Error:', msg);
@@ -75,39 +78,11 @@ class GameController {
             console.warn('Teams data not available');
             return [];
         }
-        
         const teams = mode === 'real' ? window.Teams.real : window.Teams.fictional;
         return Array.isArray(teams) ? teams : [];
     }
 
-    // Use global functions from ui.js instead of local duplicates
-
-    calculateOverallRating(player) {
-        if (!player || !player.ratings) {
-            return 'N/A';
-        }
-        
-        const ratings = player.ratings;
-        let totalRating = 0;
-        let ratingCount = 0;
-        
-        // Calculate average of all ratings
-        Object.values(ratings).forEach(rating => {
-            if (typeof rating === 'number' && rating > 0) {
-                totalRating += rating;
-                ratingCount++;
-            }
-        });
-        
-        if (ratingCount === 0) {
-            return 'N/A';
-        }
-        
-        return Math.round(totalRating / ratingCount);
-    }
-
     // --- ROSTER MANAGEMENT ---
-    // Note: renderRoster is implemented in ui.js to avoid conflicts
     async renderRoster() {
         // Delegate to the ui.js implementation
         if (window.renderRoster && typeof window.renderRoster === 'function') {
@@ -121,13 +96,11 @@ class GameController {
     async renderHub() {
         try {
             console.log('Rendering hub...');
-            
             const hubContainer = this.getElement('hub');
             if (!hubContainer) {
                 console.warn('Hub container not found');
                 return;
             }
-            
             // Enhanced hub content with simulate league button
             hubContainer.innerHTML = `
                 <div class="card">
@@ -152,7 +125,6 @@ class GameController {
                             </div>
                         </div>
                     </div>
-                    
                     <div class="mt-4">
                         <h3>Team Status</h3>
                         <div id="teamStatus">
@@ -161,32 +133,22 @@ class GameController {
                     </div>
                 </div>
             `;
-            
             // Add event listeners for simulate buttons
-            const btnSimWeek = hubContainer.querySelector('#btnSimWeek');
             const btnSimSeason = hubContainer.querySelector('#btnSimSeason');
-            
-            // Note: btnSimWeek event listener is handled in events.js to avoid duplicates
-            
+            // btnSimWeek handled in events.js to avoid duplicates
             // Render additional interfaces
             setTimeout(() => {
-                // Render coaching role interface
                 if (window.renderCoachingRoleInterface) {
                     window.renderCoachingRoleInterface();
                 }
-                
-                // Render owner mode interface
                 if (window.renderOwnerModeInterface) {
                     window.renderOwnerModeInterface();
                 }
             }, 100);
-            
             if (btnSimSeason) {
                 btnSimSeason.addEventListener('click', () => this.handleSimulateSeason());
             }
-            
             console.log('✅ Hub rendered successfully');
-            
         } catch (error) {
             console.error('Error rendering hub:', error);
             this.setStatus('Failed to render hub', 'error');
@@ -197,32 +159,25 @@ class GameController {
     renderSchedule() {
         try {
             console.log('Rendering schedule...');
-            
             const scheduleContainer = this.getElement('schedule');
             if (!scheduleContainer) {
                 console.warn('Schedule container not found');
                 return;
             }
-            
             const L = window.state?.league;
             if (!L || !L.schedule) {
                 scheduleContainer.innerHTML = '<div class="card"><p>No schedule available</p></div>';
                 return;
             }
-            
-            // Simple schedule display
             let scheduleHTML = '<div class="card"><h2>Season Schedule</h2>';
             scheduleHTML += `<p>Current Week: ${L.week || 1}</p>`;
-            
             for (let week = 1; week <= 18; week++) {
                 if (L.schedule[week] && L.schedule[week].length > 0) {
                     scheduleHTML += `<h3>Week ${week}</h3>`;
                     scheduleHTML += '<div class="schedule-week">';
-                    
                     L.schedule[week].forEach(game => {
                         const homeTeam = L.teams.find(t => t.id === game.home);
                         const awayTeam = L.teams.find(t => t.id === game.away);
-                        
                         if (homeTeam && awayTeam) {
                             scheduleHTML += `
                                 <div class="schedule-game">
@@ -233,16 +188,12 @@ class GameController {
                             `;
                         }
                     });
-                    
                     scheduleHTML += '</div>';
                 }
             }
-            
             scheduleHTML += '</div>';
             scheduleContainer.innerHTML = scheduleHTML;
-            
             console.log('✅ Schedule rendered successfully');
-            
         } catch (error) {
             console.error('Error rendering schedule:', error);
             this.setStatus('Failed to render schedule', 'error');
@@ -254,22 +205,15 @@ class GameController {
         try {
             console.log('Simulating week...');
             this.setStatus('Simulating week...', 'info');
-            
-            // Use the real simulation system
             if (window.simulateWeek) {
                 window.simulateWeek();
                 this.setStatus('Week simulated successfully', 'success');
-                
-                // Re-render hub to show updated week
                 setTimeout(() => this.renderHub(), 1000);
             } else if (window.state?.league) {
-                // Fallback: basic week simulation
                 const L = window.state.league;
                 if (L.week < 18) {
                     L.week++;
                     this.setStatus(`Advanced to week ${L.week}`, 'success');
-                    
-                    // Re-render hub to show updated week
                     setTimeout(() => this.renderHub(), 1000);
                 } else {
                     this.setStatus('Season complete!', 'success');
@@ -277,7 +221,6 @@ class GameController {
             } else {
                 this.setStatus('No league data available', 'error');
             }
-            
         } catch (error) {
             console.error('Error simulating week:', error);
             this.setStatus('Failed to simulate week', 'error');
@@ -288,19 +231,14 @@ class GameController {
         try {
             console.log('Simulating season...');
             this.setStatus('Simulating season...', 'info');
-            
-            // Basic season simulation
             if (window.state?.league) {
                 const L = window.state.league;
                 L.week = 18;
                 this.setStatus('Season completed!', 'success');
-                
-                // Re-render hub to show updated week
                 setTimeout(() => this.renderHub(), 1000);
             } else {
                 this.setStatus('No league data available', 'error');
             }
-            
         } catch (error) {
             console.error('Error simulating season:', error);
             this.setStatus('Failed to simulate season', 'error');
@@ -311,49 +249,38 @@ class GameController {
     async renderGameResults() {
         try {
             console.log('Rendering enhanced game results...');
-            
             const L = window.state.league;
             if (!L || !L.resultsByWeek) {
                 console.warn('No game results available');
                 return;
             }
-
             const hubResults = this.getElement('hubResults');
             if (!hubResults) return;
-
-            // Get last week results
             const lastWeek = L.week > 1 ? L.week - 1 : 1;
             const weekResults = L.resultsByWeek[lastWeek];
-            
             if (!weekResults || weekResults.length === 0) {
                 hubResults.innerHTML = '<p class="muted">No results available for last week</p>';
                 return;
             }
-
             let resultsHTML = '';
             weekResults.forEach(result => {
                 if (result.bye) {
-                    // Bye week
                     const byeTeams = result.bye.map(teamId => {
                         const team = L.teams[teamId];
                         return team ? team.name : 'Unknown Team';
                     }).join(', ');
-                    
                     resultsHTML += `
                         <div class="result-item bye-week" data-week="${lastWeek}">
                             <div class="bye-teams">${byeTeams} - BYE</div>
                         </div>
                     `;
                 } else {
-                    // Game result
                     const homeTeam = L.teams[result.home];
                     const awayTeam = L.teams[result.away];
-                    
                     if (homeTeam && awayTeam) {
                         const homeWin = result.homeWin;
                         const homeScore = result.scoreHome || 0;
                         const awayScore = result.scoreAway || 0;
-                        
                         resultsHTML += `
                             <div class="result-item game-result" data-week="${lastWeek}" data-home="${result.home}" data-away="${result.away}">
                                 <div class="game-teams">
@@ -374,16 +301,11 @@ class GameController {
                     }
                 }
             });
-
             hubResults.innerHTML = resultsHTML;
-
-            // Make game results clickable
             if (window.gameResultsViewer) {
                 window.gameResultsViewer.makeGameResultsClickable();
             }
-
             console.log('✅ Enhanced game results rendered successfully');
-            
         } catch (error) {
             console.error('Error rendering game results:', error);
         }
@@ -393,14 +315,10 @@ class GameController {
     async renderSchedule() {
         try {
             console.log('Rendering enhanced schedule...');
-            
-            // Refresh schedule viewer if available
             if (window.scheduleViewer) {
                 window.scheduleViewer.refresh();
             }
-
             console.log('✅ Enhanced schedule rendered successfully');
-            
         } catch (error) {
             console.error('Error rendering schedule:', error);
         }
@@ -413,14 +331,10 @@ class GameController {
             if (!modal) {
                 throw new Error('Onboarding modal not found');
             }
-
             modal.hidden = false;
             modal.style.display = 'flex';
-            
-            // Ensure teams are loaded before populating dropdown
             await this.ensureTeamsLoaded();
             this.populateTeamDropdown('fictional');
-            
         } catch (error) {
             console.error('Error opening onboarding:', error);
             this.setStatus('Failed to open game setup', 'error');
@@ -429,7 +343,6 @@ class GameController {
 
     async ensureTeamsLoaded() {
         if (!window.Teams) {
-            // Try to load teams data
             if (typeof window.loadTeamsData === 'function') {
                 try {
                     await window.loadTeamsData();
@@ -449,11 +362,8 @@ class GameController {
             console.error('Team select element not found');
             return false;
         }
-
         try {
-            // Clear existing options efficiently
             teamSelect.innerHTML = '';
-            
             const teams = this.listByMode(mode);
             if (teams.length === 0) {
                 const option = document.createElement('option');
@@ -462,8 +372,6 @@ class GameController {
                 teamSelect.appendChild(option);
                 return false;
             }
-
-            // Use DocumentFragment for better performance
             const fragment = document.createDocumentFragment();
             teams.forEach((team, index) => {
                 if (team && team.name && team.abbr) {
@@ -473,10 +381,8 @@ class GameController {
                     fragment.appendChild(option);
                 }
             });
-            
             teamSelect.appendChild(fragment);
             return true;
-            
         } catch (error) {
             console.error('Error populating team dropdown:', error);
             this.setStatus('Failed to load team list', 'error');
@@ -487,45 +393,32 @@ class GameController {
     // --- ENHANCED GAME INITIALIZATION ---
     async initNewGame(options) {
         try {
-            // Validate options
             if (!options || typeof options !== 'object') {
                 throw new Error('Invalid game options');
             }
-
             const { chosenMode, teamIdx } = options;
             if (!chosenMode || teamIdx === undefined) {
                 throw new Error('Missing required game options');
             }
-
-            // Initialize state with validation
             if (!window.State?.init) {
                 throw new Error('State system not available');
             }
-
             window.state = window.State.init();
             window.state.onboarded = true;
             window.state.namesMode = chosenMode;
             window.state.userTeamId = parseInt(teamIdx, 10);
-            
             if (isNaN(window.state.userTeamId)) {
                 throw new Error('Invalid team selection');
             }
-
             window.state.player = { teamId: window.state.userTeamId };
-
-            // Create league with error handling
             const teams = this.listByMode(window.state.namesMode);
             if (teams.length === 0) {
                 throw new Error('No teams available for selected mode');
             }
-
             if (!window.makeLeague) {
                 throw new Error('League creation system not available');
             }
-
             window.state.league = window.makeLeague(teams);
-            
-            // Initialize other systems
             if (window.ensureFA) {
                 try {
                     window.ensureFA();
@@ -533,28 +426,20 @@ class GameController {
                     console.warn('Failed to initialize free agency:', error);
                 }
             }
-
-            // Save state
+            // Save state via wrapper; returns an object with success
             const saveResult = await this.saveGameState();
             if (!saveResult.success) {
                 console.warn('Failed to save initial game state:', saveResult.error);
             }
-
-            // Close modal and navigate
             const modal = this.getElement('onboardModal');
             if (modal) {
                 modal.style.display = 'none';
             }
-
             location.hash = '#/hub';
-            
-            // Initialize UI
             if (window.initializeUIFixes) {
                 window.initializeUIFixes();
             }
-
             this.setStatus('New game created successfully!', 'success', 3000);
-            
         } catch (error) {
             console.error('Error in initNewGame:', error);
             this.setStatus(`Failed to create new game: ${error.message}`, 'error');
@@ -567,50 +452,40 @@ class GameController {
         if (this.initPromise) {
             return this.initPromise;
         }
-
         this.initPromise = this._performInit();
         return this.initPromise;
     }
 
     async _performInit() {
         console.log('GameController: Initializing...');
-        
         try {
-            // Load saved state
             const loadResult = await this.loadGameState();
-            
-            if (loadResult.success && loadResult.gameData?.onboarded) {
-                window.state = loadResult.gameData;
+            // Accept saved state if it contains a league, even if onboarded flag is missing
+            if (loadResult.success && loadResult.gameData && (loadResult.gameData.onboarded || loadResult.gameData.league)) {
+                // Migrate to current version if necessary
+                if (window.State?.migrate && (!loadResult.gameData.version || loadResult.gameData.version !== '4.0.0')) {
+                    window.state = window.State.migrate(loadResult.gameData);
+                } else {
+                    window.state = loadResult.gameData;
+                }
                 this.setStatus('Game loaded successfully', 'success', 2000);
             } else {
-                // Initialize new game state
                 if (!window.State?.init) {
                     throw new Error('State system not loaded');
                 }
-                
                 window.state = window.State.init();
                 await this.openOnboard();
             }
-
-            // Setup event listeners
             this.setupEventListeners();
-            
-            // Initialize UI fixes
             if (window.initializeUIFixes) {
                 window.initializeUIFixes();
             }
-
-            // Setup auto-save
             this.setupAutoSave();
-
             this.initialized = true;
             console.log('✅ GameController initialized successfully');
-            
         } catch (error) {
             console.error('FATAL ERROR during initialization:', error);
             this.setStatus(`Initialization failed: ${error.message}`, 'error', 10000);
-            
-            // Try to recover with minimal state
             try {
                 window.state = { onboarded: false };
                 await this.openOnboard();
@@ -623,14 +498,9 @@ class GameController {
 
     // --- EVENT MANAGEMENT ---
     setupEventListeners() {
-        // Clean up existing listeners first
         this.removeAllEventListeners();
-
-        // Add new listeners with proper cleanup tracking
         this.addEventListener(window, 'beforeunload', this.handleBeforeUnload.bind(this));
         this.addEventListener(window, 'hashchange', this.handleHashChange.bind(this));
-        
-        // Memory cleanup on visibility change
         this.addEventListener(document, 'visibilitychange', () => {
             if (document.hidden) {
                 this.clearDOMCache();
@@ -677,12 +547,9 @@ class GameController {
 
     // --- AUTO-SAVE SYSTEM ---
     setupAutoSave() {
-        // Clear any existing auto-save
         if (this.autoSaveInterval) {
             clearInterval(this.autoSaveInterval);
         }
-
-        // Auto-save every 5 minutes
         this.autoSaveInterval = setInterval(() => {
             if (window.state?.onboarded && window.state?.needsSave) {
                 this.saveGameState().then(result => {
@@ -701,8 +568,8 @@ class GameController {
     async saveGameState(stateToSave = null) {
         try {
             if (window.saveState && typeof window.saveState === 'function') {
-                const result = window.saveState(stateToSave);
-                return result;
+                const ok = window.saveState(stateToSave);
+                return { success: !!ok };
             } else {
                 throw new Error('Save system not available');
             }
@@ -735,10 +602,7 @@ class GameController {
         if (!viewName) {
             viewName = location.hash.slice(2) || 'hub';
         }
-        
         console.log('🔄 Router navigating to:', viewName);
-        
-        // Handle different views
         switch(viewName) {
             case 'hub':
                 if (this.renderHub) this.renderHub();
@@ -763,15 +627,10 @@ class GameController {
             console.warn('Cannot refresh - game not properly initialized');
             return;
         }
-
         try {
-            // Clear DOM cache to ensure fresh elements
             this.clearDOMCache();
-            
-            // Refresh current view
             const currentHash = location.hash.slice(2) || 'hub';
             this.router(currentHash);
-            
         } catch (error) {
             console.error('Error in refreshAll:', error);
             this.setStatus('Failed to refresh display', 'error');
@@ -790,9 +649,7 @@ class GameController {
             }),
             generateProspects: () => [],
             generateCoaches: () => {
-                // Generate basic coaching staff for teams
                 if (!window.state?.league?.teams) return {};
-                
                 const coaches = {};
                 window.state.league.teams.forEach(team => {
                     if (!team.staff) {
@@ -821,8 +678,6 @@ class GameController {
                 return coaches;
             }
         };
-        
-        // Make functions globally available
         Object.entries(requiredFunctions).forEach(([name, func]) => {
             if (!window[name]) {
                 window[name] = func;
@@ -833,8 +688,6 @@ class GameController {
 
 // Create and initialize the game controller
 const gameController = new GameController();
-
-// Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
         gameController.init();
@@ -842,29 +695,19 @@ if (document.readyState === 'loading') {
 } else {
     gameController.init();
 }
-
-// Make controller globally available
 window.gameController = gameController;
-
-// Make all necessary functions globally available
 window.initNewGame = gameController.initNewGame.bind(gameController);
 window.saveGameState = gameController.saveGameState.bind(gameController);
 window.loadGameState = gameController.loadGameState.bind(gameController);
 window.setStatus = gameController.setStatus.bind(gameController);
 window.router = gameController.router.bind(gameController);
-// Note: window.renderRoster is defined in ui.js, don't override it here to avoid infinite recursion
 window.renderHub = gameController.renderHub.bind(gameController);
 window.renderGameResults = gameController.renderGameResults.bind(gameController);
 window.renderSchedule = gameController.renderSchedule.bind(gameController);
 window.getElement = gameController.getElement.bind(gameController);
 window.listByMode = gameController.listByMode.bind(gameController);
 window.populateTeamDropdown = gameController.populateTeamDropdown.bind(gameController);
-window.calculateOverallRating = gameController.calculateOverallRating.bind(gameController);
-
-// Note: Team rating functions are defined in team-ratings.js
-// Note: Trade, Settings, Playoffs, Scouting functions are defined in their respective files
-
-// Global function for simulate season button
+window.calculateOverallRating = gameController.calculateOverallRating?.bind(gameController);
 window.handleSimulateSeason = function() {
     if (window.gameController && window.gameController.handleSimulateSeason) {
         window.gameController.handleSimulateSeason();
@@ -873,5 +716,4 @@ window.handleSimulateSeason = function() {
         window.setStatus('Game not ready', 'error');
     }
 };
-
-console.log('✅ GameController functions exported globally');
+console.log('✅ GameController functions exported globally (patched version)');
