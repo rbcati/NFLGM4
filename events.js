@@ -43,11 +43,24 @@ function setupEventListeners() {
 
 function handleOnboardStart(e) {
     e.preventDefault();
-    const options = {
-        chosenMode: document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional',
-        teamIdx: document.getElementById('onboardTeam')?.value || '0'
-    };
-    if (window.initNewGame) initNewGame(options);
+    const chosenMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
+    const teamIdx = document.getElementById('onboardTeam')?.value || '0';
+
+    // Ensure the dropdown reflects the currently selected mode before starting
+    if (window.populateTeamDropdown) {
+        window.populateTeamDropdown(chosenMode);
+    }
+
+    const teams = (typeof window.listByMode === 'function') ? window.listByMode(chosenMode) : [];
+    if (!teams.length) {
+        window.setStatus?.('No teams available for selected mode. Please reload teams and try again.', 'error');
+        console.error('Start Season blocked: no teams available for mode', chosenMode);
+        return;
+    }
+
+    if (window.initNewGame) {
+        initNewGame({ chosenMode, teamIdx });
+    }
 }
 
 async function handleSimulateWeek(button) {
@@ -118,19 +131,31 @@ function handleSimulatePlayoff(e) {
 window.setupEventListeners = setupEventListeners;
 
 // Add missing openOnboard function
-window.openOnboard = function() {
+window.openOnboard = async function() {
     console.log('🎯 Opening onboarding modal...');
     const modal = document.getElementById('onboardModal');
     if (modal) {
         modal.hidden = false;
         modal.style.display = 'flex';
-        
+
+        // Ensure team data is available before populating the dropdown
+        if (window.gameController?.ensureTeamsLoaded) {
+            try {
+                await window.gameController.ensureTeamsLoaded();
+            } catch (error) {
+                console.error('❌ Failed to load teams before onboarding:', error);
+                window.setStatus?.('Teams data not available. Please reload.', 'error');
+                return;
+            }
+        }
+
         // Populate team dropdown if not already done
         const teamSelect = document.getElementById('onboardTeam');
         if (teamSelect && window.populateTeamDropdown) {
-            window.populateTeamDropdown('fictional');
+            const selectedMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
+            window.populateTeamDropdown(selectedMode);
         }
-        
+
         console.log('✅ Onboarding modal opened');
     } else {
         console.error('❌ Onboarding modal not found');
