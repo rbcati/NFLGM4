@@ -55,6 +55,14 @@
     return team.roster.find(p => p.id === playerId) || null;
   }
 
+  function assetPlayer(playerId) {
+    return { kind: 'player', playerId };
+  }
+
+  function assetPick(year, round) {
+    return { kind: 'pick', year, round };
+  }
+
   function removePlayerFromTeam(team, playerId) {
     if (!team || !team.roster) return null;
     const idx = team.roster.findIndex(p => p.id === playerId);
