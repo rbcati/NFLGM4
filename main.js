@@ -334,7 +334,11 @@ class GameController {
             modal.hidden = false;
             modal.style.display = 'flex';
             await this.ensureTeamsLoaded();
-            this.populateTeamDropdown('fictional');
+            const selectedMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
+            const populated = this.populateTeamDropdown(selectedMode);
+            if (!populated) {
+                throw new Error('Teams data unavailable for selected mode');
+            }
         } catch (error) {
             console.error('Error opening onboarding:', error);
             this.setStatus('Failed to open game setup', 'error');
@@ -353,6 +357,11 @@ class GameController {
             } else {
                 throw new Error('Teams data and loader not available');
             }
+        }
+        const hasRealTeams = Array.isArray(window.Teams?.real) && window.Teams.real.length > 0;
+        const hasFictionalTeams = Array.isArray(window.Teams?.fictional) && window.Teams.fictional.length > 0;
+        if (!hasRealTeams && !hasFictionalTeams) {
+            throw new Error('Teams data unavailable');
         }
     }
 
