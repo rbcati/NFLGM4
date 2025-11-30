@@ -1,9 +1,8 @@
-// player-stats-viewer.js - ENHANCED Player Statistics Viewer System
 'use strict';
 
 /**
  * Player statistics viewer system
- * Now includes Progression (XP/Skill Tree) and Legacy data.
+ * Now includes Progression (XP/Skill Tree), Legacy data, and Weekly Training Potential.
  */
 
 class PlayerStatsViewer {
@@ -104,13 +103,15 @@ class PlayerStatsViewer {
      * Finds and displays player information and dynamically generated stats.
      */
     displayPlayerStats(player, team) {
+        this.currentPlayer = player;
+        
         // Update modal title and basic info
         document.getElementById('playerModalTitle').textContent = `${player.name} - Statistics`;
         document.getElementById('playerName').textContent = player.name;
         document.getElementById('playerPosition').textContent = player.pos || player.position || 'N/A';
         document.getElementById('playerTeam').textContent = team ? team.name : 'Unknown Team';
 
-        // Generate stats grid based on position
+        // Generate stats grid based on position. PASSING TEAM HERE IS CRUCIAL FOR TRAINING POTENTIAL.
         const statsGrid = document.getElementById('playerStatsGrid');
         statsGrid.innerHTML = this.generateStatsHTML(player, team);
 
@@ -124,7 +125,8 @@ class PlayerStatsViewer {
     // ----------------------------------------------------
     generateProgressionUI(player) {
         const prog = player.progression;
-        const skillTree = window.SKILL_TREES?.[player.pos] || [];
+        // Check for SKILL_TREES global object
+        const skillTree = window.SKILL_TREES?.[player.pos] || []; 
         let html = '<div class="progression-panel">';
 
         html += `
@@ -155,7 +157,7 @@ class PlayerStatsViewer {
         } else {
             html += '<ul class="skill-tree-list">';
             skillTree.forEach(skill => {
-                const isPurchased = prog?.upgrades.includes(skill.name);
+                const isPurchased = prog?.upgrades?.includes(skill.name);
                 const statusClass = isPurchased ? 'skill-purchased' : 'skill-available';
                 const buttonText = isPurchased ? 'Purchased' : `Buy (${skill.cost} SP)`;
 
@@ -183,9 +185,13 @@ class PlayerStatsViewer {
                     btn.onclick = (e) => {
                         const skillName = e.target.dataset.skill;
                         console.log(`Attempting to purchase: ${skillName}`);
-                        // In a real game, you would call: 
-                        // window.applySkillTreeUpgrade(this.currentPlayer, skillName);
-                        alert(`Functionality placeholder: You bought ${skillName}!`);
+                        // Placeholder for game logic
+                        if (window.setStatus) {
+                            window.setStatus(`Placeholder: You bought ${skillName}!`);
+                        } else {
+                            // Use console.log as fallback if setStatus is unavailable
+                            console.log(`Placeholder: You bought ${skillName}!`);
+                        }
                         // Then reload player stats
                         // this.showPlayerStats(this.currentPlayer.id); 
                     };
@@ -200,14 +206,19 @@ class PlayerStatsViewer {
     // ----------------------------------------------------
     // 🏆 Enhanced Stats Grid Generation
     // ----------------------------------------------------
+    /**
+     * Generates the main stats grid content.
+     * @param {Object} player - The player object.
+     * @param {Object} team - The team object (needed for training calculation).
+     */
     generateStatsHTML(player, team) {
         let statsHTML = '';
         
-        // Basic player info and contract... (UNCHANGED)
+        // Basic player info and contract...
         const salary = player.contract?.salary || player.baseAnnual || player.salary || 0;
         const years = player.contract?.years || player.years || player.yearsTotal || 'N/A';
         
-        // Section 1: Player Info & Contract (UNCHANGED)
+        // Section 1: Player Info & Contract 
         statsHTML += `
             <div class="stats-section">
                 <h3>Player Information</h3>
@@ -229,7 +240,7 @@ class PlayerStatsViewer {
             `;
         }
 
-        // Section 2: Player Ratings/Attributes (UNCHANGED)
+        // Section 2: Player Ratings/Attributes 
         if (player.ratings) {
             statsHTML += `
                 <div class="stats-section">
@@ -254,6 +265,9 @@ class PlayerStatsViewer {
                 </div>
             `;
         }
+        
+        // SECTION 2.5: NEW - Weekly Training Potential
+        statsHTML += this.generateTrainingPotentialHTML(player, team);
 
         // Section 3: Legacy Metrics
         if (player.legacy?.metrics) {
@@ -289,7 +303,7 @@ class PlayerStatsViewer {
         `;
 
         // Section 5: Statistics (Season/Career)
-        if (player.stats && (Object.keys(player.stats.season).length > 0 || Object.keys(player.stats.career).length > 0)) {
+        if (player.stats && (Object.keys(player.stats.season || {}).length > 0 || Object.keys(player.stats.career || {}).length > 0)) {
             statsHTML += `
                 <div class="stats-section full-width">
                     <h3>Detailed Stats</h3>
@@ -303,8 +317,8 @@ class PlayerStatsViewer {
             
             // Compile all unique stats
             const allStats = new Set([
-                ...Object.keys(player.stats.season), 
-                ...Object.keys(player.stats.career)
+                ...Object.keys(player.stats.season || {}), 
+                ...Object.keys(player.stats.career || {})
             ]);
             
             allStats.forEach(stat => {
@@ -336,7 +350,7 @@ class PlayerStatsViewer {
                     <h3>✨ Milestones</h3>
                     <ul class="milestone-list">
                         ${player.legacy.milestones.map(m => 
-                            `<li class="rarity-${m.rarity.toLowerCase()}">${m.description} (${m.year})</li>`
+                            `<li class="rarity-${m.rarity?.toLowerCase() || 'common'}">${m.description} (${m.year})</li>`
                         ).join('')}
                     </ul>
                 </div>
@@ -346,7 +360,86 @@ class PlayerStatsViewer {
         return statsHTML;
     }
 
-    // Existing formatRatingName, formatStatName, formatStatValue are UNCHANGED (but optimized slightly for the new data)
+    /**
+     * NEW: Generates the HTML for Weekly Training Potential using the global helper.
+     * @param {Object} player - The player object.
+     * @param {Object} team - The team object (required for coach skill).
+     */
+    generateTrainingPotentialHTML(player, team) {
+        // Guard check: ensure the required function is loaded from training-fixed.js
+        if (!window.getTrainingSuccessRate || !window.Constants) {
+            return '';
+        }
+
+        // A curated list of common trainable stats to display
+        const coreTrainableStats = [
+            'speed', 'acceleration', 'agility', 'awareness', 'intelligence', 
+            'strength', 'catching', 'throwPower', 'coverage'
+        ];
+        
+        let trainingHTML = '';
+        let statsFound = false;
+
+        coreTrainableStats.forEach(stat => {
+            // Only show the stat if the player actually has a rating for it
+            const currentRating = player.ratings?.[stat] || player[stat];
+            if (typeof currentRating !== 'number' || currentRating <= 0) {
+                return;
+            }
+
+            const maxOVR = window.Constants.PLAYER_CONFIG.MAX_OVR;
+
+            // Don't show training potential if already maxed out
+            if (currentRating >= maxOVR) {
+                trainingHTML += `
+                    <div class="rating-item rating-maxed">
+                        <span class="rating-name">${this.formatRatingName(stat)}</span>
+                        <span class="rating-value">MAXED!</span>
+                    </div>
+                `;
+                statsFound = true;
+                return;
+            }
+
+            // Use the global function to get the success chance
+            const successRate = window.getTrainingSuccessRate(player, stat, team);
+            
+            let colorClass;
+            if (successRate >= 80) {
+                colorClass = 'rating-high'; // Great chance
+            } else if (successRate >= 60) {
+                colorClass = 'rating-medium'; // Good chance
+            } else {
+                colorClass = 'rating-low'; // Challenging chance
+            }
+
+            trainingHTML += `
+                <div class="rating-item">
+                    <span class="rating-name">${this.formatRatingName(stat)}</span>
+                    <span class="rating-value ${colorClass}">${successRate}%</span>
+                </div>
+            `;
+            statsFound = true;
+        });
+
+        if (!statsFound) {
+            return '';
+        }
+        
+        // Wrap the results in the stats section structure
+        return `
+            <div class="stats-section">
+                <h3>⚡ Weekly Training Potential</h3>
+                <div class="ratings-grid">
+                    ${trainingHTML}
+                </div>
+                <div class="muted small mt-2 p-1 bg-blue-50 border-l-4 border-blue-400">
+                    * Percent chance this skill will improve if selected for this week's team training.
+                </div>
+            </div>
+        `;
+    }
+
 
     formatRatingName(rating) {
         const ratingNames = {
@@ -362,12 +455,28 @@ class PlayerStatsViewer {
         };
         return ratingNames[rating] || rating.charAt(0).toUpperCase() + rating.slice(1);
     }
+
+    formatStatName(stat) {
+        // Simple capitalization/spacing for stats like 'yardsPassing', 'tacklesTotal'
+        return stat.replace(/([A-Z])/g, ' $1').trim().replace(/\b(\w)/g, l => l.toUpperCase());
+    }
+
+    formatStatValue(stat, value) {
+        // Format based on known types (e.g., decimal for percentages, rounds for others)
+        if (stat.includes('Pct') || stat.includes('Percent')) {
+            return `${(value * 100).toFixed(1)}%`;
+        }
+        if (Number.isInteger(value)) {
+            return value.toLocaleString();
+        }
+        return value.toFixed(1);
+    }
     
     // Existing showModal, hideModal, makePlayersClickable, cleanupStaleData, refreshClickablePlayers, setupDOMObserver, disconnect are UNCHANGED
 
 }
 
-// Initialize the player stats viewer (UNCHANGED)
+// Initialize the player stats viewer
 let playerStatsViewer;
 
 function initializePlayerStatsViewer() {
@@ -385,8 +494,9 @@ function initializePlayerStatsViewer() {
              // ... (UNCHANGED DEBUG LOGIC) ...
         };
         
-        console.log('✅ PlayerStatsViewer initialized');
+        console.log('✅ PlayerStatsViewer initialized and enhanced with Training Potential');
     }
 }
 
 // ... (Rest of initialization/watchForGameState logic is UNCHANGED) ...
+
