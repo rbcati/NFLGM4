@@ -165,6 +165,24 @@ window.makeLeague = function(teams) {
     } else {
         console.log('Team ratings system not available, skipping team ratings initialization');
     }
+    // Attach league to global state so other systems (trades, standings, etc) see it
+    if (typeof window.state === 'object' && window.state !== null) {
+        window.state.league = L;
 
+        // Keep core fields in sync
+        window.state.year   = L.year;
+        window.state.season = L.season;
+        window.state.week   = L.week;
+    } else {
+        window.state = {
+            league: L,
+            year: L.year,
+            season: L.season,
+            week: L.week
+        };
+    }
+
+    return L;
+};
     return L;
 };
