@@ -1098,8 +1098,9 @@ window.renderTradeCenter = function () {
 
   if (!selectB._hasTradeListener) {
     selectB.addEventListener('change', () => {
-      // We call clearSelections and renderTeamLists inside the listener
-      renderTeamLists(); 
+      // Reset selections so stale assets don't carry over between teams
+      clearSelections();
+      renderTeamLists();
     });
     selectB._hasTradeListener = true;
   }
