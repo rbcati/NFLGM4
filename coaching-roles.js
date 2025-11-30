@@ -198,6 +198,46 @@ function promotePlayer() {
 // ... (checkForAchievements remains the same)
 
 /**
+ * Update coaching performance metrics after a season
+ * @param {Object} stats - Season stats { wins, losses, playoffAppearance, superBowlWin, divisionTitle, championships }
+ */
+function updateCoachingPerformance(stats = {}) {
+  if (!window.state?.coachingCareer) return;
+
+  const career = window.state.coachingCareer;
+  const perf = career.performance;
+
+  const wins = stats.wins || 0;
+  const losses = stats.losses || 0;
+  const games = wins + losses;
+
+  perf.totalWins = (perf.totalWins || 0) + wins;
+  perf.totalGames = (perf.totalGames || 0) + games;
+  if (perf.totalGames > 0) {
+    perf.winPercentage = perf.totalWins / perf.totalGames;
+  }
+
+  if (stats.playoffAppearance) perf.playoffAppearances += 1;
+  if (stats.superBowlWin) perf.superBowls += 1;
+  if (stats.divisionTitle) perf.divisionTitles += 1;
+  if (stats.championships) {
+    perf.championships = (perf.championships || 0) + stats.championships;
+  }
+
+  career.seasonsInRole += 1;
+  career.totalSeasons += 1;
+
+  career.achievements.push({
+    type: 'season',
+    title: `Season ${window.state.league?.year || ''} Recap: ${wins}-${losses}`,
+    year: window.state.league?.year,
+    description: 'Coaching performance updated'
+  });
+
+  renderCoachingRoleInterface();
+}
+
+/**
  * Render coaching role interface
  */
 function renderCoachingRoleInterface() {
