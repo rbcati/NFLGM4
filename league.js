@@ -1,170 +1,153 @@
+// league.js - Core League Generation Logic
 'use strict';
 
 /**
- * Creates the league, teams, and initial rosters.
+ * Creates the league, teams, initial rosters, draft picks, and schedule.
  */
 window.makeLeague = function(teams) {
-    console.log('Creating league with', teams.length, 'teams');
+    console.log('🏈 Creating league with', teams.length, 'teams...');
     
-    // Safe access to state object
-    const currentYear = (typeof state !== 'undefined' && state.year) ? state.year : 2025;
-    
-    const L = {
-        teams: [],
-        year: currentYear,
-        season: 1, // Add season property for cap calculations
-        week: 1,
-        schedule: null,
-        resultsByWeek: []
-    };
-
-    // Check if Constants exists
+    // Safe access to state object, default to 2025
+    const currentYear = (typeof window.state !== 'undefined' && window.state.year) ? window.state.year : 2025;
     const C = window.Constants;
     const U = window.Utils;
     
-    if (!C) {
-        console.error('Constants object not found');
-        return L;
-    }
-    
-    if (!U) {
-        console.error('Utils object not found');
-        return L;
-    }
+    // Safety checks
+    if (!C) { console.error('❌ Constants (C) not loaded!'); return null; }
+    if (!U) { console.error('❌ Utils (U) not loaded!'); return null; }
 
+    const L = {
+        teams: [],
+        year: currentYear,
+        season: 1, 
+        week: 1,
+        schedule: null,
+        resultsByWeek: [],
+        transactions: [] // Track trades/signings
+    };
+
+    // 1. Initialize Teams, Roster, Picks, and Staff
     L.teams = teams.map((t, i) => {
-        const team = { ...t }; // Create a copy to avoid modifying the original template
+        const team = { ...t }; // Clone template
         team.id = i;
         
-        // Initialize the record object so standings and power rankings work correctly
+        // Basic Stats
         team.record = { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
+        team.history = [];
         
+        // --- A. Generate Roster ---
         team.roster = [];
-        team.capUsed = 0;
-        team.capTotal = C.SALARY_CAP.BASE;
-        team.capRoom = C.SALARY_CAP.BASE;
-        team.deadCap = 0;
-
-        // Check if DEPTH_NEEDS exists before using it
-        if (C.DEPTH_NEEDS && typeof C.DEPTH_NEEDS === 'object') {
+        
+        // Iterate through depth needs (QB: 3, RB: 4, etc.)
+        if (C.DEPTH_NEEDS) {
             Object.keys(C.DEPTH_NEEDS).forEach(pos => {
                 const count = C.DEPTH_NEEDS[pos];
-                
-                // Validate count is a positive number
-                if (typeof count === 'number' && count > 0) {
-                    for (let j = 0; j < count; j++) {
-                        // Use position-specific overall ratings from constants with proper fallback
-                        let ovrRange = [60, 85]; // Default range
-                        
-                        if (C.POS_RATING_RANGES && 
-                            C.POS_RATING_RANGES[pos] && 
-                            Array.isArray(C.POS_RATING_RANGES[pos]) &&
-                            C.POS_RATING_RANGES[pos].length >= 2) {
-                            ovrRange = C.POS_RATING_RANGES[pos];
-                        }
-                        
-                        const ovr = U.rand(ovrRange[0], ovrRange[1]);
-                        
-                        // Safe access to PLAYER_CONFIG with fallbacks
-                        const minAge = (C.PLAYER_CONFIG && C.PLAYER_CONFIG.MIN_AGE) ? C.PLAYER_CONFIG.MIN_AGE : 22;
-                        const maxAge = (C.PLAYER_CONFIG && C.PLAYER_CONFIG.MAX_AGE) ? C.PLAYER_CONFIG.MAX_AGE : 35;
-                        const age = U.rand(minAge, maxAge);
-                        
-                        // Check if makePlayer function exists
-                        if (typeof window.makePlayer === 'function') {
-                            try {
-                                const player = window.makePlayer(pos, age, ovr);
-                                if (player) {
-                                    team.roster.push(player);
-                                }
-                            } catch (error) {
-                                console.error('Error creating player:', error);
-                            }
-                        } else {
-                            console.warn('makePlayer function not found');
-                        }
+                for (let j = 0; j < count; j++) {
+                    // Determine rating range (Starters vs Backups)
+                    // If it's the 1st player at pos, give them better odds of being good
+                    let ovrRange = C.POS_RATING_RANGES?.[pos] || [60, 85];
+                    
+                    // Slight boost for the "starters" (first generated)
+                    if (j === 0) ovrRange = [Math.max(70, ovrRange[0]), Math.min(99, ovrRange[1] + 5)];
+                    
+                    const ovr = U.rand(ovrRange[0], ovrRange[1]);
+                    const age = U.rand(21, 35);
+
+                    if (window.makePlayer) {
+                        const player = window.makePlayer(pos, age, ovr);
+                        // Assign player to this team
+                        player.teamId = team.id; 
+                        team.roster.push(player);
                     }
                 }
             });
-        } else {
-            console.warn('DEPTH_NEEDS not found in Constants');
         }
+
+        // --- B. Calculate Salary Cap ---
+        // Sum up the 'baseAnnual' or 'capHit' of all players
+        team.capTotal = C.SALARY_CAP?.BASE || 255.4; // Default to 2025 cap if missing
+        team.deadCap = 0;
         
-        // Generate coaching staff for the team
-        if (typeof window.generateInitialStaff === 'function') {
-            try {
-                team.staff = window.generateInitialStaff();
-                console.log(`Generated coaching staff for ${team.name}:`, team.staff);
-            } catch (error) {
-                console.error(`Error generating staff for ${team.name}:`, error);
-                // Create basic staff as fallback
-                team.staff = {
-                    headCoach: { name: 'Vacant HC', position: 'HC', age: 45, playerDevelopment: 50, playcalling: 50, scouting: 50 },
-                    offCoordinator: { name: 'Vacant OC', position: 'OC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
-                    defCoordinator: { name: 'Vacant DC', position: 'DC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
-                    scout: { name: 'Vacant Scout', position: 'Scout', age: 35, playerDevelopment: 50, playcalling: 50, scouting: 50 }
-                };
+        team.capUsed = team.roster.reduce((total, p) => {
+            // Use window.capHitFor if available, otherwise raw baseAnnual
+            const hit = (window.capHitFor) ? window.capHitFor(p, 0) : (p.baseAnnual || 0);
+            return total + hit;
+        }, 0);
+        
+        team.capRoom = team.capTotal - team.capUsed;
+
+
+        // --- C. Generate Draft Picks (Next 3 Years) ---
+        team.picks = [];
+        const yearsToGen = 3; 
+        for (let y = 0; y < yearsToGen; y++) {
+            for (let r = 1; r <= 7; r++) {
+                team.picks.push({
+                    id: U.id(),
+                    round: r,
+                    year: currentYear + y,
+                    originalOwner: team.id,
+                    isCompensatory: false
+                });
             }
+        }
+
+        // --- D. Generate Coaching Staff ---
+        if (window.generateInitialStaff) {
+            team.staff = window.generateInitialStaff();
         } else {
-            console.warn('generateInitialStaff function not found, creating basic staff');
-            // Create basic staff as fallback
+            // Fallback if staff.js isn't ready
             team.staff = {
-                headCoach: { name: 'Vacant HC', position: 'HC', age: 45, playerDevelopment: 50, playcalling: 50, scouting: 50 },
-                offCoordinator: { name: 'Vacant OC', position: 'OC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
-                defCoordinator: { name: 'Vacant DC', position: 'DC', age: 40, playerDevelopment: 50, playcalling: 50, scouting: 50 },
-                scout: { name: 'Vacant Scout', position: 'Scout', age: 35, playerDevelopment: 50, playcalling: 50, scouting: 50 }
+                headCoach: { name: 'Interim HC', ovr: 70 },
+                offCoordinator: { name: 'Interim OC', ovr: 70 },
+                defCoordinator: { name: 'Interim DC', ovr: 70 },
+                scout: { name: 'Head Scout', ovr: 70 }
             };
         }
+
+        // --- E. Set Team Strategies (Playbooks) ---
+        // Randomly assign if not present
+        team.strategies = team.strategies || {
+            offense: U.choice(['Pass Heavy', 'Run Heavy', 'Balanced', 'West Coast', 'Vertical']),
+            defense: U.choice(['4-3', '3-4', 'Nickel', 'Aggressive', 'Conservative'])
+        };
 
         return team;
     });
 
-    // Check if makeSchedule function exists before calling it
-    if (typeof window.makeSchedule === 'function') {
-        try {
-            L.schedule = window.makeSchedule(L.teams);
-        } catch (error) {
-            console.error('Error creating schedule:', error);
-        }
+    console.log(`✅ Teams created. Generating schedule...`);
+
+    // 2. Generate Schedule
+    if (window.makeSchedule) {
+        L.schedule = window.makeSchedule(L.teams);
     } else {
-        console.warn('makeSchedule function not found');
+        console.warn('⚠️ makeSchedule not found. Schedule is empty.');
     }
     
-    // Initialize coaching stats for all teams if the coaching system is available
-    if (typeof window.initializeCoachingStats === 'function') {
-        try {
-            L.teams.forEach(team => {
-                if (team.staff) {
-                    if (team.staff.headCoach) {
-                        window.initializeCoachingStats(team.staff.headCoach);
-                    }
-                    if (team.staff.offCoordinator) {
-                        window.initializeCoachingStats(team.staff.offCoordinator);
-                    }
-                    if (team.staff.defCoordinator) {
-                        window.initializeCoachingStats(team.staff.defCoordinator);
-                    }
-                }
-            });
-            console.log('Initialized coaching stats for all teams');
-        } catch (error) {
-            console.error('Error initializing coaching stats:', error);
-        }
-    } else {
-        console.log('Coaching system not available, skipping coaching stats initialization');
-    }
+    // 3. Initialize Derived Stats (Coaching & Team Ratings)
     
-    // Initialize team ratings for all teams
-    if (typeof window.updateAllTeamRatings === 'function') {
-        try {
-            window.updateAllTeamRatings(L);
-            console.log('Initialized team ratings for all teams');
-        } catch (error) {
-            console.error('Error initializing team ratings:', error);
-        }
-    } else {
-        console.log('Team ratings system not available, skipping team ratings initialization');
+    // Coaching Stats
+    if (window.initializeCoachingStats) {
+        L.teams.forEach(t => {
+            if (t.staff?.headCoach) window.initializeCoachingStats(t.staff.headCoach);
+        });
     }
 
+    // Team Overall Ratings (Off/Def/Ovr)
+    if (window.updateAllTeamRatings) {
+        window.updateAllTeamRatings(L);
+    } else {
+        // Fallback simple rating if file missing
+        L.teams.forEach(t => {
+            if(t.roster.length) {
+                const totalOvr = t.roster.reduce((acc, p) => acc + p.ovr, 0);
+                t.ovr = Math.round(totalOvr / t.roster.length);
+            } else {
+                t.ovr = 75;
+            }
+        });
+    }
+
+    console.log('✨ League creation complete!');
     return L;
 };
