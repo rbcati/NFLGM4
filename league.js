@@ -165,6 +165,6 @@ window.makeLeague = function(teams) {
     } else {
         console.log('Team ratings system not available, skipping team ratings initialization');
     }
-
+team.picks = [];  // initialize draft picks here if you want them in trades
     return L;
 };
