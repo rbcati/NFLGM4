@@ -108,6 +108,13 @@
               console.log('✅ Trade (legacy) rendered');
             }
             break;
+          case 'trade-proposals':
+            window.show('tradeProposals');
+            if (window.renderTradeProposals) {
+              window.renderTradeProposals();
+              console.log('✅ Trade proposals rendered');
+            }
+            break;
           case 'coaching':
             if (window.renderCoachingStats) {
               window.renderCoachingStats();

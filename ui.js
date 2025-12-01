@@ -1,24 +1,117 @@
 const enhancedCSS = `
-/* **FIX**: New styles for a more readable onboarding team select */
+/* New styles for a more readable onboarding team select */
 #onboardTeam {
-    font-size: 16px;
-    font-weight: 500;
-    border-radius: 8px;
-    background-color: #2a2a2e;
-    color: #f0f0f0;
-    padding: 10px;
-    border: 1px solid #444;
-    cursor: pointer;
-    width: 100%;
+  font-size: 16px;
+  font-weight: 500;
+  border-radius: 8px;
+  background-color: #2a2a2e;
+  color: #f0f0f0;
+  padding: 10px;
+  border: 1px solid #444;
+  cursor: pointer;
+  width: 100%;
 }
 
 #onboardTeam option {
-    padding: 10px;
-    font-weight: 500;
-    background-color: #2a2a2e;
+  padding: 10px;
+  font-weight: 500;
+  background-color: #2a2a2e;
 }
 
-/* 🏆 ENHANCED: Trade center asset selection for visual clarity */
+/* Existing styles */
+.user-team {
+  background: rgba(10,132,255,.1) !important;
+  border-left: 3px solid var(--accent) !important;
+}
+
+.standings-table .user-team td {
+  color: var(--text) !important;
+  font-weight: 600 !important;
+}
+
+.conference {
+  margin-bottom: 2rem;
+}
+
+.conference h3 {
+  color: var(--text);
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+}
+
+.divisions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.division {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  border: 1px solid var(--hairline);
+}
+
+.division h4 {
+  color: var(--text-muted);
+  margin-bottom: .5rem;
+  font-size: .875rem;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.standings-table {
+  margin: 0;
+  font-size: .875rem;
+}
+
+.standings-table td {
+  padding: .5rem;
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: .5rem;
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  margin-bottom: .25rem;
+  font-size: .875rem;
+}
+
+.result-item .teams {
+  color: var(--text);
+}
+
+.result-item .winner {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.abilities {
+  font-size: .75rem;
+  color: var(--text-subtle);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .divisions {
+    grid-template-columns: 1fr;
+  }
+  .standings-table {
+    font-size: .75rem;
+  }
+  .standings-table th,
+  .standings-table td {
+    padding: .25rem;
+  }
+}
+
+/* Trade center asset styles */
 .asset-item {
   background: var(--surface);
   padding: 4px 6px;
@@ -26,68 +119,17 @@ const enhancedCSS = `
   cursor: pointer;
   border-radius: 4px;
   font-size: 0.875rem;
-  /* Added transitions for smoother feedback */
-  transition: background-color 0.15s ease-in-out, transform 0.1s ease-out, box-shadow 0.15s ease-in-out; 
 }
-.asset-item:hover {
-    background-color: color-mix(in srgb, var(--surface) 80%, var(--accent));
-    transform: translateY(-1px);
-}
+
 .asset-item.selected {
   background-color: var(--accent);
   color: var(--on-accent, #fff);
-  font-weight: 600;
-  transform: scale(1.02); /* Slight scale to pop out */
-  box-shadow: 0 0 8px rgba(10, 132, 255, 0.5); /* Subtle glowing border effect */
 }
-
-/* 🏆 ENHANCED: Standings readability and hierarchy */
-.user-team{
-    /* Use color-mix for high contrast but still readable */
-    background: color-mix(in srgb, var(--accent) 15%, var(--surface-secondary, #1e1e1e)) !important; 
-    border-left:5px solid var(--accent)!important; /* Thicker border */
-}
-.standings-table .user-team td{color:var(--text)!important;font-weight:600!important}
-.conference{margin-bottom:2rem}
-.conference h3{color:var(--text);margin-bottom:1rem;font-size:1.25rem}
-.divisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1rem}
-.division{
-    /* Use a slightly darker surface for clear separation */
-    background: var(--surface-secondary, #1e1e1e); 
-    border-radius:var(--radius-lg);
-    padding:1rem;
-    border:1px solid var(--hairline);
-}
-.division h4{color:var(--text-muted);margin-bottom:.5rem;font-size:.875rem;text-transform:uppercase;letter-spacing:.5px}
-.standings-table{margin:0;font-size:.875rem}
-.standings-table td{padding:.5rem}
-.result-item{display:flex;justify-content:space-between;align-items:center;padding:.5rem;background:var(--surface);border-radius:var(--radius-md);margin-bottom:.25rem;font-size:.875rem}
-.result-item .teams{color:var(--text)}.result-item .winner{color:var(--accent);font-weight:600}
-
-/* 🏆 ENHANCED: Roster table clarity */
-#rosterTable tr:hover {
-    background-color: color-mix(in srgb, var(--surface) 95%, var(--accent) 5%);
-}
-#rosterTable td:nth-child(2) { 
-    color: var(--accent-light, #3da8ff);
-    text-decoration: none; /* Remove underline */
-}
-.abilities{
-    font-size:.75rem;
-    color:var(--text-subtle);
-    max-width:150px; /* Slightly wider */
-    overflow:hidden;
-    text-overflow:ellipsis;
-    white-space:nowrap;
-    font-style: italic; /* Secondary info emphasis */
-}
-
-@media (max-width:768px){.divisions{grid-template-columns:1fr}.standings-table{font-size:.75rem}.standings-table th,.standings-table td{padding:.25rem}}
 `;
+
 const styleElement = document.createElement('style');
 styleElement.textContent = enhancedCSS;
 document.head.appendChild(styleElement);
-
 
 // --- CORE UI FUNCTIONS ---
 window.show = function(viewId) {
@@ -118,66 +160,48 @@ window.show = function(viewId) {
  */
 // 🏆 ENHANCED: Refactored fillTeamSelect for better error handling and team abbreviation display
 window.fillTeamSelect = function(selectElement, mode = 'fictional') {
-    try {
-        if (!selectElement) {
-            console.error('fillTeamSelect: No select element provided');
-            return false;
-        }
-        
-        // Ensure listByMode is available (assuming it's loaded elsewhere in your code)
-        if (!window.listByMode) {
-            console.error('fillTeamSelect: listByMode function not available');
-            // Fallback for immediate testing if window.state is defined
-            if (window.state?.league?.teams) {
-                const L = window.state.league;
-                selectElement.innerHTML = '';
-                L.teams.forEach((team, index) => {
-                    const option = document.createElement('option');
-                    option.value = index;
-                    option.textContent = team.name;
-                    selectElement.appendChild(option);
-                });
-                if (window.state?.userTeamId !== undefined && window.state.userTeamId < L.teams.length) {
-                    selectElement.value = window.state.userTeamId;
-                }
-                console.log(`✅ Fallback team select populated with ${L.teams.length} teams`);
-                return true;
-            }
-            return false;
-        }
-        
-        const teams = window.listByMode(mode);
-        if (!teams || teams.length === 0) {
-            console.error('fillTeamSelect: No teams available for mode:', mode);
-            return false;
-        }
-        
-        // Clear existing options
-        selectElement.innerHTML = '';
-        
-        // Add team options with abbreviation
-        teams.forEach((team, index) => {
-            const option = document.createElement('option');
-            option.value = String(index);
-            // Display both abbreviation and name for better clarity
-            option.textContent = `${team.abbr || team.name.substring(0, 3).toUpperCase()} — ${team.name}`; 
-            selectElement.appendChild(option);
-        });
-        
-        // Set default selection
-        if (window.state?.userTeamId !== undefined && window.state.userTeamId < teams.length) {
-            selectElement.value = window.state.userTeamId;
-        } else {
-            selectElement.value = '0';
-        }
-        
-        console.log(`✅ fillTeamSelect: Populated ${teams.length} teams for mode: ${mode}`);
-        return true;
-        
-    } catch (error) {
-        console.error('Error in fillTeamSelect:', error);
-        return false;
+  try {
+    if (!selectElement) {
+      console.error('fillTeamSelect: No select element provided');
+      return false;
     }
+
+    if (!window.listByMode) {
+      console.error('fillTeamSelect: listByMode function not available');
+      return false;
+    }
+
+    const teams = window.listByMode(mode);
+    if (!teams || teams.length === 0) {
+      console.error('fillTeamSelect: No teams available for mode:', mode);
+      return false;
+    }
+
+    // Clear existing options
+    selectElement.innerHTML = '';
+
+    // Add team options
+    teams.forEach((team, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = `${team.abbr} — ${team.name}`;
+      selectElement.appendChild(option);
+    });
+
+    // Set default selection
+    if (window.state?.userTeamId !== undefined && window.state.userTeamId < teams.length) {
+      selectElement.value = String(window.state.userTeamId);
+    } else {
+      selectElement.value = '0';
+    }
+
+    console.log(`✅ fillTeamSelect: Populated ${teams.length} teams for mode: ${mode}`);
+    return true;
+
+  } catch (error) {
+    console.error('Error in fillTeamSelect:', error);
+    return false;
+  }
 };
 
 window.getCurrentTeam = function() {
@@ -805,7 +829,7 @@ function showSimplePlayerStats(playerId) {
   console.log('Using fallback player stats display for ID:', playerId);
   
   // Find player in current team roster
-  if (!window.state?.league?.teams) {
+  if (!window.state?.league?.teams || window.state.userTeamId === undefined) {
     alert('No league data available');
     return;
   }

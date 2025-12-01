@@ -320,38 +320,6 @@
     return L.teams.filter(team => team.conf === conference && team.div === division);
   }
 
-  /**
-   * Fill a team select element with teams
-   */
-  function fillTeamSelect(selectEl, includeAll = false) {
-    if (!selectEl) return;
-    
-    const L = global.state.league;
-    if (!L || !L.teams) {
-      console.warn('No league or teams available for team select');
-      return;
-    }
-    
-    selectEl.innerHTML = '';
-    
-    if (includeAll) {
-      const allOption = global.document.createElement('option');
-      allOption.value = '-1';
-      allOption.textContent = 'All Teams';
-      selectEl.appendChild(allOption);
-    }
-    
-    L.teams.forEach((team, index) => {
-      const option = global.document.createElement('option');
-      option.value = String(index);
-      option.textContent = `${team.abbr} — ${team.name}`;
-      selectEl.appendChild(option);
-    });
-    
-    // Set to user's team by default
-    const userTeamId = global.state.userTeamId || global.state.player?.teamId || 0;
-    selectEl.value = String(userTeamId);
-  }
 
 
   // --- Initialization and Global Exposure ---
@@ -386,7 +354,6 @@
   global.currentTeam = currentTeam;
   global.getTeamsByConference = getTeamsByConference;
   global.getTeamsByDivision = getTeamsByDivision;
-  global.fillTeamSelect = fillTeamSelect;
   
   // Legacy aliases
   global.saveLeague = saveState; // New games should use saveState
