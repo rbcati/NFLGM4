@@ -679,6 +679,16 @@ class GameController {
                     window.renderDraft();
                 }
                 break;
+            case 'settings':
+                if (window.renderSettings) {
+                    window.renderSettings();
+                }
+                break;
+            case 'playoffs':
+                if (window.renderPlayoffs) {
+                    window.renderPlayoffs();
+                }
+                break;
             default:
                 console.log('No renderer for view:', viewName);
         }
