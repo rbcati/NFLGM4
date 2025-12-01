@@ -295,6 +295,7 @@
       const saveKey = saveKeyFor(activeSlot);
       global.localStorage.setItem(saveKey, serialized);
 
+      
       console.log('State saved successfully');
 
       if (typeof global.setStatus === 'function') {
