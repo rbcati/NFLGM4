@@ -712,6 +712,7 @@ class GameController {
                 if (window.renderTradeCenter) {
                     window.renderTradeCenter();
                 } else if (window.openTradeCenter) {
+                if (window.openTradeCenter) {
                     window.openTradeCenter();
                 }
                 break;
