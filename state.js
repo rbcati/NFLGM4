@@ -294,6 +294,7 @@
       const activeSlot = stateObj.saveSlot || getActiveSaveSlot();
       const saveKey = saveKeyFor(activeSlot);
       global.localStorage.setItem(saveKey, serialized);
+
       
       console.log('State saved successfully');
 
@@ -302,9 +303,16 @@
       }
 
       return true;
-      
+
     } catch (error) {
-      console.error('Error saving state:', error);
+      if (error?.name === 'QuotaExceededError') {
+        console.warn('Save failed: storage quota exceeded');
+        if (typeof global.setStatus === 'function') {
+          global.setStatus('Save failed: storage is full. Please clear a slot and try again.', 'error');
+        }
+      } else {
+        console.error('Error saving state:', error);
+      }
       return false;
     }
   }

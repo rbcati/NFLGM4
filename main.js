@@ -460,6 +460,7 @@ class GameController {
             window.state.onboarded = true;
             window.state.namesMode = chosenMode;
             window.state.userTeamId = parseInt(teamIdx, 10);
+            window.state.viewTeamId = window.state.userTeamId;
             if (isNaN(window.state.userTeamId)) {
                 throw new Error('Invalid team selection');
             }
@@ -708,6 +709,9 @@ class GameController {
                 }
                 break;
             case 'trade':
+                if (window.renderTradeCenter) {
+                    window.renderTradeCenter();
+                } else if (window.openTradeCenter) {
                 if (window.openTradeCenter) {
                     window.openTradeCenter();
                 }
@@ -715,6 +719,18 @@ class GameController {
             case 'freeagency':
                 if (window.renderFreeAgency) {
                     window.renderFreeAgency();
+                }
+                break;
+            case 'scouting':
+                if (window.renderScouting) {
+                    window.renderScouting();
+                }
+                break;
+            case 'coaching':
+                if (window.renderCoachingStats) {
+                    window.renderCoachingStats();
+                } else if (window.renderCoaching) {
+                    window.renderCoaching();
                 }
                 break;
             case 'draft':

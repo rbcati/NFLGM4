@@ -110,7 +110,11 @@ function getAvailableActions() {
  * @returns {Object} Promotion eligibility status
  */
 function checkPromotionEligibility() {
-  const career = window.state.coachingCareer;
+  const career = window.state?.coachingCareer;
+  if (!career || !career.currentRole) {
+    return { eligible: false, reason: 'Coaching career not initialized' };
+  }
+
   const currentRole = career.currentRole;
   const roleConfig = COACHING_ROLES[currentRole];
   

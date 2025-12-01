@@ -263,7 +263,8 @@ window.renderRoster = function() {
             }
         }
         
-        const teamId = parseInt(teamSelect?.value || window.state?.userTeamId || '0', 10);
+        const preferredTeamId = window.state?.viewTeamId ?? window.state?.userTeamId;
+        const teamId = parseInt(teamSelect?.value || preferredTeamId || '0', 10);
         const team = L.teams[teamId];
         if (!team) {
             console.error('Team not found:', teamId);
@@ -838,11 +839,10 @@ window.handleTeamSelectionChange = function() {
     const teamSelect = document.getElementById('rosterTeam');
     if (teamSelect) {
         const selectedTeamId = parseInt(teamSelect.value);
-        
+
         if (!isNaN(selectedTeamId) && window.state?.league?.teams) {
-            // Update the userTeamId temporarily for rendering purposes
-            // Note: If you want this change to persist across views, you should handle state management globally.
-            window.state.userTeamId = selectedTeamId; 
+            // Track which team is being viewed without changing the actual user team selection
+            window.state.viewTeamId = selectedTeamId;
             
             if (window.renderRoster) {
                 console.log('Calling renderRoster...');
@@ -855,6 +855,15 @@ window.handleTeamSelectionChange = function() {
         }
     } else {
         console.log('Team select element not found');
+    }
+};
+
+// Alias for trade navigation; router expects openTradeCenter
+window.openTradeCenter = function() {
+    if (typeof window.renderTradeCenter === 'function') {
+        window.renderTradeCenter();
+    } else {
+        console.warn('openTradeCenter: renderTradeCenter not available');
     }
 };
 

@@ -448,6 +448,119 @@ function renderScheduleStandings(league) {
   return html;
 }
 
+// --- Fallback Renderers ---
+function renderDivisionStandings(data) {
+  if (!data || !data.divisions) return '<div class="muted">No standings available.</div>';
+  const { divisions, leaders } = data;
+  const userTeamId = window.state?.userTeamId ?? 0;
+
+  return ['AFC', 'NFC'].map(confName => {
+    const conf = confName === 'AFC' ? 0 : 1;
+    return `
+      <div class="division-block">
+        <h3>${confName}</h3>
+        ${[0,1,2,3].map(div => {
+          const teams = divisions[conf][div] || [];
+          return `
+            <div class="division">
+              <h4>${getDivisionName(conf, div)}</h4>
+              <table class="standings-table">
+                <thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th><th>Pct</th><th>GB</th></tr></thead>
+                <tbody>
+                  ${teams.map((team, idx) => {
+                    const leader = leaders[conf][div]?.[0];
+                    const gamesBack = leader ? calculateGamesBack(leader, team) : 0;
+                    return `<tr class="${team.id === userTeamId ? 'user-team' : ''}">
+                      <td>${team.abbr || team.name}</td>
+                      <td>${team.wins}</td><td>${team.losses}</td><td>${team.ties}</td>
+                      <td>${team.winPercentage.toFixed(3)}</td><td>${idx === 0 ? '-' : gamesBack}</td>
+                    </tr>`;
+                  }).join('')}
+                </tbody>
+              </table>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+}
+
+function renderConferenceStandings(data) {
+  if (!data || !data.conferences) return '<div class="muted">No standings available.</div>';
+  const userTeamId = window.state?.userTeamId ?? 0;
+
+  return ['AFC', 'NFC'].map(confName => {
+    const conf = confName === 'AFC' ? 0 : 1;
+    const teams = data.conferences[conf] || [];
+    return `
+      <div class="conference">
+        <h3>${confName} Conference</h3>
+        <table class="standings-table">
+          <thead><tr><th>Seed</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>Pct</th></tr></thead>
+          <tbody>
+            ${teams.map((team, idx) => `
+              <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+                <td>${idx + 1}</td><td>${team.abbr || team.name}</td>
+                <td>${team.wins}</td><td>${team.losses}</td><td>${team.ties}</td>
+                <td>${team.winPercentage.toFixed(3)}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }).join('');
+}
+
+function renderOverallStandings(data) {
+  if (!data || !data.overall) return '<div class="muted">No standings available.</div>';
+  const userTeamId = window.state?.userTeamId ?? 0;
+  return `
+    <table class="standings-table">
+      <thead><tr><th>Rank</th><th>Team</th><th>W</th><th>L</th><th>T</th><th>Pct</th></tr></thead>
+      <tbody>
+        ${data.overall.map((team, idx) => `
+          <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+            <td>${idx + 1}</td><td>${team.abbr || team.name}</td>
+            <td>${team.wins}</td><td>${team.losses}</td><td>${team.ties}</td>
+            <td>${team.winPercentage.toFixed(3)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function renderSimpleConferenceStandings(confTeams = []) {
+  const userTeamId = window.state?.userTeamId ?? 0;
+  return `
+    <table class="standings-table">
+      <thead><tr><th>Team</th><th>W</th><th>L</th><th>T</th><th>Pct</th></tr></thead>
+      <tbody>
+        ${(confTeams || []).map(team => `
+          <tr class="${team.id === userTeamId ? 'user-team' : ''}">
+            <td>${team.abbr || team.name}</td><td>${team.wins}</td><td>${team.losses}</td><td>${team.ties}</td><td>${team.winPercentage.toFixed(3)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+function setupStandingsTabs() {
+  const tabs = document.querySelectorAll('.standings-tab');
+  const sections = document.querySelectorAll('.standings-section');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      sections.forEach(sec => sec.classList.remove('active'));
+      tab.classList.add('active');
+      const target = document.getElementById(`standings-${tab.dataset.tab}`);
+      if (target) target.classList.add('active');
+    });
+  });
+}
+
+function makeTeamsClickable() {
+  // Basic safety: highlight rows and allow future expansion
+  document.querySelectorAll('.standings-table tr').forEach(row => {
+    row.style.cursor = 'default';
+  });
+}
+
 // --- Global Exports ---
 
 // Make utility functions available globally for other scripts that might need them
@@ -463,11 +576,10 @@ window.renderStandingsPage = renderStandingsPage;
 window.renderStandings = renderStandingsPage;
 window.calculateAllStandings = calculateAllStandings;
 
-// NOTE: These rendering functions must be defined *outside* this file (or added here) 
-// for the main renderStandingsPage to work:
-// window.renderDivisionStandings = renderDivisionStandings;
-// window.renderConferenceStandings = renderConferenceStandings;
-// window.renderOverallStandings = renderOverallStandings;
-// window.renderSimpleConferenceStandings = renderSimpleConferenceStandings;
-// window.setupStandingsTabs = setupStandingsTabs; 
-// window.makeTeamsClickable = makeTeamsClickable;
+// Provide fallbacks if hosting page doesn't supply them
+window.renderDivisionStandings = window.renderDivisionStandings || renderDivisionStandings;
+window.renderConferenceStandings = window.renderConferenceStandings || renderConferenceStandings;
+window.renderOverallStandings = window.renderOverallStandings || renderOverallStandings;
+window.renderSimpleConferenceStandings = window.renderSimpleConferenceStandings || renderSimpleConferenceStandings;
+window.setupStandingsTabs = window.setupStandingsTabs || setupStandingsTabs;
+window.makeTeamsClickable = window.makeTeamsClickable || makeTeamsClickable;
