@@ -678,7 +678,7 @@ window.renderSettings = function() {
     try {
         const settingsContainer = document.getElementById('settings');
         if (!settingsContainer) return;
-        
+
         settingsContainer.innerHTML = `
             <div class="card">
                 <h2>Game Settings</h2>
@@ -699,6 +699,19 @@ window.renderSettings = function() {
                                 <option value="career" ${window.state?.gameMode === 'career' ? 'selected' : ''}>Career Mode</option>
                             </select>
                         </div>
+                        <div class="form-group">
+                            <label for="settingTheme">Theme:</label>
+                            <select id="settingTheme">
+                                <option value="dark" ${window.state?.theme !== 'light' ? 'selected' : ''}>Dark</option>
+                                <option value="light" ${window.state?.theme === 'light' ? 'selected' : ''}>Light</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="settingSalaryCap" ${window.state?.settings?.salaryCapEnabled !== false ? 'checked' : ''}> Salary Cap Enabled</label>
+                        </div>
+                        <div class="form-group">
+                            <label><input type="checkbox" id="settingCoachFiring" ${window.state?.settings?.allowCoachFiring !== false ? 'checked' : ''}> Coaches can be fired</label>
+                        </div>
                     </div>
                     <div>
                         <h3>Save Data</h3>
@@ -707,17 +720,116 @@ window.renderSettings = function() {
                 </div>
             </div>
         `;
-        
+
         // Add the save data manager if available
         if (window.renderSaveDataManager) {
             window.renderSaveDataManager();
         }
-        
+
+        const themeSelect = settingsContainer.querySelector('#settingTheme');
+        const salaryCapToggle = settingsContainer.querySelector('#settingSalaryCap');
+        const coachFiringToggle = settingsContainer.querySelector('#settingCoachFiring');
+
+        if (themeSelect) {
+            themeSelect.addEventListener('change', (e) => {
+                if (!window.state) return;
+                window.state.theme = e.target.value;
+                if (window.applyTheme) window.applyTheme(window.state.theme);
+                if (window.saveState) window.saveState();
+            });
+        }
+
+        if (salaryCapToggle) {
+            salaryCapToggle.addEventListener('change', (e) => {
+                if (!window.state?.settings) return;
+                window.state.settings.salaryCapEnabled = e.target.checked;
+                if (window.saveState) window.saveState();
+            });
+        }
+
+        if (coachFiringToggle) {
+            coachFiringToggle.addEventListener('change', (e) => {
+                if (!window.state?.settings) return;
+                window.state.settings.allowCoachFiring = e.target.checked;
+                if (window.saveState) window.saveState();
+            });
+        }
+
         console.log('✅ Settings rendered successfully');
-        
+
     } catch (error) {
         console.error('Error rendering settings:', error);
     }
+};
+
+window.renderSaveDataManager = function() {
+    const manager = document.getElementById('saveDataManager');
+    if (!manager) return;
+
+    const slots = (typeof window.listSaveSlots === 'function') ? window.listSaveSlots() : Array.from({ length: 5 }, () => null);
+    const activeSlot = window.state?.saveSlot || (window.getActiveSaveSlot ? window.getActiveSaveSlot() : 1);
+
+    const rows = slots.map((slotMeta, idx) => {
+        const slotNumber = idx + 1;
+        if (!slotMeta) {
+            return `<div class="save-slot ${slotNumber === activeSlot ? 'active' : ''}">` +
+                `<div><strong>Slot ${slotNumber}</strong> — Empty</div>` +
+                `<button class="btn" data-slot="${slotNumber}">Switch to Slot</button>` +
+            `</div>`;
+        }
+
+        const lastSaved = slotMeta.lastSaved ? new Date(slotMeta.lastSaved).toLocaleString() : 'Unknown';
+        const teamLabel = slotMeta.team || 'Unknown team';
+        return `<div class="save-slot ${slotNumber === activeSlot ? 'active' : ''}">` +
+            `<div><strong>Slot ${slotNumber}</strong> — ${teamLabel} (Season ${slotMeta.season})</div>` +
+            `<div class="muted small">Saved: ${lastSaved}</div>` +
+            `<button class="btn" data-slot="${slotNumber}">Switch to Slot</button>` +
+        `</div>`;
+    }).join('');
+
+    manager.innerHTML = `<div class="save-slot-list">${rows}</div>`;
+
+    manager.querySelectorAll('button[data-slot]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const slot = parseInt(e.target.getAttribute('data-slot'), 10);
+            if (window.switchSaveSlot) {
+                window.switchSaveSlot(slot);
+            }
+        });
+    });
+};
+
+window.renderSaveSlotInfo = function() {
+    const select = document.getElementById('saveSlotSelect');
+    const info = document.getElementById('saveSlotInfo');
+    const activeSlot = window.state?.saveSlot || (window.getActiveSaveSlot ? window.getActiveSaveSlot() : 1);
+
+    if (select) {
+        select.value = String(activeSlot);
+    }
+
+    if (!info) return;
+
+    const meta = (typeof window.getSaveMetadata === 'function') ? window.getSaveMetadata(activeSlot) : null;
+    if (!meta) {
+        info.textContent = `Slot ${activeSlot}: Empty`;
+        return;
+    }
+    const lastSaved = meta.lastSaved ? new Date(meta.lastSaved).toLocaleString() : 'Unknown';
+    const teamLabel = meta.team || 'Unknown team';
+    info.textContent = `Slot ${activeSlot}: ${teamLabel} (Season ${meta.season}) — Saved ${lastSaved}`;
+};
+
+window.bindSaveSlotSelect = function() {
+    const select = document.getElementById('saveSlotSelect');
+    if (!select) return;
+
+    select.addEventListener('change', (e) => {
+        const slot = parseInt(e.target.value, 10);
+        if (window.switchSaveSlot) {
+            window.switchSaveSlot(slot);
+        }
+    });
 };
 
 // Add team selection change handler for roster view
@@ -797,6 +909,12 @@ function updateReleaseButton() {
 function initializeUI() {
   console.log('🎯 Initializing UI...');
   enhanceNavigation();
+  if (window.renderSaveSlotInfo) {
+    window.renderSaveSlotInfo();
+  }
+  if (window.bindSaveSlotSelect) {
+    window.bindSaveSlotSelect();
+  }
   if (window.state?.league && window.state?.onboarded) {
     // Use hash to route on startup
     const initialView = window.location.hash ? window.location.hash.substring(2) : 'hub';

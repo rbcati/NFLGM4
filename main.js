@@ -82,6 +82,36 @@ class GameController {
         return Array.isArray(teams) ? teams : [];
     }
 
+    applyTheme(theme) {
+        const isLight = theme === 'light';
+        document.body.classList.toggle('theme-light', isLight);
+        document.body.classList.toggle('theme-dark', !isLight);
+    }
+
+    async switchSaveSlot(slot) {
+        const normalized = (typeof window.setActiveSaveSlot === 'function') ? window.setActiveSaveSlot(slot) : slot;
+        this.setStatus(`Switching to slot ${normalized}...`, 'info');
+        const loadResult = await this.loadGameState();
+        if (loadResult.success && loadResult.gameData) {
+            window.state = loadResult.gameData;
+            window.state.saveSlot = normalized;
+            this.applyTheme(window.state.theme || 'dark');
+            if (typeof window.renderSaveSlotInfo === 'function') window.renderSaveSlotInfo();
+            if (typeof window.renderSaveDataManager === 'function') window.renderSaveDataManager();
+            if (typeof window.updateCapSidebar === 'function') window.updateCapSidebar();
+            this.router();
+            this.setStatus(`Loaded save slot ${normalized}`, 'success');
+        } else {
+            if (window.State?.init) {
+                window.state = window.State.init();
+                window.state.saveSlot = normalized;
+            }
+            if (typeof window.renderSaveSlotInfo === 'function') window.renderSaveSlotInfo();
+            await this.openOnboard();
+            this.setStatus(`Slot ${normalized} is empty — create a new league.`, 'info');
+        }
+    }
+
     // --- ROSTER MANAGEMENT ---
     async renderRoster() {
         // Delegate to the ui.js implementation
@@ -386,6 +416,7 @@ class GameController {
         }
         try {
             teamSelect.innerHTML = '';
+            teamSelect.disabled = false;
             const teams = this.listByMode(mode);
             if (teams.length === 0) {
                 const option = document.createElement('option');
@@ -433,6 +464,7 @@ class GameController {
                 throw new Error('Invalid team selection');
             }
             window.state.player = { teamId: window.state.userTeamId };
+            this.applyTheme(window.state.theme || 'dark');
             const teams = this.listByMode(window.state.namesMode);
             if (teams.length === 0) {
                 throw new Error('No teams available for selected mode');
@@ -460,6 +492,9 @@ class GameController {
             location.hash = '#/hub';
             if (window.initializeUIFixes) {
                 window.initializeUIFixes();
+            }
+            if (typeof window.updateCapSidebar === 'function') {
+                window.updateCapSidebar();
             }
             this.setStatus('New game created successfully!', 'success', 3000);
         } catch (error) {
@@ -490,12 +525,18 @@ class GameController {
                 } else {
                     window.state = loadResult.gameData;
                 }
+                this.applyTheme(window.state.theme || 'dark');
+                if (typeof window.renderSaveSlotInfo === 'function') window.renderSaveSlotInfo();
+                if (typeof window.renderSaveDataManager === 'function') window.renderSaveDataManager();
+                if (typeof window.updateCapSidebar === 'function') window.updateCapSidebar();
                 this.setStatus('Game loaded successfully', 'success', 2000);
             } else {
                 if (!window.State?.init) {
                     throw new Error('State system not loaded');
                 }
                 window.state = window.State.init();
+                this.applyTheme(window.state.theme || 'dark');
+                if (typeof window.renderSaveSlotInfo === 'function') window.renderSaveSlotInfo();
                 await this.openOnboard();
             }
             this.setupEventListeners();
@@ -596,6 +637,10 @@ class GameController {
         try {
             if (window.saveState && typeof window.saveState === 'function') {
                 const ok = window.saveState(stateToSave);
+                if (ok) {
+                    if (typeof window.renderSaveSlotInfo === 'function') window.renderSaveSlotInfo();
+                    if (typeof window.renderSaveDataManager === 'function') window.renderSaveDataManager();
+                }
                 return { success: !!ok };
             } else {
                 throw new Error('Save system not available');
@@ -780,6 +825,8 @@ window.renderSchedule = gameController.renderSchedule.bind(gameController);
 window.getElement = gameController.getElement.bind(gameController);
 window.listByMode = gameController.listByMode.bind(gameController);
 window.populateTeamDropdown = gameController.populateTeamDropdown.bind(gameController);
+window.applyTheme = gameController.applyTheme.bind(gameController);
+window.switchSaveSlot = gameController.switchSaveSlot.bind(gameController);
 window.calculateOverallRating = gameController.calculateOverallRating?.bind(gameController);
 window.handleSimulateSeason = function() {
     if (window.gameController && window.gameController.handleSimulateSeason) {

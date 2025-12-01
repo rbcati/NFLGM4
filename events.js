@@ -102,8 +102,19 @@ function handleLoadGame() {
 
 function handleNewLeague() {
     if (confirm('Are you sure you want to start a new league? Your current game will be deleted.')) {
-        localStorage.removeItem('nflGM4.league');
-        location.reload();
+        if (window.clearSavedState) {
+            window.clearSavedState();
+        }
+        if (window.State?.init) {
+            window.state = window.State.init();
+        }
+        if (window.setActiveSaveSlot && window.state?.saveSlot) {
+            window.setActiveSaveSlot(window.state.saveSlot);
+        }
+        if (window.renderSaveSlotInfo) {
+            window.renderSaveSlotInfo();
+        }
+        window.openOnboard?.();
     }
 }
 
