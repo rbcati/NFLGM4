@@ -42,6 +42,9 @@ function setupEventListeners() {
     if (namesModeRadios) {
         namesModeRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
+                if (window.state) {
+                    window.state.namesMode = e.target.value;
+                }
                 if(window.populateTeamDropdown) populateTeamDropdown(e.target.value);
             });
         });

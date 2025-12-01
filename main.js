@@ -334,7 +334,7 @@ class GameController {
             modal.hidden = false;
             modal.style.display = 'flex';
             await this.ensureTeamsLoaded();
-            const selectedMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
+            const selectedMode = this.syncOnboardSelections();
             const populated = this.populateTeamDropdown(selectedMode);
             if (!populated) {
                 throw new Error('Teams data unavailable for selected mode');
@@ -343,6 +343,19 @@ class GameController {
             console.error('Error opening onboarding:', error);
             this.setStatus('Failed to open game setup', 'error');
         }
+    }
+
+    syncOnboardSelections() {
+        const defaultMode = window.state?.namesMode || 'fictional';
+        const checkedRadio = document.querySelector('input[name="namesMode"]:checked');
+        const selectedMode = checkedRadio?.value || defaultMode;
+
+        // Ensure the radio buttons reflect the selected mode
+        document.querySelectorAll('input[name="namesMode"]').forEach(radio => {
+            radio.checked = radio.value === selectedMode;
+        });
+
+        return selectedMode;
     }
 
     async ensureTeamsLoaded() {
@@ -617,6 +630,12 @@ class GameController {
             viewName = location.hash.slice(2) || 'hub';
         }
         console.log('🔄 Router navigating to:', viewName);
+
+        // Always show the requested view if the UI helper exists
+        if (typeof window.show === 'function') {
+            window.show(viewName);
+        }
+
         switch(viewName) {
             case 'hub':
                 if (this.renderHub) this.renderHub();
@@ -624,11 +643,41 @@ class GameController {
             case 'roster':
                 if (this.renderRoster) this.renderRoster();
                 break;
+            case 'contracts':
+            case 'cap':
+                if (window.renderContractManagement) {
+                    window.renderContractManagement(window.state?.league, window.state?.userTeamId);
+                }
+                break;
             case 'schedule':
                 if (this.renderSchedule) this.renderSchedule();
                 break;
             case 'game-results':
                 if (this.renderGameResults) this.renderGameResults();
+                break;
+            case 'standings':
+                if (window.renderStandingsPage) {
+                    window.renderStandingsPage();
+                } else if (window.renderStandings) {
+                    window.renderStandings();
+                }
+                break;
+            case 'trade':
+                if (window.openTradeCenter) {
+                    window.openTradeCenter();
+                }
+                break;
+            case 'freeagency':
+                if (window.renderFreeAgency) {
+                    window.renderFreeAgency();
+                }
+                break;
+            case 'draft':
+                if (window.renderDraftBoard) {
+                    window.renderDraftBoard();
+                } else if (window.renderDraft) {
+                    window.renderDraft();
+                }
                 break;
             default:
                 console.log('No renderer for view:', viewName);
