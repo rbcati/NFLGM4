@@ -103,8 +103,17 @@ function renderStandingsPage() {
   }
   
   // Calculate all standings data
-  const standingsData = calculateAllStandings(L); 
-  
+  const standingsData = calculateAllStandings(L);
+  const divisionRenderer = typeof window.renderDivisionStandings === 'function'
+    ? window.renderDivisionStandings
+    : renderDivisionStandings;
+  const conferenceRenderer = typeof window.renderConferenceStandings === 'function'
+    ? window.renderConferenceStandings
+    : renderConferenceStandings;
+  const overallRenderer = typeof window.renderOverallStandings === 'function'
+    ? window.renderOverallStandings
+    : renderOverallStandings;
+
   if (standingsView) {
     // Use the dedicated standings view with tabs
     // NOTE: Requires external CSS for styling and setupStandingsTabs() for logic
@@ -129,15 +138,15 @@ function renderStandingsPage() {
         
         <div class="standings-content">
           <div id="standings-division" class="standings-section active">
-            ${window.renderDivisionStandings(standingsData)}
+            ${divisionRenderer(standingsData)}
           </div>
-          
+
           <div id="standings-conference" class="standings-section">
-            ${window.renderConferenceStandings(standingsData)}
+            ${conferenceRenderer(standingsData)}
           </div>
-          
+
           <div id="standings-overall" class="standings-section">
-            ${window.renderOverallStandings(standingsData)}
+            ${overallRenderer(standingsData)}
           </div>
           
           <div id="standings-schedule" class="standings-section">
@@ -213,16 +222,21 @@ function calculateAllStandings(league) {
   // Group by conference and division
   const afc = teams.filter(t => t.conf === 0);
   const nfc = teams.filter(t => t.conf === 1);
-  
+
   const afcDivisions = groupByDivision(afc);
   const nfcDivisions = groupByDivision(nfc);
-  
+
+  // Leaders cache (used by renderers for games-back math)
+  const leaders = { 0: {}, 1: {} };
+
   // Sort each division (IMPORTANT for determining Division Winners)
   Object.keys(afcDivisions).forEach(div => {
     afcDivisions[div] = sortTeamsByRecord(afcDivisions[div]);
+    leaders[0][div] = afcDivisions[div];
   });
   Object.keys(nfcDivisions).forEach(div => {
     nfcDivisions[div] = sortTeamsByRecord(nfcDivisions[div]);
+    leaders[1][div] = nfcDivisions[div];
   });
   
   // Sort conferences (needed for Wild Card calculation)
@@ -231,18 +245,14 @@ function calculateAllStandings(league) {
   
   // Calculate playoff scenarios using sorted division winners
   const playoffPicture = calculatePlayoffPicture(afcSorted, nfcSorted, afcDivisions, nfcDivisions);
-  
+
   return {
-    afc: {
-      teams: afcSorted,
-      divisions: afcDivisions
-    },
-    nfc: {
-      teams: nfcSorted,
-      divisions: nfcDivisions
-    },
+    divisions: { 0: afcDivisions, 1: nfcDivisions },
+    conferences: { 0: afcSorted, 1: nfcSorted },
+    leaders,
     overall: sortTeamsByRecord(teams),
-    playoffs: playoffPicture
+    playoffs: playoffPicture,
+    league
   };
 }
 

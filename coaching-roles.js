@@ -117,19 +117,19 @@ function checkPromotionEligibility() {
 
   const currentRole = career.currentRole;
   const roleConfig = COACHING_ROLES[currentRole];
-  
+
   if (!roleConfig || !roleConfig.promotionPath) {
     return { eligible: false, reason: 'Already at highest available role (or no path defined)' };
   }
-  
+
   const requirements = roleConfig.promotionRequirement;
-  const performance = career.performance;
-  
+  const performance = career.performance || {};
+
   const checks = {
-    seasons: career.seasonsInRole >= requirements.seasons,
-    winPercentage: performance.winPercentage >= requirements.winPercentage,
-    playoffAppearances: performance.playoffAppearances >= requirements.playoffAppearances,
-    superBowls: performance.superBowls >= (requirements.superBowls || 0)
+    seasons: (career.seasonsInRole || 0) >= requirements.seasons,
+    winPercentage: (performance.winPercentage || 0) >= requirements.winPercentage,
+    playoffAppearances: (performance.playoffAppearances || 0) >= requirements.playoffAppearances,
+    superBowls: (performance.superBowls || 0) >= (requirements.superBowls || 0)
   };
   
   // Custom check for GM -> President
@@ -248,7 +248,7 @@ function renderCoachingRoleInterface() {
   const role = window.state.playerRole || 'HC';
   const career = window.state.coachingCareer;
   const roleConfig = COACHING_ROLES[role];
-  
+
   // Create or update coaching role container (simplified location logic)
   let container = document.getElementById('coachingRoleInterface');
   if (!container) {
@@ -259,32 +259,51 @@ function renderCoachingRoleInterface() {
     const mainContent = document.getElementById('mainContent') || document.body;
     mainContent.insertBefore(container, mainContent.firstChild);
   }
-  
+
+  if (!career || !career.currentRole) {
+    container.innerHTML = `
+      <div class="card coaching-card">
+        <h2>Coaching Career</h2>
+        <p>Pick a starting role to begin your coaching journey.</p>
+        <div class="btn-group">
+          <button class="btn btn-primary" onclick="startCoachingCareer('OC')">Start as OC</button>
+          <button class="btn btn-secondary" onclick="startCoachingCareer('DC')">Start as DC</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   const eligibility = checkPromotionEligibility();
   const nextRoleName = eligibility.nextRole ? COACHING_ROLES[eligibility.nextRole].name : 'N/A';
-  
+
+  const startYear = career.startYear || window.state?.league?.year || new Date().getFullYear();
+  const seasonsInRole = career.seasonsInRole || 0;
+  const totalSeasons = career.totalSeasons || 0;
+  const performance = career.performance || {};
+
   // Added conditional rendering for achievements and simplified requirements
-  
+
   container.innerHTML = `
     <div class="card coaching-card">
       <h2>${roleConfig.name} Career 🚀</h2>
-      
+
       <div class="coaching-info-grid">
         <div class="current-status">
           <h3>Current Status:</h3>
-          <p>Role Start Year: ${career.startYear}</p>
-          <p>Seasons in Role: **${career.seasonsInRole}**</p>
-          <p>Total Seasons: **${career.totalSeasons}**</p>
+          <p>Role Start Year: ${startYear}</p>
+          <p>Seasons in Role: **${seasonsInRole}**</p>
+          <p>Total Seasons: **${totalSeasons}**</p>
           <p>Estimated Salary: **$${(roleConfig.salary.min/1000000).toFixed(1)}M - $${(roleConfig.salary.max/1000000).toFixed(1)}M**</p>
         </div>
-        
+
         <div class="performance-metrics">
           <h3>Performance Stats:</h3>
           <div class="metrics-grid">
-            <div class="metric"><span class="label">Win %:</span> <span class="value">${(career.performance.winPercentage * 100).toFixed(1)}%</span></div>
-            <div class="metric"><span class="label">Playoff Apps:</span> <span class="value">${career.performance.playoffAppearances}</span></div>
-            <div class="metric"><span class="label">Super Bowls:</span> <span class="value">${career.performance.superBowls}</span></div>
-            <div class="metric"><span class="label">Division Titles:</span> <span class="value">${career.performance.divisionTitles}</span></div>
+            <div class="metric"><span class="label">Win %:</span> <span class="value">${((performance.winPercentage || 0) * 100).toFixed(1)}%</span></div>
+            <div class="metric"><span class="label">Playoff Apps:</span> <span class="value">${performance.playoffAppearances || 0}</span></div>
+            <div class="metric"><span class="label">Super Bowls:</span> <span class="value">${performance.superBowls || 0}</span></div>
+            <div class="metric"><span class="label">Division Titles:</span> <span class="value">${performance.divisionTitles || 0}</span></div>
           </div>
         </div>
       </div>
