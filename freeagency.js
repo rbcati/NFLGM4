@@ -24,6 +24,11 @@ function ensureFA() {
     window.state.freeAgents = [];
   }
 
+  // Keep league copy in sync for any systems referencing it
+  if (window.state.league && !window.state.league.freeAgents) {
+    window.state.league.freeAgents = window.state.freeAgents;
+  }
+
   const poolSize = C.FREE_AGENCY?.POOL_SIZE || 120;
   
   // Create more realistic free agent distribution
@@ -377,19 +382,34 @@ function signFreeAgent(playerIndex) {
     // Check salary cap
     const capHit = window.capHitFor ? window.capHitFor(player, 0) : player.baseAnnual;
     const capAfter = team.capUsed + capHit;
-    
-    if (capAfter > team.capTotal) {
+    const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
+
+    if (capEnabled && capAfter > team.capTotal) {
       window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
       return;
     }
 
+    // Ensure roster exists
+    if (!Array.isArray(team.roster)) {
+      team.roster = team.roster ? Array.from(team.roster) : [];
+    }
+
     // Add player to team
+    player.teamId = userTeamId;
+    player.team = team.abbr || team.name;
     team.roster.push(player);
     // Sort roster by overall rating (best players first)
     team.roster.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
-    
-    // Remove from free agents
+
+    // Remove from free agents (both global pool and league copy if present)
     window.state.freeAgents.splice(idx, 1);
+    if (L.freeAgents && L.freeAgents !== window.state.freeAgents) {
+      const leagueIdx = L.freeAgents.findIndex(p => p.id === player.id);
+      if (leagueIdx !== -1) {
+        L.freeAgents.splice(leagueIdx, 1);
+      }
+    }
+    L.freeAgents = window.state.freeAgents;
     
     // Update team ratings after roster change
     if (window.updateTeamRatings) {
@@ -406,7 +426,11 @@ function signFreeAgent(playerIndex) {
     if (window.updateCapSidebar) {
       window.updateCapSidebar();
     }
-    
+
+    if (window.saveState) {
+      window.saveState();
+    }
+
     window.setStatus(`Signed ${player.name} (${player.pos}) for $${capHit.toFixed(1)}M`);
     console.log('Free agent signed successfully:', player.name);
     
@@ -717,19 +741,34 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
     // Check salary cap
     const capHit = window.capHitFor ? window.capHitFor(player, 0) : baseSalary + (signingBonus / years);
     const capAfter = team.capUsed + capHit;
-    
-    if (capAfter > team.capTotal) {
+    const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
+
+    if (capEnabled && capAfter > team.capTotal) {
       window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
       return;
     }
 
+    // Ensure roster exists
+    if (!Array.isArray(team.roster)) {
+      team.roster = team.roster ? Array.from(team.roster) : [];
+    }
+
     // Add player to team
+    player.teamId = userTeamId;
+    player.team = team.abbr || team.name;
     team.roster.push(player);
     // Sort roster by overall rating (best players first)
     team.roster.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
-    
-    // Remove from free agents
+
+    // Remove from free agents (both global pool and league copy if present)
     window.state.freeAgents.splice(playerIndex, 1);
+    if (L.freeAgents && L.freeAgents !== window.state.freeAgents) {
+      const leagueIdx = L.freeAgents.findIndex(p => p.id === player.id);
+      if (leagueIdx !== -1) {
+        L.freeAgents.splice(leagueIdx, 1);
+      }
+    }
+    L.freeAgents = window.state.freeAgents;
     
     // Update team ratings after roster change
     if (window.updateTeamRatings) {
@@ -746,7 +785,11 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
     if (window.updateCapSidebar) {
       window.updateCapSidebar();
     }
-    
+
+    if (window.saveState) {
+      window.saveState();
+    }
+
     window.setStatus(`Signed ${player.name} (${player.pos}) for $${capHit.toFixed(1)}M cap hit`);
     console.log('Free agent signed successfully with negotiated contract:', player.name);
     

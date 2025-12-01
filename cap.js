@@ -45,6 +45,7 @@ function calculateRollover(team, league) {
   if (!team || !league) return 0;
   
   const C = window.Constants;
+  const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
   const unused = team.capTotal - team.capUsed;
   const maxRollover = C.SALARY_CAP.MAX_ROLLOVER;
   return Math.min(Math.max(0, unused), maxRollover);
@@ -77,13 +78,13 @@ function recalcCap(league, team) {
     const dead = team.deadCapBook[league.season] || 0;
     
     // Calculate total cap with rollover
-    const capTotal = C.SALARY_CAP.BASE + (team.capRollover || 0);
-    
+    const capTotal = capEnabled ? (C.SALARY_CAP.BASE + (team.capRollover || 0)) : 9999;
+
     // Update team cap values
     team.capTotal = Math.round(capTotal * 10) / 10;
     team.capUsed = Math.round((active + dead) * 10) / 10;
     team.deadCap = Math.round(dead * 10) / 10;
-    team.capRoom = Math.round((team.capTotal - team.capUsed) * 10) / 10;
+    team.capRoom = capEnabled ? Math.round((team.capTotal - team.capUsed) * 10) / 10 : 9999;
     
   } catch (error) {
     console.error('Error in recalcCap:', error);

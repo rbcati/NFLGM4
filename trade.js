@@ -256,7 +256,85 @@
     };
   }
 
-  // ... (formatAssetString and applyTrade remain the same) ...
+  function applyTrade(league, fromTeamId, toTeamId, fromAssets, toAssets) {
+    const L = league;
+    if (!L || !L.teams) return false;
+
+    const fromTeam = L.teams[fromTeamId];
+    const toTeam = L.teams[toTeamId];
+    if (!fromTeam || !toTeam) return false;
+
+    // Move players and picks from fromTeam -> toTeam
+    fromAssets.forEach(asset => {
+      if (asset.kind === 'player') {
+        const player = removePlayerFromTeam(fromTeam, asset.playerId);
+        if (player) {
+          player.teamId = toTeamId;
+          player.team = toTeam.abbr || toTeam.name;
+          toTeam.roster = toTeam.roster || [];
+          toTeam.roster.push(player);
+        }
+      } else if (asset.kind === 'pick') {
+        const pick = removePickFromTeam(fromTeam, asset.year, asset.round);
+        if (pick) {
+          toTeam.picks = toTeam.picks || [];
+          toTeam.picks.push(pick);
+        }
+      }
+    });
+
+    // Move players and picks from toTeam -> fromTeam
+    toAssets.forEach(asset => {
+      if (asset.kind === 'player') {
+        const player = removePlayerFromTeam(toTeam, asset.playerId);
+        if (player) {
+          player.teamId = fromTeamId;
+          player.team = fromTeam.abbr || fromTeam.name;
+          fromTeam.roster = fromTeam.roster || [];
+          fromTeam.roster.push(player);
+        }
+      } else if (asset.kind === 'pick') {
+        const pick = removePickFromTeam(toTeam, asset.year, asset.round);
+        if (pick) {
+          fromTeam.picks = fromTeam.picks || [];
+          fromTeam.picks.push(pick);
+        }
+      }
+    });
+
+    // Recalculate caps and ratings if helpers exist
+    if (typeof global.recalcCap === 'function') {
+      global.recalcCap(L, fromTeam);
+      global.recalcCap(L, toTeam);
+    }
+    if (typeof global.updateTeamRatings === 'function') {
+      global.updateTeamRatings(fromTeam);
+      global.updateTeamRatings(toTeam);
+    }
+
+    if (typeof global.saveState === 'function') {
+      global.saveState();
+    }
+
+    return true;
+  }
+
+  function proposeUserTradeInternal(league, userTeamId, cpuTeamId, userAssets, cpuAssets, options = {}) {
+    const evalResult = evaluateTrade(league, userTeamId, cpuTeamId, userAssets, cpuAssets);
+    if (!evalResult) return { accepted: false, eval: null };
+
+    const cpuLossLimit = typeof options.cpuLossLimit === 'number' ? options.cpuLossLimit : -15;
+    const cpuDelta = evalResult.toValue.delta;
+
+    if (cpuDelta < cpuLossLimit) {
+      return { accepted: false, eval: evalResult };
+    }
+
+    const applied = applyTrade(league, userTeamId, cpuTeamId, userAssets, cpuAssets);
+    return { accepted: applied, eval: evalResult };
+  }
+
+  // ... (formatAssetString remains the same) ...
 
   // --- Trade block (Kept as is) -------------------------------------
 
