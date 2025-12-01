@@ -308,12 +308,52 @@ function extendContract(league, team, player, years, baseSalary, signingBonus) {
   
   recalcCap(league, team);
   
-  return { 
-    success: true, 
+  return {
+    success: true,
     message: `Extension approved! **${player.name}** is locked in for **${years}** more years, totaling **$${totalContractValue.toFixed(1)}M**! 🤑`,
     years: years,
     baseSalary: baseSalary,
     signingBonus: signingBonus
+  };
+}
+
+/**
+ * Generic contract updater used by the contract management UI to keep data in sync
+ * @param {Object} league - League object
+ * @param {Object} team - Team object
+ * @param {Object} player - Player whose contract is being updated
+ * @param {Object} updates - New contract values (years, baseAnnual, signingBonus, guaranteedPct)
+ * @returns {Object} Result of the update attempt
+ */
+function updateContract(league, team, player, updates = {}) {
+  if (!league || !team || !player) {
+    return { success: false, message: 'Invalid league, team, or player supplied.' };
+  }
+
+  const { years, baseAnnual, signingBonus, guaranteedPct } = updates;
+
+  if (typeof years === 'number' && years > 0) {
+    player.years = Math.round(years);
+    player.yearsTotal = Math.max(player.yearsTotal || 0, player.years);
+  }
+
+  if (typeof baseAnnual === 'number') {
+    player.baseAnnual = U.round(Math.max(0, baseAnnual), 1);
+  }
+
+  if (typeof signingBonus === 'number') {
+    player.signingBonus = U.round(Math.max(0, signingBonus), 1);
+  }
+
+  if (typeof guaranteedPct === 'number') {
+    player.guaranteedPct = U.clamp(guaranteedPct, 0, CONTRACT_CONSTANTS.MAX_GUARANTEED_PCT);
+  }
+
+  recalcCap(league, team);
+
+  return {
+    success: true,
+    message: `${player.name}'s contract updated successfully.`
   };
 }
 
