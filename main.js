@@ -486,6 +486,11 @@ class GameController {
                 await this.openOnboard();
             }
             this.setupEventListeners();
+            if (typeof window.setupEventListeners === 'function') {
+                window.setupEventListeners();
+            } else {
+                console.warn('Global UI event listeners not available');
+            }
             if (window.initializeUIFixes) {
                 window.initializeUIFixes();
             }

@@ -3,7 +3,14 @@
 /**
  * Handles core game events (onboarding, saving, loading, simulating).
  */
+let coreEventsBound = false;
+
 function setupEventListeners() {
+    if (coreEventsBound) {
+        return;
+    }
+    coreEventsBound = true;
+
     console.log('Setting up core event listeners...');
     let isSimulating = false; // Flag to prevent double simulation
 
