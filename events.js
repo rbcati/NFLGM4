@@ -3,7 +3,14 @@
 /**
  * Handles core game events (onboarding, saving, loading, simulating).
  */
+let coreEventsBound = false;
+
 function setupEventListeners() {
+    if (coreEventsBound) {
+        return;
+    }
+    coreEventsBound = true;
+
     console.log('Setting up core event listeners...');
     let isSimulating = false; // Flag to prevent double simulation
 
@@ -35,6 +42,9 @@ function setupEventListeners() {
     if (namesModeRadios) {
         namesModeRadios.forEach(radio => {
             radio.addEventListener('change', (e) => {
+                if (window.state) {
+                    window.state.namesMode = e.target.value;
+                }
                 if(window.populateTeamDropdown) populateTeamDropdown(e.target.value);
             });
         });
@@ -92,8 +102,19 @@ function handleLoadGame() {
 
 function handleNewLeague() {
     if (confirm('Are you sure you want to start a new league? Your current game will be deleted.')) {
-        localStorage.removeItem('nflGM4.league');
-        location.reload();
+        if (window.clearSavedState) {
+            window.clearSavedState();
+        }
+        if (window.State?.init) {
+            window.state = window.State.init();
+        }
+        if (window.setActiveSaveSlot && window.state?.saveSlot) {
+            window.setActiveSaveSlot(window.state.saveSlot);
+        }
+        if (window.renderSaveSlotInfo) {
+            window.renderSaveSlotInfo();
+        }
+        window.openOnboard?.();
     }
 }
 
