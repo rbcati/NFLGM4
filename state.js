@@ -6,8 +6,40 @@
   // --- Configuration Variables ---
   // Using const to define variables previously in var blocks for modern JS
   const C = global.Constants || {};
-  const SAVE_KEY = (C.GAME_CONFIG && C.GAME_CONFIG.SAVE_KEY) || 'nflGM4.state'; // Changed key to reflect saving *full state*
+  const SAVE_KEY_BASE = (C.GAME_CONFIG && C.GAME_CONFIG.SAVE_KEY) || 'nflGM4.state'; // Base key for multi-slot saves
   const YEAR_START = (C.GAME_CONFIG && C.GAME_CONFIG.YEAR_START) || 2025;
+
+  const MAX_SAVE_SLOTS = 5;
+
+  function normalizeSlot(slot) {
+    const parsed = parseInt(slot, 10);
+    if (isNaN(parsed) || parsed < 1) return 1;
+    if (parsed > MAX_SAVE_SLOTS) return MAX_SAVE_SLOTS;
+    return parsed;
+  }
+
+  function getActiveSaveSlot() {
+    const stored = global.localStorage.getItem('nflGM4.activeSlot');
+    return normalizeSlot(stored || 1);
+  }
+
+  function setActiveSaveSlot(slot) {
+    const normalized = normalizeSlot(slot);
+    try {
+      global.localStorage.setItem('nflGM4.activeSlot', normalized);
+      if (global.state) {
+        global.state.saveSlot = normalized;
+      }
+    } catch (err) {
+      console.warn('Unable to persist active save slot', err);
+    }
+    return normalized;
+  }
+
+  function saveKeyFor(slot) {
+    const normalized = normalizeSlot(slot);
+    return `${SAVE_KEY_BASE}.slot${normalized}`;
+  }
   
   // Game Routes (used for UI)
   const routes = [
@@ -76,8 +108,13 @@
           difficulty: 'normal',
           simSpeed: 'normal',
           notifications: true,
-          sound: false
+          sound: false,
+          salaryCapEnabled: true,
+          allowCoachFiring: true
         },
+
+        // Persistence helpers
+        saveSlot: getActiveSaveSlot(),
         
         // Version info and persistence
         version: '4.0.0',
@@ -188,7 +225,15 @@
     try {
       console.log('Loading state...');
       
-      const saved = global.localStorage.getItem(SAVE_KEY);
+      const activeSlot = getActiveSaveSlot();
+      const activeKey = saveKeyFor(activeSlot);
+      let saved = global.localStorage.getItem(activeKey);
+      let legacyKeyUsed = false;
+      if (!saved) {
+        // Migrate legacy single-save key if present
+        saved = global.localStorage.getItem(SAVE_KEY_BASE);
+        legacyKeyUsed = !!saved;
+      }
       if (!saved) {
         console.log('No saved state found');
         return null;
@@ -209,7 +254,13 @@
       
       // Overwrite/initialize global state with loaded data
       global.state = global.state || State.init();
-      Object.assign(global.state, loadedState);
+      Object.assign(global.state, loadedState, { saveSlot: activeSlot });
+
+      if (legacyKeyUsed) {
+        // Re-save into the active slot to migrate forward
+        saveState(loadedState);
+        try { global.localStorage.removeItem(SAVE_KEY_BASE); } catch (err) { /* ignore */ }
+      }
 
       return global.state;
       
@@ -240,7 +291,9 @@
       if (!stateObj.version) stateObj.version = State.init().version;
 
       const serialized = JSON.stringify(stateObj);
-      global.localStorage.setItem(SAVE_KEY, serialized);
+      const activeSlot = stateObj.saveSlot || getActiveSaveSlot();
+      const saveKey = saveKeyFor(activeSlot);
+      global.localStorage.setItem(saveKey, serialized);
       
       console.log('State saved successfully');
 
@@ -261,7 +314,9 @@
    */
   function clearSavedState() {
     try {
-      global.localStorage.removeItem(SAVE_KEY);
+      const slot = getActiveSaveSlot();
+      const saveKey = saveKeyFor(slot);
+      global.localStorage.removeItem(saveKey);
       console.log('Saved state cleared');
       // Optional: Reset in-memory state after clearing save
       State.reset(); 
@@ -275,7 +330,7 @@
    */
   function hookAutoSave() {
     // Only hook if setting is enabled, if it exists
-    if (!global.state || global.state.settings?.autoSave !== false) { 
+    if (!global.state || global.state.settings?.autoSave !== false) {
       global.addEventListener('beforeunload', function () {
         try {
           saveState();
@@ -285,6 +340,34 @@
       });
       console.log('Auto-save hook installed');
     }
+  }
+
+  function getSaveMetadata(slot) {
+    const normalized = normalizeSlot(slot);
+    const key = saveKeyFor(normalized);
+    const raw = global.localStorage.getItem(key);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return {
+        slot: normalized,
+        lastSaved: parsed.lastSaved || null,
+        team: parsed.league?.teams?.[parsed.userTeamId || 0]?.name || null,
+        season: parsed.season || 1,
+        mode: parsed.namesMode || 'fictional'
+      };
+    } catch (err) {
+      console.warn('Could not parse save metadata for slot', normalized, err);
+      return null;
+    }
+  }
+
+  function listSaveSlots() {
+    const slots = [];
+    for (let i = 1; i <= MAX_SAVE_SLOTS; i++) {
+      slots.push(getSaveMetadata(i));
+    }
+    return slots;
   }
 
   // --- UI/Helper Functions (Moved from original state.js) ---
@@ -350,6 +433,11 @@
   global.saveState = saveState;
   global.clearSavedState = clearSavedState;
   global.hookAutoSave = hookAutoSave;
+  global.getActiveSaveSlot = getActiveSaveSlot;
+  global.setActiveSaveSlot = setActiveSaveSlot;
+  global.saveKeyFor = saveKeyFor;
+  global.getSaveMetadata = getSaveMetadata;
+  global.listSaveSlots = listSaveSlots;
   
   global.currentTeam = currentTeam;
   global.getTeamsByConference = getTeamsByConference;

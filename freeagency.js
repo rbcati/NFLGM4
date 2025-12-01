@@ -377,8 +377,9 @@ function signFreeAgent(playerIndex) {
     // Check salary cap
     const capHit = window.capHitFor ? window.capHitFor(player, 0) : player.baseAnnual;
     const capAfter = team.capUsed + capHit;
-    
-    if (capAfter > team.capTotal) {
+    const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
+
+    if (capEnabled && capAfter > team.capTotal) {
       window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
       return;
     }
@@ -717,8 +718,9 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
     // Check salary cap
     const capHit = window.capHitFor ? window.capHitFor(player, 0) : baseSalary + (signingBonus / years);
     const capAfter = team.capUsed + capHit;
-    
-    if (capAfter > team.capTotal) {
+    const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
+
+    if (capEnabled && capAfter > team.capTotal) {
       window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
       return;
     }
