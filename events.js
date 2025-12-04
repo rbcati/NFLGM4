@@ -102,6 +102,12 @@ function handleLoadGame() {
 
 function handleNewLeague() {
     if (confirm('Are you sure you want to start a new league? Your current game will be deleted.')) {
+        if (window.gameController?.startNewLeague) {
+            window.gameController.startNewLeague();
+            return;
+        }
+
+        // Fallback for environments where the controller is not available
         if (window.clearSavedState) {
             window.clearSavedState();
         }
