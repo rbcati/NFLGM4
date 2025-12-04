@@ -565,6 +565,49 @@ class GameController {
         }
     }
 
+    async startNewLeague() {
+        try {
+            if (this.autoSaveInterval) {
+                clearInterval(this.autoSaveInterval);
+                this.autoSaveInterval = null;
+            }
+
+            if (!window.State?.init) {
+                throw new Error('State system not available');
+            }
+
+            if (typeof window.clearSavedState === 'function') {
+                window.clearSavedState();
+            }
+
+            window.state = window.State.init();
+
+            if (typeof window.setActiveSaveSlot === 'function' && window.state?.saveSlot) {
+                window.setActiveSaveSlot(window.state.saveSlot);
+            }
+
+            this.applyTheme(window.state.theme || 'dark');
+
+            if (typeof window.renderSaveSlotInfo === 'function') {
+                window.renderSaveSlotInfo();
+            }
+
+            if (typeof window.renderSaveDataManager === 'function') {
+                window.renderSaveDataManager();
+            }
+
+            this.clearDOMCache();
+            location.hash = '#/hub';
+
+            await this.openOnboard();
+
+            this.setStatus('New league ready. Choose your team to begin.', 'success', 4000);
+        } catch (error) {
+            console.error('Error starting new league:', error);
+            this.setStatus(`Failed to start new league: ${error.message}`, 'error');
+        }
+    }
+
     // --- EVENT MANAGEMENT ---
     setupEventListeners() {
         this.removeAllEventListeners();
