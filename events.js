@@ -73,6 +73,7 @@ async function refreshTeamDropdown(mode = null) {
         return false;
     }
 
+    const previousSelection = teamSelect.value;
     const chosenMode = mode || document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
     const teams = (typeof window.listByMode === 'function') ? window.listByMode(chosenMode) : [];
 
@@ -100,6 +101,14 @@ async function refreshTeamDropdown(mode = null) {
 
     teamSelect.appendChild(fragment);
     teamSelect.disabled = false;
+
+    // Restore the user's prior selection when possible to avoid changing their choice
+    if (previousSelection && teamSelect.querySelector(`option[value="${previousSelection}"]`)) {
+        teamSelect.value = previousSelection;
+    } else {
+        // Default to the first option so the dropdown never ends up empty
+        teamSelect.selectedIndex = 0;
+    }
     return true;
 }
 
