@@ -1,12 +1,40 @@
 // league.js - Core League Generation Logic
 'use strict';
 
-/**
- * Creates the league, teams, initial rosters, draft picks, and schedule.
- */
-window.makeLeague = function(teams) {
-    console.log('🏈 Creating league with', teams.length, 'teams...');
+window.makeLeague = function(teams, {
+    Constants = window.Constants,
+    Utils = window.Utils,
+    makePlayer = window.makePlayer,
+    makeSchedule = window.makeSchedule
+} = {}) {
+    if (!Constants || !Utils || !makePlayer || !makeSchedule) {
+        console.error('Critical dependencies missing for league creation');
+        return null;
+    }
     
+    // Rest of your league creation logic
+}
+
+    // Dependency check with detailed logging
+    const requiredGlobals = [
+        'Constants', 'Utils', 'makePlayer', 
+        'makeSchedule', 'state'
+    ];
+
+    const missingDependencies = requiredGlobals.filter(
+        dep => typeof window[dep] === 'undefined'
+    );
+
+    if (missingDependencies.length > 0) {
+        console.error('❌ Missing critical dependencies:', missingDependencies);
+        console.groupEnd();
+        return null;
+    }
+
+    // Rest of your existing makeLeague code...
+    console.groupEnd();
+}
+
     // Safe access to state object, default to 2025
     const currentYear = (typeof window.state !== 'undefined' && window.state.year) ? window.state.year : 2025;
     const C = window.Constants;
