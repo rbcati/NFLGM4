@@ -5,6 +5,160 @@
  */
 let coreEventsBound = false;
 
+const ONBOARDING_IDS = {
+    modal: 'onboardModal',
+    teamSelect: 'onboardTeam',
+    randomButton: 'onboardRandom',
+    startButton: 'onboardStart',
+    careerOptions: 'careerOptions'
+};
+
+function getOnboardingElements() {
+    return {
+        modal: document.getElementById(ONBOARDING_IDS.modal),
+        teamSelect: document.getElementById(ONBOARDING_IDS.teamSelect),
+        randomButton: document.getElementById(ONBOARDING_IDS.randomButton),
+        startButton: document.getElementById(ONBOARDING_IDS.startButton),
+        careerOptions: document.getElementById(ONBOARDING_IDS.careerOptions),
+        namesRadios: document.querySelectorAll('input[name="namesMode"]'),
+        modeRadios: document.querySelectorAll('input[name="gameMode"]')
+    };
+}
+
+function toggleCareerOptions(selectedMode) {
+    const { careerOptions } = getOnboardingElements();
+    if (!careerOptions) return;
+    careerOptions.hidden = selectedMode !== 'career';
+}
+
+async function ensureTeamsReady(context = 'onboarding') {
+    const ready = () => (
+        (Array.isArray(window.Teams?.real) && window.Teams.real.length > 0) ||
+        (Array.isArray(window.Teams?.fictional) && window.Teams.fictional.length > 0)
+    );
+    if (ready()) return true;
+
+    if (typeof window.gameController?.ensureTeamsLoaded === 'function') {
+        try {
+            await window.gameController.ensureTeamsLoaded();
+            return ready();
+        } catch (error) {
+            console.error(`❌ Failed to load teams during ${context}:`, error);
+            window.setStatus?.('Unable to load team data. Please refresh.', 'error');
+            return false;
+        }
+    }
+
+    if (typeof window.loadTeamsData === 'function') {
+        try {
+            await window.loadTeamsData();
+        } catch (error) {
+            console.error(`❌ Team data loader failed during ${context}:`, error);
+            window.setStatus?.('Unable to load team data. Please refresh.', 'error');
+            return false;
+        }
+    }
+
+    return ready();
+}
+
+async function refreshTeamDropdown(mode = null) {
+    const { teamSelect } = getOnboardingElements();
+    if (!teamSelect) return false;
+
+    const teamsReady = await ensureTeamsReady('dropdown');
+    if (!teamsReady) {
+        teamSelect.innerHTML = '<option disabled selected>Teams unavailable</option>';
+        teamSelect.disabled = true;
+        return false;
+    }
+
+    const chosenMode = mode || document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
+    const teams = (typeof window.listByMode === 'function') ? window.listByMode(chosenMode) : [];
+
+    teamSelect.innerHTML = '';
+
+    if (!teams.length) {
+        const option = document.createElement('option');
+        option.textContent = 'No teams available';
+        option.disabled = true;
+        option.selected = true;
+        teamSelect.appendChild(option);
+        teamSelect.disabled = true;
+        window.setStatus?.('No teams available for the selected mode.', 'error');
+        return false;
+    }
+
+    const fragment = document.createDocumentFragment();
+    teams.forEach((team, index) => {
+        if (!team?.name || !team?.abbr) return;
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = `${team.abbr} — ${team.name}`;
+        fragment.appendChild(option);
+    });
+
+    teamSelect.appendChild(fragment);
+    teamSelect.disabled = false;
+    return true;
+}
+
+function bindOnboardingControls() {
+    const { namesRadios, modeRadios, randomButton, startButton } = getOnboardingElements();
+
+    namesRadios?.forEach(radio => {
+        radio.removeEventListener('change', handleNamesModeChange);
+        radio.addEventListener('change', handleNamesModeChange);
+    });
+
+    modeRadios?.forEach(radio => {
+        radio.removeEventListener('change', handleGameModeChange);
+        radio.addEventListener('change', handleGameModeChange);
+    });
+
+    if (randomButton) {
+        randomButton.removeEventListener('click', handleOnboardRandom);
+        randomButton.addEventListener('click', handleOnboardRandom);
+    }
+
+    if (startButton) {
+        startButton.removeEventListener('click', handleOnboardStart);
+        startButton.addEventListener('click', handleOnboardStart);
+    }
+}
+
+async function handleNamesModeChange(e) {
+    if (window.state) {
+        window.state.namesMode = e.target.value;
+    }
+    try {
+        await refreshTeamDropdown(e.target.value);
+    } catch (error) {
+        console.error('Failed to refresh teams after mode change:', error);
+    }
+}
+
+function handleGameModeChange(e) {
+    toggleCareerOptions(e.target.value);
+}
+
+async function handleOnboardRandom(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { teamSelect } = getOnboardingElements();
+    if (!teamSelect) return;
+
+    const populated = await refreshTeamDropdown();
+    if (!populated) return;
+
+    const options = teamSelect.querySelectorAll('option');
+    if (!options.length) return;
+
+    const randomIndex = Math.floor(Math.random() * options.length);
+    options[randomIndex].selected = true;
+}
+
 function setupEventListeners() {
     if (coreEventsBound) {
         return;
@@ -18,7 +172,14 @@ function setupEventListeners() {
         const targetId = e.target.id;
 
         // Onboarding
-        if (targetId === 'onboardStart') return handleOnboardStart(e);
+        if (targetId === 'onboardStart') {
+            handleOnboardStart(e).catch(err => console.error('Failed to start onboarding:', err));
+            return;
+        }
+        if (targetId === 'onboardRandom') {
+            handleOnboardRandom(e).catch(err => console.error('Failed to select random team:', err));
+            return;
+        }
 
         // Core Actions
         if (targetId === 'btnSave') return saveState();
@@ -38,38 +199,48 @@ function setupEventListeners() {
     });
 
     // Onboarding radio buttons
-    const namesModeRadios = document.querySelectorAll('input[name="namesMode"]');
-    if (namesModeRadios) {
-        namesModeRadios.forEach(radio => {
-            radio.addEventListener('change', (e) => {
-                if (window.state) {
-                    window.state.namesMode = e.target.value;
-                }
-                if(window.populateTeamDropdown) populateTeamDropdown(e.target.value);
-            });
-        });
-    }
+    bindOnboardingControls();
 }
 
-function handleOnboardStart(e) {
+async function handleOnboardStart(e) {
     e.preventDefault();
+    e.stopPropagation();
+
+    const { teamSelect, startButton } = getOnboardingElements();
     const chosenMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
-    const teamIdx = document.getElementById('onboardTeam')?.value || '0';
 
-    // Ensure the dropdown reflects the currently selected mode before starting
-    if (window.populateTeamDropdown) {
-        window.populateTeamDropdown(chosenMode);
-    }
+    if (startButton) startButton.disabled = true;
 
-    const teams = (typeof window.listByMode === 'function') ? window.listByMode(chosenMode) : [];
-    if (!teams.length) {
-        window.setStatus?.('No teams available for selected mode. Please reload teams and try again.', 'error');
-        console.error('Start Season blocked: no teams available for mode', chosenMode);
+    const populated = await refreshTeamDropdown(chosenMode);
+    if (!populated) {
+        if (startButton) startButton.disabled = false;
         return;
     }
 
-    if (window.initNewGame) {
-        initNewGame({ chosenMode, teamIdx });
+    const teams = (typeof window.listByMode === 'function') ? window.listByMode(chosenMode) : [];
+    const teamIdx = teamSelect?.value ?? '0';
+
+    if (!teams.length) {
+        window.setStatus?.('No teams available for selected mode. Please reload teams and try again.', 'error');
+        console.error('Start Season blocked: no teams available for mode', chosenMode);
+        if (startButton) startButton.disabled = false;
+        return;
+    }
+
+    if (!teams[Number(teamIdx)]) {
+        window.setStatus?.('Select a valid team before starting the season.', 'error');
+        if (startButton) startButton.disabled = false;
+        return;
+    }
+
+    try {
+        if (window.initNewGame) {
+            await initNewGame({ chosenMode, teamIdx });
+        } else {
+            window.setStatus?.('Game controller unavailable. Please refresh.', 'error');
+        }
+    } finally {
+        if (startButton) startButton.disabled = false;
     }
 }
 
@@ -160,28 +331,17 @@ window.setupEventListeners = setupEventListeners;
 // Add missing openOnboard function
 window.openOnboard = async function() {
     console.log('🎯 Opening onboarding modal...');
-    const modal = document.getElementById('onboardModal');
+    const { modal } = getOnboardingElements();
     if (modal) {
         modal.hidden = false;
         modal.style.display = 'flex';
 
         // Ensure team data is available before populating the dropdown
-        if (window.gameController?.ensureTeamsLoaded) {
-            try {
-                await window.gameController.ensureTeamsLoaded();
-            } catch (error) {
-                console.error('❌ Failed to load teams before onboarding:', error);
-                window.setStatus?.('Teams data not available. Please reload.', 'error');
-                return;
-            }
-        }
+        const populated = await refreshTeamDropdown();
+        if (!populated) return;
 
-        // Populate team dropdown if not already done
-        const teamSelect = document.getElementById('onboardTeam');
-        if (teamSelect && window.populateTeamDropdown) {
-            const selectedMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
-            window.populateTeamDropdown(selectedMode);
-        }
+        toggleCareerOptions(document.querySelector('input[name="gameMode"]:checked')?.value || 'gm');
+        bindOnboardingControls();
 
         console.log('✅ Onboarding modal opened');
     } else {
