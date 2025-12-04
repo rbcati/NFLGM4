@@ -42,19 +42,129 @@ function groupByDivision(teams) {
 }
 
 /**
- * CORE UTILITY: Sorts teams primarily by Win Percentage.
- * TODO: Implement advanced tiebreakers (Head-to-Head, Division/Conference Record, Point Differential).
+ * CORE UTILITY: Sorts teams primarily by Win Percentage with NFL-style tiebreakers.
  */
-function sortTeamsByRecord(teams) {
+function sortTeamsByRecord(teams, tiebreakers = {}) {
+  const recordWinPct = (record = {}) => calculateWinPercentage(record.wins || 0, record.losses || 0, record.ties || 0);
+
+  const compareHeadToHead = (teamA, teamB) => {
+    const teamAData = tiebreakers[teamA.id];
+    const teamBData = tiebreakers[teamB.id];
+
+    if (!teamAData || !teamBData) return 0;
+
+    const recordA = teamAData.headToHead?.[teamB.id];
+    const recordB = teamBData.headToHead?.[teamA.id];
+
+    const totalGames = (recordA?.wins || 0) + (recordA?.losses || 0) + (recordA?.ties || 0);
+    if (totalGames === 0) return 0;
+
+    const pctA = recordWinPct(recordA);
+    const pctB = recordWinPct(recordB);
+    if (pctA === pctB) return 0;
+    return pctB - pctA;
+  };
+
   // Use a stable sort if available, but simple sort on WPCT is usually fine for a base game.
   return teams.slice().sort((a, b) => {
     // 1. Primary: Win Percentage (higher is better)
     if (b.winPercentage !== a.winPercentage) {
       return b.winPercentage - a.winPercentage;
     }
-    // 2. Secondary: Point Differential (higher is better)
-    return b.pointDifferential - a.pointDifferential;
+
+    // 2. Head-to-Head (if they played each other)
+    const h2hResult = compareHeadToHead(a, b);
+    if (h2hResult !== 0) return h2hResult;
+
+    // 3. Division record if in the same division
+    if (a.conf === b.conf && a.div === b.div) {
+      const divPctA = recordWinPct(tiebreakers[a.id]?.division);
+      const divPctB = recordWinPct(tiebreakers[b.id]?.division);
+      if (divPctB !== divPctA) return divPctB - divPctA;
+    }
+
+    // 4. Conference record if in the same conference
+    if (a.conf === b.conf) {
+      const confPctA = recordWinPct(tiebreakers[a.id]?.conference);
+      const confPctB = recordWinPct(tiebreakers[b.id]?.conference);
+      if (confPctB !== confPctA) return confPctB - confPctA;
+    }
+
+    // 5. Secondary: Point Differential (higher is better)
+    if (b.pointDifferential !== a.pointDifferential) {
+      return b.pointDifferential - a.pointDifferential;
+    }
+
+    // 6. Points For (as a final fallback)
+    return (b.pointsFor || 0) - (a.pointsFor || 0);
   });
+}
+
+/**
+ * Build advanced tiebreaker records (head-to-head, division, conference).
+ */
+function buildTiebreakerData(league) {
+  if (!league || !league.teams) return {};
+
+  const records = {};
+
+  const initRecord = () => ({ wins: 0, losses: 0, ties: 0 });
+  const updateRecord = (record, scoreA, scoreB) => {
+    if (scoreA > scoreB) record.wins++;
+    else if (scoreB > scoreA) record.losses++;
+    else record.ties++;
+  };
+
+  league.teams.forEach(team => {
+    records[team.id] = {
+      conf: team.conf,
+      div: team.div,
+      division: initRecord(),
+      conference: initRecord(),
+      headToHead: {}
+    };
+  });
+
+  const gamesByWeek = league.resultsByWeek || {};
+  Object.values(gamesByWeek).forEach(weekGames => {
+    if (!Array.isArray(weekGames)) return;
+
+    weekGames.forEach(game => {
+      const homeId = typeof game.home === 'object' ? game.home.id : game.home;
+      const awayId = typeof game.away === 'object' ? game.away.id : game.away;
+      const homeScore = game.scoreHome ?? game.homeScore;
+      const awayScore = game.scoreAway ?? game.awayScore;
+
+      if (homeId === undefined || awayId === undefined) return;
+      if (homeScore === undefined || awayScore === undefined) return; // Skip unplayed games
+
+      const homeRecord = records[homeId];
+      const awayRecord = records[awayId];
+      if (!homeRecord || !awayRecord) return;
+
+      // Head-to-head tracking
+      const homeVsAway = homeRecord.headToHead[awayId] || initRecord();
+      const awayVsHome = awayRecord.headToHead[homeId] || initRecord();
+      updateRecord(homeVsAway, homeScore, awayScore);
+      updateRecord(awayVsHome, awayScore, homeScore);
+      homeRecord.headToHead[awayId] = homeVsAway;
+      awayRecord.headToHead[homeId] = awayVsHome;
+
+      // Division records (same conference AND division)
+      if (homeRecord.conf === awayRecord.conf && homeRecord.div === awayRecord.div) {
+        updateRecord(homeRecord.division, homeScore, awayScore);
+        updateRecord(awayRecord.division, awayScore, homeScore);
+      }
+
+      // Conference records (same conference)
+      if (homeRecord.conf === awayRecord.conf) {
+        updateRecord(homeRecord.conference, homeScore, awayScore);
+        updateRecord(awayRecord.conference, awayScore, homeScore);
+      }
+    });
+  });
+
+  return records;
 }
 
 /**
@@ -205,6 +315,7 @@ function renderStandingsPage() {
  */
 function calculateAllStandings(league) {
   const teams = [...league.teams];
+  const tiebreakers = buildTiebreakerData(league);
   
   // Add calculated fields to each team
   teams.forEach(team => {
@@ -217,6 +328,12 @@ function calculateAllStandings(league) {
     team.winPercentage = calculateWinPercentage(team.wins, team.losses, team.ties);
     team.gamesPlayed = team.wins + team.losses + team.ties;
     team.remaining = 17 - team.gamesPlayed; // Assuming 17-game season
+
+    // Advanced tiebreaker records
+    const advanced = tiebreakers[team.id] || {};
+    team.divisionRecord = advanced.division || { wins: 0, losses: 0, ties: 0 };
+    team.conferenceRecord = advanced.conference || { wins: 0, losses: 0, ties: 0 };
+    team.headToHead = advanced.headToHead || {};
   });
   
   // Group by conference and division
@@ -231,27 +348,28 @@ function calculateAllStandings(league) {
 
   // Sort each division (IMPORTANT for determining Division Winners)
   Object.keys(afcDivisions).forEach(div => {
-    afcDivisions[div] = sortTeamsByRecord(afcDivisions[div]);
+    afcDivisions[div] = sortTeamsByRecord(afcDivisions[div], tiebreakers);
     leaders[0][div] = afcDivisions[div];
   });
   Object.keys(nfcDivisions).forEach(div => {
-    nfcDivisions[div] = sortTeamsByRecord(nfcDivisions[div]);
+    nfcDivisions[div] = sortTeamsByRecord(nfcDivisions[div], tiebreakers);
     leaders[1][div] = nfcDivisions[div];
   });
-  
+
   // Sort conferences (needed for Wild Card calculation)
-  const afcSorted = sortTeamsByRecord(afc);
-  const nfcSorted = sortTeamsByRecord(nfc);
+  const afcSorted = sortTeamsByRecord(afc, tiebreakers);
+  const nfcSorted = sortTeamsByRecord(nfc, tiebreakers);
   
   // Calculate playoff scenarios using sorted division winners
-  const playoffPicture = calculatePlayoffPicture(afcSorted, nfcSorted, afcDivisions, nfcDivisions);
+  const playoffPicture = calculatePlayoffPicture(afcSorted, nfcSorted, afcDivisions, nfcDivisions, tiebreakers);
 
   return {
     divisions: { 0: afcDivisions, 1: nfcDivisions },
     conferences: { 0: afcSorted, 1: nfcSorted },
     leaders,
-    overall: sortTeamsByRecord(teams),
+    overall: sortTeamsByRecord(teams, tiebreakers),
     playoffs: playoffPicture,
+    tiebreakers,
     league
   };
 }
@@ -260,7 +378,7 @@ function calculateAllStandings(league) {
 /**
  * Calculate playoff picture (UPDATED for Division Winners)
  */
-function calculatePlayoffPicture(afcTeams, nfcTeams, afcDivisions, nfcDivisions) {
+function calculatePlayoffPicture(afcTeams, nfcTeams, afcDivisions, nfcDivisions, tiebreakers = {}) {
   // Get the top team in each division (which is the first element after sorting)
   const afcWinners = Object.values(afcDivisions).map(div => div[0]).filter(t => t);
   const nfcWinners = Object.values(nfcDivisions).map(div => div[0]).filter(t => t);
@@ -271,14 +389,14 @@ function calculatePlayoffPicture(afcTeams, nfcTeams, afcDivisions, nfcDivisions)
 
   const afcWildCardPool = afcTeams.filter(team => !afcWinnerIds.includes(team.id));
   const nfcWildCardPool = nfcTeams.filter(team => !nfcWinnerIds.includes(team.id));
-  
+
   // Seed 1-4: Division Winners, sorted by record
-  const afcDivisionSeeded = sortTeamsByRecord(afcWinners);
-  const nfcDivisionSeeded = sortTeamsByRecord(nfcWinners);
-  
+  const afcDivisionSeeded = sortTeamsByRecord(afcWinners, tiebreakers);
+  const nfcDivisionSeeded = sortTeamsByRecord(nfcWinners, tiebreakers);
+
   // Seed 5-7: Top 3 Wild Card teams, sorted by record
-  const afcWildCardSeeded = sortTeamsByRecord(afcWildCardPool).slice(0, 3);
-  const nfcWildCardSeeded = sortTeamsByRecord(nfcWildCardPool).slice(0, 3);
+  const afcWildCardSeeded = sortTeamsByRecord(afcWildCardPool, tiebreakers).slice(0, 3);
+  const nfcWildCardSeeded = sortTeamsByRecord(nfcWildCardPool, tiebreakers).slice(0, 3);
   
   // Final Playoff List (Seeds 1-7)
   const afcPlayoffs = [...afcDivisionSeeded, ...afcWildCardSeeded];
