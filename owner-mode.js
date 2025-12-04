@@ -375,6 +375,16 @@ function fireStaffMember(position) {
  * Render owner mode interface
  */
 function renderOwnerModeInterface() {
+  // Ensure state and owner mode exist before attempting to render
+  if (!window.state) {
+    console.warn('Owner mode cannot render: state not initialized');
+    return;
+  }
+
+  if (!window.state.ownerMode) {
+    initializeOwnerMode();
+  }
+
   const ownerMode = window.state.ownerMode;
   const team = window.state.league?.teams?.[window.state.userTeamId];
   
