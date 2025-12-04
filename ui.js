@@ -159,7 +159,7 @@ window.show = function(viewId) {
  * @param {string} mode - 'fictional' or 'real' team names
  */
 // 🏆 ENHANCED: Refactored fillTeamSelect for better error handling and team abbreviation display
-window.fillTeamSelect = function(selectElement, mode = 'fictional') {
+window.fillTeamSelect = function(selectElement, mode = window.state?.namesMode || 'fictional') {
   try {
     if (!selectElement) {
       console.error('fillTeamSelect: No select element provided');
