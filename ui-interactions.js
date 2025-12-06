@@ -259,14 +259,20 @@
     if (toggle && nav) {
       toggle.addEventListener('click', () => {
         const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
-        toggle.setAttribute('aria-expanded', !isExpanded);
+        const newState = !isExpanded;
+        toggle.setAttribute('aria-expanded', newState);
+        nav.setAttribute('aria-expanded', newState);
         nav.classList.toggle('nav-open');
         
-        // Add animation
-        if (!isExpanded) {
-          nav.style.maxHeight = nav.scrollHeight + 'px';
-        } else {
-          nav.style.maxHeight = '0';
+        // Close menu when clicking a nav link on mobile
+        if (newState) {
+          nav.querySelectorAll('.nav-pill').forEach(link => {
+            link.addEventListener('click', () => {
+              toggle.setAttribute('aria-expanded', 'false');
+              nav.setAttribute('aria-expanded', 'false');
+              nav.classList.remove('nav-open');
+            }, { once: true });
+          });
         }
       });
     }
