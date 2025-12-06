@@ -9,6 +9,30 @@ const capHitFor = global.capHitFor || ((player) => player.baseAnnual || 0);
 const recalcCap = global.recalcCap || (() => console.warn('recalcCap not found, skipping cap update.'));
 const setStatus = global.setStatus || ((msg) => console.log('Status:', msg));
 
+/**
+ * Helper function to round a number to a specific number of decimal places
+ * @param {number} value - Value to round
+ * @param {number} decimals - Number of decimal places
+ * @returns {number} Rounded value
+ */
+function roundToDecimals(value, decimals) {
+  if (typeof value !== 'number' || isNaN(value)) return 0;
+  const factor = Math.pow(10, decimals || 0);
+  return Math.round(value * factor) / factor;
+}
+
+/**
+ * Helper function to clamp a value between min and max
+ * @param {number} value - Value to clamp
+ * @param {number} min - Minimum value
+ * @param {number} max - Maximum value
+ * @returns {number} Clamped value
+ */
+function clamp(value, min, max) {
+  if (typeof value !== 'number' || isNaN(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
 
 // Contract management constants
 const CONTRACT_CONSTANTS = {
@@ -95,7 +119,7 @@ function calculateFranchiseTagSalary(position, league) {
   allPlayerSalaries.sort((a, b) => b - a);
   const top5Avg = allPlayerSalaries.slice(0, 5).reduce((sum, salary) => sum + salary, 0) / 5;
   
-  return U.round(top5Avg * CONTRACT_CONSTANTS.FRANCHISE_TAG_MULTIPLIER, 1);
+  return roundToDecimals(top5Avg * CONTRACT_CONSTANTS.FRANCHISE_TAG_MULTIPLIER, 1);
 }
 
 /**
@@ -123,7 +147,7 @@ function calculateTransitionTagSalary(position, league) {
   allPlayerSalaries.sort((a, b) => b - a);
   const top10Avg = allPlayerSalaries.slice(0, 10).reduce((sum, salary) => sum + salary, 0) / 10;
   
-  return U.round(top10Avg * CONTRACT_CONSTANTS.TRANSITION_TAG_MULTIPLIER, 1);
+  return roundToDecimals(top10Avg * CONTRACT_CONSTANTS.TRANSITION_TAG_MULTIPLIER, 1);
 }
 
 /**
@@ -135,7 +159,7 @@ function calculateFifthYearOptionSalary(player) {
   // Use the average of the top 3-20 salaries depending on draft pick slot
   // For simplicity, we'll use a strong multiplier on the player's 4th-year base salary
   const baseSalary = player?.baseAnnual || 1.0; 
-  return U.round(baseSalary * CONTRACT_CONSTANTS.FIFTH_YEAR_OPTION_MULTIPLIER, 1);
+  return roundToDecimals(baseSalary * CONTRACT_CONSTANTS.FIFTH_YEAR_OPTION_MULTIPLIER, 1);
 }
 
 /**
@@ -294,14 +318,14 @@ function extendContract(league, team, player, years, baseSalary, signingBonus) {
   }
   
   // Calculate Guaranteed % for realism
-  let guaranteedPct = U.round(signingBonus / totalContractValue, 2); 
+  let guaranteedPct = roundToDecimals(signingBonus / totalContractValue, 2); 
   guaranteedPct = Math.min(CONTRACT_CONSTANTS.MAX_GUARANTEED_PCT, guaranteedPct + 0.1); 
 
   // Apply contract extension
   player.years = years + player.years; // Add new years to existing remaining years
   player.yearsTotal = player.years;
-  player.baseAnnual = U.round(baseSalary, 1);
-  player.signingBonus = U.round(signingBonus, 1);
+  player.baseAnnual = roundToDecimals(baseSalary, 1);
+  player.signingBonus = roundToDecimals(signingBonus, 1);
   player.guaranteedPct = guaranteedPct;
   player.extended = true;
   player.contractYear = league.season;
@@ -338,15 +362,15 @@ function updateContract(league, team, player, updates = {}) {
   }
 
   if (typeof baseAnnual === 'number') {
-    player.baseAnnual = U.round(Math.max(0, baseAnnual), 1);
+    player.baseAnnual = roundToDecimals(Math.max(0, baseAnnual), 1);
   }
 
   if (typeof signingBonus === 'number') {
-    player.signingBonus = U.round(Math.max(0, signingBonus), 1);
+    player.signingBonus = roundToDecimals(Math.max(0, signingBonus), 1);
   }
 
   if (typeof guaranteedPct === 'number') {
-    player.guaranteedPct = U.clamp(guaranteedPct, 0, CONTRACT_CONSTANTS.MAX_GUARANTEED_PCT);
+    player.guaranteedPct = clamp(guaranteedPct, 0, CONTRACT_CONSTANTS.MAX_GUARANTEED_PCT);
   }
 
   recalcCap(league, team);
