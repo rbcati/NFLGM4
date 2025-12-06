@@ -322,7 +322,11 @@
       ovr: playerOvr,
       years: U.rand(1, 4),
       yearsTotal: U.rand(1, 4),
-      baseAnnual: U.rand(2, 15),
+      // FIXED: Realistic salary based on OVR (for createRookiePlayer function)
+      baseAnnual: playerOvr >= 90 ? U.rand(20, 35) : 
+                 playerOvr >= 80 ? U.rand(8, 20) : 
+                 playerOvr >= 70 ? U.rand(3, 8) : 
+                 playerOvr >= 60 ? U.rand(1, 3) : U.rand(0.5, 1),
       signingBonus: 0,
       guaranteedPct: 0.5,
       ratings: generateBasicRatings(pos, playerOvr),
@@ -912,9 +916,14 @@
       // Use functions from fixes.js if available, otherwise use local fallbacks
       const ratings = window.generatePlayerRatings ? window.generatePlayerRatings(pos) : generateBasicRatings(pos, ovr || 70);
       const playerOvr = ovr || (window.calculateOvr ? window.calculateOvr(pos, ratings) : (ovr || 70));
+      // Use fixed contract generation that creates realistic salaries
       const contractDetails = window.generateContract ? window.generateContract(playerOvr, pos) : {
         years: U.rand(1, 4),
-        baseAnnual: U.rand(2, 15),
+        // FIXED: Realistic salary ranges based on OVR
+        baseAnnual: playerOvr >= 90 ? U.rand(20, 35) : 
+                   playerOvr >= 80 ? U.rand(8, 20) : 
+                   playerOvr >= 70 ? U.rand(3, 8) : 
+                   playerOvr >= 60 ? U.rand(1, 3) : U.rand(0.5, 1),
         signingBonus: 0,
         guaranteedPct: 0.5
       };
@@ -2015,7 +2024,11 @@
             ovr: playerOvr,
             years: utils.rand(1, 4),
             yearsTotal: undefined,
-            baseAnnual: utils.rand(2, 15),
+            // FIXED: Realistic salary based on OVR
+            baseAnnual: playerOvr >= 90 ? utils.rand(20, 35) : 
+                       playerOvr >= 80 ? utils.rand(8, 20) : 
+                       playerOvr >= 70 ? utils.rand(3, 8) : 
+                       playerOvr >= 60 ? utils.rand(1, 3) : utils.rand(0.5, 1),
             ratings: generatePlayerRatingsFactory(position, playerOvr),
             abilities: constants?.ABILITIES_BY_POS?.[position]
                 ? [utils.choice(constants.ABILITIES_BY_POS[position])]
