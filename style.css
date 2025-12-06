@@ -4082,9 +4082,8 @@ select:disabled {
   font-size: 0.875rem;
 }
 
-.nav-toggle {
-  display: none;
-}
+/* Navigation toggle should be visible on all screen sizes */
+/* Removed display: none to allow toggle functionality */
 
 /* ============================================================================
    MOBILE OPTIMIZATION - FREE AGENCY
