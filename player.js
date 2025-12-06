@@ -1,12 +1,17 @@
 // player.js - Combined Player System
 // This file combines: player.js, player.legacy.js, player-factory.js, player-progression.js, and rookies.js
 // Also includes: Depth Chart System with Playbook Knowledge and Chemistry
+// ES Module version - migrated from IIFE pattern
 
-(function(global) {
-  'use strict';
+// Import dependencies
+// TODO: Convert Utils and Constants to ES modules and import properly
+// For now, we access them from window for backward compatibility
+const getUtils = () => window.Utils;
+const getConstants = () => window.Constants;
 
-  const U = global.Utils;
-  const C = global.Constants;
+// Get Utils and Constants (will be updated when those are converted to ES modules)
+let U = getUtils();
+let C = getConstants();
 
   // ============================================================================
   // PLAYER PROGRESSION & SKILL TREES (from player-progression.js)
@@ -143,8 +148,9 @@
    * @returns {number} Amount of XP earned
    */
   function calculateGameXP(gameStats, ovr) {
-    const U = window.Utils;
-    const C = window.Constants;
+    // Update Utils and Constants references
+    U = getUtils();
+    C = getConstants();
     let baseXP = 50; // Base XP for playing a game
     
     // Performance Bonus (simplified, real logic uses position-specific stats)
@@ -285,8 +291,9 @@
    * Create a fallback player if main creation fails
    */
   function createFallbackPlayer(pos, age, ovr) {
-    const U = window.Utils;
-    const C = window.Constants;
+    // Update Utils and Constants references
+    U = getUtils();
+    C = getConstants();
     
     if (!U || !C) {
       return {
@@ -379,7 +386,7 @@
         preferredPosition: player.pos, // Player's natural position
         versatility: 0, // Can play multiple positions (0-100)
         practiceReps: 0, // Number of practice reps this week
-        lastUpdated: (window.state?.league?.year || global.state?.league?.year) || 2025
+        lastUpdated: (window.state?.league?.year) || 2025
       };
     }
 
@@ -658,7 +665,7 @@
     if (position) {
       player.depthChart.currentPosition = position;
     }
-    player.depthChart.lastUpdated = (window.state?.league?.year || global.state?.league?.year) || 2025;
+    player.depthChart.lastUpdated = (window.state?.league?.year) || 2025;
   }
 
   /**
@@ -998,8 +1005,9 @@
   function progressPlayer(player) {
     if (!player) return player;
 
-    const U = global.Utils;
-    const C = global.Constants;
+    // Update Utils and Constants references
+    U = getUtils();
+    C = getConstants();
 
     try {
       // Age progression
@@ -1440,7 +1448,7 @@
         if (currentValue >= threshold && !milestones.find(m => m.key === milestoneKey)) {
           milestones.push({
             key: milestoneKey,
-            year: (window.state?.league?.year || global.state?.league?.year) || 2025,
+            year: (window.state?.league?.year) || 2025,
             description: `${threshold.toLocaleString()} ${milestoneSet.suffix}`,
             value: currentValue,
             rarity: getMilestoneRarity(threshold, milestoneSet.stat)
@@ -1980,8 +1988,8 @@
   // PLAYER FACTORY FALLBACK (from player-factory.js)
   // ============================================================================
 
-  // Only use if makePlayer doesn't exist
-  if (!global.makePlayer) {
+  // Only use if makePlayer doesn't exist (backward compatibility check)
+  if (!window.makePlayer) {
     function generatePlayerName(position) {
         const constants = C;
         const utils = U;
@@ -2048,89 +2056,142 @@
   }
 
   // ============================================================================
-  // GLOBAL EXPORTS
+  // ES MODULE EXPORTS
   // ============================================================================
 
-  // Progression system
-  global.SKILL_TREES = SKILL_TREES;
-  global.initProgressionStats = initProgressionStats;
-  global.calculateGameXP = calculateGameXP;
-  global.addXP = addXP;
-  global.applySkillTreeUpgrade = applySkillTreeUpgrade;
+  // Export constants
+  export { SKILL_TREES, DRAFT_CONFIG };
 
-  // Main player functions
-  global.makePlayer = makePlayer;
-  global.progressPlayer = progressPlayer;
+  // Export progression system
+  export { initProgressionStats, calculateGameXP, addXP, applySkillTreeUpgrade };
 
-  // Legacy system
-  global.initializePlayerLegacy = initializePlayerLegacy;
-  global.updatePlayerGameLegacy = updatePlayerGameLegacy;
-  global.updatePlayerSeasonLegacy = updatePlayerSeasonLegacy;
-  global.checkForNotablePerformance = checkForNotablePerformance;
-  global.updatePlayoffStats = updatePlayoffStats;
-  global.checkCareerMilestones = checkCareerMilestones;
-  global.checkSeasonAwards = checkSeasonAwards;
-  global.updateAdvancedStats = updateAdvancedStats;
-  global.calculateImpactMetrics = calculateImpactMetrics;
-  global.calculateLegacyScore = calculateLegacyScore;
-  global.checkHallOfFameEligibility = checkHallOfFameEligibility;
-  global.getHOFThreshold = getHOFThreshold;
+  // Export main player functions
+  export { makePlayer, progressPlayer };
 
-  // Rookie generation
-  global.generateDraftClass = generateDraftClass;
-  global.DRAFT_CONFIG = DRAFT_CONFIG;
-  global.createRookiePlayer = createRookiePlayer;
-  global.calculatePotentialRange = calculatePotentialRange;
-  global.getWeightedPosition = getWeightedPosition;
-
-  // Depth Chart System
-  global.initializeDepthChartStats = initializeDepthChartStats;
-  global.calculateEffectiveRating = calculateEffectiveRating;
-  global.setDepthChartPosition = setDepthChartPosition;
-  global.generateDepthChart = generateDepthChart;
-  global.renderDepthChart = renderDepthChart;
-  global.updatePlaybookKnowledge = updatePlaybookKnowledge;
-  global.updateChemistry = updateChemistry;
-  global.addPracticeReps = addPracticeReps;
-  global.processWeeklyDepthChartUpdates = processWeeklyDepthChartUpdates;
-  global.getPositionGroup = getPositionGroup;
-  global.calculateWeeksWithTeam = calculateWeeksWithTeam;
-
-  // Draft utilities
-  global.draftUtils = {
-      scoutPlayer: function(player, thoroughness = 'basic') {
-          if (!player.scouted) {
-              player.scouted = true;
-              player.timesWatched = 1;
-          } else {
-              player.timesWatched++;
-          }
-          
-          // More thorough scouting reduces uncertainty
-          if (thoroughness === 'thorough' && player.timesWatched >= 3) {
-              const reduction = Math.min(5, player.timesWatched);
-              const newFloor = Math.max(player.scoutingFloor, player.ovr - reduction);
-              const newCeiling = Math.min(player.scoutingCeiling, player.ovr + reduction);
-              player.potentialRange = `${newFloor}-${newCeiling}`;
-          }
-      },
-      
-      getDraftBoard: function(draftClass, position = null) {
-          let filteredClass = position ? 
-              draftClass.filter(p => p.position === position) : 
-              draftClass;
-          
-          return filteredClass.map((player, index) => ({
-              rank: index + 1,
-              name: player.name || `${player.position} #${player.draftId}`,
-              position: player.position,
-              potentialRange: player.potentialRange,
-              scouted: player.scouted,
-              expectedRound: player.expectedRound
-          }));
-      }
+  // Export legacy system
+  export {
+    initializePlayerLegacy,
+    updatePlayerGameLegacy,
+    updatePlayerSeasonLegacy,
+    checkForNotablePerformance,
+    updatePlayoffStats,
+    checkCareerMilestones,
+    checkSeasonAwards,
+    updateAdvancedStats,
+    calculateImpactMetrics,
+    calculateLegacyScore,
+    checkHallOfFameEligibility,
+    getHOFThreshold
   };
 
-  console.log('✅ Combined player.js loaded - includes progression, legacy, rookies, factory, and depth chart system');
+  // Export rookie generation
+  export { generateDraftClass, createRookiePlayer, calculatePotentialRange, getWeightedPosition };
 
-})(window);
+  // Export Depth Chart System
+  export {
+    initializeDepthChartStats,
+    calculateEffectiveRating,
+    setDepthChartPosition,
+    generateDepthChart,
+    renderDepthChart,
+    updatePlaybookKnowledge,
+    updateChemistry,
+    addPracticeReps,
+    processWeeklyDepthChartUpdates,
+    getPositionGroup,
+    calculateWeeksWithTeam
+  };
+
+  // Export draft utilities
+  export const draftUtils = {
+    scoutPlayer: function(player, thoroughness = 'basic') {
+      if (!player.scouted) {
+        player.scouted = true;
+        player.timesWatched = 1;
+      } else {
+        player.timesWatched++;
+      }
+      
+      // More thorough scouting reduces uncertainty
+      if (thoroughness === 'thorough' && player.timesWatched >= 3) {
+        const reduction = Math.min(5, player.timesWatched);
+        const newFloor = Math.max(player.scoutingFloor, player.ovr - reduction);
+        const newCeiling = Math.min(player.scoutingCeiling, player.ovr + reduction);
+        player.potentialRange = `${newFloor}-${newCeiling}`;
+      }
+    },
+    
+    getDraftBoard: function(draftClass, position = null) {
+      let filteredClass = position ? 
+        draftClass.filter(p => p.position === position) : 
+        draftClass;
+      
+      return filteredClass.map((player, index) => ({
+        rank: index + 1,
+        name: player.name || `${player.position} #${player.draftId}`,
+        position: player.position,
+        potentialRange: player.potentialRange,
+        scouted: player.scouted,
+        expectedRound: player.expectedRound
+      }));
+    }
+  };
+
+  // ============================================================================
+  // BACKWARD COMPATIBILITY SHIMS
+  // ============================================================================
+  // TODO: Remove these once all code is migrated to ES modules
+
+  // Update Utils and Constants references (they may not be loaded yet)
+  U = getUtils();
+  C = getConstants();
+
+  // Progression system
+  window.SKILL_TREES = SKILL_TREES;
+  window.initProgressionStats = initProgressionStats;
+  window.calculateGameXP = calculateGameXP;
+  window.addXP = addXP;
+  window.applySkillTreeUpgrade = applySkillTreeUpgrade;
+
+  // Main player functions
+  window.makePlayer = makePlayer;
+  window.progressPlayer = progressPlayer;
+
+  // Legacy system
+  window.initializePlayerLegacy = initializePlayerLegacy;
+  window.updatePlayerGameLegacy = updatePlayerGameLegacy;
+  window.updatePlayerSeasonLegacy = updatePlayerSeasonLegacy;
+  window.checkForNotablePerformance = checkForNotablePerformance;
+  window.updatePlayoffStats = updatePlayoffStats;
+  window.checkCareerMilestones = checkCareerMilestones;
+  window.checkSeasonAwards = checkSeasonAwards;
+  window.updateAdvancedStats = updateAdvancedStats;
+  window.calculateImpactMetrics = calculateImpactMetrics;
+  window.calculateLegacyScore = calculateLegacyScore;
+  window.checkHallOfFameEligibility = checkHallOfFameEligibility;
+  window.getHOFThreshold = getHOFThreshold;
+
+  // Rookie generation
+  window.generateDraftClass = generateDraftClass;
+  window.DRAFT_CONFIG = DRAFT_CONFIG;
+  window.createRookiePlayer = createRookiePlayer;
+  window.calculatePotentialRange = calculatePotentialRange;
+  window.getWeightedPosition = getWeightedPosition;
+
+  // Depth Chart System
+  window.initializeDepthChartStats = initializeDepthChartStats;
+  window.calculateEffectiveRating = calculateEffectiveRating;
+  window.setDepthChartPosition = setDepthChartPosition;
+  window.generateDepthChart = generateDepthChart;
+  window.renderDepthChart = renderDepthChart;
+  window.updatePlaybookKnowledge = updatePlaybookKnowledge;
+  window.updateChemistry = updateChemistry;
+  window.addPracticeReps = addPracticeReps;
+  window.processWeeklyDepthChartUpdates = processWeeklyDepthChartUpdates;
+  window.getPositionGroup = getPositionGroup;
+  window.calculateWeeksWithTeam = calculateWeeksWithTeam;
+
+  // Draft utilities
+  window.draftUtils = draftUtils;
+
+  console.log('✅ Combined player.js loaded - includes progression, legacy, rookies, factory, and depth chart system');
