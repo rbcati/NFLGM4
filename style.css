@@ -316,10 +316,17 @@ html, body {
     width: 220px;
     box-shadow: 4px 0 16px rgba(0, 0, 0, 0.3);
     background: rgba(14, 18, 25, 0.96);
+    z-index: 50; /* Ensure it's above content but below modals */
   }
 
   .nav-sidebar.collapsed {
     transform: translateX(-100%);
+    pointer-events: none; /* Prevent clicks when hidden */
+  }
+  
+  .nav-sidebar:not(.collapsed) {
+    transform: translateX(0);
+    pointer-events: auto;
   }
   
   .layout {
@@ -340,6 +347,7 @@ html, body {
   
   .topbar {
     padding: var(--space-2) var(--space-3);
+    z-index: 100; /* Ensure topbar is always visible */
   }
   
   .brand {
@@ -349,6 +357,40 @@ html, body {
   .nav-toggle {
     width: 44px;
     height: 44px;
+    display: flex !important; /* Always show on mobile */
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 101 !important; /* Above everything */
+    position: relative;
+    background: var(--surface) !important;
+    border: 1px solid var(--hairline) !important;
+    border-radius: var(--radius-md) !important;
+  }
+  
+  /* Add overlay when nav is open on mobile - using a separate element */
+  .nav-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 49;
+    pointer-events: auto;
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+  
+  .nav-sidebar:not(.collapsed) ~ .nav-overlay,
+  body.nav-open .nav-overlay {
+    display: block;
+  }
+  
+  /* Ensure nav sidebar is above overlay when open */
+  .nav-sidebar:not(.collapsed) {
+    z-index: 51;
   }
 }
 
