@@ -630,6 +630,10 @@
     // Award the winners
     if (mvp && mvp.player) {
       awardPlayer(mvp.player, mvp.team, 'MVP', year, mvp.stats);
+      // Record MVP in history
+      if (window.recordMVP) {
+        window.recordMVP(league, year, mvp.player, mvp.team, mvp.stats);
+      }
     }
     if (opoy && opoy.player) {
       awardPlayer(opoy.player, opoy.team, 'OPOY', year, opoy.stats);
