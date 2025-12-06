@@ -571,7 +571,17 @@ select:disabled {
 }
 
 .modal[hidden] {
-  display: none;
+  display: none !important;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal:not([hidden]) {
+  display: flex !important;
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .modal-card {
