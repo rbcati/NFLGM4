@@ -4140,3 +4140,420 @@ select:disabled {
     font-size: 0.75rem;
   }
 }
+
+/* ============================================================================
+   PLAYER DATABASE STYLES
+   ============================================================================ */
+
+.best-player-card {
+  background: linear-gradient(135deg, var(--accent-muted) 0%, var(--surface-elevated) 100%);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  margin-bottom: var(--space-6);
+  border: 2px solid var(--accent);
+}
+
+.best-player-card h3 {
+  color: var(--accent);
+  margin-bottom: var(--space-4);
+  font-size: 1.5rem;
+}
+
+.best-player-info {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.best-player-main h4 {
+  font-size: 1.5rem;
+  color: var(--text);
+  margin-bottom: var(--space-2);
+}
+
+.best-player-details {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.position-badge, .ovr-badge, .team-badge {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.position-badge {
+  background: var(--accent);
+  color: white;
+}
+
+.ovr-badge {
+  background: var(--success);
+  color: white;
+}
+
+.team-badge {
+  background: var(--surface-strong);
+  color: var(--text);
+}
+
+.best-player-stats {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+}
+
+.stat-label {
+  color: var(--text-muted);
+}
+
+.stat-value {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.filter-controls {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.filter-controls label {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.filter-controls select {
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+}
+
+.player-database-table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.legacy-score {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 120px;
+}
+
+.legacy-value {
+  font-weight: 600;
+  min-width: 30px;
+}
+
+.legacy-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--surface-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.legacy-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--success) 100%);
+  transition: width 0.3s ease;
+}
+
+.hof-badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.hof-badge.inducted {
+  background: var(--success);
+  color: white;
+}
+
+.hof-badge.eligible {
+  background: var(--warning);
+  color: white;
+}
+
+.hof-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 100px;
+}
+
+.hof-progress-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--surface-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.hof-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+
+.hof-progress-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  min-width: 35px;
+}
+
+.awards-count {
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.player-row {
+  cursor: pointer;
+}
+
+.player-row:hover {
+  background: var(--surface-elevated);
+}
+
+/* ============================================================================
+   HISTORY STYLES
+   ============================================================================ */
+
+.history-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.history-tabs .tab-btn {
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.history-tabs .tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.history-section {
+  margin-top: var(--space-4);
+}
+
+.superbowl-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.superbowl-entry {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+}
+
+.superbowl-year {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: var(--space-3);
+}
+
+.superbowl-matchup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.superbowl-winner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.superbowl-runnerup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+}
+
+.trophy {
+  font-size: 1.5rem;
+}
+
+.team-abbr {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.superbowl-score {
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: var(--space-2);
+}
+
+.coach-rankings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-6);
+  margin-top: var(--space-4);
+}
+
+.offensive-rankings h4,
+.defensive-rankings h4 {
+  color: var(--accent);
+  margin-bottom: var(--space-3);
+}
+
+.modal-large {
+  max-width: 800px;
+  width: 90%;
+}
+
+.player-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-4);
+}
+
+.legacy-score-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.legacy-value-large {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.legacy-bar-large {
+  height: 12px;
+  background: var(--surface-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: var(--space-2) 0;
+}
+
+.legacy-fill-large {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--success) 100%);
+}
+
+.hof-status {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+}
+
+.hof-inducted {
+  color: var(--success);
+  font-size: 1.25rem;
+}
+
+.hof-eligible {
+  color: var(--warning);
+  font-size: 1.1rem;
+}
+
+.hof-progress-bar-large {
+  height: 10px;
+  background: var(--surface-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin: var(--space-2) 0;
+}
+
+.hof-progress-fill-large {
+  height: 100%;
+  background: var(--accent);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+}
+
+.metric-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+}
+
+.award-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+}
+
+.award-history ul {
+  list-style: none;
+  padding: 0;
+  margin-top: var(--space-2);
+}
+
+.award-history li {
+  padding: var(--space-2);
+  margin-bottom: var(--space-1);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+}
+
+/* Mobile Responsive for Player Database & History */
+@media (max-width: 768px) {
+  .best-player-info {
+    grid-template-columns: 1fr;
+  }
+
+  .player-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coach-rankings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+}
