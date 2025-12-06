@@ -662,6 +662,11 @@ select:disabled {
   .layout {
     grid-template-columns: 1fr;
     padding: var(--space-4);
+    padding-left: calc(220px + var(--space-4));
+  }
+  
+  .layout.nav-collapsed {
+    padding-left: var(--space-4);
   }
   
   .sidebar {
