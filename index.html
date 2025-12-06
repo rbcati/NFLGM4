@@ -40,8 +40,10 @@
   <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
   <a href="#/scouting" class="nav-pill" data-view="scouting">Scouting</a>
   <a href="#/coaching" class="nav-pill" data-view="coaching">Coaching</a>
-  <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
+  <a href="#/playerDatabase" class="nav-pill" data-view="playerDatabase">Players</a>
+  <a href="#/history" class="nav-pill" data-view="history">History</a>
   <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
+  <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
 </nav>
         <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -147,6 +149,14 @@
                 </div>
             </section>
             
+            <section id="playerDatabase" class="view" hidden>
+                <div id="playerDatabase"></div>
+            </section>
+
+            <section id="history" class="view" hidden>
+                <div id="history"></div>
+            </section>
+
             <section id="hallOfFame" class="view" hidden>
                 <div class="card">
                     <h2>Hall of Fame</h2>
@@ -339,6 +349,10 @@
 <script src="game-results-viewer.js"></script>
 <script src="schedule-viewer.js"></script>
 <script src="standings-page.js"></script>
+
+<!-- Player Database & History -->
+<script src="player-database.js"></script>
+<script src="history.js"></script>
 
 <!-- UI -->
 <script src="ui.js"></script>
