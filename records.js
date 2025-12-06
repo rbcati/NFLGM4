@@ -42,7 +42,7 @@
           tackles: { player: null, value: 0, year: null },
           tacklesForLoss: { player: null, value: 0, year: null },
           forcedFumbles: { player: null, value: 0, year: null },
-          interceptions: { player: null, value: 0, year: null },
+          defensiveInterceptions: { player: null, value: 0, year: null },
           pickSixes: { player: null, value: 0, year: null },
           safeties: { player: null, value: 0, year: null },
           passesDefended: { player: null, value: 0, year: null },
@@ -296,7 +296,9 @@
       interceptions: {
         calculate: (player) => {
           const career = player.stats?.career || {};
-          return career.interceptions || 0;
+          // For QBs, this is INTs thrown (lower is better), for DBs it's INTs caught (higher is better)
+          // We'll track defensive interceptions separately
+          return career.defensiveInterceptions || career.interceptions || 0;
         },
         format: (val) => val.toLocaleString()
       },
