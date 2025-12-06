@@ -103,16 +103,42 @@
    * Apply injury to player
    * @param {Object} player - Player object
    * @param {Object} injury - Injury object
+   * @param {number} year - Current year
+   * @param {number} week - Current week (optional)
    */
-  function applyInjury(player, injury) {
+  function applyInjury(player, injury, year = null, week = null) {
     if (!player || !injury) return;
     
     if (!player.injuries) {
       player.injuries = [];
     }
     
+    // Add current injury
     player.injuries.push(injury);
     player.injured = true;
+    
+    // Track injury in history
+    if (!player.injuryHistory) {
+      player.injuryHistory = [];
+    }
+    
+    // Add to injury history with full details
+    const historyEntry = {
+      id: injury.id,
+      type: injury.type,
+      severity: injury.severity,
+      weeks: injury.weeks,
+      weeksRemaining: injury.weeksRemaining,
+      impact: injury.impact,
+      seasonEnding: injury.seasonEnding,
+      date: injury.date,
+      year: year || new Date().getFullYear(),
+      week: week || null,
+      recovered: false,
+      recoveryDate: null
+    };
+    
+    player.injuryHistory.push(historyEntry);
     
     // If season-ending, mark player
     if (injury.seasonEnding) {
@@ -125,8 +151,10 @@
   /**
    * Process weekly injury recovery
    * @param {Object} league - League object
+   * @param {number} year - Current year
+   * @param {number} week - Current week
    */
-  function processInjuryRecovery(league) {
+  function processInjuryRecovery(league, year = null, week = null) {
     if (!league || !league.teams) return;
     
     league.teams.forEach(team => {
@@ -143,9 +171,26 @@
           injury.weeksRemaining--;
           
           if (injury.weeksRemaining <= 0) {
-            // Injury healed
+            // Injury healed - update history
+            if (player.injuryHistory) {
+              const historyEntry = player.injuryHistory.find(h => h.id === injury.id);
+              if (historyEntry) {
+                historyEntry.recovered = true;
+                historyEntry.recoveryDate = new Date().toISOString();
+                historyEntry.weeksRemaining = 0;
+              }
+            }
+            
             console.log(`✅ ${player.name} recovered from ${injury.type}`);
             return false; // Remove injury
+          }
+          
+          // Update history entry
+          if (player.injuryHistory) {
+            const historyEntry = player.injuryHistory.find(h => h.id === injury.id);
+            if (historyEntry) {
+              historyEntry.weeksRemaining = injury.weeksRemaining;
+            }
           }
           
           return true; // Keep injury
@@ -160,6 +205,109 @@
         }
       });
     });
+  }
+
+  /**
+   * Record season overall rating change
+   * @param {Object} player - Player object
+   * @param {number} year - Season year
+   * @param {number} ovrStart - OVR at start of season
+   * @param {number} ovrEnd - OVR at end of season
+   */
+  function recordSeasonOVR(player, year, ovrStart, ovrEnd) {
+    if (!player) return;
+    
+    if (!player.seasonHistory) {
+      player.seasonHistory = [];
+    }
+    
+    // Find or create season entry
+    let seasonEntry = player.seasonHistory.find(s => s.year === year);
+    if (!seasonEntry) {
+      seasonEntry = {
+        year: year,
+        ovrStart: ovrStart,
+        ovrEnd: ovrEnd,
+        ovrChange: ovrEnd - ovrStart,
+        injuries: []
+      };
+      player.seasonHistory.push(seasonEntry);
+    } else {
+      seasonEntry.ovrStart = ovrStart;
+      seasonEntry.ovrEnd = ovrEnd;
+      seasonEntry.ovrChange = ovrEnd - ovrStart;
+    }
+    
+    // Record injuries for this season
+    if (player.injuryHistory) {
+      seasonEntry.injuries = player.injuryHistory
+        .filter(injury => injury.year === year)
+        .map(injury => ({
+          type: injury.type,
+          severity: injury.severity,
+          weeks: injury.weeks,
+          seasonEnding: injury.seasonEnding,
+          recovered: injury.recovered
+        }));
+    }
+    
+    // Sort by year (newest first)
+    player.seasonHistory.sort((a, b) => b.year - a.year);
+  }
+
+  /**
+   * Get injury proneness assessment
+   * @param {Object} player - Player object
+   * @returns {Object} Assessment object
+   */
+  function getInjuryPronenessAssessment(player) {
+    if (!player || !player.injuryHistory) {
+      return {
+        level: 'Unknown',
+        totalInjuries: 0,
+        majorInjuries: 0,
+        seasonEndingInjuries: 0,
+        averageWeeksPerInjury: 0,
+        recommendation: 'No injury history available'
+      };
+    }
+    
+    const history = player.injuryHistory;
+    const totalInjuries = history.length;
+    const majorInjuries = history.filter(i => i.severity === 'major').length;
+    const seasonEnding = history.filter(i => i.seasonEnding).length;
+    const totalWeeks = history.reduce((sum, i) => sum + i.weeks, 0);
+    const avgWeeks = totalInjuries > 0 ? totalWeeks / totalInjuries : 0;
+    
+    // Calculate proneness level
+    let level = 'Low';
+    let recommendation = 'Player has minimal injury concerns.';
+    
+    if (totalInjuries >= 8 || majorInjuries >= 3 || seasonEnding >= 2) {
+      level = 'Very High';
+      recommendation = '⚠️ WARNING: This player is extremely injury prone. Consider trading or not re-signing.';
+    } else if (totalInjuries >= 5 || majorInjuries >= 2 || seasonEnding >= 1) {
+      level = 'High';
+      recommendation = '⚠️ CAUTION: This player has significant injury history. Monitor closely.';
+    } else if (totalInjuries >= 3 || majorInjuries >= 1) {
+      level = 'Moderate';
+      recommendation = 'Player has some injury history. Consider depth at this position.';
+    } else if (totalInjuries >= 1) {
+      level = 'Low';
+      recommendation = 'Player has minor injury history. Generally reliable.';
+    } else {
+      level = 'None';
+      recommendation = 'No injury history. Very reliable player.';
+    }
+    
+    return {
+      level: level,
+      totalInjuries: totalInjuries,
+      majorInjuries: majorInjuries,
+      seasonEndingInjuries: seasonEnding,
+      averageWeeksPerInjury: Math.round(avgWeeks * 10) / 10,
+      recommendation: recommendation
+    };
   }
 
   /**
@@ -226,6 +374,8 @@
   window.getEffectiveRating = getEffectiveRating;
   window.canPlayerPlay = canPlayerPlay;
   window.getInjuryStatus = getInjuryStatus;
+  window.recordSeasonOVR = recordSeasonOVR;
+  window.getInjuryPronenessAssessment = getInjuryPronenessAssessment;
 
   console.log('✅ Injury System loaded');
 
