@@ -3500,3 +3500,643 @@ select:disabled {
   font-weight: 600;
   margin-right: var(--space-2);
 }
+
+/* ============================================================================
+   DEPTH CHART SYSTEM STYLES
+   ============================================================================ */
+
+.depth-chart-section {
+  margin-top: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.depth-chart-container {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+}
+
+.depth-chart-container h3 {
+  margin-bottom: var(--space-4);
+  color: var(--text);
+  font-size: 1.25rem;
+}
+
+.depth-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.depth-position-group {
+  background: var(--surface-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  border: 1px solid var(--hairline);
+}
+
+.depth-position-group h4 {
+  color: var(--accent);
+  font-size: 1rem;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.depth-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.depth-entry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  transition: all 0.2s ease;
+}
+
+.depth-entry:hover {
+  background: var(--surface-elevated);
+  border-color: var(--hairline-strong);
+}
+
+.depth-entry.starter {
+  background: var(--accent-muted);
+  border-color: var(--accent);
+}
+
+.depth-rank {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text);
+}
+
+.depth-entry.starter .depth-rank {
+  background: var(--accent);
+  color: white;
+}
+
+.depth-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.depth-name {
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: var(--space-1);
+  font-size: 0.875rem;
+}
+
+.depth-stats {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.depth-stats .stat {
+  white-space: nowrap;
+}
+
+.depth-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.depth-actions .btn-sm {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  min-width: 32px;
+}
+
+/* Roster Table Depth Chart Columns */
+#rosterTable .effective-rating {
+  font-weight: 600;
+  text-align: center;
+}
+
+#rosterTable .effective-rating.rating-elite {
+  color: var(--success);
+}
+
+#rosterTable .effective-rating.rating-good {
+  color: var(--accent);
+}
+
+#rosterTable .effective-rating.rating-poor {
+  color: var(--danger);
+}
+
+#rosterTable .depth-position {
+  text-align: center;
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+#rosterTable .depth-position.depth-starter {
+  color: var(--success);
+  background: var(--accent-muted);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+}
+
+#rosterTable .depth-position.depth-backup {
+  color: var(--accent);
+}
+
+#rosterTable .playbook-knowledge,
+#rosterTable .chemistry {
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+#rosterTable .playbook-knowledge.pb-excellent {
+  color: var(--success);
+}
+
+#rosterTable .playbook-knowledge.pb-good {
+  color: var(--accent);
+}
+
+#rosterTable .playbook-knowledge.pb-poor {
+  color: var(--warning);
+}
+
+#rosterTable .chemistry.chem-excellent {
+  color: var(--success);
+}
+
+#rosterTable .chemistry.chem-good {
+  color: var(--accent);
+}
+
+#rosterTable .chemistry.chem-poor {
+  color: var(--danger);
+}
+
+#rosterTable .starter-row {
+  background: rgba(10, 132, 255, 0.05);
+}
+
+#rosterTable .starter-row:hover {
+  background: rgba(10, 132, 255, 0.1);
+}
+
+/* ============================================================================
+   PLAYOFF BRACKET STYLES
+   ============================================================================ */
+
+.playoff-bracket-container {
+  margin-top: var(--space-6);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.playoff-bracket-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--space-6);
+  min-width: 600px;
+}
+
+.conference-bracket {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+}
+
+.conference-title {
+  text-align: center;
+  margin-bottom: var(--space-4);
+  font-size: 1.5rem;
+  color: var(--text);
+  padding-bottom: var(--space-3);
+  border-bottom: 2px solid var(--hairline);
+}
+
+.conference-bracket.afc .conference-title {
+  color: #E31837; /* AFC Red */
+}
+
+.conference-bracket.nfc .conference-title {
+  color: #003A70; /* NFC Blue */
+}
+
+.bracket-rounds {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  position: relative;
+}
+
+.bracket-round {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.round-header {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--space-2);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-2);
+}
+
+.matchup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  border: 1px solid var(--hairline);
+  transition: all 0.2s ease;
+}
+
+.matchup:hover {
+  border-color: var(--hairline-strong);
+  background: var(--surface-elevated);
+}
+
+.matchup.user-team-matchup {
+  border-color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.matchup.bye {
+  justify-content: center;
+}
+
+.team {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  transition: all 0.2s ease;
+  font-size: 0.875rem;
+}
+
+.team.winner {
+  background: var(--success);
+  color: white;
+  font-weight: 600;
+}
+
+.team.user-team {
+  border: 2px solid var(--accent);
+  background: var(--accent-muted);
+}
+
+.team .seed {
+  min-width: 24px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.team.winner .seed {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.team-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.score {
+  font-weight: 700;
+  font-size: 1rem;
+  min-width: 32px;
+  text-align: right;
+}
+
+.bye-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.matchup-empty {
+  padding: var(--space-4);
+  text-align: center;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.superbowl-bracket {
+  margin-top: var(--space-8);
+  padding: var(--space-6);
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-elevated) 100%);
+  border-radius: var(--radius-xl);
+  border: 2px solid var(--accent);
+}
+
+.superbowl-title {
+  text-align: center;
+  font-size: 2rem;
+  margin-bottom: var(--space-6);
+  color: var(--accent);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.superbowl-matchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: var(--space-4);
+  align-items: center;
+  padding: var(--space-4);
+}
+
+.superbowl-matchup .team {
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  font-size: 1rem;
+}
+
+.superbowl-matchup .team-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.superbowl-matchup .score {
+  font-size: 1.5rem;
+}
+
+.vs-divider {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.conference-badge {
+  display: inline-block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.afc-badge {
+  background: #E31837;
+  color: white;
+}
+
+.nfc-badge {
+  background: #003A70;
+  color: white;
+}
+
+.champion-title {
+  color: var(--success);
+  font-size: 1.5rem;
+  text-align: center;
+  padding: var(--space-4);
+  background: var(--accent-muted);
+  border-radius: var(--radius-md);
+}
+
+/* ============================================================================
+   MOBILE OPTIMIZATION - NAVIGATION
+   ============================================================================ */
+
+.nav-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.nav-pills::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-pill {
+  white-space: nowrap;
+  min-width: fit-content;
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+}
+
+.nav-toggle {
+  display: none;
+}
+
+/* ============================================================================
+   MOBILE OPTIMIZATION - FREE AGENCY
+   ============================================================================ */
+
+#freeagencyTable {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  display: block;
+}
+
+#freeagencyTable thead,
+#freeagencyTable tbody {
+  display: block;
+}
+
+#freeagencyTable thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--surface-strong);
+}
+
+#freeagencyTable tr {
+  display: grid;
+  grid-template-columns: 40px 1fr 50px 50px 80px 100px 80px;
+  gap: var(--space-2);
+  min-width: 600px;
+}
+
+.free-agent-row {
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.free-agent-row:hover {
+  background: var(--surface-elevated);
+}
+
+.free-agent-row.selected {
+  background: var(--accent-muted);
+}
+
+/* ============================================================================
+   MOBILE RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  /* Navigation */
+  .nav-pills {
+    flex-direction: column;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface-strong);
+    border-top: 1px solid var(--hairline);
+    z-index: 1000;
+    padding: var(--space-2);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .nav-pills[aria-expanded="true"],
+  .nav-pills.nav-open {
+    max-height: 500px;
+  }
+
+  .nav-toggle {
+    display: block;
+    background: transparent;
+    border: 1px solid var(--hairline);
+    color: var(--text);
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+  }
+
+  .nav-pill {
+    width: 100%;
+    text-align: left;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+
+  /* Playoff Bracket */
+  .playoff-bracket-grid {
+    grid-template-columns: 1fr;
+    min-width: 100%;
+  }
+
+  .bracket-rounds {
+    grid-template-columns: 1fr;
+  }
+
+  .superbowl-matchup {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .vs-divider {
+    order: 2;
+    padding: var(--space-2);
+  }
+
+  .superbowl-matchup .team:first-child {
+    order: 1;
+  }
+
+  .superbowl-matchup .team:last-child {
+    order: 3;
+  }
+
+  /* Free Agency */
+  #freeagencyTable {
+    font-size: 0.875rem;
+  }
+
+  #freeagencyTable tr {
+    grid-template-columns: 30px 1fr 40px 40px 60px 80px 60px;
+    gap: var(--space-1);
+    min-width: 500px;
+    padding: var(--space-2);
+  }
+
+  #freeagencyTable th,
+  #freeagencyTable td {
+    padding: var(--space-2);
+    font-size: 0.8rem;
+  }
+
+  /* Depth Chart */
+  .depth-chart-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .depth-stats {
+    font-size: 0.7rem;
+  }
+  
+  #rosterTable {
+    font-size: 0.875rem;
+  }
+  
+  #rosterTable th,
+  #rosterTable td {
+    padding: var(--space-2);
+  }
+
+  /* Cards */
+  .card {
+    padding: var(--space-4);
+  }
+
+  .row {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .row .spacer {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .playoff-bracket-container {
+    padding: 0;
+  }
+
+  .conference-bracket {
+    padding: var(--space-4);
+  }
+
+  .superbowl-bracket {
+    padding: var(--space-4);
+  }
+
+  .superbowl-title {
+    font-size: 1.5rem;
+  }
+
+  #freeagencyTable tr {
+    min-width: 400px;
+    font-size: 0.75rem;
+  }
+}
