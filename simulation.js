@@ -764,6 +764,17 @@ function startOffseason() {
         console.error('Error recording coach rankings:', error);
       }
     }
+    
+    // Calculate and award all season awards
+    if (typeof window.calculateAllAwards === 'function') {
+      try {
+        console.log('Calculating season awards...');
+        const awards = window.calculateAllAwards(L, L.year);
+        console.log('Awards calculated:', awards);
+      } catch (error) {
+        console.error('Error calculating awards:', error);
+      }
+    }
 
     // Run any offseason processing hooks (e.g., coaching stats)
     if (typeof window.runOffseason === 'function') {
