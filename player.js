@@ -375,7 +375,7 @@
         preferredPosition: player.pos, // Player's natural position
         versatility: 0, // Can play multiple positions (0-100)
         practiceReps: 0, // Number of practice reps this week
-        lastUpdated: state.league?.year || 2025
+        lastUpdated: (window.state?.league?.year || global.state?.league?.year) || 2025
       };
     }
 
@@ -654,7 +654,7 @@
     if (position) {
       player.depthChart.currentPosition = position;
     }
-    player.depthChart.lastUpdated = state.league?.year || 2025;
+    player.depthChart.lastUpdated = (window.state?.league?.year || global.state?.league?.year) || 2025;
   }
 
   /**
@@ -733,7 +733,7 @@
     // Generate/update depth chart
     const depthChart = generateDepthChart(team);
     
-    const C = window.Constants;
+    const C = window.Constants || global.Constants;
     const positions = C.POSITIONS || ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K', 'P'];
     
     let html = '<div class="depth-chart-container">';
@@ -850,7 +850,7 @@
   function processWeeklyDepthChartUpdates(team) {
     if (!team || !team.roster) return;
     
-    const L = state.league;
+    const L = window.state?.league || global.state?.league;
     const currentWeek = L?.week || 1;
     
     team.roster.forEach(player => {
@@ -1210,7 +1210,7 @@
         player.legacy.healthRecord.gamesMissed++;
         if (gameStats.majorInjury) {
           player.legacy.healthRecord.majorInjuries.push({
-            year: gameContext.year || state.league?.year || 2025,
+            year: gameContext.year || (window.state?.league?.year || global.state?.league?.year) || 2025,
             injury: gameStats.injury || 'Unknown',
             weeksOut: gameStats.weeksOut || 1
           });
@@ -1431,7 +1431,7 @@
         if (currentValue >= threshold && !milestones.find(m => m.key === milestoneKey)) {
           milestones.push({
             key: milestoneKey,
-            year: state.league?.year || 2025,
+            year: (window.state?.league?.year || global.state?.league?.year) || 2025,
             description: `${threshold.toLocaleString()} ${milestoneSet.suffix}`,
             value: currentValue,
             rarity: getMilestoneRarity(threshold, milestoneSet.stat)
@@ -2080,6 +2080,7 @@
   global.addPracticeReps = addPracticeReps;
   global.processWeeklyDepthChartUpdates = processWeeklyDepthChartUpdates;
   global.getPositionGroup = getPositionGroup;
+  global.calculateWeeksWithTeam = calculateWeeksWithTeam;
 
   // Draft utilities
   global.draftUtils = {
