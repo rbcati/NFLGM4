@@ -488,15 +488,30 @@ class GameController {
             }
             const modal = this.getElement('onboardModal');
             if (modal) {
+                modal.hidden = true;
                 modal.style.display = 'none';
             }
+            // Ensure state is properly set
+            if (!window.state.onboarded) {
+                window.state.onboarded = true;
+            }
+            // Navigate to hub and render
             location.hash = '#/hub';
-            if (window.initializeUIFixes) {
-                window.initializeUIFixes();
-            }
-            if (typeof window.updateCapSidebar === 'function') {
-                window.updateCapSidebar();
-            }
+            // Wait a bit for hash change to process
+            setTimeout(() => {
+                if (window.initializeUIFixes) {
+                    window.initializeUIFixes();
+                }
+                if (typeof window.updateCapSidebar === 'function') {
+                    window.updateCapSidebar();
+                }
+                if (window.router && typeof window.router === 'function') {
+                    window.router('hub');
+                }
+                if (window.renderHub && typeof window.renderHub === 'function') {
+                    window.renderHub();
+                }
+            }, 100);
             this.setStatus('New game created successfully!', 'success', 3000);
         } catch (error) {
             console.error('Error in initNewGame:', error);
