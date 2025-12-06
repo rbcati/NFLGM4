@@ -978,9 +978,20 @@ function simulateWeek() {
     // NEW SEASON PROGRESSION CHECK
     // If the regular season is over and a Super Bowl champion has been crowned,
     // transition to offseason instead of starting new season immediately.
+    // FIXED: Add guard to prevent multiple calls
     if (window.state && window.state.playoffs && window.state.playoffs.winner && L.week > scheduleWeeks.length) {
+      // Check if already in offseason to prevent multiple calls
+      if (window.state.offseason === true) {
+        console.log('Already in offseason, skipping transition');
+        return;
+      }
+      
       console.log('Season complete, transitioning to offseason');
       window.setStatus('Season complete! Entering offseason...');
+      
+      // Set flag immediately to prevent multiple calls
+      window.state.offseason = true;
+      
       if (typeof window.startOffseason === 'function') {
         window.startOffseason();
       } else {
