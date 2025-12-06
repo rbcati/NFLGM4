@@ -964,7 +964,10 @@ console.log('[LeagueCreationFix] Loaded');
     // Only render content if game is ready
     const currentState = window.state || {};
     if (!currentState.league || !currentState.onboarded) {
-      console.log('Game not ready, skipping content rendering');
+      console.log('Game not ready, skipping content rendering', {
+        hasLeague: !!currentState.league,
+        onboarded: currentState.onboarded
+      });
       // Ensure onboarding modal is shown if game isn't ready
       if (!currentState.onboarded && window.openOnboard) {
         setTimeout(() => {
@@ -975,6 +978,9 @@ console.log('[LeagueCreationFix] Loaded');
       }
       return;
     }
+    
+    // Game is ready - log for debugging
+    console.log('✅ Game ready, rendering view:', viewName);
     
     // Render view-specific content
     setTimeout(() => {
