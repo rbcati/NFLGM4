@@ -23,11 +23,12 @@ class GameResultsViewer {
         this.modal = document.createElement('div');
         this.modal.id = 'gameResultsModal';
         this.modal.className = 'modal';
+        this.modal.hidden = true; // Ensure it's hidden by default
         this.modal.innerHTML = `
             <div class="modal-content game-results-modal">
                 <div class="modal-header">
                     <h2 id="gameModalTitle">Game Results</h2>
-                    <span class="close">&times;</span>
+                    <button class="close" aria-label="Close">&times;</button>
                 </div>
                 <div class="modal-body" id="gameModalBody">
                     <div class="game-info">
@@ -42,11 +43,27 @@ class GameResultsViewer {
             </div>
         `;
         
+        // Set initial styles to ensure it's hidden
+        this.modal.style.display = 'none';
+        this.modal.style.visibility = 'hidden';
+        this.modal.style.opacity = '0';
+        
         document.body.appendChild(this.modal);
         
         // Close modal when clicking X
         const closeBtn = this.modal.querySelector('.close');
-        closeBtn.onclick = () => this.hideModal();
+        if (closeBtn) {
+            closeBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideModal();
+            };
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                this.hideModal();
+            }, true);
+        }
         
         // Close modal when clicking outside
         this.modal.onclick = (e) => {
@@ -54,13 +71,29 @@ class GameResultsViewer {
                 this.hideModal();
             }
         };
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !this.modal.hidden) {
+                this.hideModal();
+            }
+        });
     }
 
     setupEventListeners() {
-        // Make all game result items clickable
+        // Make all game result items clickable (only if game is ready)
         document.addEventListener('click', (e) => {
+            // Don't process clicks if game isn't ready
+            if (!window.state?.league || !window.state?.onboarded) {
+                return;
+            }
+            
             if (e.target.closest('.result-item') || e.target.closest('.game-result')) {
                 const gameItem = e.target.closest('.result-item') || e.target.closest('.game-result');
+                // Don't open if clicking on buttons or inputs
+                if (e.target.closest('button') || e.target.closest('input')) {
+                    return;
+                }
                 const gameData = this.extractGameData(gameItem);
                 if (gameData) {
                     this.showGameResults(gameData);
@@ -120,6 +153,18 @@ class GameResultsViewer {
     }
 
     showGameResults(gameData) {
+        // Only show if we have valid game data and modal exists
+        if (!gameData || !this.modal) {
+            console.warn('Cannot show game results: missing data or modal');
+            return;
+        }
+        
+        // Don't show if game isn't ready
+        if (!window.state?.league || !window.state?.onboarded) {
+            console.warn('Cannot show game results: game not ready');
+            return;
+        }
+        
         this.currentGame = gameData;
         this.displayGameResults(gameData);
         this.showModal();
@@ -226,7 +271,7 @@ class GameResultsViewer {
         `;
 
         // Try to get detailed stats from league data
-        const L = state.league;
+        const L = window.state?.league;
         if (L && L.resultsByWeek) {
             const detailedStats = this.getDetailedGameStats(L, homeTeam, awayTeam);
             if (detailedStats) {
@@ -286,7 +331,7 @@ class GameResultsViewer {
             if (gameResult.homeStats) {
                 statsHTML += `
                     <div class="team-detailed-stats">
-                        <h5>${this.getTeamNameById(state.league, gameResult.home)}</h5>
+                        <h5>${this.getTeamNameById(window.state?.league, gameResult.home)}</h5>
                         <div class="stats-grid">
                             ${this.renderTeamStats(gameResult.homeStats)}
                         </div>
@@ -297,7 +342,7 @@ class GameResultsViewer {
             if (gameResult.awayStats) {
                 statsHTML += `
                     <div class="team-detailed-stats">
-                        <h5>${this.getTeamNameById(state.league, gameResult.away)}</h5>
+                        <h5>${this.getTeamNameById(window.state?.league, gameResult.away)}</h5>
                         <div class="stats-grid">
                             ${this.renderTeamStats(gameResult.awayStats)}
                         </div>
@@ -363,14 +408,34 @@ class GameResultsViewer {
     }
 
     showModal() {
-        this.modal.style.display = 'block';
+        if (!this.modal) return;
+        this.modal.hidden = false;
+        this.modal.style.display = 'flex';
+        this.modal.style.visibility = 'visible';
+        this.modal.style.opacity = '1';
+        this.modal.style.zIndex = '10000';
         document.body.style.overflow = 'hidden';
+        
+        // Focus the close button for accessibility
+        const closeBtn = this.modal.querySelector('.close');
+        if (closeBtn) {
+            setTimeout(() => closeBtn.focus(), 100);
+        }
     }
 
     hideModal() {
+        if (!this.modal) return;
+        this.modal.hidden = true;
         this.modal.style.display = 'none';
+        this.modal.style.visibility = 'hidden';
+        this.modal.style.opacity = '0';
         document.body.style.overflow = 'auto';
         this.currentGame = null;
+        
+        // Remove focus from modal
+        if (document.activeElement && this.modal.contains(document.activeElement)) {
+            document.activeElement.blur();
+        }
     }
 
     makeGameResultsClickable() {
@@ -395,10 +460,44 @@ class GameResultsViewer {
 
 // Initialize the game results viewer
 let gameResultsViewer;
-document.addEventListener('DOMContentLoaded', () => {
-    gameResultsViewer = new GameResultsViewer();
-});
+
+// Only initialize if DOM is ready, and ensure modal is hidden
+function initializeGameResultsViewer() {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            gameResultsViewer = new GameResultsViewer();
+            // Ensure modal is hidden on initialization
+            if (gameResultsViewer && gameResultsViewer.modal) {
+                gameResultsViewer.hideModal();
+            }
+        });
+    } else {
+        gameResultsViewer = new GameResultsViewer();
+        // Ensure modal is hidden on initialization
+        if (gameResultsViewer && gameResultsViewer.modal) {
+            gameResultsViewer.hideModal();
+        }
+    }
+}
+
+// Initialize after a short delay to ensure everything is loaded
+setTimeout(initializeGameResultsViewer, 100);
 
 // Make function globally available
 window.gameResultsViewer = gameResultsViewer;
 window.makeGameResultsClickable = () => gameResultsViewer?.makeGameResultsClickable();
+
+// Ensure modal is hidden on page load and stays hidden
+window.addEventListener('load', () => {
+    if (gameResultsViewer && gameResultsViewer.modal) {
+        gameResultsViewer.hideModal();
+    }
+});
+
+// Also ensure it's hidden after a delay (in case something tries to show it)
+setTimeout(() => {
+    if (gameResultsViewer && gameResultsViewer.modal && !gameResultsViewer.modal.hidden) {
+        console.log('🔒 Forcing game results modal to close on startup');
+        gameResultsViewer.hideModal();
+    }
+}, 1000);
