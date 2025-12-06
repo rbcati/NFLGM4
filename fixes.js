@@ -1762,7 +1762,7 @@ window.on = on;
           const chosenMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
           const teamIdx = teamSelect?.value ?? '0';
           
-          if (teamSelect && teamSelect.value && teamSelect.value !== '0') {
+          if (teamSelect && teamSelect.value && teamSelect.value !== '0' && teamSelect.value !== '') {
             window.initNewGame({ chosenMode, teamIdx }).catch(err => {
               console.error('Failed to initialize game:', err);
               window.setStatus?.('Failed to start game. Please try again.', 'error');
@@ -1962,14 +1962,23 @@ window.on = on;
       }
     });
     
-    // Add viewport optimization
+    // Add viewport optimization (cross-platform)
     let viewport = document.querySelector('meta[name="viewport"]');
     if (!viewport) {
       viewport = document.createElement('meta');
       viewport.name = 'viewport';
       document.head.appendChild(viewport);
     }
-    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    // Optimize viewport for all platforms
+    const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    const isMobile = isIOS || isAndroid || window.innerWidth < 768;
+    
+    if (isMobile) {
+      viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    } else {
+      viewport.content = 'width=device-width, initial-scale=1.0';
+    }
     
     // Prevent iOS Safari bounce/zoom (only on iOS)
     if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
