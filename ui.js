@@ -251,25 +251,69 @@ window.renderRoster = function() {
         }
         
         const teamSelect = document.getElementById('rosterTeam');
-        // Ensure team select is filled only once
-        if (teamSelect && !teamSelect.dataset.filled && window.fillTeamSelect) {
-            window.fillTeamSelect(teamSelect);
-            teamSelect.dataset.filled = '1';
+        
+        // Always ensure team select is filled with LEAGUE teams (not original team list)
+        if (teamSelect && L.teams && L.teams.length > 0) {
+            // Fill dropdown with league teams (these are the actual teams in the game)
+            if (!teamSelect.dataset.filled || teamSelect.options.length !== L.teams.length) {
+                teamSelect.innerHTML = '';
+                L.teams.forEach((team, index) => {
+                    const option = document.createElement('option');
+                    option.value = String(index);
+                    option.textContent = `${team.abbr || 'T' + index} — ${team.name || 'Team ' + index}`;
+                    teamSelect.appendChild(option);
+                });
+                teamSelect.dataset.filled = '1';
+                console.log(`✅ Filled roster team select with ${L.teams.length} league teams`);
+            }
             
             // Add change event listener for team selection
             if (!teamSelect.dataset.hasChangeListener) {
                 teamSelect.addEventListener('change', window.handleTeamSelectionChange);
                 teamSelect.dataset.hasChangeListener = '1';
             }
+            
+            // Sync select value with current viewTeamId or userTeamId
+            const preferredTeamId = window.state?.viewTeamId ?? window.state?.userTeamId ?? 0;
+            const currentValue = parseInt(teamSelect.value || '0', 10);
+            
+            // Update select if it doesn't match the preferred team
+            if (currentValue !== preferredTeamId && preferredTeamId >= 0 && preferredTeamId < L.teams.length) {
+                teamSelect.value = String(preferredTeamId);
+                console.log(`🔄 Synced roster team select to team ${preferredTeamId}: ${L.teams[preferredTeamId]?.name}`);
+            } else if (currentValue >= 0 && currentValue < L.teams.length) {
+                // Ensure viewTeamId matches the select value
+                if (window.state) {
+                    window.state.viewTeamId = currentValue;
+                }
+            }
         }
         
-        const preferredTeamId = window.state?.viewTeamId ?? window.state?.userTeamId;
-        const teamId = parseInt(teamSelect?.value || preferredTeamId || '0', 10);
+        // Get team ID from select (now properly synced) or fallback
+        const preferredTeamId = window.state?.viewTeamId ?? window.state?.userTeamId ?? 0;
+        let teamId = parseInt(teamSelect?.value || String(preferredTeamId) || '0', 10);
+        
+        // Validate team ID
+        if (isNaN(teamId) || teamId < 0 || teamId >= L.teams.length) {
+            console.warn('Invalid team ID, falling back to user team:', teamId);
+            teamId = window.state?.userTeamId ?? 0;
+            if (teamSelect && teamId >= 0 && teamId < L.teams.length) {
+                teamSelect.value = String(teamId);
+            }
+        }
+        
         const team = L.teams[teamId];
         if (!team) {
-            console.error('Team not found:', teamId);
+            console.error('Team not found:', teamId, 'Available teams:', L.teams.length);
             return;
         }
+        
+        // Update viewTeamId to match what we're actually displaying
+        if (window.state) {
+            window.state.viewTeamId = teamId;
+        }
+        
+        console.log(`📋 Rendering roster for team ${teamId}: ${team.name}`);
         
         const titleEl = document.getElementById('rosterTitle');
         if (titleEl) titleEl.textContent = `${team.name} Roster`;
@@ -1291,20 +1335,27 @@ window.handleTeamSelectionChange = function() {
     console.log('🔄 Team selection changed');
     const teamSelect = document.getElementById('rosterTeam');
     if (teamSelect) {
-        const selectedTeamId = parseInt(teamSelect.value);
+        const selectedTeamId = parseInt(teamSelect.value, 10);
 
-        if (!isNaN(selectedTeamId) && window.state?.league?.teams) {
+        if (!isNaN(selectedTeamId) && window.state?.league?.teams && selectedTeamId >= 0 && selectedTeamId < window.state.league.teams.length) {
             // Track which team is being viewed without changing the actual user team selection
             window.state.viewTeamId = selectedTeamId;
+            console.log(`✅ Viewing team ${selectedTeamId}: ${window.state.league.teams[selectedTeamId]?.name || 'Unknown'}`);
             
+            // Re-render roster with new team
             if (window.renderRoster) {
-                console.log('Calling renderRoster...');
+                console.log('Calling renderRoster with team:', selectedTeamId);
                 window.renderRoster();
             } else {
                 console.log('renderRoster function not available');
             }
         } else {
-            console.log('Invalid team selection or league not ready');
+            console.warn('Invalid team selection:', selectedTeamId, 'or league not ready');
+            // Reset to user team if invalid
+            if (window.state?.userTeamId !== undefined) {
+                teamSelect.value = String(window.state.userTeamId);
+                window.state.viewTeamId = window.state.userTeamId;
+            }
         }
     } else {
         console.log('Team select element not found');
