@@ -371,7 +371,8 @@
   // --- CPU trade offers (Refined Logic) -----------------------------
 
   /**
-   * CPU looks at user's trade block, sends offers if position need + value fit.
+   * ENHANCED: CPU trade offers with smarter logic
+   * Now considers team needs, contract situations, and makes more realistic offers
    */
   function generateCpuTradeOffers(league, userTeamId, maxOffers) {
     const L = league;
@@ -418,8 +419,23 @@
         if (!player) continue;
 
         const pos = player.pos || 'RB';
-        // CPU only targets players they need
-        if (!teamNeedsPosition(t, pos)) continue; 
+        const cpuNeeds = analyzeTeamNeeds(cpuTeam);
+        
+        // ENHANCED: CPU targets players they need OR players that fit their strategy
+        const needsPosition = cpuNeeds.includes(pos);
+        const isCpuRebuilding = isTeamRebuilding(cpuTeam);
+        const playerAge = getPlayerAge(player, leagueYear);
+        const isYoung = playerAge < 26;
+        const isVeteran = playerAge > 28;
+        
+        // CPU logic:
+        // - Rebuilding teams want young players
+        // - Contending teams want players they need
+        // - Skip if player doesn't fit strategy
+        if (!needsPosition) {
+          if (isCpuRebuilding && !isYoung) continue; // Rebuilding teams want youth
+          if (!isCpuRebuilding && isVeteran && player.ovr < 80) continue; // Contenders want quality
+        } 
 
         const playerVal = calcPlayerTradeValue(player, leagueYear);
 
@@ -427,18 +443,34 @@
         let cpuOfferAssets = [];
         const userReturnAssets = [{ kind: 'player', playerId: playerId }];
 
-        // 60% chance to offer a pick first
-        if (Math.random() < 0.6) { 
-            const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
-            if (cpuOfferPick) {
-              cpuOfferAssets = [cpuOfferPick];
-            }
+        // ENHANCED: Smarter asset selection based on team situation
+        const isCpuRebuilding = isTeamRebuilding(cpuTeam);
+        
+        // Rebuilding teams prefer to give picks (future value)
+        // Contending teams prefer to give players (win now)
+        const preferPicks = isCpuRebuilding || Math.random() < 0.5;
+        
+        if (preferPicks) {
+          const cpuOfferPick = pickCpuTradeAssetForValue(cpuTeam, playerVal, leagueYear);
+          if (cpuOfferPick) {
+            cpuOfferAssets = [cpuOfferPick];
+          }
         }
         
-        if (cpuOfferAssets.length === 0) { // If no pick or pick wasn't chosen
-            const cpuOfferPlayer = pickCpuPlayerForValue(cpuTeam, playerVal, leagueYear, ensureTradeBlock(cpuTeam));
-            if (!cpuOfferPlayer) continue;
-            cpuOfferAssets = [{ kind: 'player', playerId: cpuOfferPlayer.id }];
+        if (cpuOfferAssets.length === 0) {
+          // Try to find a player that makes sense
+          const cpuOfferPlayer = pickCpuPlayerForValue(cpuTeam, playerVal, leagueYear, ensureTradeBlock(cpuTeam));
+          if (!cpuOfferPlayer) continue;
+          
+          // Additional check: Don't trade away players at positions CPU needs
+          const playerPos = cpuOfferPlayer.pos || 'RB';
+          const cpuNeeds = analyzeTeamNeeds(cpuTeam);
+          if (cpuNeeds.includes(playerPos) && !isCpuRebuilding) {
+            // CPU needs this position and is contending - less likely to trade
+            if (Math.random() > 0.3) continue;
+          }
+          
+          cpuOfferAssets = [{ kind: 'player', playerId: cpuOfferPlayer.id }];
         }
 
         // Must have assets to offer
@@ -449,18 +481,27 @@
 
         let cpuDelta = evalResult.fromValue.delta; // "from" is CPU in this call
 
-        // Slightly unfavorable? Try adding a cheap sweetener pick.
-        if (cpuDelta < -5 && cpuDelta > -20) {
-          const sweetener = pickCpuTradeAssetForValue(cpuTeam, 10, leagueYear); // low value late pick
-          if (sweetener && cpuOfferAssets.length < 3) { // Limit sweeteners
+        // ENHANCED: Smarter sweetener logic
+        // Rebuilding teams more willing to overpay slightly for young talent
+        // Contending teams more conservative
+        const isCpuRebuilding = isTeamRebuilding(cpuTeam);
+        const isYoungPlayer = getPlayerAge(player, leagueYear) < 26;
+        const sweetenerThreshold = isCpuRebuilding && isYoungPlayer ? -15 : -5;
+        
+        if (cpuDelta < sweetenerThreshold && cpuDelta > -25) {
+          const sweetener = pickCpuTradeAssetForValue(cpuTeam, 10, leagueYear);
+          if (sweetener && cpuOfferAssets.length < 3) {
             cpuOfferAssets.push(sweetener);
             evalResult = evaluateTrade(L, t, userTeamId, cpuOfferAssets, userReturnAssets);
             cpuDelta = evalResult.fromValue.delta;
           }
         }
 
-        // CPU only sends the offer if it's not a big loss for them
-        if (cpuDelta < -5) continue;
+        // ENHANCED: CPU acceptance threshold varies by situation
+        // Rebuilding teams more willing to take slight losses for future value
+        // Contending teams very conservative
+        const acceptanceThreshold = isCpuRebuilding ? -8 : -3;
+        if (cpuDelta < acceptanceThreshold) continue;
 
         offers.push({
           fromTeamId: t,
@@ -502,29 +543,141 @@
   }
 
   /**
-   * UPDATED: Finds a player close to the target value, excluding high-OVR players and trade block players.
+   * ENHANCED: Finds a player close to the target value with smarter filtering
+   * Now considers team needs, contract status, age, and injury history
    */
   function pickCpuPlayerForValue(team, target, leagueYear, excludeIds = []) {
     const roster = team && team.roster ? team.roster : [];
     if (!roster.length) return null;
 
+    // Analyze team needs
+    const teamNeeds = analyzeTeamNeeds(team);
+    const isRebuilding = isTeamRebuilding(team);
+
     const valued = roster
-      .map(p => ({
-        player: p,
-        value: calcPlayerTradeValue(p, leagueYear)
-      }))
-      // --- New Filters ---
-      // 1. Exclude players with OVR > 85 (core players)
-      .filter(v => getPlayerOvr(v.player) < 85)
-      // 2. Exclude players on the CPU's own trade block
-      .filter(v => !excludeIds.includes(v.player.id))
-      .filter(v => v.value > 0);
-      // -------------------
+      .map(p => {
+        const baseValue = calcPlayerTradeValue(p, leagueYear);
+        let adjustedValue = baseValue;
+        
+        // Adjust value based on team situation
+        const playerPos = p.pos || 'RB';
+        const isNeeded = teamNeeds.includes(playerPos);
+        const playerAge = getPlayerAge(p, leagueYear);
+        const isInjured = p.injured || false;
+        const hasBadContract = (p.baseAnnual || 0) > 15 && (p.years || 0) > 2; // Overpaid long-term
+        const isOld = playerAge > 30;
+        
+        // CPU is more willing to trade:
+        // - Players at positions they don't need (if rebuilding)
+        // - Injured players
+        // - Overpaid players
+        // - Old players (if rebuilding)
+        if (!isNeeded && isRebuilding) {
+          adjustedValue *= 0.8; // More willing to trade
+        }
+        if (isInjured) {
+          adjustedValue *= 0.7; // Injured players worth less
+        }
+        if (hasBadContract) {
+          adjustedValue *= 0.75; // Bad contracts worth less
+        }
+        if (isOld && isRebuilding) {
+          adjustedValue *= 0.7; // Old players less valuable when rebuilding
+        }
+        
+        return {
+          player: p,
+          value: baseValue,
+          adjustedValue: adjustedValue
+        };
+      })
+      // Filters
+      .filter(v => {
+        const p = v.player;
+        // 1. Exclude core players (OVR > 88) unless rebuilding
+        if (!isRebuilding && getPlayerOvr(p) > 88) return false;
+        // 2. Exclude players on trade block
+        if (excludeIds.includes(p.id)) return false;
+        // 3. Must have positive value
+        if (v.adjustedValue <= 0) return false;
+        return true;
+      });
 
     if (!valued.length) return null;
 
-    valued.sort((a, b) => Math.abs(a.value - target) - Math.abs(b.value - target));
+    // Sort by how close adjusted value is to target
+    valued.sort((a, b) => Math.abs(a.adjustedValue - target) - Math.abs(b.adjustedValue - target));
     return valued[0].player;
+  }
+
+  /**
+   * Analyze team's position needs
+   * @param {Object} team - Team object
+   * @returns {Array} Array of positions team needs
+   */
+  function analyzeTeamNeeds(team) {
+    if (!team || !team.roster) return [];
+    
+    const positionCounts = {};
+    const positionQuality = {};
+    
+    team.roster.forEach(player => {
+      const pos = player.pos || 'RB';
+      positionCounts[pos] = (positionCounts[pos] || 0) + 1;
+      
+      if (!positionQuality[pos]) positionQuality[pos] = [];
+      positionQuality[pos].push(player.ovr || 0);
+    });
+    
+    const needs = [];
+    const idealCounts = C.DEPTH_NEEDS || {
+      QB: 3, RB: 4, WR: 6, TE: 3, OL: 8,
+      DL: 6, LB: 6, CB: 5, S: 4, K: 1, P: 1
+    };
+    
+    Object.keys(idealCounts).forEach(pos => {
+      const have = positionCounts[pos] || 0;
+      const need = idealCounts[pos] || 2;
+      
+      // Check both quantity and quality
+      const avgQuality = positionQuality[pos] ? 
+        positionQuality[pos].reduce((a, b) => a + b, 0) / positionQuality[pos].length : 0;
+      
+      if (have < need * 0.75 || (have < need && avgQuality < 70)) {
+        needs.push(pos);
+      }
+    });
+    
+    return needs;
+  }
+
+  /**
+   * Determine if team is rebuilding
+   * @param {Object} team - Team object
+   * @returns {boolean} Is rebuilding
+   */
+  function isTeamRebuilding(team) {
+    if (!team) return false;
+    
+    const wins = team.wins || 0;
+    const losses = team.losses || 0;
+    const winPct = wins + losses > 0 ? wins / (wins + losses) : 0.5;
+    
+    // Rebuilding if:
+    // - Win percentage below 0.4
+    // - More losses than wins by significant margin
+    // - Team age is high (old roster)
+    const isLosing = winPct < 0.4 || (losses > wins + 3);
+    
+    // Calculate average team age
+    if (team.roster && team.roster.length > 0) {
+      const avgAge = team.roster.reduce((sum, p) => sum + (p.age || 25), 0) / team.roster.length;
+      const isOld = avgAge > 28;
+      
+      return isLosing || (isOld && winPct < 0.5);
+    }
+    
+    return isLosing;
   }
 
   // ... (The rest of the functions remain the same) ...
