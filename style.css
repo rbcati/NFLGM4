@@ -4539,6 +4539,194 @@ select:disabled {
   border-radius: var(--radius-sm);
 }
 
+/* Box Score Styles */
+.box-score-container {
+  padding: var(--space-4);
+}
+
+.box-score-header {
+  text-align: center;
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-4);
+  border-bottom: 2px solid var(--border);
+}
+
+.game-score-summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  font-size: 1.5rem;
+}
+
+.team-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  min-width: 150px;
+}
+
+.team-score.winner {
+  background: var(--accent);
+  color: var(--text-inverse);
+  font-weight: bold;
+}
+
+.team-score .team-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.team-score .score {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.vs-divider {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.box-score-section {
+  margin-bottom: var(--space-6);
+}
+
+.box-score-section h3 {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+}
+
+.box-score-teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.box-score-team {
+  background: var(--surface);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.box-score-team h4 {
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--accent);
+}
+
+.position-group {
+  margin-bottom: var(--space-4);
+}
+
+.position-group h5 {
+  margin-bottom: var(--space-2);
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.box-score-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.box-score-table thead {
+  background: var(--surface-strong);
+}
+
+.box-score-table th {
+  padding: var(--space-2);
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border);
+}
+
+.box-score-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+
+.box-score-table tbody tr:hover {
+  background: var(--surface-strong);
+}
+
+.box-score-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.clickable-game {
+  transition: all 0.2s ease;
+}
+
+.clickable-game:hover {
+  background: var(--surface-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.box-score-link {
+  font-size: 0.85rem;
+  color: var(--accent);
+  margin-top: var(--space-1);
+  opacity: 0.8;
+}
+
+.clickable-game:hover .box-score-link {
+  opacity: 1;
+}
+
+.modal-large {
+  max-width: 95vw;
+  max-height: 95vh;
+  overflow-y: auto;
+}
+
+/* Mobile Responsive for Box Scores */
+@media (max-width: 768px) {
+  .box-score-teams {
+    grid-template-columns: 1fr;
+  }
+
+  .game-score-summary {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .team-score {
+    min-width: 100%;
+  }
+
+  .box-score-table {
+    font-size: 0.8rem;
+  }
+
+  .box-score-table th,
+  .box-score-table td {
+    padding: var(--space-1);
+  }
+
+  .modal-large {
+    max-width: 100vw;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+}
+
 /* Mobile Responsive for Player Database & History */
 @media (max-width: 768px) {
   .best-player-info {
