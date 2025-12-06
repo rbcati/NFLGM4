@@ -50,34 +50,58 @@ class GameResultsViewer {
         
         document.body.appendChild(this.modal);
         
-        // Close modal when clicking X
+        // Close modal when clicking X (multiple event handlers for reliability)
         const closeBtn = this.modal.querySelector('.close');
         if (closeBtn) {
-            closeBtn.onclick = (e) => {
+            // Remove any existing handlers
+            const newCloseBtn = closeBtn.cloneNode(true);
+            closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+            
+            // Add multiple event handlers for cross-platform compatibility
+            newCloseBtn.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
+                console.log('✅ Close button clicked');
                 this.hideModal();
+                return false;
             };
-            closeBtn.addEventListener('click', (e) => {
+            
+            newCloseBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                e.stopImmediatePropagation();
+                console.log('✅ Close button clicked (addEventListener)');
                 this.hideModal();
+                return false;
             }, true);
+            
+            // Touch events for mobile
+            newCloseBtn.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('✅ Close button touched');
+                this.hideModal();
+                return false;
+            }, { passive: false });
         }
         
-        // Close modal when clicking outside
+        // Close modal when clicking outside (backdrop)
         this.modal.onclick = (e) => {
             if (e.target === this.modal) {
+                console.log('✅ Modal backdrop clicked');
                 this.hideModal();
             }
         };
         
         // Close modal with Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !this.modal.hidden) {
+        this.escapeHandler = (e) => {
+            if (e.key === 'Escape' && this.modal && !this.modal.hidden) {
+                console.log('✅ Escape key pressed');
                 this.hideModal();
             }
-        });
+        };
+        document.addEventListener('keydown', this.escapeHandler);
     }
 
     setupEventListeners() {
@@ -409,26 +433,43 @@ class GameResultsViewer {
 
     showModal() {
         if (!this.modal) return;
+        
+        // Don't show if game isn't ready
+        if (!window.state?.league || !window.state?.onboarded) {
+            console.warn('Cannot show game results modal: game not ready');
+            return;
+        }
+        
+        console.log('📊 Showing game results modal');
         this.modal.hidden = false;
         this.modal.style.display = 'flex';
         this.modal.style.visibility = 'visible';
         this.modal.style.opacity = '1';
+        this.modal.style.pointerEvents = 'auto';
         this.modal.style.zIndex = '10000';
         document.body.style.overflow = 'hidden';
         
         // Focus the close button for accessibility
         const closeBtn = this.modal.querySelector('.close');
         if (closeBtn) {
-            setTimeout(() => closeBtn.focus(), 100);
+            setTimeout(() => {
+                try {
+                    closeBtn.focus();
+                } catch (e) {
+                    // Focus might fail on some mobile browsers, that's okay
+                }
+            }, 100);
         }
     }
 
     hideModal() {
         if (!this.modal) return;
+        console.log('🔒 Hiding game results modal');
         this.modal.hidden = true;
         this.modal.style.display = 'none';
         this.modal.style.visibility = 'hidden';
         this.modal.style.opacity = '0';
+        this.modal.style.pointerEvents = 'none';
         document.body.style.overflow = 'auto';
         this.currentGame = null;
         
@@ -436,9 +477,17 @@ class GameResultsViewer {
         if (document.activeElement && this.modal.contains(document.activeElement)) {
             document.activeElement.blur();
         }
+        
+        // Dispatch custom event for other systems
+        window.dispatchEvent(new CustomEvent('gameResultsModalClosed'));
     }
 
     makeGameResultsClickable() {
+        // Only make clickable if game is ready
+        if (!window.state?.league || !window.state?.onboarded) {
+            return;
+        }
+        
         // Add click handlers to all game result items
         const gameResults = document.querySelectorAll('.result-item, .game-result');
         gameResults.forEach(item => {
@@ -446,15 +495,31 @@ class GameResultsViewer {
                 item.classList.add('clickable');
                 item.style.cursor = 'pointer';
                 item.addEventListener('click', (e) => {
-                    if (!e.target.closest('button') && !e.target.closest('input')) {
-                        const gameData = this.extractGameData(item);
-                        if (gameData) {
-                            this.showGameResults(gameData);
-                        }
+                    // Don't process if clicking buttons or inputs
+                    if (e.target.closest('button') || e.target.closest('input')) {
+                        return;
+                    }
+                    // Only show if game is ready
+                    if (!window.state?.league || !window.state?.onboarded) {
+                        return;
+                    }
+                    const gameData = this.extractGameData(item);
+                    if (gameData) {
+                        this.showGameResults(gameData);
                     }
                 });
             }
         });
+    }
+    
+    // Cleanup method
+    destroy() {
+        if (this.escapeHandler) {
+            document.removeEventListener('keydown', this.escapeHandler);
+        }
+        if (this.modal && this.modal.parentNode) {
+            this.modal.parentNode.removeChild(this.modal);
+        }
     }
 }
 
