@@ -775,6 +775,15 @@ function startOffseason() {
         console.error('Error calculating awards:', error);
       }
     }
+    
+    // Update all-time records
+    if (typeof window.updateAllRecords === 'function') {
+      try {
+        window.updateAllRecords(L, L.year);
+      } catch (error) {
+        console.error('Error updating records:', error);
+      }
+    }
 
     // Run any offseason processing hooks (e.g., coaching stats)
     if (typeof window.runOffseason === 'function') {
