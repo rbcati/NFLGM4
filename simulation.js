@@ -639,10 +639,18 @@ function simGameStats(home, away) {
 function accumulateCareerStats(league) {
   if (!league || !league.teams) return;
   
+  const year = league.year || new Date().getFullYear();
+  
   league.teams.forEach(team => {
     if (!team.roster || !Array.isArray(team.roster)) return;
     
     team.roster.forEach(player => {
+      // Record season OVR change
+      if (window.recordSeasonOVR) {
+        const ovrStart = player.seasonOVRStart || player.ovr || 0;
+        const ovrEnd = player.ovr || 0;
+        window.recordSeasonOVR(player, year, ovrStart, ovrEnd);
+      }
       if (!player.stats || !player.stats.season) return;
       
       initializePlayerStats(player);
@@ -873,6 +881,10 @@ function startNewSeason() {
         team.roster.forEach(p => {
           if (p && p.stats && p.stats.game) {
             delete p.stats.game;
+          }
+          // Record starting OVR for season tracking
+          if (p && p.ovr !== undefined) {
+            p.seasonOVRStart = p.ovr;
           }
         });
       }
