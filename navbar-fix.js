@@ -109,9 +109,16 @@
             }
             break;
           case 'trade-proposals':
-            window.show('tradeProposals');
+          case 'tradeProposals':
+            // Check if there's a dedicated view, otherwise show in trade view
+            const tradeProposalsView = document.getElementById('tradeProposals');
+            if (tradeProposalsView) {
+              window.show('tradeProposals');
+            } else {
+              window.show('trade');
+            }
             if (window.renderTradeProposals) {
-              window.renderTradeProposals();
+              setTimeout(() => window.renderTradeProposals(), 100);
               console.log('✅ Trade proposals rendered');
             }
             break;
