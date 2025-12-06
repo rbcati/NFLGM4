@@ -945,19 +945,19 @@ console.log('[LeagueCreationFix] Loaded');
       }
     }
     
-    // Update navigation active states
-    document.querySelectorAll('.nav-pill').forEach(pill => {
-      const href = pill.getAttribute('href');
+    // Update navigation active states (both nav-item and nav-pill for compatibility)
+    document.querySelectorAll('.nav-item, .nav-pill').forEach(item => {
+      const href = item.getAttribute('href');
       const isActive = href === path;
       
       // Remove all active classes and attributes
-      pill.classList.remove('active');
-      pill.removeAttribute('aria-current');
+      item.classList.remove('active');
+      item.removeAttribute('aria-current');
       
       // Add active state to current page
       if (isActive) {
-        pill.classList.add('active');
-        pill.setAttribute('aria-current', 'page');
+        item.classList.add('active');
+        item.setAttribute('aria-current', 'page');
       }
     });
     
@@ -1144,15 +1144,35 @@ console.log('[LeagueCreationFix] Loaded');
     
     // Enhanced click handling for navigation
     document.addEventListener('click', function(e) {
-      // Handle nav pill clicks
-      if (e.target.classList.contains('nav-pill')) {
+      // Handle nav item clicks (new sidebar style)
+      if (e.target.classList.contains('nav-item')) {
         e.preventDefault();
         const href = e.target.getAttribute('href');
         
         if (href && href.startsWith('#/')) {
           console.log('🖱️ Nav click:', href);
           
+          // Update active state
+          document.querySelectorAll('.nav-item').forEach(item => {
+            item.classList.remove('active');
+            item.removeAttribute('aria-current');
+          });
+          e.target.classList.add('active');
+          e.target.setAttribute('aria-current', 'page');
+          
           // Immediately update hash (this will trigger hashchange)
+          location.hash = href;
+        }
+        return;
+      }
+      
+      // Handle nav pill clicks (legacy)
+      if (e.target.classList.contains('nav-pill')) {
+        e.preventDefault();
+        const href = e.target.getAttribute('href');
+        
+        if (href && href.startsWith('#/')) {
+          console.log('🖱️ Nav click:', href);
           location.hash = href;
         }
         return;
@@ -1165,6 +1185,9 @@ console.log('[LeagueCreationFix] Loaded');
         location.hash = href;
       }
     });
+    
+    // Set up navigation toggle
+    setupNavigationToggle();
     
     console.log('✅ Enhanced navigation set up');
   }
@@ -1309,6 +1332,46 @@ console.log('[LeagueCreationFix] Loaded');
     console.log('✅ Navigation styles fixed');
   }
   
+  // Set up navigation toggle functionality
+  function setupNavigationToggle() {
+    const navToggle = document.getElementById('navToggle');
+    const navSidebar = document.getElementById('nav-sidebar');
+    const layout = document.querySelector('.layout');
+    
+    if (!navToggle || !navSidebar || !layout) {
+      console.warn('Navigation toggle elements not found');
+      return;
+    }
+    
+    // Check localStorage for saved state
+    const savedState = localStorage.getItem('navSidebarCollapsed');
+    const isCollapsed = savedState === 'true';
+    
+    if (isCollapsed) {
+      navSidebar.classList.add('collapsed');
+      layout.classList.add('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'false');
+    }
+    
+    navToggle.addEventListener('click', () => {
+      const isCurrentlyCollapsed = navSidebar.classList.contains('collapsed');
+      
+      if (isCurrentlyCollapsed) {
+        navSidebar.classList.remove('collapsed');
+        layout.classList.remove('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'true');
+        localStorage.setItem('navSidebarCollapsed', 'false');
+      } else {
+        navSidebar.classList.add('collapsed');
+        layout.classList.add('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'false');
+        localStorage.setItem('navSidebarCollapsed', 'true');
+      }
+    });
+    
+    console.log('✅ Navigation toggle set up');
+  }
+  
   // Fix the navigation HTML structure if needed
   function fixNavigationHTML() {
     console.log('🔧 Checking navigation HTML...');
@@ -1319,12 +1382,12 @@ console.log('[LeagueCreationFix] Loaded');
       return;
     }
     
-    // Ensure all nav pills have correct attributes
-    nav.querySelectorAll('.nav-pill').forEach(pill => {
-      if (!pill.getAttribute('href')) {
-        const view = pill.dataset.view;
+    // Ensure all nav items have correct attributes
+    nav.querySelectorAll('.nav-item, .nav-pill').forEach(item => {
+      if (!item.getAttribute('href')) {
+        const view = item.dataset.view;
         if (view) {
-          pill.setAttribute('href', `#/${view}`);
+          item.setAttribute('href', `#/${view}`);
         }
       }
     });
@@ -1353,7 +1416,7 @@ console.log('[LeagueCreationFix] Loaded');
         console.log('Adding missing nav item:', item.text);
         const newLink = document.createElement('a');
         newLink.href = item.href;
-        newLink.className = 'nav-pill';
+        newLink.className = 'nav-item'; // Use nav-item for sidebar style
         newLink.dataset.view = item.view;
         newLink.textContent = item.text;
         nav.appendChild(newLink);
