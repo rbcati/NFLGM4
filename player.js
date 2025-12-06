@@ -744,7 +744,8 @@ let C = getConstants();
     // Generate/update depth chart
     const depthChart = generateDepthChart(team);
     
-    const C = window.Constants || global.Constants;
+    // Update Constants reference
+    C = getConstants();
     const positions = C.POSITIONS || ['QB', 'RB', 'WR', 'TE', 'OL', 'DL', 'LB', 'CB', 'S', 'K', 'P'];
     
     let html = '<div class="depth-chart-container">';
@@ -861,7 +862,7 @@ let C = getConstants();
   function processWeeklyDepthChartUpdates(team) {
     if (!team || !team.roster) return;
     
-    const L = window.state?.league || global.state?.league;
+    const L = window.state?.league;
     const currentWeek = L?.week || 1;
     
     team.roster.forEach(player => {
@@ -1227,7 +1228,7 @@ let C = getConstants();
         player.legacy.healthRecord.gamesMissed++;
         if (gameStats.majorInjury) {
           player.legacy.healthRecord.majorInjuries.push({
-            year: gameContext.year || (window.state?.league?.year || global.state?.league?.year) || 2025,
+            year: gameContext.year || (window.state?.league?.year) || 2025,
             injury: gameStats.injury || 'Unknown',
             weeksOut: gameStats.weeksOut || 1
           });
@@ -2012,7 +2013,7 @@ let C = getConstants();
         return ratings;
     }
 
-    global.makePlayer = function makePlayerFactory(position, age, ovr) {
+    window.makePlayer = function makePlayerFactory(position, age, ovr) {
         const constants = C;
         const utils = U;
 
