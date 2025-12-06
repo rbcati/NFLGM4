@@ -379,13 +379,28 @@ function signFreeAgent(playerIndex) {
     // Set contract years for signing
     player.years = player.yearsTotal;
     
-    // Check salary cap
-    const capHit = window.capHitFor ? window.capHitFor(player, 0) : player.baseAnnual;
-    const capAfter = team.capUsed + capHit;
+    // Ensure cap is recalculated before checking
+    if (window.recalcCap && window.state?.league) {
+      window.recalcCap(window.state.league, team);
+    }
+    
+    // Check salary cap - ensure values are valid numbers
+    const capHit = window.capHitFor ? window.capHitFor(player, 0) : (player.baseAnnual || 0);
+    const currentCapUsed = team.capUsed || 0;
+    const capTotal = team.capTotal || 0;
+    const capAfter = currentCapUsed + capHit;
     const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
 
-    if (capEnabled && capAfter > team.capTotal) {
-      window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
+    // Validate cap values are reasonable (sanity check)
+    if (capHit > 100 || capAfter > capTotal + 100) {
+      console.error('Invalid cap calculation:', { capHit, currentCapUsed, capTotal, capAfter, player });
+      window.setStatus('Error: Invalid salary cap calculation. Please refresh and try again.');
+      return;
+    }
+
+    if (capEnabled && capAfter > capTotal) {
+      const overage = capAfter - capTotal;
+      window.setStatus(`Signing would exceed salary cap by $${overage.toFixed(1)}M`);
       return;
     }
 
@@ -736,15 +751,30 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
     player.years = years;
     player.yearsTotal = years;
     player.baseAnnual = baseSalary;
-    player.signingBonus = signingBonus;
+    player.signingBonus = signingBonus || 0;
     
-    // Check salary cap
-    const capHit = window.capHitFor ? window.capHitFor(player, 0) : baseSalary + (signingBonus / years);
-    const capAfter = team.capUsed + capHit;
+    // Ensure cap is recalculated before checking
+    if (window.recalcCap && window.state?.league) {
+      window.recalcCap(window.state.league, team);
+    }
+    
+    // Check salary cap - ensure values are valid numbers
+    const capHit = window.capHitFor ? window.capHitFor(player, 0) : (baseSalary + ((signingBonus || 0) / Math.max(1, years)));
+    const currentCapUsed = team.capUsed || 0;
+    const capTotal = team.capTotal || 0;
+    const capAfter = currentCapUsed + capHit;
     const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
 
-    if (capEnabled && capAfter > team.capTotal) {
-      window.setStatus(`Signing would exceed salary cap by $${(capAfter - team.capTotal).toFixed(1)}M`);
+    // Validate cap values are reasonable (sanity check)
+    if (capHit > 100 || capAfter > capTotal + 100) {
+      console.error('Invalid cap calculation:', { capHit, currentCapUsed, capTotal, capAfter, player });
+      window.setStatus('Error: Invalid salary cap calculation. Please refresh and try again.');
+      return;
+    }
+
+    if (capEnabled && capAfter > capTotal) {
+      const overage = capAfter - capTotal;
+      window.setStatus(`Signing would exceed salary cap by $${overage.toFixed(1)}M`);
       return;
     }
 
