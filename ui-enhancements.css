@@ -619,6 +619,19 @@ select {
   position: sticky;
   top: 0;
   z-index: 100;
+  display: flex !important;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Ensure navigation toggle is always visible and clickable */
+.nav-toggle {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 101 !important;
 }
 
 .brand {
@@ -801,7 +814,8 @@ select {
   /* Better touch feedback */
   button:active,
   .btn:active,
-  .nav-pill:active {
+  .nav-pill:active,
+  .nav-toggle:active {
     opacity: 0.8;
     transform: scale(0.98);
   }
@@ -814,6 +828,19 @@ select {
   /* Better scrolling */
   .content {
     -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ensure modal is properly displayed on iOS */
+  .modal:not([hidden]) {
+    display: flex !important;
+  }
+  
+  /* Ensure buttons are always clickable on iOS */
+  button, .btn {
+    -webkit-tap-highlight-color: rgba(10, 132, 255, 0.2);
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
   }
 }
 
