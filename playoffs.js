@@ -137,7 +137,7 @@ function startPlayoffs() {
 
 // --- PLAYOFF UI RENDERING ---
 function renderPlayoffs() {
-    const container = document.getElementById('playoffs'); // Assumes a view with id 'playoffs'
+    const container = document.getElementById('playoffs') || document.getElementById('playoff-bracket');
     if (!container) {
         console.warn('Playoff container not found, creating one.');
         const content = document.querySelector('.content');
@@ -153,24 +153,28 @@ function renderPlayoffs() {
         container = playoffSection;
     }
 
-    const P = state.playoffs;
+    const P = window.state?.playoffs || window.state?.playoffs;
     if (!P) {
         container.innerHTML = '<div class="card"><p>No playoff data available.</p></div>';
         return;
     }
 
+    const userTeamId = window.state?.userTeamId || 0;
+
     let html = `
         <div class="card">
             <div class="row">
-                <h2>${P.year} Playoffs</h2>
+                <h2>${P.year} NFL Playoffs</h2>
                 <div class="spacer"></div>
-                ${!P.winner ? `<button id="btnSimPlayoff" class="btn primary">Simulate ${getRoundName(P.currentRound)}</button>` : `<h3>🏆 Champion: ${P.winner.name}</h3>`}
+                ${!P.winner ? `<button id="btnSimPlayoff" class="btn primary">Simulate ${getRoundName(P.currentRound)}</button>` : `<h3 class="champion-title">🏆 ${P.winner.name}</h3>`}
             </div>
-            <div class="playoff-bracket">
-                ${renderConference('AFC', P.rounds.afc)}
-                ${renderConference('NFC', P.rounds.nfc)}
+            <div class="playoff-bracket-container">
+                <div class="playoff-bracket-grid">
+                    ${renderConference('AFC', P.rounds.afc, userTeamId)}
+                    ${renderConference('NFC', P.rounds.nfc, userTeamId)}
+                </div>
+                ${P.rounds.superbowl.length > 0 ? renderSuperBowl(P.rounds.superbowl, userTeamId) : ''}
             </div>
-            ${P.rounds.superbowl.length > 0 ? renderSuperBowl(P.rounds.superbowl) : ''}
         </div>
     `;
     container.innerHTML = html;
@@ -181,60 +185,112 @@ function renderPlayoffs() {
     }
 }
 
-function renderConference(name, confRounds) {
+function renderConference(name, confRounds, userTeamId = 0) {
     return `
-        <div class="conference-bracket">
-            <h3>${name}</h3>
-            <div class="rounds">
-                <div class="round wildcard">${renderRound(confRounds[0], 0)}</div>
-                <div class="round divisional">${renderRound(confRounds[1], 1)}</div>
-                <div class="round conference-final">${renderRound(confRounds[2], 2)}</div>
+        <div class="conference-bracket ${name.toLowerCase()}">
+            <h3 class="conference-title">${name} Conference</h3>
+            <div class="bracket-rounds">
+                <div class="bracket-round round-wildcard">
+                    <div class="round-header">Wild Card</div>
+                    ${renderRound(confRounds[0], 0, userTeamId)}
+                </div>
+                <div class="bracket-round round-divisional">
+                    <div class="round-header">Divisional</div>
+                    ${renderRound(confRounds[1], 1, userTeamId)}
+                </div>
+                <div class="bracket-round round-conference">
+                    <div class="round-header">Conference Championship</div>
+                    ${renderRound(confRounds[2], 2, userTeamId)}
+                </div>
             </div>
         </div>
     `;
 }
 
-function renderRound(games, roundNum) {
-    if (!games || games.length === 0) return '<div></div>'; // Return empty div to maintain structure
-    let html = `<h4>${getRoundName(roundNum)}</h4>`;
+function renderRound(games, roundNum, userTeamId = 0) {
+    if (!games || games.length === 0) {
+        return '<div class="matchup-empty">TBD</div>';
+    }
+    
+    let html = '';
     games.forEach(game => {
+        if (!game.home || !game.away) return;
+        
         const result = findResult(game.home, game.away, roundNum);
         const homeWinner = result && result.scoreHome > result.scoreAway;
         const awayWinner = result && result.scoreAway > result.scoreHome;
+        const isUserTeam = (game.home.id === userTeamId || game.away.id === userTeamId);
+        
         html += `
-            <div class="matchup">
-                <div class="team ${homeWinner ? 'winner' : ''}">${game.home.seed}. ${game.home.name} <span>${result ? result.scoreHome : ''}</span></div>
-                <div class="team ${awayWinner ? 'winner' : ''}">${game.away.seed}. ${game.away.name} <span>${result ? result.scoreAway : ''}</span></div>
+            <div class="matchup ${isUserTeam ? 'user-team-matchup' : ''}">
+                <div class="team ${homeWinner ? 'winner' : ''} ${game.home.id === userTeamId ? 'user-team' : ''}">
+                    <span class="seed">${game.home.seed || ''}</span>
+                    <span class="team-name">${game.home.name || 'TBD'}</span>
+                    ${result ? `<span class="score">${result.scoreHome}</span>` : ''}
+                </div>
+                <div class="team ${awayWinner ? 'winner' : ''} ${game.away.id === userTeamId ? 'user-team' : ''}">
+                    <span class="seed">${game.away.seed || ''}</span>
+                    <span class="team-name">${game.away.name || 'TBD'}</span>
+                    ${result ? `<span class="score">${result.scoreAway}</span>` : ''}
+                </div>
             </div>
         `;
     });
+    
+    // Handle bye week for #1 seed
     if (games.bye) {
-        html += `<div class="matchup bye"><div class="team winner">${games.bye.seed}. ${games.bye.name} (BYE)</div></div>`;
+        const isUserTeam = games.bye.id === userTeamId;
+        html += `
+            <div class="matchup bye ${isUserTeam ? 'user-team-matchup' : ''}">
+                <div class="team winner ${isUserTeam ? 'user-team' : ''}">
+                    <span class="seed">${games.bye.seed || 1}</span>
+                    <span class="team-name">${games.bye.name || 'TBD'}</span>
+                    <span class="bye-label">BYE</span>
+                </div>
+            </div>
+        `;
     }
-    return html;
+    
+    return html || '<div class="matchup-empty">TBD</div>';
 }
 
-function renderSuperBowl(game) {
+function renderSuperBowl(game, userTeamId = 0) {
     if (!game || game.length === 0) return '';
     const matchup = game[0];
+    if (!matchup.home || !matchup.away) return '';
+    
     const result = findResult(matchup.home, matchup.away, 3);
     const homeWinner = result && result.scoreHome > result.scoreAway;
     const awayWinner = result && result.scoreAway > result.scoreHome;
+    const isUserTeam = (matchup.home.id === userTeamId || matchup.away.id === userTeamId);
+    
     return `
         <div class="superbowl-bracket">
-            <h3>Super Bowl</h3>
-            <div class="matchup">
-                 <div class="team ${homeWinner ? 'winner' : ''}">${matchup.home.name} <span>${result ? result.scoreHome : ''}</span></div>
-                 <div class="team ${awayWinner ? 'winner' : ''}">${matchup.away.name} <span>${result ? result.scoreAway : ''}</span></div>
+            <h3 class="superbowl-title">🏆 Super Bowl</h3>
+            <div class="matchup superbowl-matchup ${isUserTeam ? 'user-team-matchup' : ''}">
+                <div class="team ${homeWinner ? 'winner' : ''} ${matchup.home.id === userTeamId ? 'user-team' : ''}">
+                    <span class="conference-badge afc-badge">AFC</span>
+                    <span class="team-name">${matchup.home.name || 'TBD'}</span>
+                    ${result ? `<span class="score">${result.scoreHome}</span>` : ''}
+                </div>
+                <div class="vs-divider">VS</div>
+                <div class="team ${awayWinner ? 'winner' : ''} ${matchup.away.id === userTeamId ? 'user-team' : ''}">
+                    <span class="conference-badge nfc-badge">NFC</span>
+                    <span class="team-name">${matchup.away.name || 'TBD'}</span>
+                    ${result ? `<span class="score">${result.scoreAway}</span>` : ''}
+                </div>
             </div>
         </div>
     `;
 }
 
 function findResult(homeTeam, awayTeam, roundNum) {
-    const P = state.playoffs;
-    if (!P.results[roundNum]) return null;
-    return P.results[roundNum].games.find(g => g.home.id === homeTeam.id && g.away.id === awayTeam.id);
+    const P = window.state?.playoffs || window.state?.playoffs;
+    if (!P || !P.results || !P.results[roundNum]) return null;
+    return P.results[roundNum].games.find(g => 
+        g.home && g.away && homeTeam && awayTeam &&
+        g.home.id === homeTeam.id && g.away.id === awayTeam.id
+    );
 }
 
 function getRoundName(roundNum) {
