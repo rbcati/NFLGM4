@@ -2061,6 +2061,7 @@
   global.calculateImpactMetrics = calculateImpactMetrics;
   global.calculateLegacyScore = calculateLegacyScore;
   global.checkHallOfFameEligibility = checkHallOfFameEligibility;
+  global.getHOFThreshold = getHOFThreshold;
 
   // Rookie generation
   global.generateDraftClass = generateDraftClass;
