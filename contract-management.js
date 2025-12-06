@@ -357,7 +357,150 @@ function updateContract(league, team, player, updates = {}) {
   };
 }
 
-// ... (renderContractManagement, createContractManagementContainer, renderExpiringPlayerCard, renderFifthYearPlayerCard, addContractManagementEventListeners remain similar)
+/**
+ * Renders the contract management UI
+ * @param {Object} league - League object
+ * @param {number} userTeamId - User's team ID
+ */
+function renderContractManagement(league, userTeamId) {
+  if (!league || typeof userTeamId !== 'number') {
+    console.error('Invalid parameters for renderContractManagement');
+    return;
+  }
+
+  const container = document.getElementById('contractManagement');
+  if (!container) {
+    console.error('Contract management container not found');
+    return;
+  }
+
+  const team = league.teams?.[userTeamId];
+  if (!team) {
+    container.innerHTML = '<p class="muted">Team not found.</p>';
+    return;
+  }
+
+  const expiring = getExpiringContracts(league, userTeamId);
+  const fifthYearEligible = getFifthYearOptionEligible(league, userTeamId);
+
+  let html = `
+    <div class="contract-management-container">
+      <div class="contract-section">
+        <h3>Expiring Contracts (${expiring.length})</h3>
+        <p class="muted">Players with 1 year remaining on their contract</p>
+        <div class="contract-list">
+  `;
+
+  if (expiring.length === 0) {
+    html += '<p class="muted">No expiring contracts at this time.</p>';
+  } else {
+    expiring.forEach(player => {
+      const currentCapHit = capHitFor(player, 0);
+      const franchiseSalary = calculateFranchiseTagSalary(player.pos, league);
+      const transitionSalary = calculateTransitionTagSalary(player.pos, league);
+      
+      html += `
+        <div class="contract-card">
+          <div class="contract-player-info">
+            <div>
+              <strong>${player.name || 'Unknown'}</strong> - ${player.pos || 'N/A'}
+              <div class="contract-details">
+                Age: ${player.age || 'N/A'} | OVR: ${player.ovr || 'N/A'} | 
+                Current Cap: $${currentCapHit.toFixed(1)}M | Years Left: ${player.years || 0}
+              </div>
+            </div>
+          </div>
+          <div class="contract-actions">
+            <button class="btn btn-sm" onclick="window.openContractExtensionModal(${player.id})">
+              Extend Contract
+            </button>
+            ${!team.franchiseTagged ? `
+              <button class="btn btn-sm" onclick="window.applyFranchiseTagToPlayer(${player.id})" title="Franchise Tag: $${franchiseSalary.toFixed(1)}M">
+                Franchise Tag
+              </button>
+            ` : ''}
+            ${!team.transitionTagged ? `
+              <button class="btn btn-sm" onclick="window.applyTransitionTagToPlayer(${player.id})" title="Transition Tag: $${transitionSalary.toFixed(1)}M">
+                Transition Tag
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  html += `
+        </div>
+      </div>
+
+      <div class="contract-section">
+        <h3>5th Year Option Eligible (${fifthYearEligible.length})</h3>
+        <p class="muted">1st round picks entering their 4th season</p>
+        <div class="contract-list">
+  `;
+
+  if (fifthYearEligible.length === 0) {
+    html += '<p class="muted">No players eligible for 5th year option.</p>';
+  } else {
+    fifthYearEligible.forEach(player => {
+      const optionSalary = calculateFifthYearOptionSalary(player);
+      html += `
+        <div class="contract-card">
+          <div class="contract-player-info">
+            <div>
+              <strong>${player.name || 'Unknown'}</strong> - ${player.pos || 'N/A'}
+              <div class="contract-details">
+                Age: ${player.age || 'N/A'} | OVR: ${player.ovr || 'N/A'} | 
+                Draft Year: ${player.draftYear || 'N/A'} | 5th Year Salary: $${optionSalary.toFixed(1)}M
+              </div>
+            </div>
+          </div>
+          <div class="contract-actions">
+            <button class="btn btn-sm" onclick="window.exerciseFifthYearOptionOnPlayer(${player.id})">
+              Exercise 5th Year Option
+            </button>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  html += `
+        </div>
+      </div>
+
+      <div class="contract-section">
+        <h3>Salary Cap Summary</h3>
+        <div class="cap-summary">
+          <div class="cap-item">
+            <span>Total Cap:</span>
+            <strong>$${team.capTotal?.toFixed(1) || '0.0'}M</strong>
+          </div>
+          <div class="cap-item">
+            <span>Cap Used:</span>
+            <strong>$${team.capUsed?.toFixed(1) || '0.0'}M</strong>
+          </div>
+          <div class="cap-item">
+            <span>Dead Cap:</span>
+            <strong>$${team.deadCap?.toFixed(1) || '0.0'}M</strong>
+          </div>
+          <div class="cap-item">
+            <span>Cap Room:</span>
+            <strong style="color: ${(team.capRoom || 0) > 0 ? '#28a745' : '#dc3545'}">
+              $${team.capRoom?.toFixed(1) || '0.0'}M
+            </strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// Make renderContractManagement globally available
+window.renderContractManagement = renderContractManagement;
 
 // --- Global Functions (Make sure they use the safer checks!) ---
 
