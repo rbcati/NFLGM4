@@ -979,6 +979,18 @@ console.log('[LeagueCreationFix] Loaded');
             renderSettings();
             console.log('✅ Settings rendered');
             break;
+          case 'playerDatabase':
+            if (window.renderPlayerDatabase) {
+              window.renderPlayerDatabase();
+              console.log('✅ Player Database rendered');
+            }
+            break;
+          case 'history':
+            if (window.renderHistory) {
+              window.renderHistory();
+              console.log('✅ History rendered');
+            }
+            break;
           case 'hallOfFame':
             if (window.renderHallOfFame) {
               window.renderHallOfFame();
