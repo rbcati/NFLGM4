@@ -302,6 +302,30 @@
       }
     });
 
+    // Record trade in history
+    const leagueYear = getLeagueYear(L);
+    if (!L.tradeHistory) {
+      L.tradeHistory = [];
+    }
+    
+    const tradeRecord = {
+      year: leagueYear,
+      fromTeamId: fromTeamId,
+      fromTeamName: fromTeam.name,
+      toTeamId: toTeamId,
+      toTeamName: toTeam.name,
+      fromAssets: fromAssets.map(a => formatAssetForHistory(L, fromTeam, a)),
+      toAssets: toAssets.map(a => formatAssetForHistory(L, toTeam, a)),
+      timestamp: new Date().toISOString()
+    };
+    
+    L.tradeHistory.push(tradeRecord);
+    
+    // Keep only last 100 trades
+    if (L.tradeHistory.length > 100) {
+      L.tradeHistory = L.tradeHistory.slice(-100);
+    }
+
     // Recalculate caps and ratings if helpers exist
     if (typeof global.recalcCap === 'function') {
       global.recalcCap(L, fromTeam);
@@ -317,6 +341,31 @@
     }
 
     return true;
+  }
+
+  /**
+   * Formats asset for trade history
+   */
+  function formatAssetForHistory(league, team, asset) {
+    if (asset.kind === 'player') {
+      const player = findPlayerOnTeam(team, asset.playerId);
+      if (player) {
+        return {
+          kind: 'player',
+          name: player.name,
+          pos: player.pos,
+          ovr: player.ovr
+        };
+      }
+      return { kind: 'player', playerId: asset.playerId };
+    } else if (asset.kind === 'pick') {
+      return {
+        kind: 'pick',
+        year: asset.year,
+        round: asset.round
+      };
+    }
+    return asset;
   }
 
   function proposeUserTradeInternal(league, userTeamId, cpuTeamId, userAssets, cpuAssets, options = {}) {
@@ -885,6 +934,151 @@
     if (global.renderTradeBlock) {
       global.renderTradeBlock();
     }
+  };
+
+  /**
+   * Renders Trade History UI
+   */
+  global.renderTradeHistory = function() {
+    const L = global.state?.league;
+    if (!L) {
+      console.error('No league for trade history');
+      return;
+    }
+
+    // Find or create container
+    let container = document.getElementById('tradeHistory');
+    if (!container) {
+      const tradeView = document.getElementById('trade');
+      if (tradeView) {
+        container = document.createElement('div');
+        container.id = 'tradeHistory';
+        container.className = 'card';
+        container.style.marginTop = '20px';
+        tradeView.appendChild(container);
+      } else {
+        console.error('Trade view not found');
+        return;
+      }
+    }
+
+    const tradeHistory = L.tradeHistory || [];
+    const userTeamId = global.state?.userTeamId ?? 0;
+
+    let html = `
+      <div class="trade-history-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h3 style="margin: 0; color: var(--accent);">Trade History</h3>
+          <div style="display: flex; gap: 10px;">
+            <select id="tradeHistoryFilter" 
+                    style="padding: 6px 12px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 13px;"
+                    onchange="filterTradeHistory()">
+              <option value="all">All Trades</option>
+              <option value="my">My Trades</option>
+              <option value="year">This Year</option>
+            </select>
+          </div>
+        </div>
+    `;
+
+    if (tradeHistory.length === 0) {
+      html += `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p>No trades recorded yet</p>
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--surface-strong); border-bottom: 2px solid var(--hairline-strong);">
+                <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Year</th>
+                <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Team A</th>
+                <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Receives</th>
+                <th style="padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text);">↔</th>
+                <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Team B</th>
+                <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Receives</th>
+              </tr>
+            </thead>
+            <tbody id="tradeHistoryBody">
+      `;
+
+      tradeHistory.slice().reverse().forEach(trade => {
+        const isMyTrade = trade.fromTeamId === userTeamId || trade.toTeamId === userTeamId;
+        const rowClass = isMyTrade ? 'user-trade' : '';
+        
+        html += `
+          <tr class="${rowClass}" style="border-bottom: 1px solid var(--hairline); ${isMyTrade ? 'background: var(--surface-strong);' : ''}">
+            <td style="padding: 10px; color: var(--text);">${trade.year}</td>
+            <td style="padding: 10px; color: var(--text); font-weight: ${trade.fromTeamId === userTeamId ? '600' : '400'};">
+              ${trade.fromTeamName}
+            </td>
+            <td style="padding: 10px; color: var(--text-muted); font-size: 12px;">
+              ${formatAssetsForDisplay(trade.toAssets)}
+            </td>
+            <td style="padding: 10px; text-align: center; color: var(--text-muted);">↔</td>
+            <td style="padding: 10px; color: var(--text); font-weight: ${trade.toTeamId === userTeamId ? '600' : '400'};">
+              ${trade.toTeamName}
+            </td>
+            <td style="padding: 10px; color: var(--text-muted); font-size: 12px;">
+              ${formatAssetsForDisplay(trade.fromAssets)}
+            </td>
+          </tr>
+        `;
+      });
+
+      html += `
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    html += `</div>`;
+    container.innerHTML = html;
+  };
+
+  /**
+   * Formats assets for display in trade history
+   */
+  function formatAssetsForDisplay(assets) {
+    if (!assets || assets.length === 0) return 'None';
+    
+    return assets.map(asset => {
+      if (asset.kind === 'player') {
+        return `${asset.name || 'Player'} (${asset.pos || 'POS'})`;
+      } else if (asset.kind === 'pick') {
+        return `${asset.year} R${asset.round}`;
+      }
+      return 'Unknown';
+    }).join(', ');
+  }
+
+  /**
+   * Filters trade history
+   */
+  global.filterTradeHistory = function() {
+    const filter = document.getElementById('tradeHistoryFilter')?.value || 'all';
+    const rows = document.querySelectorAll('#tradeHistoryBody tr');
+    const L = global.state?.league;
+    const userTeamId = global.state?.userTeamId ?? 0;
+    const currentYear = L?.year || L?.season || 2025;
+
+    rows.forEach((row, index) => {
+      const trade = (L?.tradeHistory || []).slice().reverse()[index];
+      if (!trade) return;
+
+      let show = true;
+      
+      if (filter === 'my') {
+        show = trade.fromTeamId === userTeamId || trade.toTeamId === userTeamId;
+      } else if (filter === 'year') {
+        show = trade.year === currentYear;
+      }
+
+      row.style.display = show ? '' : 'none';
+    });
   };
 
   console.log('✅ Trade system (manual + CPU) loaded and optimized for value');
