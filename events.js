@@ -244,10 +244,16 @@ async function handleOnboardStart(e) {
 
     try {
         if (window.initNewGame) {
-            await initNewGame({ chosenMode, teamIdx });
+            console.log('🚀 Starting new game with options:', { chosenMode, teamIdx });
+            await window.initNewGame({ chosenMode, teamIdx });
+            console.log('✅ New game initialization completed');
         } else {
+            console.error('❌ initNewGame function not available');
             window.setStatus?.('Game controller unavailable. Please refresh.', 'error');
         }
+    } catch (error) {
+        console.error('❌ Error starting new game:', error);
+        window.setStatus?.(`Failed to start game: ${error.message}`, 'error');
     } finally {
         if (startButton) startButton.disabled = false;
     }
