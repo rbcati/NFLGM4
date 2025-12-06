@@ -391,11 +391,17 @@ function signFreeAgent(playerIndex) {
     const capAfter = currentCapUsed + capHit;
     const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
 
-    // Validate cap values are reasonable (sanity check)
-    if (capHit > 100 || capAfter > capTotal + 100) {
-      console.error('Invalid cap calculation:', { capHit, currentCapUsed, capTotal, capAfter, player });
-      window.setStatus('Error: Invalid salary cap calculation. Please refresh and try again.');
+    // Validate cap hit is reasonable (individual player check)
+    if (capHit > 100) {
+      console.error('Invalid cap hit for player:', { capHit, player });
+      window.setStatus('Error: Player cap hit is unreasonably high. Please refresh and try again.');
       return;
+    }
+    
+    // If team is already way over cap, warn but don't block (might be intentional or calculation issue)
+    if (currentCapUsed > capTotal * 1.5) {
+      console.warn('Team is already significantly over cap:', { currentCapUsed, capTotal, team: team.name || team.abbr });
+      // Still allow signing if the individual cap hit is reasonable
     }
 
     if (capEnabled && capAfter > capTotal) {
@@ -765,11 +771,17 @@ function signFreeAgentWithContract(playerIndex, years, baseSalary, signingBonus)
     const capAfter = currentCapUsed + capHit;
     const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
 
-    // Validate cap values are reasonable (sanity check)
-    if (capHit > 100 || capAfter > capTotal + 100) {
-      console.error('Invalid cap calculation:', { capHit, currentCapUsed, capTotal, capAfter, player });
-      window.setStatus('Error: Invalid salary cap calculation. Please refresh and try again.');
+    // Validate cap hit is reasonable (individual player check)
+    if (capHit > 100) {
+      console.error('Invalid cap hit for player:', { capHit, player });
+      window.setStatus('Error: Player cap hit is unreasonably high. Please refresh and try again.');
       return;
+    }
+    
+    // If team is already way over cap, warn but don't block (might be intentional or calculation issue)
+    if (currentCapUsed > capTotal * 1.5) {
+      console.warn('Team is already significantly over cap:', { currentCapUsed, capTotal, team: team.name || team.abbr });
+      // Still allow signing if the individual cap hit is reasonable
     }
 
     if (capEnabled && capAfter > capTotal) {
