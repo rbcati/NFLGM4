@@ -444,7 +444,7 @@
         const userReturnAssets = [{ kind: 'player', playerId: playerId }];
 
         // ENHANCED: Smarter asset selection based on team situation
-        const isCpuRebuilding = isTeamRebuilding(cpuTeam);
+        // Reuse isCpuRebuilding from above (line 426)
         
         // Rebuilding teams prefer to give picks (future value)
         // Contending teams prefer to give players (win now)
@@ -484,7 +484,7 @@
         // ENHANCED: Smarter sweetener logic
         // Rebuilding teams more willing to overpay slightly for young talent
         // Contending teams more conservative
-        const isCpuRebuilding = isTeamRebuilding(cpuTeam);
+        // Reuse isCpuRebuilding from above (line 426)
         const isYoungPlayer = getPlayerAge(player, leagueYear) < 26;
         const sweetenerThreshold = isCpuRebuilding && isYoungPlayer ? -15 : -5;
         
