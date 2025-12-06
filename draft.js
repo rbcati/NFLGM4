@@ -908,10 +908,10 @@ function renderTeamPicks(team, league) {
  */
 function renderTopProspects() {
   const draftContainer = document.getElementById('scoutingList');
-  if (!draftContainer || !state.draftClass) return;
+  if (!draftContainer || !window.state.draftClass) return;
   
   try {
-    const topProspects = state.draftClass.slice(0, 50); // Show top 50
+    const topProspects = window.state.draftClass.slice(0, 50); // Show top 50
     
     draftContainer.innerHTML = topProspects.map(prospect => {
       const scoutingInfo = getScoutingInfo(prospect);
@@ -971,7 +971,7 @@ function handleProspectClick(e) {
  * Scout a prospect (reveals more accurate information)
  */
 function scoutProspect(prospectId) {
-  const prospect = state.draftClass?.find(p => p.id === prospectId);
+  const prospect = window.state.draftClass?.find(p => p.id === prospectId);
   if (!prospect) return;
   
   if (prospect.scouted) {
@@ -1080,7 +1080,7 @@ function calculateBasicPickValue(pick) {
   const baseValue = baseValues[pick.round] || 1;
   
   // Discount for future years
-  const yearsOut = pick.year - (state.league?.year || 2025);
+  const yearsOut = pick.year - (window.state?.league?.year || 2025);
   const discount = Math.pow(0.8, Math.max(0, yearsOut));
   
   return baseValue * discount;
