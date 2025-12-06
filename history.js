@@ -253,31 +253,44 @@
       </div>
     ` : '<div class="mvp-section"><p>No MVP history yet.</p></div>';
 
-    const awardsSection = awards && awards.length > 0 ? `
+    // Group awards by type for better display
+    const awardGroups = {};
+    if (awards && awards.length > 0) {
+      awards.forEach(award => {
+        const type = award.type || 'Other';
+        if (!awardGroups[type]) awardGroups[type] = [];
+        awardGroups[type].push(award);
+      });
+    }
+    
+    const awardsSection = Object.keys(awardGroups).length > 0 ? `
       <div class="awards-section">
-        <h3>Other Awards</h3>
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Year</th>
-              <th>Award</th>
-              <th>Player</th>
-              <th>Position</th>
-              <th>Team</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${awards.map(award => `
-              <tr>
-                <td>${award.year}</td>
-                <td>${award.type}</td>
-                <td>${award.player.name}</td>
-                <td>${award.player.position}</td>
-                <td>${award.team.name}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
+        <h3>League Awards</h3>
+        ${Object.keys(awardGroups).map(awardType => `
+          <div class="award-type-section">
+            <h4>${awardType}</h4>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Year</th>
+                  <th>Player</th>
+                  <th>Position</th>
+                  <th>Team</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${awardGroups[awardType].map(award => `
+                  <tr>
+                    <td>${award.year}</td>
+                    <td>${award.player.name}</td>
+                    <td>${award.player.position}</td>
+                    <td>${award.team.name}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `).join('')}
       </div>
     ` : '';
 
