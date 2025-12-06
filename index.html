@@ -281,13 +281,12 @@
 <script src="utils.js"></script>
 <script src="expanded-names.js"></script>
 
-<!-- Player systems -->
-<script src="player-progression.js"></script>
+<!-- Player systems (now combined in player.js) -->
 <script src="player.js"></script>
-<script src="player.legacy.js"></script>
+<!-- Note: player.js now includes player-progression.js, player.legacy.js, player-factory.js, and rookies.js -->
+<!-- Note: player.js also includes the new Depth Chart System with playbook knowledge and chemistry -->
 
 <!-- Lightweight fallbacks to guarantee core factories -->
-<script src="player-factory.js"></script>
 <script src="schedule-factory.js"></script>
 
 <!-- Staff & coaching -->
@@ -323,7 +322,7 @@
 <script src="freeagency.js"></script>
 <script src="trade.js"></script>
 <script src="draft.js"></script>
-<script src="rookies.js"></script>
+<!-- Note: rookies.js is now combined in player.js -->
 
 <!-- Coaching extensions (now combined in coaching.js) -->
 <script src="owner-mode.js"></script>
