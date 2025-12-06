@@ -378,9 +378,41 @@ function generateContract(ovr, pos) {
   const U = window.Utils;
   const C = window.Constants;
   
-  // Base salary calculation using constants instead of magic numbers - realistic scale
+  // FIXED: Realistic salary calculation that fits within $220M cap
+  // Average team has ~50 players, so average salary should be ~$4-5M
+  // Salary tiers: Elite (90+): $20-35M, Good (80-89): $8-20M, Avg (70-79): $3-8M, Low (60-69): $1-3M, Very Low (40-59): $0.5-1M
   const positionMultiplier = C.POSITION_VALUES[pos] || 1.0;
-  const baseAnnual = Math.round((0.15 * ovr * positionMultiplier) * 10) / 10;
+  
+  // Adjusted formula to create realistic salary distribution
+  // Base: (ovr / 100) gives us 0.4 to 0.99 range
+  // Multiply by position value (0.5 to 1.6)
+  // Then scale to fit cap: target average of ~$4.5M per player
+  let baseAnnual;
+  
+  if (ovr >= 90) {
+    // Elite players: $20-35M
+    baseAnnual = U.rand(20, 35) * positionMultiplier * 0.9; // Slight discount for non-QB positions
+  } else if (ovr >= 80) {
+    // Good players: $8-20M
+    baseAnnual = U.rand(8, 20) * positionMultiplier * 0.85;
+  } else if (ovr >= 70) {
+    // Average players: $3-8M
+    baseAnnual = U.rand(3, 8) * positionMultiplier;
+  } else if (ovr >= 60) {
+    // Below average: $1-3M
+    baseAnnual = U.rand(1, 3) * positionMultiplier;
+  } else {
+    // Low OVR: $0.5-1M
+    baseAnnual = U.rand(0.5, 1) * positionMultiplier;
+  }
+  
+  // Cap maximum at $40M (for elite QBs)
+  if (baseAnnual > 40) baseAnnual = 40;
+  
+  // Ensure minimum
+  if (baseAnnual < 0.5) baseAnnual = 0.5;
+  
+  baseAnnual = Math.round(baseAnnual * 10) / 10;
   
   const years = U.rand(1, 4);
   const bonusPercent = C.SALARY_CAP.SIGNING_BONUS_MIN + 
