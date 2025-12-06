@@ -537,6 +537,7 @@ window.renderContractManagement = renderContractManagement;
     applyFranchiseTag,
     applyTransitionTag,
     exerciseFifthYearOption,
+    extendContract,
     updateContract
   };
 
