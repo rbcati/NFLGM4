@@ -98,7 +98,7 @@ body.theme-light {
   --modal-backdrop: rgba(0, 0, 0, 0.4);
 }
 
-/* Base Styles with Enhanced Background */
+/* Base Styles with Enhanced Background - Zen GM font size */
 html, body {
   background: 
     radial-gradient(1400px 1400px at 15% -15%, rgba(20, 35, 60, 0.4), transparent 65%),
@@ -107,8 +107,8 @@ html, body {
     var(--bg);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Helvetica, Arial, sans-serif;
-  line-height: 1.6;
-  font-size: var(--text-base);
+  line-height: 1.5;
+  font-size: 14px; /* Zen GM style - 14px base */
   min-height: 100vh;
   overflow-x: hidden;
 }
@@ -119,7 +119,14 @@ html, body {
   grid-template-columns: 280px 1fr; 
   gap: var(--space-6); 
   padding: var(--space-6);
-  min-height: 100vh;
+  padding-left: calc(200px + var(--space-6)); /* Account for nav sidebar */
+  min-height: calc(100vh - 48px); /* Account for topbar */
+  margin-top: 48px; /* Account for topbar */
+  transition: padding-left var(--dur-slow) var(--ease);
+}
+
+.layout.nav-collapsed {
+  padding-left: var(--space-6);
 }
 
 .sidebar { 
@@ -193,10 +200,10 @@ html, body {
 
 /* Enhanced Top Bar */
 .topbar { 
-  display: grid; 
-  grid-template-columns: auto 1fr auto; 
+  display: flex; 
   align-items: center; 
-  padding: var(--space-4) var(--space-6);
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
   background: var(--glass-bg);
   -webkit-backdrop-filter: var(--glass-blur);
   backdrop-filter: var(--glass-blur);
@@ -208,14 +215,136 @@ html, body {
 
 .brand { 
   font-weight: 700; 
-  font-size: var(--text-xl);
+  font-size: 14px; /* Zen GM style */
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Premium Navigation Pills */
+/* Navigation Toggle Button */
+.nav-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  cursor: pointer;
+  transition: all var(--dur) var(--ease);
+  flex-shrink: 0;
+}
+
+.nav-toggle:hover {
+  background: var(--surface);
+  border-color: var(--hairline-strong);
+}
+
+.nav-toggle:active {
+  transform: scale(0.95);
+}
+
+/* Left Sidebar Navigation - Zen GM Style */
+.nav-sidebar {
+  position: fixed;
+  left: 0;
+  top: 48px; /* Below topbar */
+  bottom: 0;
+  width: 200px;
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--hairline);
+  z-index: 40;
+  transition: transform var(--dur-slow) var(--ease);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+.nav-sidebar.collapsed {
+  transform: translateX(-200px);
+}
+
+.nav-menu {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-2);
+  gap: var(--space-1);
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: var(--space-2) var(--space-3);
+  font-size: 13px; /* Zen GM style - 13px for nav items */
+  font-weight: 400;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all var(--dur) var(--ease);
+  white-space: nowrap;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.nav-item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nav-item.active,
+.nav-item[aria-current="page"] {
+  background: var(--accent-muted);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Mobile styles for navigation */
+@media (max-width: 768px) {
+  .nav-sidebar {
+    width: 220px;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.3);
+  }
+  
+  .nav-sidebar.collapsed {
+    transform: translateX(-220px);
+  }
+  
+  .layout {
+    padding-left: var(--space-4);
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  
+  .layout.nav-collapsed {
+    padding-left: var(--space-4);
+  }
+  
+  .nav-item {
+    font-size: 14px; /* Slightly larger on mobile for touch */
+    min-height: 44px; /* iOS touch target size */
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  .topbar {
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .brand {
+    font-size: 13px;
+  }
+  
+  .nav-toggle {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* Premium Navigation Pills - Legacy (keep for compatibility) */
 .nav-pills { 
   display: flex; 
   gap: var(--space-2); 
