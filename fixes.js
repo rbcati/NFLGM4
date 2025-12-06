@@ -1700,4 +1700,336 @@ window.$$ = $$;
 window.$1 = $1;
 window.on = on;
 
-console.log('✅ Combined fixes.js loaded - includes error-overlay, missing-functions, league-creation-fix, team-selection-fix, navbar-fix, and dom-helpers-fix');
+// ============================================================================
+// CRITICAL FIXES (from critical-fixes.js)
+// Includes: click handlers, navigation toggle, and iOS optimization
+// ============================================================================
+
+(function() {
+  console.log('🔧 Loading critical fixes...');
+
+  // ============================================================================
+  // FIX 1: Ensure click handlers work properly
+  // ============================================================================
+  
+  function fixClickHandlers() {
+    console.log('🔧 Fixing click handlers...');
+    
+    // Use event delegation with capture phase to ensure clicks are caught
+    document.addEventListener('click', function(e) {
+      const target = e.target;
+      const targetId = target.id;
+      const targetClass = target.className;
+      
+      // Handle onboarding buttons
+      if (targetId === 'onboardStart' || target.closest('#onboardStart')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('✅ Start Season button clicked');
+        if (window.handleOnboardStart) {
+          window.handleOnboardStart(e).catch(err => {
+            console.error('Failed to start onboarding:', err);
+            window.setStatus?.('Failed to start game. Please try again.', 'error');
+          });
+        } else if (window.initNewGame) {
+          // Fallback: direct call to initNewGame
+          const teamSelect = document.getElementById('onboardTeam');
+          const chosenMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
+          const teamIdx = teamSelect?.value ?? '0';
+          
+          if (teamSelect && teamSelect.value) {
+            window.initNewGame({ chosenMode, teamIdx }).catch(err => {
+              console.error('Failed to initialize game:', err);
+              window.setStatus?.('Failed to start game. Please try again.', 'error');
+            });
+          } else {
+            window.setStatus?.('Please select a team first.', 'error');
+          }
+        }
+        return false;
+      }
+      
+      if (targetId === 'onboardRandom' || target.closest('#onboardRandom')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('✅ Random team button clicked');
+        if (window.handleOnboardRandom) {
+          window.handleOnboardRandom(e).catch(err => {
+            console.error('Failed to select random team:', err);
+          });
+        } else {
+          // Fallback: direct random selection
+          const teamSelect = document.getElementById('onboardTeam');
+          if (teamSelect && teamSelect.options.length > 0) {
+            const randomIndex = Math.floor(Math.random() * teamSelect.options.length);
+            teamSelect.selectedIndex = randomIndex;
+          }
+        }
+        return false;
+      }
+      
+      // Handle navigation toggle
+      if (targetId === 'navToggle' || target.closest('#navToggle')) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('✅ Navigation toggle clicked');
+        toggleNavigation();
+        return false;
+      }
+      
+      // Handle other critical buttons
+      if (targetId === 'btnNewLeague') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.handleNewLeague) {
+          window.handleNewLeague(e);
+        } else if (window.gameController?.startNewLeague) {
+          window.gameController.startNewLeague();
+        }
+        return false;
+      }
+      
+      if (targetId === 'btnSave') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.saveState) {
+          window.saveState();
+          window.setStatus?.('Game saved!', 'success');
+        }
+        return false;
+      }
+      
+      if (targetId === 'btnLoad') {
+        e.preventDefault();
+        e.stopPropagation();
+        if (window.handleLoadGame) {
+          window.handleLoadGame(e);
+        } else if (window.loadState) {
+          const loaded = window.loadState();
+          if (loaded) {
+            window.state = loaded;
+            location.reload();
+          } else {
+            window.setStatus?.('No save file found!', 'error');
+          }
+        }
+        return false;
+      }
+    }, true); // Use capture phase
+    
+    console.log('✅ Click handlers fixed');
+  }
+  
+  // ============================================================================
+  // FIX 2: Navigation toggle functionality
+  // ============================================================================
+  
+  function toggleNavigation() {
+    const navSidebar = document.getElementById('nav-sidebar');
+    const navToggle = document.getElementById('navToggle');
+    const layout = document.querySelector('.layout');
+    
+    if (!navSidebar || !navToggle) {
+      console.warn('Navigation elements not found');
+      return;
+    }
+    
+    const isCollapsed = navSidebar.classList.contains('collapsed');
+    
+    if (isCollapsed) {
+      navSidebar.classList.remove('collapsed');
+      if (layout) layout.classList.remove('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'true');
+      localStorage.setItem('navSidebarCollapsed', 'false');
+    } else {
+      navSidebar.classList.add('collapsed');
+      if (layout) layout.classList.add('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'false');
+      localStorage.setItem('navSidebarCollapsed', 'true');
+    }
+  }
+  
+  function ensureNavigationToggleVisible() {
+    const navToggle = document.getElementById('navToggle');
+    if (navToggle) {
+      // Force visibility
+      navToggle.style.display = 'flex';
+      navToggle.style.visibility = 'visible';
+      navToggle.style.opacity = '1';
+      navToggle.style.pointerEvents = 'auto';
+      navToggle.style.cursor = 'pointer';
+      navToggle.style.zIndex = '100';
+      
+      // Ensure it's clickable
+      navToggle.setAttribute('tabindex', '0');
+      navToggle.setAttribute('role', 'button');
+      
+      console.log('✅ Navigation toggle made visible and clickable');
+    } else {
+      console.warn('⚠️ Navigation toggle button not found');
+    }
+  }
+  
+  function restoreNavigationState() {
+    const navSidebar = document.getElementById('nav-sidebar');
+    const navToggle = document.getElementById('navToggle');
+    const layout = document.querySelector('.layout');
+    
+    if (!navSidebar || !navToggle) return;
+    
+    const savedState = localStorage.getItem('navSidebarCollapsed');
+    const isCollapsed = savedState === 'true';
+    
+    if (isCollapsed) {
+      navSidebar.classList.add('collapsed');
+      if (layout) layout.classList.add('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'false');
+    } else {
+      navSidebar.classList.remove('collapsed');
+      if (layout) layout.classList.remove('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'true');
+    }
+  }
+  
+  // ============================================================================
+  // FIX 3: iOS PWA Optimization
+  // ============================================================================
+  
+  function addIOSOptimizations() {
+    // Add manifest link if not present
+    if (!document.querySelector('link[rel="manifest"]')) {
+      const manifestLink = document.createElement('link');
+      manifestLink.rel = 'manifest';
+      manifestLink.href = '/manifest.json';
+      document.head.appendChild(manifestLink);
+    }
+    
+    // Ensure all iOS meta tags are present
+    const requiredMetaTags = {
+      'apple-mobile-web-app-capable': 'yes',
+      'apple-mobile-web-app-status-bar-style': 'black-translucent',
+      'apple-mobile-web-app-title': 'NFL GM',
+      'mobile-web-app-capable': 'yes',
+      'format-detection': 'telephone=no',
+      'theme-color': '#0a0c10'
+    };
+    
+    Object.entries(requiredMetaTags).forEach(([name, content]) => {
+      const existing = document.querySelector(`meta[name="${name}"]`);
+      if (!existing) {
+        const meta = document.createElement('meta');
+        meta.name = name;
+        meta.content = content;
+        document.head.appendChild(meta);
+        console.log(`✅ Added meta tag: ${name}`);
+      }
+    });
+    
+    // Add viewport optimization
+    let viewport = document.querySelector('meta[name="viewport"]');
+    if (!viewport) {
+      viewport = document.createElement('meta');
+      viewport.name = 'viewport';
+      document.head.appendChild(viewport);
+    }
+    viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    
+    // Prevent iOS Safari bounce/zoom
+    document.addEventListener('touchmove', function(e) {
+      if (e.touches.length > 1) {
+        e.preventDefault(); // Prevent pinch zoom
+      }
+    }, { passive: false });
+    
+    // Prevent double-tap zoom
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', function(e) {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) {
+        e.preventDefault();
+      }
+      lastTouchEnd = now;
+    }, false);
+    
+    console.log('✅ iOS optimizations added');
+  }
+  
+  // ============================================================================
+  // FIX 4: Ensure event listeners are initialized
+  // ============================================================================
+  
+  function ensureEventListenersInitialized() {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initializeAll);
+    } else {
+      initializeAll();
+    }
+  }
+  
+  function initializeAll() {
+    console.log('🚀 Initializing all critical fixes...');
+    
+    // Fix click handlers
+    fixClickHandlers();
+    
+    // Ensure navigation toggle is visible and functional
+    ensureNavigationToggleVisible();
+    restoreNavigationState();
+    
+    // Add iOS optimizations
+    addIOSOptimizations();
+    
+    // Ensure setupEventListeners is called if available
+    if (window.setupEventListeners && typeof window.setupEventListeners === 'function') {
+      try {
+        window.setupEventListeners();
+        console.log('✅ Global event listeners set up');
+      } catch (err) {
+        console.error('Error setting up global event listeners:', err);
+      }
+    }
+    
+    // Ensure bindOnboardingControls is called
+    if (window.bindOnboardingControls && typeof window.bindOnboardingControls === 'function') {
+      try {
+        window.bindOnboardingControls();
+        console.log('✅ Onboarding controls bound');
+      } catch (err) {
+        console.error('Error binding onboarding controls:', err);
+      }
+    }
+    
+    // Make sure buttons are clickable
+    setTimeout(() => {
+      const buttons = document.querySelectorAll('button');
+      buttons.forEach(btn => {
+        btn.style.pointerEvents = 'auto';
+        btn.style.cursor = 'pointer';
+        if (btn.disabled) {
+          btn.style.opacity = '0.6';
+        }
+      });
+    }, 100);
+    
+    console.log('✅ All critical fixes initialized');
+  }
+  
+  // ============================================================================
+  // EXPORT FUNCTIONS
+  // ============================================================================
+  
+  window.toggleNavigation = toggleNavigation;
+  window.fixClickHandlers = fixClickHandlers;
+  window.ensureNavigationToggleVisible = ensureNavigationToggleVisible;
+  
+  // Initialize immediately
+  ensureEventListenersInitialized();
+  
+  // Also initialize after a short delay to catch late-loading elements
+  setTimeout(initializeAll, 500);
+  
+  console.log('✅ Critical fixes loaded');
+})();
+
+console.log('✅ Combined fixes.js loaded - includes error-overlay, missing-functions, league-creation-fix, team-selection-fix, navbar-fix, dom-helpers-fix, and critical-fixes');
