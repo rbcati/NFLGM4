@@ -84,6 +84,15 @@ function simPlayoffWeek() {
     } else if (P.currentRound === 3) { // Super Bowl
         const winner = simRound(P.rounds.superbowl)[0];
         P.winner = winner;
+        
+        // Record Super Bowl in history
+        if (window.recordSuperBowl && window.state?.league) {
+            const matchup = P.rounds.superbowl[0];
+            const runnerUp = matchup.home.id === winner.id ? matchup.away : matchup.home;
+            const year = P.year || window.state.league.year || 2025;
+            window.recordSuperBowl(window.state.league, year, winner, runnerUp);
+        }
+        
         setStatus(`🏆 ${P.winner.name} have won the Super Bowl!`);
         console.log("Super Bowl Winner:", P.winner);
     }
