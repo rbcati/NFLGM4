@@ -803,6 +803,18 @@ function startOffseason() {
         console.error('Error updating records:', error);
       }
     }
+    
+    // Process retirements
+    if (typeof window.processRetirements === 'function') {
+      try {
+        const retirementResults = window.processRetirements(L, L.year);
+        if (retirementResults.retired && retirementResults.retired.length > 0) {
+          console.log(`Processed ${retirementResults.retired.length} retirements`);
+        }
+      } catch (error) {
+        console.error('Error processing retirements:', error);
+      }
+    }
 
     // Run any offseason processing hooks (e.g., coaching stats)
     if (typeof window.runOffseason === 'function') {
