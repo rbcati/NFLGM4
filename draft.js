@@ -680,7 +680,7 @@ function renderAvailableProspects() {
   }
 
   // Apply sort
-  const sortFilter = document.getElementById('prospectSortFilter');
+  let sortFilter = document.getElementById('prospectSortFilter');
   if (sortFilter) {
     const sortBy = sortFilter.value || 'ovr';
     prospects.sort((a, b) => {
