@@ -494,9 +494,14 @@ function showPlayerDetails(player) {
                         <p class="trait-list">${player.abilities.join(', ')}</p>
                     </div>
                 ` : ''}
+                
+                ${renderInjuryHistory(player)}
+                ${renderSeasonHistory(player)}
+                
                 <div class="player-actions mt">
                     <button class="btn primary" onclick="window.viewPlayerStats('${player.id}')">View Stats</button>
                     <button class="btn secondary" onclick="window.editPlayer('${player.id}')">Edit Player</button>
+                    ${window.showPlayerComparison ? `<button class="btn secondary" onclick="window.showPlayerComparison('${player.id}')">Compare Player</button>` : ''}
                 </div>
             </div>
         </div>
@@ -547,6 +552,120 @@ function showPlayerDetails(player) {
     };
     
     modal.style.display = 'flex'; // Use flex to center
+}
+
+/**
+ * Render injury history section for player details
+ */
+function renderInjuryHistory(player) {
+    if (!player || (!player.injuryHistory || player.injuryHistory.length === 0)) {
+        return '';
+    }
+    
+    const assessment = window.getInjuryPronenessAssessment ? window.getInjuryPronenessAssessment(player) : null;
+    
+    let html = `
+        <div class="player-injury-history mt">
+            <h4>Injury History & Assessment</h4>
+            ${assessment ? `
+                <div class="injury-assessment">
+                    <div class="assessment-level ${assessment.level.toLowerCase().replace(' ', '-')}">
+                        <strong>Injury Proneness:</strong> ${assessment.level}
+                    </div>
+                    <p class="assessment-stats">
+                        Total Injuries: ${assessment.totalInjuries} | 
+                        Major: ${assessment.majorInjuries} | 
+                        Season-Ending: ${assessment.seasonEndingInjuries} | 
+                        Avg Weeks: ${assessment.averageWeeksPerInjury}
+                    </p>
+                    <p class="assessment-recommendation">${assessment.recommendation}</p>
+                </div>
+            ` : ''}
+            
+            <div class="injury-history-list">
+                <h5>All Injuries</h5>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>Type</th>
+                            <th>Severity</th>
+                            <th>Weeks</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${player.injuryHistory.slice().reverse().map(injury => `
+                            <tr class="injury-${injury.severity}">
+                                <td>${injury.year || 'N/A'}</td>
+                                <td>${injury.type}</td>
+                                <td><span class="severity-badge ${injury.severity}">${injury.severity}</span></td>
+                                <td>${injury.weeks} weeks</td>
+                                <td>${injury.recovered ? '✅ Recovered' : injury.seasonEnding ? '❌ Season-Ending' : '⚠️ Active'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    return html;
+}
+
+/**
+ * Render season history with OVR changes
+ */
+function renderSeasonHistory(player) {
+    if (!player || (!player.seasonHistory || player.seasonHistory.length === 0)) {
+        return '';
+    }
+    
+    let html = `
+        <div class="player-season-history mt">
+            <h4>Season-by-Season Overview</h4>
+            <div class="season-history-list">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Year</th>
+                            <th>OVR Start</th>
+                            <th>OVR End</th>
+                            <th>Change</th>
+                            <th>Injuries</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${player.seasonHistory.map(season => {
+                            const changeClass = season.ovrChange > 0 ? 'positive' : season.ovrChange < 0 ? 'negative' : '';
+                            const changeSign = season.ovrChange > 0 ? '+' : '';
+                            const injuryCount = season.injuries ? season.injuries.length : 0;
+                            const majorInjuries = season.injuries ? season.injuries.filter(i => i.severity === 'major').length : 0;
+                            
+                            return `
+                                <tr>
+                                    <td><strong>${season.year}</strong></td>
+                                    <td>${season.ovrStart || 'N/A'}</td>
+                                    <td>${season.ovrEnd || 'N/A'}</td>
+                                    <td class="${changeClass}">${changeSign}${season.ovrChange || 0}</td>
+                                    <td>
+                                        ${injuryCount > 0 ? `
+                                            <span class="injury-count ${majorInjuries > 0 ? 'has-major' : ''}" 
+                                                  title="${season.injuries.map(i => i.type).join(', ')}">
+                                                🚑 ${injuryCount} ${majorInjuries > 0 ? '(Major: ' + majorInjuries + ')' : ''}
+                                            </span>
+                                        ` : 'None'}
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    return html;
 }
 
 // window.renderStandings remains the same structure
