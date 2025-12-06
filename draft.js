@@ -261,30 +261,575 @@ function calculateRookieContract(round, pick) {
   return U ? U.rand(values.min * 10, values.max * 10) / 10 : values.min;
 }
 
+// ============================================================================
+// ENHANCED DRAFT SYSTEM - Order Enforcement, Trades, and Interactive UI
+// ============================================================================
+
+// Draft state for enhanced system
+let draftState = {
+  active: false,
+  year: null,
+  currentPick: 0,
+  totalPicks: 0,
+  draftOrder: [],
+  draftBoard: [], // Array of {pick: number, teamId: number, player: null, round: number}
+  availableProspects: [],
+  completedPicks: []
+};
+
 /**
- * Render the draft/scouting view
+ * Initialize enhanced draft state
+ * @param {Object} league - League object
+ * @param {number} year - Draft year
+ */
+function initializeDraft(league, year) {
+  if (!league || !league.teams) {
+    console.error('Invalid league for draft initialization');
+    return false;
+  }
+
+  console.log(`Initializing enhanced draft for ${year}...`);
+
+  // Calculate draft order based on standings
+  const draftOrder = window.calculateDraftOrder ? window.calculateDraftOrder(league) : [];
+  if (draftOrder.length === 0) {
+    console.error('Failed to calculate draft order');
+    return false;
+  }
+
+  // Generate draft class if needed
+  if (!window.state.draftClass || window.state.draftClass.length === 0) {
+    window.state.draftClass = generateProspects(year);
+  }
+
+  // Build draft board (all picks for all rounds with proper order)
+  const draftBoard = [];
+  const rounds = 7;
+  let pickNumber = 1;
+
+  for (let round = 1; round <= rounds; round++) {
+    // Standard snake draft order (round 1: 1-32, round 2: 32-1, etc.)
+    const roundOrder = round % 2 === 1 ? [...draftOrder] : [...draftOrder].reverse();
+    
+    roundOrder.forEach(teamId => {
+      const team = league.teams[teamId];
+      if (!team) return;
+
+      // Check if team has this pick (may have been traded)
+      const teamPicks = (team.picks || []).filter(p => p.year === year && p.round === round);
+      
+      if (teamPicks.length > 0) {
+        draftBoard.push({
+          pick: pickNumber++,
+          teamId: teamId,
+          team: team,
+          round: round,
+          player: null,
+          pickId: teamPicks[0].id
+        });
+      }
+    });
+  }
+
+  draftState = {
+    active: true,
+    year: year,
+    currentPick: 0,
+    totalPicks: draftBoard.length,
+    draftOrder: draftOrder,
+    draftBoard: draftBoard,
+    availableProspects: [...window.state.draftClass],
+    completedPicks: []
+  };
+
+  console.log(`✅ Enhanced draft initialized: ${draftBoard.length} picks across 7 rounds`);
+  return true;
+}
+
+/**
+ * Get current pick information
+ */
+function getCurrentPick() {
+  if (!draftState.active || draftState.currentPick >= draftState.draftBoard.length) {
+    return null;
+  }
+  return draftState.draftBoard[draftState.currentPick];
+}
+
+/**
+ * Get upcoming picks
+ */
+function getUpcomingPicks(count = 10) {
+  if (!draftState.active) return [];
+  const upcoming = [];
+  for (let i = draftState.currentPick; i < Math.min(draftState.currentPick + count, draftState.draftBoard.length); i++) {
+    upcoming.push(draftState.draftBoard[i]);
+  }
+  return upcoming;
+}
+
+/**
+ * Get team's position needs for AI drafting
+ */
+function getTeamNeeds(team) {
+  if (!team || !team.roster) return [];
+  const positionCounts = {};
+  team.roster.forEach(player => {
+    positionCounts[player.pos] = (positionCounts[player.pos] || 0) + 1;
+  });
+  const needs = [];
+  const idealCounts = {
+    QB: 3, RB: 4, WR: 6, TE: 3, OL: 8,
+    DL: 6, LB: 6, CB: 5, S: 4, K: 1, P: 1
+  };
+  Object.keys(idealCounts).forEach(pos => {
+    if ((positionCounts[pos] || 0) < idealCounts[pos]) {
+      needs.push(pos);
+    }
+  });
+  return needs;
+}
+
+/**
+ * Auto-pick for CPU teams
+ */
+function autoPickForCPU() {
+  if (!draftState.active) return;
+  const currentPick = getCurrentPick();
+  if (!currentPick) return;
+  const team = window.state.league.teams[currentPick.teamId];
+  if (!team || currentPick.teamId === window.state.userTeamId) return;
+
+  // Find best available prospect (prefer positions of need)
+  const teamNeeds = getTeamNeeds(team);
+  const available = draftState.availableProspects.filter(p => {
+    return teamNeeds.includes(p.pos) || Math.random() > 0.3;
+  });
+  const prospects = available.length > 0 ? available : draftState.availableProspects;
+  prospects.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
+  const selected = prospects[0];
+
+  if (selected) {
+    makeDraftPickEnhanced(currentPick.teamId, selected.id);
+  }
+}
+
+/**
+ * Enhanced make draft pick with order enforcement
+ */
+function makeDraftPickEnhanced(teamId, prospectId) {
+  if (!draftState.active) {
+    window.setStatus('Draft not active');
+    return false;
+  }
+
+  const currentPick = getCurrentPick();
+  if (!currentPick) {
+    window.setStatus('Draft is complete');
+    return false;
+  }
+
+  // Verify it's the correct team's turn
+  if (currentPick.teamId !== teamId) {
+    window.setStatus(`It's not ${window.state.league.teams[teamId]?.name}'s turn to pick`);
+    return false;
+  }
+
+  // Find prospect
+  const prospectIndex = draftState.availableProspects.findIndex(p => p.id === prospectId);
+  if (prospectIndex === -1) {
+    window.setStatus('Prospect not available');
+    return false;
+  }
+
+  const prospect = draftState.availableProspects[prospectIndex];
+  const team = window.state.league.teams[teamId];
+
+  try {
+    // Add player to team
+    if (!team.roster) team.roster = [];
+    team.roster.push(prospect);
+    team.roster.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
+
+    // Remove from available prospects
+    draftState.availableProspects.splice(prospectIndex, 1);
+
+    // Update draft board
+    currentPick.player = {
+      id: prospect.id,
+      name: prospect.name,
+      pos: prospect.pos,
+      ovr: prospect.ovr
+    };
+
+    // Remove used pick from team
+    const pickIndex = team.picks.findIndex(p => p.id === currentPick.pickId);
+    if (pickIndex >= 0) {
+      team.picks.splice(pickIndex, 1);
+    }
+
+    // Record completed pick
+    draftState.completedPicks.push({
+      ...currentPick,
+      player: { ...currentPick.player }
+    });
+
+    // Advance to next pick
+    draftState.currentPick++;
+
+    // Update cap
+    if (window.recalcCap) {
+      window.recalcCap(window.state.league, team);
+    }
+
+    window.setStatus(`${team.name} selects ${prospect.name} (${prospect.pos}) - Pick ${currentPick.pick}`);
+
+    // Auto-pick for CPU teams
+    if (teamId !== window.state.userTeamId && draftState.currentPick < draftState.draftBoard.length) {
+      setTimeout(() => autoPickForCPU(), 500);
+    }
+
+    // Re-render
+    renderDraft();
+
+    // Check if draft is complete
+    if (draftState.currentPick >= draftState.draftBoard.length) {
+      completeDraft();
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error('Error making draft pick:', error);
+    window.setStatus('Error making draft pick');
+    return false;
+  }
+}
+
+/**
+ * Trade picks during draft
+ */
+function tradeDraftPick(fromTeamId, toTeamId, pickNumber) {
+  if (!draftState.active) {
+    window.setStatus('Draft not active');
+    return false;
+  }
+
+  const pickIndex = draftState.draftBoard.findIndex(p => p.pick === pickNumber);
+  if (pickIndex === -1) {
+    window.setStatus('Pick not found');
+    return false;
+  }
+
+  const pick = draftState.draftBoard[pickIndex];
+  if (pick.teamId !== fromTeamId) {
+    window.setStatus('Team does not own this pick');
+    return false;
+  }
+  if (pick.player) {
+    window.setStatus('Cannot trade a pick that has already been used');
+    return false;
+  }
+  if (pickIndex === draftState.currentPick) {
+    window.setStatus('Cannot trade the current pick - make a selection first');
+    return false;
+  }
+
+  const fromTeam = window.state.league.teams[fromTeamId];
+  const toTeam = window.state.league.teams[toTeamId];
+  if (!fromTeam || !toTeam) {
+    window.setStatus('Invalid teams');
+    return false;
+  }
+
+  // Update draft board
+  pick.teamId = toTeamId;
+  pick.team = toTeam;
+
+  // Update team picks
+  const teamPick = fromTeam.picks.find(p => p.id === pick.pickId);
+  if (teamPick) {
+    const idx = fromTeam.picks.indexOf(teamPick);
+    fromTeam.picks.splice(idx, 1);
+    toTeam.picks = toTeam.picks || [];
+    toTeam.picks.push({
+      ...teamPick,
+      from: `${teamPick.from} via ${fromTeam.abbr}`
+    });
+  }
+
+  window.setStatus(`${fromTeam.name} traded pick ${pickNumber} to ${toTeam.name}`);
+  renderDraft();
+  return true;
+}
+
+/**
+ * Complete the draft
+ */
+function completeDraft() {
+  if (!draftState.active) return;
+  console.log('Draft complete!');
+  draftState.active = false;
+  if (draftState.availableProspects.length > 0) {
+    console.log(`${draftState.availableProspects.length} players went undrafted`);
+  }
+  window.setStatus(`🎉 ${draftState.year} Draft Complete!`, 'success', 5000);
+  if (window.saveState) window.saveState();
+}
+
+/**
+ * Render enhanced draft board
+ */
+function renderDraftBoard() {
+  const container = document.getElementById('draftBoard');
+  if (!container) return;
+
+  if (!draftState.active) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const currentPick = getCurrentPick();
+  const upcomingPicks = getUpcomingPicks(10);
+  const recentPicks = draftState.completedPicks.slice(-10).reverse();
+
+  let html = `
+    <div class="draft-board-container">
+      <div class="draft-header">
+        <h2>${draftState.year} NFL Draft</h2>
+        <div class="draft-progress">
+          Pick ${draftState.currentPick + 1} of ${draftState.totalPicks}
+          (Round ${currentPick ? Math.ceil((draftState.currentPick + 1) / 32) : 1})
+        </div>
+      </div>
+
+      <div class="draft-main-grid">
+        <div class="draft-section current-pick-section">
+          <h3>Current Pick</h3>
+          ${currentPick ? `
+            <div class="current-pick-card ${currentPick.teamId === window.state.userTeamId ? 'user-pick' : ''}">
+              <div class="pick-number">Pick #${currentPick.pick}</div>
+              <div class="pick-team">${currentPick.team.name}</div>
+              <div class="pick-round">Round ${currentPick.round}</div>
+              ${currentPick.teamId === window.state.userTeamId ? `
+                <div class="pick-actions">
+                  <p class="pick-instruction">Select a player below</p>
+                </div>
+              ` : `
+                <div class="pick-status">CPU will pick automatically...</div>
+              `}
+            </div>
+          ` : '<p>Draft complete!</p>'}
+        </div>
+
+        <div class="draft-section recent-picks-section">
+          <h3>Recent Picks</h3>
+          <div class="recent-picks-list">
+            ${recentPicks.length > 0 ? recentPicks.map(pick => `
+              <div class="recent-pick-item">
+                <span class="pick-num">#${pick.pick}</span>
+                <span class="pick-team">${pick.team.abbr}</span>
+                <span class="pick-player">${pick.player.name} (${pick.player.pos})</span>
+                <span class="pick-ovr">OVR ${pick.player.ovr}</span>
+              </div>
+            `).join('') : '<p class="muted">No picks made yet</p>'}
+          </div>
+        </div>
+
+        <div class="draft-section upcoming-picks-section">
+          <h3>Upcoming Picks</h3>
+          <div class="upcoming-picks-list">
+            ${upcomingPicks.map((pick, index) => `
+              <div class="upcoming-pick-item ${pick.teamId === window.state.userTeamId ? 'user-pick' : ''}">
+                <span class="pick-num">#${pick.pick}</span>
+                <span class="pick-team">${pick.team.abbr}</span>
+                <span class="pick-round">R${pick.round}</span>
+                ${pick.teamId === window.state.userTeamId ? '<span class="your-pick">Your Pick</span>' : ''}
+                ${index === 0 && pick.teamId !== window.state.userTeamId ? `
+                  <button class="btn btn-sm" onclick="window.proposeDraftPickTrade(${pick.pick})">Trade</button>
+                ` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+/**
+ * Render available prospects with filtering
+ */
+function renderAvailableProspects() {
+  const container = document.getElementById('availableProspects');
+  if (!container) return;
+
+  if (!draftState.active) {
+    container.innerHTML = '';
+    return;
+  }
+
+  let prospects = [...draftState.availableProspects];
+  
+  // Apply position filter
+  const positionFilter = document.getElementById('prospectPositionFilter');
+  if (positionFilter && positionFilter.value) {
+    prospects = prospects.filter(p => p.pos === positionFilter.value);
+  }
+
+  // Apply sort
+  const sortFilter = document.getElementById('prospectSortFilter');
+  if (sortFilter) {
+    const sortBy = sortFilter.value || 'ovr';
+    prospects.sort((a, b) => {
+      if (sortBy === 'ovr') return (b.ovr || 0) - (a.ovr || 0);
+      if (sortBy === 'name') return (a.name || '').localeCompare(b.name || '');
+      if (sortBy === 'pos') return (a.pos || '').localeCompare(b.pos || '');
+      return 0;
+    });
+  } else {
+    prospects.sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
+  }
+
+  prospects = prospects.slice(0, 100); // Show top 100
+
+  const currentPick = getCurrentPick();
+  const isUserTurn = currentPick && currentPick.teamId === window.state.userTeamId;
+
+  let html = `
+    <div class="prospects-container">
+      <div class="prospects-header">
+        <h3>Available Prospects (${draftState.availableProspects.length} remaining)</h3>
+        <div class="prospects-filters">
+          <select id="prospectPositionFilter">
+            <option value="">All Positions</option>
+            <option value="QB">QB</option>
+            <option value="RB">RB</option>
+            <option value="WR">WR</option>
+            <option value="TE">TE</option>
+            <option value="OL">OL</option>
+            <option value="DL">DL</option>
+            <option value="LB">LB</option>
+            <option value="CB">CB</option>
+            <option value="S">S</option>
+            <option value="K">K</option>
+            <option value="P">P</option>
+          </select>
+          <select id="prospectSortFilter">
+            <option value="ovr">Overall</option>
+            <option value="name">Name</option>
+            <option value="pos">Position</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="prospects-grid">
+        ${prospects.map(prospect => `
+          <div class="prospect-card-draft ${isUserTurn ? 'selectable' : ''}" 
+               data-prospect-id="${prospect.id}"
+               ${isUserTurn ? `onclick="window.selectDraftProspect('${prospect.id}')"` : ''}>
+            <div class="prospect-header-draft">
+              <h4>${prospect.name}</h4>
+              <div class="prospect-meta">
+                <span class="pos-badge">${prospect.pos}</span>
+                <span class="ovr-badge">OVR ${prospect.ovr}</span>
+              </div>
+            </div>
+            <div class="prospect-details-draft">
+              <div class="detail-item">
+                <span>College:</span>
+                <span>${prospect.college || 'N/A'}</span>
+              </div>
+              <div class="detail-item">
+                <span>Age:</span>
+                <span>${prospect.age || 'N/A'}</span>
+              </div>
+              <div class="detail-item">
+                <span>Projected:</span>
+                <span>Round ${prospect.projectedRound || 'UDFA'}</span>
+              </div>
+            </div>
+            ${isUserTurn ? `
+              <button class="btn btn-primary btn-sm draft-select-btn" 
+                      onclick="event.stopPropagation(); window.selectDraftProspect('${prospect.id}')">
+                Draft Player
+              </button>
+            ` : ''}
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+
+  // Set up filters
+  const posFilter = document.getElementById('prospectPositionFilter');
+  const sortFilter = document.getElementById('prospectSortFilter');
+  if (posFilter) {
+    posFilter.addEventListener('change', () => renderAvailableProspects());
+  }
+  if (sortFilter) {
+    sortFilter.addEventListener('change', () => renderAvailableProspects());
+  }
+}
+
+/**
+ * Render the draft/scouting view (enhanced version)
  */
 function renderDraft() {
   console.log('Rendering draft...');
   
   try {
-    const L = state.league;
+    const L = window.state?.league;
     if (!L) {
       console.error('No league available for draft');
       return;
     }
     
-    // Ensure draft class exists
-    if (!state.draftClass || state.draftClass.length === 0) {
-      const draftYear = L.year + 1;
-      state.draftClass = generateProspects(draftYear);
-      console.log('Generated draft class for', draftYear);
-    }
+    const draftYear = L.year + 1;
     
     // Update draft year display
     const draftYearEl = document.getElementById('draftYear');
     if (draftYearEl) {
-      draftYearEl.textContent = L.year + 1;
+      draftYearEl.textContent = draftYear;
+    }
+    
+    // Check if enhanced draft is active
+    if (draftState.active) {
+      // Render enhanced draft board
+      const scoutingContainer = document.getElementById('scoutingList');
+      if (scoutingContainer) {
+        scoutingContainer.innerHTML = `
+          <div id="draftBoard"></div>
+          <div id="availableProspects"></div>
+        `;
+      }
+      renderDraftBoard();
+      renderAvailableProspects();
+      console.log('✅ Enhanced draft rendered');
+      return;
+    }
+    
+    // Fallback to basic draft view (pre-draft)
+    // Ensure draft class exists
+    if (!window.state.draftClass || window.state.draftClass.length === 0) {
+      window.state.draftClass = generateProspects(draftYear);
+      console.log('Generated draft class for', draftYear);
+    }
+    
+    // Show pre-draft view with start button
+    const scoutingContainer = document.getElementById('scoutingList');
+    if (scoutingContainer) {
+      scoutingContainer.innerHTML = `
+        <div class="card">
+          <h2>${draftYear} NFL Draft</h2>
+          <p>The draft will begin during the offseason.</p>
+          <button class="btn btn-primary" onclick="window.startDraft()">Start Draft</button>
+        </div>
+      `;
     }
     
     // Get team for picks display
@@ -294,7 +839,7 @@ function renderDraft() {
       teamSelect.dataset.filled = '1';
     }
     
-    const teamId = parseInt(teamSelect?.value || state.userTeamId || '0', 10);
+    const teamId = parseInt(teamSelect?.value || window.state.userTeamId || '0', 10);
     const team = L.teams[teamId];
     
     if (team) {
@@ -542,12 +1087,18 @@ function calculateBasicPickValue(pick) {
 }
 
 /**
- * Execute a draft pick
+ * Execute a draft pick (uses enhanced system if active, otherwise legacy)
  */
 function makeDraftPick(teamId, prospectId) {
-  const L = state.league;
-  const team = L.teams[teamId];
-  const prospect = state.draftClass?.find(p => p.id === prospectId);
+  // Use enhanced system if active
+  if (draftState.active) {
+    return makeDraftPickEnhanced(teamId, prospectId);
+  }
+  
+  // Legacy system
+  const L = window.state?.league;
+  const team = L?.teams[teamId];
+  const prospect = window.state.draftClass?.find(p => p.id === prospectId);
   
   if (!team || !prospect) {
     window.setStatus('Invalid draft pick selection');
@@ -560,9 +1111,9 @@ function makeDraftPick(teamId, prospectId) {
     team.roster.sort((a, b) => b.ovr - a.ovr);
     
     // Remove from draft class
-    const prospectIndex = state.draftClass.findIndex(p => p.id === prospectId);
+    const prospectIndex = window.state.draftClass.findIndex(p => p.id === prospectId);
     if (prospectIndex >= 0) {
-      state.draftClass.splice(prospectIndex, 1);
+      window.state.draftClass.splice(prospectIndex, 1);
     }
     
     // Remove used pick from team
@@ -590,6 +1141,58 @@ function makeDraftPick(teamId, prospectId) {
   }
 }
 
+/**
+ * Start the enhanced draft
+ */
+window.startDraft = function() {
+  const L = window.state?.league;
+  if (!L) {
+    window.setStatus('No league loaded');
+    return;
+  }
+
+  const draftYear = L.year + 1;
+  if (initializeDraft(L, draftYear)) {
+    renderDraft();
+    window.setStatus(`🚀 ${draftYear} Draft Started!`, 'success');
+  } else {
+    window.setStatus('Failed to start draft');
+  }
+};
+
+/**
+ * Select a prospect for drafting (user action)
+ */
+window.selectDraftProspect = function(prospectId) {
+  if (!draftState.active) {
+    window.setStatus('Draft not active');
+    return;
+  }
+
+  const currentPick = getCurrentPick();
+  if (!currentPick) {
+    window.setStatus('No current pick');
+    return;
+  }
+
+  if (currentPick.teamId !== window.state.userTeamId) {
+    window.setStatus('Not your turn to pick');
+    return;
+  }
+
+  makeDraftPickEnhanced(currentPick.teamId, prospectId);
+};
+
+/**
+ * Propose trading a draft pick
+ */
+window.proposeDraftPickTrade = function(pickNumber) {
+  // Open trade modal for draft pick
+  if (window.renderTradeCenter) {
+    window.renderTradeCenter();
+  }
+};
+
 // Make functions globally available
 window.generateProspects = generateProspects;
 window.makeProspect = makeProspect;
@@ -602,6 +1205,13 @@ window.renderDraft = renderDraft;
 window.renderTopProspects = renderTopProspects;
 window.scoutProspect = scoutProspect;
 window.makeDraftPick = makeDraftPick;
+window.initializeDraft = initializeDraft;
+window.makeDraftPickEnhanced = makeDraftPickEnhanced;
+window.tradeDraftPick = tradeDraftPick;
+window.getCurrentPick = getCurrentPick;
+window.getUpcomingPicks = getUpcomingPicks;
+window.renderDraftBoard = renderDraftBoard;
+window.renderAvailableProspects = renderAvailableProspects;
 
 // Add draft CSS
 const draftCSS = `
