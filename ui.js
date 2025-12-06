@@ -565,12 +565,194 @@ window.renderHub = function() {
             renderLastWeekResults();
         }
         
+        // Render standings on hub
+        renderHubStandings(L);
+        
+        // Render trade proposals on hub
+        renderHubTradeProposals();
+        
         console.log('✅ Hub rendered successfully');
         
     } catch (error) {
         console.error('Error rendering hub:', error);
     }
 };
+
+/**
+ * Renders a compact standings view on the hub
+ */
+function renderHubStandings(L) {
+    if (!L || !L.teams) return;
+    
+    // Check if standings container exists, create if not
+    let standingsContainer = document.getElementById('hubStandings');
+    if (!standingsContainer) {
+        const hubContainer = document.getElementById('hub');
+        if (hubContainer) {
+            standingsContainer = document.createElement('div');
+            standingsContainer.id = 'hubStandings';
+            standingsContainer.className = 'card mt';
+            standingsContainer.innerHTML = '<h3>Standings</h3><div id="hubStandingsContent"></div>';
+            // Insert after league team ratings or before last week results
+            const lastResults = document.getElementById('hubResults');
+            if (lastResults && lastResults.parentElement) {
+                lastResults.parentElement.insertBefore(standingsContainer, lastResults.parentElement.lastChild);
+            } else {
+                hubContainer.appendChild(standingsContainer);
+            }
+        } else {
+            return;
+        }
+    }
+    
+    const content = document.getElementById('hubStandingsContent');
+    if (!content) return;
+    
+    // Sort teams by record
+    const sortedTeams = L.teams.slice().sort((a, b) => {
+        const winsA = a.record?.w || 0;
+        const lossesA = a.record?.l || 0;
+        const winsB = b.record?.w || 0;
+        const lossesB = b.record?.l || 0;
+        const winPctA = winsA / Math.max(1, winsA + lossesA);
+        const winPctB = winsB / Math.max(1, winsB + lossesB);
+        
+        if (winPctB !== winPctA) return winPctB - winPctA;
+        const diffA = (a.record?.pf || 0) - (a.record?.pa || 0);
+        const diffB = (b.record?.pf || 0) - (b.record?.pa || 0);
+        return diffB - diffA;
+    });
+    
+    // Group by conference and division
+    const afcTeams = sortedTeams.filter(t => t.conf === 0);
+    const nfcTeams = sortedTeams.filter(t => t.conf === 1);
+    
+    let html = '<div class="standings-compact">';
+    
+    // AFC Standings
+    html += '<div class="standings-conference"><h4>AFC</h4>';
+    ['East', 'North', 'South', 'West'].forEach((divName, divIdx) => {
+        const divTeams = afcTeams.filter(t => t.div === divIdx).slice(0, 4);
+        if (divTeams.length > 0) {
+            html += `<div class="standings-division"><strong>${divName}</strong><ol>`;
+            divTeams.forEach((team, idx) => {
+                const record = `${team.record?.w || 0}-${team.record?.l || 0}`;
+                html += `<li>${team.abbr || team.name} (${record})</li>`;
+            });
+            html += '</ol></div>';
+        }
+    });
+    html += '</div>';
+    
+    // NFC Standings
+    html += '<div class="standings-conference"><h4>NFC</h4>';
+    ['East', 'North', 'South', 'West'].forEach((divName, divIdx) => {
+        const divTeams = nfcTeams.filter(t => t.div === divIdx).slice(0, 4);
+        if (divTeams.length > 0) {
+            html += `<div class="standings-division"><strong>${divName}</strong><ol>`;
+            divTeams.forEach((team, idx) => {
+                const record = `${team.record?.w || 0}-${team.record?.l || 0}`;
+                html += `<li>${team.abbr || team.name} (${record})</li>`;
+            });
+            html += '</ol></div>';
+        }
+    });
+    html += '</div>';
+    
+    html += '</div><div class="mt"><a href="#/standings" class="btn btn-sm">View Full Standings</a></div>';
+    
+    content.innerHTML = html;
+}
+
+/**
+ * Renders trade proposals on the hub
+ */
+function renderHubTradeProposals() {
+    if (!window.renderTradeProposals) return;
+    
+    // Check if trade proposals container exists, create if not
+    let proposalsContainer = document.getElementById('hubTradeProposals');
+    if (!proposalsContainer) {
+        const hubContainer = document.getElementById('hub');
+        if (hubContainer) {
+            proposalsContainer = document.createElement('div');
+            proposalsContainer.id = 'hubTradeProposals';
+            proposalsContainer.className = 'card mt';
+            proposalsContainer.innerHTML = `
+                <div class="row">
+                    <h3>Trade Proposals</h3>
+                    <div class="spacer"></div>
+                    <button id="btnRefreshHubProposals" class="btn btn-sm">Refresh</button>
+                </div>
+                <div id="hubTradeProposalsList"></div>
+            `;
+            const hubStandings = document.getElementById('hubStandings');
+            if (hubStandings && hubStandings.nextSibling) {
+                hubStandings.parentElement.insertBefore(proposalsContainer, hubStandings.nextSibling);
+            } else {
+                hubContainer.appendChild(proposalsContainer);
+            }
+        } else {
+            return;
+        }
+    }
+    
+    const listEl = document.getElementById('hubTradeProposalsList');
+    if (!listEl) return;
+    
+    // Generate proposals if they don't exist
+    if (!window.state.tradeProposals && window.generateAITradeProposals) {
+        window.generateAITradeProposals();
+    }
+    
+    const proposals = window.state.tradeProposals || [];
+    
+    // Add refresh button listener
+    const refreshBtn = document.getElementById('btnRefreshHubProposals');
+    if (refreshBtn && !refreshBtn._hubBound) {
+        refreshBtn.addEventListener('click', () => {
+            if (window.generateAITradeProposals) {
+                window.generateAITradeProposals();
+            }
+            renderHubTradeProposals();
+        });
+        refreshBtn._hubBound = true;
+    }
+    
+    if (proposals.length === 0) {
+        listEl.innerHTML = '<p class="muted">No trade proposals at this time. <a href="#/trade">Visit Trade Center</a></p>';
+        return;
+    }
+    
+    // Show first 2-3 proposals on hub
+    const L = window.state?.league;
+    if (!L) return;
+    
+    const userId = window.state?.userTeamId ?? 0;
+    const userTeam = L.teams[userId];
+    
+    listEl.innerHTML = proposals.slice(0, 3).map((p, idx) => {
+        const cpuTeam = L.teams[p.fromTeamId];
+        const cpuPlayers = p.cpuPlayers.map(pl => `${pl.name} (${pl.pos}, OVR ${pl.ovr})`).join(', ');
+        const userPlayers = p.userPlayers.map(pl => `${pl.name} (${pl.pos}, OVR ${pl.ovr})`).join(', ');
+        
+        return `
+            <div class="trade-proposal-compact">
+                <div class="trade-proposal-header">
+                    <strong>${cpuTeam.name}</strong> proposes:
+                </div>
+                <div class="trade-proposal-details">
+                    <div><strong>You receive:</strong> ${cpuPlayers || 'None'}</div>
+                    <div><strong>They receive:</strong> ${userPlayers || 'None'}</div>
+                    <div class="trade-proposal-actions">
+                        <button class="btn btn-sm" onclick="window.pendingTradeProposal = window.state.tradeProposals[${idx}]; location.hash='#/trade';">Negotiate</button>
+                        <button class="btn btn-sm" onclick="window.state.tradeProposals.splice(${idx}, 1); renderHubTradeProposals();">Dismiss</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('') + (proposals.length > 3 ? `<div class="mt"><a href="#/trade-proposals" class="btn btn-sm">View All Proposals (${proposals.length})</a></div>` : '');
+}
 
 function renderPowerRankings() {
     const L = window.state?.league;
