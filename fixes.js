@@ -964,6 +964,14 @@ console.log('[LeagueCreationFix] Loaded');
     // Only render content if game is ready
     if (!state.league || !state.onboarded) {
       console.log('Game not ready, skipping content rendering');
+      // Ensure onboarding modal is shown if game isn't ready
+      if (!state.onboarded && window.openOnboard) {
+        setTimeout(() => {
+          window.openOnboard().catch(err => {
+            console.error('Failed to open onboarding modal:', err);
+          });
+        }, 100);
+      }
       return;
     }
     
@@ -2011,6 +2019,25 @@ window.on = on;
         }
       });
     }, 100);
+    
+    // Ensure onboarding modal is shown if game isn't ready
+    setTimeout(() => {
+      if (window.state && (!window.state.league || !window.state.onboarded)) {
+        const modal = document.getElementById('onboardModal');
+        if (modal && modal.hidden) {
+          console.log('🎯 Game not ready - ensuring onboarding modal is visible');
+          if (window.openOnboard) {
+            window.openOnboard().catch(err => {
+              console.error('Failed to open onboarding modal:', err);
+            });
+          } else {
+            // Fallback: manually show modal
+            modal.hidden = false;
+            modal.style.display = 'flex';
+          }
+        }
+      }
+    }, 300);
     
     console.log('✅ All critical fixes initialized');
   }
