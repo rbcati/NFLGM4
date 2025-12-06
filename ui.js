@@ -1704,6 +1704,13 @@ window.renderTradeCenter = function () {
       global.renderTradeBlock();
     }, 100);
   }
+  
+  // Render Trade History
+  if (global.renderTradeHistory) {
+    setTimeout(() => {
+      global.renderTradeHistory();
+    }, 150);
+  }
 
   // --- 4) When you change the CPU team, re-render lists ---
 
