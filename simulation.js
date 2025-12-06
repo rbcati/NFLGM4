@@ -1042,7 +1042,25 @@ function simulateWeek() {
         const sH = gameScores.homeScore;
         const sA = gameScores.awayScore;
 
-        // Update player season stats from game stats
+        // Capture player stats BEFORE accumulating (snapshot for box score)
+        const capturePlayerStats = (roster) => {
+          const playerStats = {};
+          roster.forEach(player => {
+            if (player && player.stats && player.stats.game) {
+              playerStats[player.id] = {
+                name: player.name,
+                pos: player.pos,
+                stats: JSON.parse(JSON.stringify(player.stats.game)) // Deep copy
+              };
+            }
+          });
+          return playerStats;
+        };
+        
+        const homePlayerStats = capturePlayerStats(home.roster);
+        const awayPlayerStats = capturePlayerStats(away.roster);
+
+        // Update player season stats from game stats (AFTER capturing for box score)
         const updatePlayerStats = (roster) => {
           if (!Array.isArray(roster)) return;
           
@@ -1075,24 +1093,6 @@ function simulateWeek() {
         
         updatePlayerStats(home.roster);
         updatePlayerStats(away.roster);
-
-        // Capture player stats before they're accumulated (snapshot for box score)
-        const capturePlayerStats = (roster) => {
-          const playerStats = {};
-          roster.forEach(player => {
-            if (player && player.stats && player.stats.game) {
-              playerStats[player.id] = {
-                name: player.name,
-                pos: player.pos,
-                stats: JSON.parse(JSON.stringify(player.stats.game)) // Deep copy
-              };
-            }
-          });
-          return playerStats;
-        };
-        
-        const homePlayerStats = capturePlayerStats(home.roster);
-        const awayPlayerStats = capturePlayerStats(away.roster);
         
         // Store game result with complete box score
         results.push({
