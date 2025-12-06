@@ -73,10 +73,16 @@ function recalcCap(league, team) {
     // Calculate active player cap hits
     const active = team.roster.reduce((sum, p) => {
       if (!p) return sum;
+      
+      // Ensure yearsTotal is set for proration calculation
+      if (!p.yearsTotal && p.years) {
+        p.yearsTotal = p.years;
+      }
+      
       const hit = capHitFor(p, 0);
       // Sanity check: cap hit should be reasonable (0-50M per player)
       if (hit > 50 || hit < 0) {
-        console.warn(`Invalid cap hit for player ${p.name || p.id}: ${hit}M (baseAnnual: ${p.baseAnnual}, signingBonus: ${p.signingBonus}, yearsTotal: ${p.yearsTotal})`);
+        console.warn(`Invalid cap hit for player ${p.name || p.id}: ${hit}M (baseAnnual: ${p.baseAnnual}, signingBonus: ${p.signingBonus}, yearsTotal: ${p.yearsTotal}, years: ${p.years})`);
         // Use baseAnnual as fallback if capHitFor returns invalid value
         return sum + (p.baseAnnual || 0);
       }
