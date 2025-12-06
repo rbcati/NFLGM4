@@ -473,6 +473,20 @@ function makeDraftPickEnhanced(teamId, prospectId) {
       ...currentPick,
       player: { ...currentPick.player }
     });
+    
+    // Track in team's draft history
+    if (!team.draftHistory) {
+      team.draftHistory = [];
+    }
+    team.draftHistory.push({
+      year: draftState.year,
+      round: currentPick.round,
+      pickNumber: currentPick.pick,
+      playerId: prospect.id,
+      playerName: prospect.name,
+      playerPos: prospect.pos,
+      playerOvr: prospect.ovr
+    });
 
     // Advance to next pick
     draftState.currentPick++;
@@ -1312,5 +1326,485 @@ const draftCSS = `
 const draftStyleElement = document.createElement('style');
 draftStyleElement.textContent = draftCSS;
 document.head.appendChild(draftStyleElement);
+
+// ============================================
+// DRAFT ANALYSIS & GRADING SYSTEM
+// ============================================
+
+/**
+ * Analyzes a team's draft and assigns grades
+ * @param {Object} league - League object
+ * @param {number} teamId - Team ID
+ * @param {number} draftYear - Year of the draft
+ * @returns {Object} Draft analysis with grades
+ */
+window.analyzeDraft = function(league, teamId, draftYear) {
+  if (!league || !league.teams || !league.teams[teamId]) {
+    return null;
+  }
+
+  const team = league.teams[teamId];
+  const draftPicks = (team.draftHistory || []).filter(p => p.year === draftYear);
+  
+  if (draftPicks.length === 0) {
+    return {
+      year: draftYear,
+      teamId: teamId,
+      teamName: team.name,
+      picks: [],
+      overallGrade: 'N/A',
+      gradeValue: 0,
+      analysis: 'No picks in this draft',
+      needsMet: [],
+      bestPick: null,
+      worstPick: null
+    };
+  }
+
+  const analysis = {
+    year: draftYear,
+    teamId: teamId,
+    teamName: team.name,
+    picks: [],
+    overallGrade: 'F',
+    gradeValue: 0,
+    analysis: '',
+    needsMet: [],
+    bestPick: null,
+    worstPick: null,
+    valueScore: 0,
+    needScore: 0,
+    talentScore: 0
+  };
+
+  let totalValue = 0;
+  let totalExpectedValue = 0;
+  const needs = analyzeTeamNeedsAtDraft(team, draftYear);
+  const bestPicks = [];
+  const worstPicks = [];
+
+  draftPicks.forEach((pick, index) => {
+    const player = findPlayerByIdForDraft(league, pick.playerId);
+    if (!player) return;
+
+    const pickValue = evaluateDraftPick(pick, player, draftYear);
+    const needMet = needs.includes(player.pos);
+    const grade = calculatePickGrade(pick, player, pickValue, needMet);
+
+    const pickAnalysis = {
+      round: pick.round,
+      pick: pick.pickNumber || (pick.round * 32 - 31 + index),
+      player: {
+        name: player.name,
+        pos: player.pos,
+        ovr: player.ovr,
+        potential: player.potential || player.ovr
+      },
+      grade: grade.letter,
+      gradeValue: grade.value,
+      value: pickValue,
+      needMet: needMet,
+      analysis: grade.analysis
+    };
+
+    analysis.picks.push(pickAnalysis);
+    totalValue += pickValue;
+    totalExpectedValue += getExpectedValueForPick(pick.round, pick.pickNumber || (pick.round * 32 - 31 + index));
+    
+    if (grade.value >= 85) bestPicks.push(pickAnalysis);
+    if (grade.value < 60) worstPicks.push(pickAnalysis);
+  });
+
+  // Calculate overall scores
+  analysis.valueScore = draftPicks.length > 0 ? (totalValue / totalExpectedValue) * 100 : 0;
+  analysis.needScore = calculateNeedScore(analysis.picks, needs);
+  analysis.talentScore = calculateTalentScore(analysis.picks);
+
+  // Determine overall grade
+  const avgGrade = analysis.picks.length > 0 
+    ? analysis.picks.reduce((sum, p) => sum + p.gradeValue, 0) / analysis.picks.length 
+    : 0;
+  
+  analysis.gradeValue = avgGrade;
+  analysis.overallGrade = getGradeLetter(avgGrade);
+
+  // Find best and worst picks
+  if (bestPicks.length > 0) {
+    analysis.bestPick = bestPicks.sort((a, b) => b.gradeValue - a.gradeValue)[0];
+  }
+  if (worstPicks.length > 0) {
+    analysis.worstPick = worstPicks.sort((a, b) => a.gradeValue - b.gradeValue)[0];
+  }
+
+  // Generate analysis text
+  analysis.analysis = generateDraftAnalysisText(analysis, needs);
+
+  return analysis;
+};
+
+/**
+ * Evaluates a single draft pick
+ */
+function evaluateDraftPick(pick, player, draftYear) {
+  const expectedOvr = getExpectedOvrForPick(pick.round, pick.pickNumber);
+  const actualOvr = player.ovr || 0;
+  const potential = player.potential || player.ovr || 0;
+  
+  // Value based on how much better/worse than expected
+  const ovrDiff = actualOvr - expectedOvr;
+  const potentialDiff = potential - expectedOvr;
+  
+  // Base value from OVR difference
+  let value = 50 + (ovrDiff * 2);
+  
+  // Bonus for high potential
+  if (potential > expectedOvr + 5) {
+    value += 10;
+  }
+  
+  // Position value multiplier
+  const positionMultipliers = {
+    'QB': 1.3, 'OL': 1.2, 'DL': 1.1, 'CB': 1.1,
+    'WR': 1.0, 'LB': 1.0, 'S': 0.95, 'TE': 0.9, 'RB': 0.85, 'K': 0.5, 'P': 0.5
+  };
+  value *= (positionMultipliers[player.pos] || 1.0);
+  
+  return Math.max(0, Math.min(100, value));
+}
+
+/**
+ * Gets expected OVR for a pick
+ */
+function getExpectedOvrForPick(round, pickNumber) {
+  if (round === 1) {
+    if (pickNumber <= 5) return 82;
+    if (pickNumber <= 10) return 80;
+    if (pickNumber <= 20) return 78;
+    return 76;
+  } else if (round === 2) {
+    return 72;
+  } else if (round === 3) {
+    return 68;
+  } else if (round === 4) {
+    return 64;
+  } else if (round === 5) {
+    return 60;
+  } else if (round === 6) {
+    return 57;
+  } else {
+    return 55;
+  }
+}
+
+/**
+ * Gets expected value for a pick
+ */
+function getExpectedValueForPick(round, pickNumber) {
+  const baseValues = { 1: 100, 2: 70, 3: 50, 4: 35, 5: 25, 6: 15, 7: 10 };
+  const base = baseValues[round] || 10;
+  
+  // Adjust for pick position within round
+  if (round === 1) {
+    const positionInRound = ((pickNumber - 1) % 32) + 1;
+    if (positionInRound <= 5) return base * 1.2;
+    if (positionInRound <= 10) return base * 1.1;
+    if (positionInRound <= 20) return base * 1.05;
+  }
+  
+  return base;
+}
+
+/**
+ * Calculates grade for a pick
+ */
+function calculatePickGrade(pick, player, value, needMet) {
+  let gradeValue = 50;
+  let analysis = '';
+
+  // Value-based grade
+  if (value >= 90) {
+    gradeValue = 95;
+    analysis = 'Exceptional value';
+  } else if (value >= 80) {
+    gradeValue = 88;
+    analysis = 'Great value';
+  } else if (value >= 70) {
+    gradeValue = 78;
+    analysis = 'Good value';
+  } else if (value >= 60) {
+    gradeValue = 68;
+    analysis = 'Average value';
+  } else if (value >= 50) {
+    gradeValue = 58;
+    analysis = 'Below average value';
+  } else {
+    gradeValue = 45;
+    analysis = 'Poor value';
+  }
+
+  // Adjust for need
+  if (needMet) {
+    gradeValue += 5;
+    analysis += ', fills need';
+  } else {
+    gradeValue -= 3;
+    analysis += ', not a need';
+  }
+
+  // Adjust for potential
+  const expectedOvr = getExpectedOvrForPick(pick.round, pick.pickNumber);
+  if (player.potential && player.potential > expectedOvr + 8) {
+    gradeValue += 5;
+    analysis += ', high upside';
+  }
+
+  gradeValue = Math.max(0, Math.min(100, gradeValue));
+
+  return {
+    letter: getGradeLetter(gradeValue),
+    value: gradeValue,
+    analysis: analysis
+  };
+}
+
+/**
+ * Gets grade letter from value
+ */
+function getGradeLetter(value) {
+  if (value >= 93) return 'A+';
+  if (value >= 90) return 'A';
+  if (value >= 87) return 'A-';
+  if (value >= 83) return 'B+';
+  if (value >= 80) return 'B';
+  if (value >= 77) return 'B-';
+  if (value >= 73) return 'C+';
+  if (value >= 70) return 'C';
+  if (value >= 67) return 'C-';
+  if (value >= 63) return 'D+';
+  if (value >= 60) return 'D';
+  if (value >= 57) return 'D-';
+  return 'F';
+}
+
+/**
+ * Analyzes team needs at draft time
+ */
+function analyzeTeamNeedsAtDraft(team, draftYear) {
+  if (!team || !team.roster) return [];
+  
+  const needs = [];
+  const positionCounts = {};
+  
+  team.roster.forEach(player => {
+    const pos = player.pos || 'RB';
+    positionCounts[pos] = (positionCounts[pos] || 0) + 1;
+  });
+  
+  const idealCounts = {
+    'QB': 3, 'RB': 4, 'WR': 6, 'TE': 3, 'OL': 8,
+    'DL': 6, 'LB': 6, 'CB': 5, 'S': 4, 'K': 1, 'P': 1
+  };
+  
+  Object.keys(idealCounts).forEach(pos => {
+    const have = positionCounts[pos] || 0;
+    const need = idealCounts[pos] || 2;
+    if (have < need * 0.75) {
+      needs.push(pos);
+    }
+  });
+  
+  return needs;
+}
+
+/**
+ * Calculates need score
+ */
+function calculateNeedScore(picks, needs) {
+  if (picks.length === 0) return 0;
+  const needPicks = picks.filter(p => p.needMet).length;
+  return (needPicks / picks.length) * 100;
+}
+
+/**
+ * Calculates talent score
+ */
+function calculateTalentScore(picks) {
+  if (picks.length === 0) return 0;
+  const avgOvr = picks.reduce((sum, p) => sum + (p.player.ovr || 0), 0) / picks.length;
+  return Math.min(100, (avgOvr / 85) * 100);
+}
+
+/**
+ * Generates analysis text
+ */
+function generateDraftAnalysisText(analysis, needs) {
+  let text = '';
+  
+  if (analysis.picks.length === 0) {
+    return 'No picks in this draft.';
+  }
+  
+  text += `Drafted ${analysis.picks.length} player${analysis.picks.length > 1 ? 's' : ''}. `;
+  
+  if (analysis.overallGrade >= 'A') {
+    text += 'Excellent draft class with strong value throughout. ';
+  } else if (analysis.overallGrade >= 'B') {
+    text += 'Solid draft class with good value. ';
+  } else if (analysis.overallGrade >= 'C') {
+    text += 'Average draft class with mixed results. ';
+  } else {
+    text += 'Disappointing draft class with limited value. ';
+  }
+  
+  if (analysis.bestPick) {
+    text += `Best pick: ${analysis.bestPick.player.name} (${analysis.bestPick.grade}). `;
+  }
+  
+  if (analysis.needScore >= 70) {
+    text += 'Successfully addressed team needs. ';
+  } else if (analysis.needScore < 40) {
+    text += 'Failed to address key team needs. ';
+  }
+  
+  return text.trim();
+}
+
+/**
+ * Finds player by ID across all teams
+ */
+function findPlayerByIdForDraft(league, playerId) {
+  if (!league || !league.teams) return null;
+  
+  for (const team of league.teams) {
+    if (team.roster) {
+      const player = team.roster.find(p => p.id === playerId);
+      if (player) return player;
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Gets color for grade
+ */
+function getGradeColor(grade) {
+  if (grade.startsWith('A')) return 'var(--success-text, #28a745)';
+  if (grade.startsWith('B')) return '#4CAF50';
+  if (grade.startsWith('C')) return '#FFC107';
+  if (grade.startsWith('D')) return '#FF9800';
+  return 'var(--error-text, #dc3545)';
+}
+
+/**
+ * Renders draft analysis UI
+ */
+window.renderDraftAnalysis = function(teamId = null, draftYear = null) {
+  const L = window.state?.league;
+  if (!L || !L.teams) {
+    console.error('No league for draft analysis');
+    return;
+  }
+
+  const targetTeamId = teamId !== null ? teamId : (window.state?.userTeamId ?? 0);
+  const targetYear = draftYear !== null ? draftYear : (L.year || L.season || 2025);
+  
+  const analysis = window.analyzeDraft(L, targetTeamId, targetYear);
+  if (!analysis) {
+    console.error('Failed to analyze draft');
+    return;
+  }
+
+  // Find or create container
+  let container = document.getElementById('draftAnalysis');
+  if (!container) {
+    const draftView = document.getElementById('draft');
+    if (draftView) {
+      container = document.createElement('div');
+      container.id = 'draftAnalysis';
+      container.className = 'card';
+      container.style.marginTop = '20px';
+      draftView.appendChild(container);
+    } else {
+      console.error('Draft view not found');
+      return;
+    }
+  }
+
+  let html = `
+    <div class="draft-analysis-container">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h3 style="margin: 0; color: var(--accent);">${analysis.year} Draft Analysis: ${analysis.teamName}</h3>
+        <div style="display: flex; align-items: center; gap: 15px;">
+          <div style="text-align: center;">
+            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Overall Grade</div>
+            <div style="font-size: 36px; font-weight: 700; color: ${getGradeColor(analysis.overallGrade)};">
+              ${analysis.overallGrade}
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px;">
+        <div style="background: var(--surface); padding: 15px; border-radius: 8px; border: 1px solid var(--hairline);">
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Value Score</div>
+          <div style="font-size: 24px; font-weight: 600; color: var(--text);">${analysis.valueScore.toFixed(0)}</div>
+        </div>
+        <div style="background: var(--surface); padding: 15px; border-radius: 8px; border: 1px solid var(--hairline);">
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Need Score</div>
+          <div style="font-size: 24px; font-weight: 600; color: var(--text);">${analysis.needScore.toFixed(0)}</div>
+        </div>
+        <div style="background: var(--surface); padding: 15px; border-radius: 8px; border: 1px solid var(--hairline);">
+          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">Talent Score</div>
+          <div style="font-size: 24px; font-weight: 600; color: var(--text);">${analysis.talentScore.toFixed(0)}</div>
+        </div>
+      </div>
+      
+      <div style="background: var(--surface-strong); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--hairline-strong);">
+        <p style="margin: 0; color: var(--text); line-height: 1.6;">${analysis.analysis}</p>
+      </div>
+      
+      <h4 style="margin: 0 0 15px 0; color: var(--text);">Draft Picks</h4>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--surface-strong); border-bottom: 2px solid var(--hairline-strong);">
+              <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Pick</th>
+              <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Player</th>
+              <th style="padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text);">POS</th>
+              <th style="padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text);">OVR</th>
+              <th style="padding: 10px; text-align: center; font-size: 12px; font-weight: 600; color: var(--text);">Grade</th>
+              <th style="padding: 10px; text-align: left; font-size: 12px; font-weight: 600; color: var(--text);">Analysis</th>
+            </tr>
+          </thead>
+          <tbody>
+  `;
+
+  analysis.picks.forEach(pick => {
+    html += `
+      <tr style="border-bottom: 1px solid var(--hairline);">
+        <td style="padding: 10px; color: var(--text);">R${pick.round} P${pick.pick}</td>
+        <td style="padding: 10px; color: var(--text); font-weight: 500;">${pick.player.name}</td>
+        <td style="padding: 10px; text-align: center; color: var(--text);">${pick.player.pos}</td>
+        <td style="padding: 10px; text-align: center; color: var(--text);">${pick.player.ovr}</td>
+        <td style="padding: 10px; text-align: center;">
+          <span style="font-weight: 700; font-size: 16px; color: ${getGradeColor(pick.grade)};">
+            ${pick.grade}
+          </span>
+        </td>
+        <td style="padding: 10px; color: var(--text-muted); font-size: 12px;">${pick.analysis}</td>
+      </tr>
+    `;
+  });
+
+  html += `
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+};
 
 console.log('✅ Draft system fixed and loaded');
