@@ -127,14 +127,17 @@
     },
     
     /**
-     * Validate that state has all required properties.
+     * ENHANCED: Comprehensive state validation with nested structure checks
      */
     validate(stateObj) {
       if (!stateObj || typeof stateObj !== 'object') {
-        return { valid: false, errors: ['State is null or undefined'] };
+        return { valid: false, errors: ['State is null or undefined'], warnings: [] };
       }
       
       const errors = [];
+      const warnings = [];
+      
+      // Required top-level properties
       const requiredProps = [
         'namesMode', 'onboarded', 'gameMode', 'playerRole', 'userTeamId', 'version'
       ];
@@ -145,58 +148,304 @@
         }
       });
       
-      // Basic value validation
-      if (!['fictional', 'real'].includes(stateObj.namesMode)) {
+      // Value validation
+      if (stateObj.namesMode && !['fictional', 'real'].includes(stateObj.namesMode)) {
         errors.push('Invalid namesMode');
       }
       
-      return { valid: errors.length === 0, errors };
+      if (stateObj.userTeamId !== undefined && (typeof stateObj.userTeamId !== 'number' || stateObj.userTeamId < 0)) {
+        errors.push('Invalid userTeamId');
+      }
+      
+      // Validate league structure if present
+      if (stateObj.league) {
+        const leagueErrors = this.validateLeague(stateObj.league);
+        errors.push(...leagueErrors);
+      } else {
+        warnings.push('No league data present (new game?)');
+      }
+      
+      // Validate nested collections
+      if (stateObj.freeAgents && !Array.isArray(stateObj.freeAgents)) {
+        errors.push('freeAgents must be an array');
+      }
+      
+      if (stateObj.draftClass && !Array.isArray(stateObj.draftClass)) {
+        errors.push('draftClass must be an array');
+      }
+      
+      if (stateObj.pendingOffers && !Array.isArray(stateObj.pendingOffers)) {
+        errors.push('pendingOffers must be an array');
+      }
+      
+      // Validate settings structure
+      if (stateObj.settings && typeof stateObj.settings !== 'object') {
+        errors.push('settings must be an object');
+      }
+      
+      // Check for data integrity issues
+      if (stateObj.league && stateObj.league.teams) {
+        const teamCount = stateObj.league.teams.length;
+        if (teamCount !== 32 && teamCount !== 0) {
+          warnings.push(`Unexpected team count: ${teamCount} (expected 32 or 0 for new game)`);
+        }
+        
+        // Validate userTeamId is within bounds
+        if (stateObj.userTeamId >= teamCount && teamCount > 0) {
+          errors.push(`userTeamId (${stateObj.userTeamId}) out of bounds for ${teamCount} teams`);
+        }
+      }
+      
+      return { 
+        valid: errors.length === 0, 
+        errors, 
+        warnings,
+        schemaVersion: stateObj.version || 'unknown'
+      };
     },
     
     /**
-     * Migrate old state to current version (handles missing/outdated properties).
+     * Validate league structure
+     */
+    validateLeague(league) {
+      const errors = [];
+      
+      if (!league || typeof league !== 'object') {
+        errors.push('League must be an object');
+        return errors;
+      }
+      
+      // Check required league properties
+      if (league.year !== undefined && (typeof league.year !== 'number' || league.year < 2020 || league.year > 2100)) {
+        errors.push('Invalid league.year');
+      }
+      
+      if (league.week !== undefined && (typeof league.week !== 'number' || league.week < 1 || league.week > 18)) {
+        errors.push('Invalid league.week');
+      }
+      
+      // Validate teams array
+      if (league.teams) {
+        if (!Array.isArray(league.teams)) {
+          errors.push('league.teams must be an array');
+        } else {
+          league.teams.forEach((team, index) => {
+            if (!team || typeof team !== 'object') {
+              errors.push(`Team at index ${index} is invalid`);
+              return;
+            }
+            
+            // Check team has required properties
+            if (!team.name && !team.abbr) {
+              errors.push(`Team at index ${index} missing name/abbr`);
+            }
+            
+            // Validate roster if present
+            if (team.roster && !Array.isArray(team.roster)) {
+              errors.push(`Team ${index} roster must be an array`);
+            }
+            
+            // Validate picks if present
+            if (team.picks && !Array.isArray(team.picks)) {
+              errors.push(`Team ${index} picks must be an array`);
+            }
+          });
+        }
+      }
+      
+      return errors;
+    },
+    
+    /**
+     * ENHANCED: Version-aware migration with schema updates
      */
     migrate(oldState) {
       if (!oldState) return this.init();
       
-      console.log('Migrating state from version:', oldState.version || 'unknown');
+      const oldVersion = oldState.version || '1.0.0';
+      console.log('Migrating state from version:', oldVersion, 'to', this.init().version);
       
+      let migratedState = { ...oldState };
+      
+      // Version-specific migrations
+      if (this.compareVersions(oldVersion, '4.0.0') < 0) {
+        // Migrate from pre-4.0.0
+        migratedState = this.migrateToV4(migratedState);
+      }
+      
+      // Always ensure current schema structure
       const newState = this.init();
       
-      // Function to safely copy properties from old to new state
-      const safeCopy = (prop, fallback) => {
-        if (oldState[prop] !== undefined && oldState[prop] !== null) {
-          newState[prop] = oldState[prop];
+      // Safe copy function with type checking
+      const safeCopy = (prop, fallback, validator = null) => {
+        const value = migratedState[prop];
+        if (value !== undefined && value !== null) {
+          if (validator && !validator(value)) {
+            console.warn(`Invalid value for ${prop}, using fallback`);
+            newState[prop] = fallback;
+          } else {
+            newState[prop] = value;
+          }
         } else if (fallback !== undefined) {
           newState[prop] = fallback;
         }
       };
       
-      // Copy core properties and systems
-      ['league', 'freeAgents', 'playoffs', 'trainingPlan', 'pendingOffers', 'draftClass'].forEach(safeCopy);
+      // Copy core properties with validation
+      safeCopy('league', null, (v) => typeof v === 'object');
+      safeCopy('freeAgents', [], (v) => Array.isArray(v));
+      safeCopy('playoffs', null, (v) => v === null || typeof v === 'object');
+      safeCopy('trainingPlan', null);
+      safeCopy('pendingOffers', [], (v) => Array.isArray(v));
+      safeCopy('draftClass', [], (v) => Array.isArray(v));
 
       // Copy settings and user data
-      safeCopy('namesMode', 'fictional');
-      safeCopy('onboarded', false);
-      safeCopy('gameMode', 'gm');
-      safeCopy('playerRole', 'GM');
-      safeCopy('userTeamId', 0);
+      safeCopy('namesMode', 'fictional', (v) => ['fictional', 'real'].includes(v));
+      safeCopy('onboarded', false, (v) => typeof v === 'boolean');
+      safeCopy('gameMode', 'gm', (v) => ['gm', 'career'].includes(v));
+      safeCopy('playerRole', 'GM', (v) => ['GM', 'OC', 'DC'].includes(v));
+      safeCopy('userTeamId', 0, (v) => typeof v === 'number' && v >= 0);
       safeCopy('currentView', 'hub');
-      safeCopy('theme', 'dark');
+      safeCopy('theme', 'dark', (v) => ['dark', 'light'].includes(v));
+      safeCopy('season', 1, (v) => typeof v === 'number' && v > 0);
+      safeCopy('year', YEAR_START, (v) => typeof v === 'number' && v >= 2020);
 
-      if (oldState.player) {
-        newState.player = { ...newState.player, ...oldState.player };
+      // Merge nested objects
+      if (migratedState.player && typeof migratedState.player === 'object') {
+        newState.player = { ...newState.player, ...migratedState.player };
       }
-      if (oldState.settings) {
-        newState.settings = { ...newState.settings, ...oldState.settings };
+      if (migratedState.settings && typeof migratedState.settings === 'object') {
+        newState.settings = { ...newState.settings, ...migratedState.settings };
+      }
+      
+      // Migrate league structure if present
+      if (migratedState.league) {
+        newState.league = this.migrateLeague(migratedState.league);
       }
       
       // Final updates
-      newState.version = this.init().version; // Ensure current version
+      newState.version = this.init().version;
       newState.lastSaved = new Date().toISOString();
+      
+      // Preserve creation date if exists
+      if (migratedState.created) {
+        newState.created = migratedState.created;
+      }
       
       console.log('State migration complete');
       return newState;
+    },
+    
+    /**
+     * Migrate league structure
+     */
+    migrateLeague(league) {
+      if (!league || typeof league !== 'object') return null;
+      
+      const migrated = { ...league };
+      
+      // Ensure teams array exists and is valid
+      if (!Array.isArray(migrated.teams)) {
+        migrated.teams = [];
+      }
+      
+      // Migrate each team
+      migrated.teams = migrated.teams.map((team, index) => {
+        if (!team || typeof team !== 'object') {
+          console.warn(`Invalid team at index ${index}, skipping`);
+          return null;
+        }
+        
+        const migratedTeam = { ...team };
+        
+        // Ensure roster is array
+        if (!Array.isArray(migratedTeam.roster)) {
+          migratedTeam.roster = [];
+        }
+        
+        // Ensure picks is array
+        if (!Array.isArray(migratedTeam.picks)) {
+          migratedTeam.picks = [];
+        }
+        
+        // Migrate player structures if needed
+        migratedTeam.roster = migratedTeam.roster.map(player => {
+          if (!player || typeof player !== 'object') return null;
+          
+          // Ensure player has required properties
+          const migratedPlayer = { ...player };
+          if (!migratedPlayer.id) {
+            migratedPlayer.id = `migrated_${Date.now()}_${Math.random()}`;
+          }
+          if (!migratedPlayer.stats) {
+            migratedPlayer.stats = { game: {}, season: {}, career: {} };
+          }
+          
+          return migratedPlayer;
+        }).filter(p => p !== null);
+        
+        return migratedTeam;
+      }).filter(t => t !== null);
+      
+      // Ensure records structure exists
+      if (!migrated.records) {
+        migrated.records = {};
+      }
+      
+      // Ensure history structure exists
+      if (!migrated.history) {
+        migrated.history = {
+          superBowls: [],
+          mvps: [],
+          awards: [],
+          coachRankings: []
+        };
+      }
+      
+      return migrated;
+    },
+    
+    /**
+     * Migrate to version 4.0.0 schema
+     */
+    migrateToV4(state) {
+      console.log('Applying v4.0.0 migration...');
+      
+      // Add new properties that didn't exist in older versions
+      if (!state.settings) {
+        state.settings = {
+          autoSave: true,
+          difficulty: 'normal',
+          simSpeed: 'normal',
+          notifications: true,
+          sound: false,
+          salaryCapEnabled: true,
+          allowCoachFiring: true
+        };
+      }
+      
+      // Ensure version is set
+      state.version = '4.0.0';
+      
+      return state;
+    },
+    
+    /**
+     * Compare version strings (returns -1, 0, or 1)
+     */
+    compareVersions(v1, v2) {
+      const parts1 = v1.split('.').map(Number);
+      const parts2 = v2.split('.').map(Number);
+      
+      for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+        const part1 = parts1[i] || 0;
+        const part2 = parts2[i] || 0;
+        
+        if (part1 < part2) return -1;
+        if (part1 > part2) return 1;
+      }
+      
+      return 0;
     },
     
     /**
@@ -244,9 +493,27 @@
       
       let loadedState;
       
-      if (!validation.valid || parsed.version !== State.init().version) {
-        console.warn('Invalid or outdated state found, migrating...', validation.errors);
+      // Show warnings if any
+      if (validation.warnings && validation.warnings.length > 0) {
+        console.warn('State validation warnings:', validation.warnings);
+      }
+      
+      // Migrate if invalid, outdated, or has errors
+      if (!validation.valid || parsed.version !== State.init().version || validation.errors.length > 0) {
+        if (validation.errors.length > 0) {
+          console.warn('Invalid state found, migrating...', validation.errors);
+        } else {
+          console.log('Outdated state version, migrating...');
+        }
         loadedState = State.migrate(parsed);
+        
+        // Re-validate after migration
+        const postMigrationValidation = State.validate(loadedState);
+        if (!postMigrationValidation.valid) {
+          console.error('State still invalid after migration:', postMigrationValidation.errors);
+          // Try to salvage what we can
+          loadedState = State.init();
+        }
       } else {
         console.log('Valid state loaded');
         loadedState = parsed;
