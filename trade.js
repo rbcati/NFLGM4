@@ -727,6 +727,166 @@
   global.assetPlayer = assetPlayer;
   global.assetPick = assetPick;
 
+  /**
+   * Renders Trade Block UI - Better than competitors with visual management
+   */
+  global.renderTradeBlock = function() {
+    const L = global.state?.league;
+    if (!L || !L.teams) {
+      console.error('No league for trade block');
+      return;
+    }
+
+    const userTeamId = global.state?.userTeamId ?? 0;
+    const userTeam = L.teams[userTeamId];
+    if (!userTeam) {
+      console.error('User team not found');
+      return;
+    }
+
+    // Find or create trade block container
+    let container = document.getElementById('tradeBlock');
+    if (!container) {
+      // Try to add it to the trade view
+      const tradeView = document.getElementById('trade');
+      if (tradeView) {
+        container = document.createElement('div');
+        container.id = 'tradeBlock';
+        container.className = 'card';
+        container.style.marginTop = '20px';
+        tradeView.appendChild(container);
+      } else {
+        console.error('Trade view not found for trade block');
+        return;
+      }
+    }
+
+    const tradeBlock = ensureTradeBlock(userTeam);
+    const blockPlayers = tradeBlock.map(playerId => 
+      findPlayerOnTeam(userTeam, playerId)
+    ).filter(p => p !== null);
+
+    const leagueYear = getLeagueYear(L);
+
+    let html = `
+      <div class="trade-block-container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+          <h3 style="margin: 0; color: var(--accent);">Trade Block (${blockPlayers.length})</h3>
+          <button class="btn btn-sm" onclick="window.refreshTradeBlock()" style="padding: 6px 12px; font-size: 12px;">
+            Refresh
+          </button>
+        </div>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">
+          Players on your trade block are more likely to receive CPU trade offers.
+        </p>
+    `;
+
+    if (blockPlayers.length === 0) {
+      html += `
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <p>No players on trade block</p>
+          <p style="font-size: 12px; margin-top: 10px;">Add players from your roster to receive trade offers</p>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="trade-block-list" style="display: grid; gap: 10px;">
+      `;
+
+      blockPlayers.forEach(player => {
+        const playerVal = calcPlayerTradeValue(player, leagueYear);
+        const capHit = player.baseAnnual || 0;
+        const yearsLeft = player.years || 0;
+
+        html += `
+          <div class="trade-block-item" style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 12px; 
+            background: var(--surface); 
+            border: 1px solid var(--hairline); 
+            border-radius: 6px;
+            transition: all 0.2s;
+          " onmouseover="this.style.background='var(--surface-strong)'" onmouseout="this.style.background='var(--surface)'">
+            <div style="flex: 1;">
+              <div style="display: flex; align-items: center; gap: 10px;">
+                <strong style="color: var(--text);">${player.name}</strong>
+                <span style="color: var(--text-muted); font-size: 12px;">${player.pos}</span>
+                <span style="color: var(--accent); font-weight: 600;">OVR ${player.ovr}</span>
+              </div>
+              <div style="display: flex; gap: 15px; margin-top: 5px; font-size: 12px; color: var(--text-muted);">
+                <span>Age: ${player.age}</span>
+                <span>Cap: $${capHit.toFixed(1)}M</span>
+                <span>Years: ${yearsLeft}</span>
+                <span>Value: ${playerVal.toFixed(0)}</span>
+              </div>
+            </div>
+            <button class="btn btn-sm" onclick="window.removeFromTradeBlock(${userTeamId}, ${player.id}); window.renderTradeBlock();" 
+                    style="padding: 6px 12px; background: var(--error-text, #dc3545); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+              Remove
+            </button>
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+    }
+
+    html += `
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--hairline);">
+          <h4 style="margin: 0 0 10px 0; font-size: 16px; color: var(--text);">Add Players to Trade Block</h4>
+          <div style="max-height: 300px; overflow-y: auto; display: grid; gap: 8px;">
+    `;
+
+    // Show players not on block
+    const availablePlayers = (userTeam.roster || []).filter(p => 
+      !tradeBlock.includes(p.id)
+    ).sort((a, b) => (b.ovr || 0) - (a.ovr || 0));
+
+    if (availablePlayers.length === 0) {
+      html += `<p style="color: var(--text-muted); text-align: center; padding: 20px;">All players are on the trade block</p>`;
+    } else {
+      availablePlayers.slice(0, 20).forEach(player => {
+        html += `
+          <div style="
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            padding: 8px 12px; 
+            background: var(--surface); 
+            border: 1px solid var(--hairline); 
+            border-radius: 4px;
+            font-size: 13px;
+          ">
+            <span><strong>${player.name}</strong> (${player.pos}) - OVR ${player.ovr}</span>
+            <button class="btn btn-sm" onclick="window.addToTradeBlock(${userTeamId}, ${player.id}); window.renderTradeBlock();" 
+                    style="padding: 4px 10px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">
+              Add
+            </button>
+          </div>
+        `;
+      });
+    }
+
+    html += `
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  };
+
+  /**
+   * Refreshes trade block view
+   */
+  global.refreshTradeBlock = function() {
+    if (global.renderTradeBlock) {
+      global.renderTradeBlock();
+    }
+  };
+
   console.log('✅ Trade system (manual + CPU) loaded and optimized for value');
 
 })(window);
