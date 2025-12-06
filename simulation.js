@@ -10,9 +10,14 @@
  * schedule, processes salary cap rollover (if available), and clears
  * playoff data. A helper function `startNewSeason` is exposed globally
  * for reuse.
+ *
+ * ES Module version - migrated from global exports
  */
 
-'use strict';
+// Import dependencies
+// TODO: Convert Utils and Constants to ES modules and import properly
+const getUtils = () => window.Utils;
+const getConstants = () => window.Constants;
 
 /**
  * Validates that required global dependencies are available
@@ -731,14 +736,20 @@ function startOffseason() {
       return;
     }
 
+    // FIXED: Prevent multiple calls
+    if (window.state.offseason === true) {
+      console.log('Already in offseason, skipping');
+      return;
+    }
+
     console.log('Starting offseason...');
+    
+    // Set offseason flag IMMEDIATELY to prevent multiple calls
+    window.state.offseason = true;
+    window.state.offseasonYear = L.year;
     
     // Accumulate season stats into career stats for all players
     accumulateCareerStats(L);
-    
-    // Set offseason flag
-    window.state.offseason = true;
-    window.state.offseasonYear = L.year;
     
     // Process salary cap rollover for each team
     if (typeof window.processCapRollover === 'function') {
@@ -1232,7 +1243,25 @@ function simulateWeek() {
   }
 }
 
-// Expose functions globally for compatibility
+// ============================================================================
+// ES MODULE EXPORTS
+// ============================================================================
+
+export {
+  simulateWeek,
+  simGameStats,
+  applyResult,
+  startOffseason,
+  startNewSeason,
+  initializePlayerStats,
+  accumulateCareerStats
+};
+
+// ============================================================================
+// BACKWARD COMPATIBILITY SHIMS
+// ============================================================================
+// TODO: Remove these once all code is migrated to ES modules
+
 if (typeof window !== 'undefined') {
   window.simulateWeek = simulateWeek;
   window.simGameStats = simGameStats;
