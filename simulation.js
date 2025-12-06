@@ -224,6 +224,15 @@ function startOffseason() {
       });
     }
     
+    // Record coach rankings for the season
+    if (typeof window.calculateAndRecordCoachRankings === 'function') {
+      try {
+        window.calculateAndRecordCoachRankings(L, L.year);
+      } catch (error) {
+        console.error('Error recording coach rankings:', error);
+      }
+    }
+
     // Run any offseason processing hooks (e.g., coaching stats)
     if (typeof window.runOffseason === 'function') {
       try {
