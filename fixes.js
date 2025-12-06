@@ -227,10 +227,10 @@ function makePlayer(pos, overrides = {}) {
     ratings: ratings,
     ovr: ovr,
     years: contractDetails.years,
-    yearsTotal: contractDetails.years,
+    yearsTotal: contractDetails.yearsTotal || contractDetails.years, // Ensure yearsTotal is set
     baseAnnual: contractDetails.baseAnnual,
-    signingBonus: contractDetails.signingBonus,
-    guaranteedPct: contractDetails.guaranteedPct,
+    signingBonus: contractDetails.signingBonus || 0,
+    guaranteedPct: contractDetails.guaranteedPct || 0.5,
     injuryWeeks: 0,
     fatigue: 0,
     abilities: [],
@@ -379,50 +379,68 @@ function generateContract(ovr, pos) {
   const C = window.Constants;
   
   // FIXED: Realistic salary calculation that fits within $220M cap
-  // Average team has ~50 players, so average salary should be ~$4-5M
-  // Salary tiers: Elite (90+): $20-35M, Good (80-89): $8-20M, Avg (70-79): $3-8M, Low (60-69): $1-3M, Very Low (40-59): $0.5-1M
-  const positionMultiplier = C.POSITION_VALUES[pos] || 1.0;
+  // Teams have ~35 players (DEPTH_NEEDS total), so average salary should be ~$6.3M
+  // But we need a realistic distribution where most players are depth/role players
+  // Target: ~$180-200M total cap usage to leave room for free agency
+  const positionMultiplier = C.POSITION_VALUES?.[pos] || 1.0;
   
-  // Adjusted formula to create realistic salary distribution
-  // Base: (ovr / 100) gives us 0.4 to 0.99 range
-  // Multiply by position value (0.5 to 1.6)
-  // Then scale to fit cap: target average of ~$4.5M per player
+  // SIGNIFICANTLY REDUCED salary ranges to fit within cap
+  // Distribution: 1-2 elite, 3-5 good, 10-15 average, 15-20 depth
   let baseAnnual;
   
   if (ovr >= 90) {
-    // Elite players: $20-35M
-    baseAnnual = U.rand(20, 35) * positionMultiplier * 0.9; // Slight discount for non-QB positions
+    // Elite players: $12-22M (reduced from $20-35M)
+    // Only QBs and rare elite players get top tier
+    if (pos === 'QB') {
+      baseAnnual = U.rand(15, 25) * positionMultiplier;
+    } else {
+      baseAnnual = U.rand(12, 20) * positionMultiplier * 0.85;
+    }
   } else if (ovr >= 80) {
-    // Good players: $8-20M
-    baseAnnual = U.rand(8, 20) * positionMultiplier * 0.85;
+    // Good players: $4-12M (reduced from $8-20M)
+    baseAnnual = U.rand(4, 12) * positionMultiplier * 0.9;
   } else if (ovr >= 70) {
-    // Average players: $3-8M
-    baseAnnual = U.rand(3, 8) * positionMultiplier;
+    // Average players: $1.5-5M (reduced from $3-8M)
+    baseAnnual = U.rand(1.5, 5) * positionMultiplier;
   } else if (ovr >= 60) {
-    // Below average: $1-3M
-    baseAnnual = U.rand(1, 3) * positionMultiplier;
+    // Below average: $0.6-2M (reduced from $1-3M)
+    baseAnnual = U.rand(0.6, 2) * positionMultiplier;
   } else {
-    // Low OVR: $0.5-1M
-    baseAnnual = U.rand(0.5, 1) * positionMultiplier;
+    // Low OVR: $0.4-0.8M (reduced from $0.5-1M)
+    baseAnnual = U.rand(0.4, 0.8) * positionMultiplier;
   }
   
-  // Cap maximum at $40M (for elite QBs)
-  if (baseAnnual > 40) baseAnnual = 40;
+  // Cap maximum at $30M (for elite QBs only)
+  if (baseAnnual > 30) baseAnnual = 30;
   
   // Ensure minimum
-  if (baseAnnual < 0.5) baseAnnual = 0.5;
+  if (baseAnnual < 0.4) baseAnnual = 0.4;
   
   baseAnnual = Math.round(baseAnnual * 10) / 10;
   
   const years = U.rand(1, 4);
-  const bonusPercent = C.SALARY_CAP.SIGNING_BONUS_MIN + 
-                      Math.random() * (C.SALARY_CAP.SIGNING_BONUS_MAX - C.SALARY_CAP.SIGNING_BONUS_MIN);
+  
+  // REDUCED signing bonus percentage to keep cap hits reasonable
+  // Lower bonus = lower prorated cap hit
+  const bonusPercent = (C.SALARY_CAP.SIGNING_BONUS_MIN || 0.15) + 
+                      Math.random() * ((C.SALARY_CAP.SIGNING_BONUS_MAX || 0.4) - (C.SALARY_CAP.SIGNING_BONUS_MIN || 0.15));
+  
+  // Cap signing bonus to prevent excessive prorated amounts
+  const maxBonus = baseAnnual * years * 0.4; // Max 40% of total contract
+  const signingBonus = Math.min(
+    Math.round((baseAnnual * years * bonusPercent) * 10) / 10,
+    maxBonus
+  );
+  
+  // Ensure yearsTotal matches years for proper proration calculation
+  const yearsTotal = years;
   
   return {
     years,
+    yearsTotal, // Critical for prorated bonus calculation
     baseAnnual,
-    signingBonus: Math.round((baseAnnual * years * bonusPercent) * 10) / 10,
-    guaranteedPct: C.SALARY_CAP.GUARANTEED_PCT_DEFAULT
+    signingBonus: signingBonus,
+    guaranteedPct: C.SALARY_CAP?.GUARANTEED_PCT_DEFAULT || 0.5
   };
 }
 
