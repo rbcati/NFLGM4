@@ -756,14 +756,27 @@ console.log('[LeagueCreationFix] Loaded');
         const canonicalTeams = getCanonicalTeams(namesMode);
         const league = window.state?.league;
         const userTeamId = window.state?.userTeamId;
-        const selectedTeam = canonicalTeams?.[userTeamId];
         const leagueTeam = league?.teams?.[userTeamId];
+        
+        // FIXED: Find the selected team in canonical list by matching with league team
+        let selectedTeam = null;
+        if (leagueTeam) {
+            // Find canonical team that matches the league team
+            selectedTeam = canonicalTeams.find(t => 
+                t.abbr === leagueTeam.abbr || t.name === leagueTeam.name
+            );
+        }
+        
+        // If not found, try by index
+        if (!selectedTeam && canonicalTeams[userTeamId]) {
+            selectedTeam = canonicalTeams[userTeamId];
+        }
+        
         const match = Boolean(
             selectedTeam &&
             leagueTeam &&
             leagueTeam.id === userTeamId &&
-            leagueTeam.abbr === selectedTeam.abbr &&
-            leagueTeam.name === selectedTeam.name
+            (leagueTeam.abbr === selectedTeam.abbr || leagueTeam.name === selectedTeam.name)
         );
 
         const payload = {
