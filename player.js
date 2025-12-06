@@ -1847,7 +1847,7 @@
           actualOverall - variance, 
           config.OVERALL_BOUNDS.MIN, 
           config.OVERALL_BOUNDS.MAX
-      ) : Math.max(config.OVERALL_BOUNDS.MIN, Math.min(config.OVERALL_BOUNDS.MAX, actualOverall - variance);
+      ) : Math.max(config.OVERALL_BOUNDS.MIN, Math.min(config.OVERALL_BOUNDS.MAX, actualOverall - variance));
       
       const ceiling = U ? U.clamp(
           actualOverall + variance, 
