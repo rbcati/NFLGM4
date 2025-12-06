@@ -994,6 +994,27 @@ console.log('[LeagueCreationFix] Loaded');
             break;
           case 'roster':
             if (window.renderRoster) {
+              // Ensure team select is properly initialized with league teams before rendering
+              const teamSelect = document.getElementById('rosterTeam');
+              const L = window.state?.league;
+              if (teamSelect && L && L.teams && L.teams.length > 0) {
+                // Fill with league teams (not original team list)
+                if (!teamSelect.dataset.filled || teamSelect.options.length !== L.teams.length) {
+                  teamSelect.innerHTML = '';
+                  L.teams.forEach((team, index) => {
+                    const option = document.createElement('option');
+                    option.value = String(index);
+                    option.textContent = `${team.abbr || 'T' + index} — ${team.name || 'Team ' + index}`;
+                    teamSelect.appendChild(option);
+                  });
+                  teamSelect.dataset.filled = '1';
+                }
+                // Sync with current viewTeamId or userTeamId
+                const preferredTeamId = window.state?.viewTeamId ?? window.state?.userTeamId ?? 0;
+                if (preferredTeamId >= 0 && preferredTeamId < L.teams.length) {
+                  teamSelect.value = String(preferredTeamId);
+                }
+              }
               window.renderRoster();
               console.log('✅ Roster rendered');
             }
@@ -1359,19 +1380,69 @@ console.log('[LeagueCreationFix] Loaded');
       return;
     }
     
-    // Check localStorage for saved state and default to collapsed on small screens/standalone
+    // Check localStorage for saved state
+    // On mobile, start collapsed but allow user to expand it
     const savedState = localStorage.getItem('navSidebarCollapsed');
     const isSmallScreen = window.innerWidth < 1024;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const isCollapsed = savedState === 'true' || (!savedState && (isSmallScreen || isStandalone));
-
-    if (isCollapsed) {
-      navSidebar.classList.add('collapsed');
-      layout.classList.add('nav-collapsed');
-      navToggle.setAttribute('aria-expanded', 'false');
+    
+    // Only auto-collapse if explicitly saved, or if it's a new session on mobile
+    // But always allow the user to expand it
+    const shouldStartCollapsed = savedState === 'true' || (!savedState && isSmallScreen && isStandalone);
+    
+    // On mobile, always start collapsed but ensure toggle is visible
+    if (isSmallScreen) {
+      // Start collapsed on mobile for space, but user can expand
+      if (savedState !== 'false') {
+        navSidebar.classList.add('collapsed');
+        layout.classList.add('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'false');
+      } else {
+        // User explicitly wants it open
+        navSidebar.classList.remove('collapsed');
+        layout.classList.remove('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'true');
+      }
+    } else {
+      // Desktop: use saved state or default to open
+      if (shouldStartCollapsed) {
+        navSidebar.classList.add('collapsed');
+        layout.classList.add('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'false');
+      } else {
+        navSidebar.classList.remove('collapsed');
+        layout.classList.remove('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'true');
+      }
     }
     
-    navToggle.addEventListener('click', () => {
+    // Ensure toggle button is always visible and clickable on mobile
+    if (isSmallScreen) {
+      navToggle.style.display = 'flex';
+      navToggle.style.visibility = 'visible';
+      navToggle.style.opacity = '1';
+      navToggle.style.pointerEvents = 'auto';
+      navToggle.style.zIndex = '101';
+    }
+    
+    // Create overlay element for mobile if it doesn't exist
+    let navOverlay = document.getElementById('navOverlay');
+    if (!navOverlay && window.innerWidth < 1024) {
+      navOverlay = document.createElement('div');
+      navOverlay.id = 'navOverlay';
+      navOverlay.className = 'nav-overlay';
+      navOverlay.addEventListener('click', () => {
+        navSidebar.classList.add('collapsed');
+        layout.classList.add('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'false');
+        localStorage.setItem('navSidebarCollapsed', 'true');
+      });
+      document.body.appendChild(navOverlay);
+    }
+    
+    navToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const isCurrentlyCollapsed = navSidebar.classList.contains('collapsed');
 
       if (isCurrentlyCollapsed) {
@@ -1379,11 +1450,19 @@ console.log('[LeagueCreationFix] Loaded');
         layout.classList.remove('nav-collapsed');
         navToggle.setAttribute('aria-expanded', 'true');
         localStorage.setItem('navSidebarCollapsed', 'false');
+        // Show overlay on mobile
+        if (navOverlay && window.innerWidth < 1024) {
+          navOverlay.style.display = 'block';
+        }
       } else {
         navSidebar.classList.add('collapsed');
         layout.classList.add('nav-collapsed');
         navToggle.setAttribute('aria-expanded', 'false');
         localStorage.setItem('navSidebarCollapsed', 'true');
+        // Hide overlay
+        if (navOverlay) {
+          navOverlay.style.display = 'none';
+        }
       }
     });
 
@@ -1398,6 +1477,35 @@ console.log('[LeagueCreationFix] Loaded');
         navToggle.setAttribute('aria-expanded', 'false');
         localStorage.setItem('navSidebarCollapsed', 'true');
       }
+    });
+    
+    // Add overlay click handler for mobile (close nav when clicking outside)
+    if (window.innerWidth < 1024) {
+      document.addEventListener('click', (e) => {
+        // Only handle if nav is open and click is outside
+        if (!navSidebar.classList.contains('collapsed') && 
+            !navSidebar.contains(e.target) && 
+            !navToggle.contains(e.target) &&
+            e.target !== navSidebar) {
+          navSidebar.classList.add('collapsed');
+          layout.classList.add('nav-collapsed');
+          navToggle.setAttribute('aria-expanded', 'false');
+          localStorage.setItem('navSidebarCollapsed', 'true');
+        }
+      });
+    }
+    
+    // Handle window resize to update mobile state
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const isNowMobile = window.innerWidth < 1024;
+        if (isNowMobile) {
+          // Ensure toggle is visible on mobile
+          ensureNavigationToggleVisible();
+        }
+      }, 250);
     });
 
     console.log('✅ Navigation toggle set up');
@@ -1869,6 +1977,8 @@ window.on = on;
     const navSidebar = document.getElementById('nav-sidebar');
     const navToggle = document.getElementById('navToggle');
     const layout = document.querySelector('.layout');
+    const navOverlay = document.getElementById('navOverlay');
+    const isMobile = window.innerWidth < 1024;
     
     if (!navSidebar || !navToggle) {
       console.warn('Navigation elements not found');
@@ -1878,34 +1988,61 @@ window.on = on;
     const isCollapsed = navSidebar.classList.contains('collapsed');
     
     if (isCollapsed) {
+      // Expand navigation
       navSidebar.classList.remove('collapsed');
       if (layout) layout.classList.remove('nav-collapsed');
       navToggle.setAttribute('aria-expanded', 'true');
       localStorage.setItem('navSidebarCollapsed', 'false');
+      
+      // Show overlay on mobile
+      if (isMobile && navOverlay) {
+        navOverlay.style.display = 'block';
+      }
+      console.log('✅ Navigation expanded');
     } else {
+      // Collapse navigation
       navSidebar.classList.add('collapsed');
       if (layout) layout.classList.add('nav-collapsed');
       navToggle.setAttribute('aria-expanded', 'false');
       localStorage.setItem('navSidebarCollapsed', 'true');
+      
+      // Hide overlay
+      if (navOverlay) {
+        navOverlay.style.display = 'none';
+      }
+      console.log('✅ Navigation collapsed');
     }
   }
   
   function ensureNavigationToggleVisible() {
     const navToggle = document.getElementById('navToggle');
+    const isMobile = window.innerWidth < 1024;
+    
     if (navToggle) {
-      // Force visibility
+      // Force visibility - especially important on mobile
       navToggle.style.display = 'flex';
       navToggle.style.visibility = 'visible';
       navToggle.style.opacity = '1';
       navToggle.style.pointerEvents = 'auto';
       navToggle.style.cursor = 'pointer';
-      navToggle.style.zIndex = '100';
+      navToggle.style.zIndex = isMobile ? '101' : '100';
+      navToggle.style.position = 'relative';
       
       // Ensure it's clickable
       navToggle.setAttribute('tabindex', '0');
       navToggle.setAttribute('role', 'button');
+      navToggle.setAttribute('aria-label', 'Toggle navigation menu');
       
-      console.log('✅ Navigation toggle made visible and clickable');
+      // On mobile, make it more prominent
+      if (isMobile) {
+        navToggle.style.minWidth = '44px';
+        navToggle.style.minHeight = '44px';
+        navToggle.style.backgroundColor = 'var(--surface)';
+        navToggle.style.border = '1px solid var(--hairline)';
+        navToggle.style.borderRadius = 'var(--radius-md)';
+      }
+      
+      console.log('✅ Navigation toggle made visible and clickable', { isMobile });
     } else {
       console.warn('⚠️ Navigation toggle button not found');
     }
@@ -1921,7 +2058,17 @@ window.on = on;
     const savedState = localStorage.getItem('navSidebarCollapsed');
     const isSmallScreen = window.innerWidth < 1024;
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    const shouldCollapse = savedState === 'true' || (!savedState && (isSmallScreen || isStandalone));
+    
+    // On mobile, default to collapsed but allow expansion
+    // On desktop, use saved state or default to open
+    let shouldCollapse;
+    if (isSmallScreen) {
+      // Mobile: start collapsed unless user explicitly saved 'false'
+      shouldCollapse = savedState !== 'false';
+    } else {
+      // Desktop: use saved state or default to open
+      shouldCollapse = savedState === 'true';
+    }
 
     if (shouldCollapse) {
       navSidebar.classList.add('collapsed');
@@ -1932,6 +2079,9 @@ window.on = on;
       if (layout) layout.classList.remove('nav-collapsed');
       navToggle.setAttribute('aria-expanded', 'true');
     }
+    
+    // Ensure toggle is always visible and functional
+    ensureNavigationToggleVisible();
   }
   
   // ============================================================================
