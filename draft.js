@@ -765,14 +765,14 @@ function renderAvailableProspects() {
 
   container.innerHTML = html;
 
-  // Set up filters
-  const posFilter = document.getElementById('prospectPositionFilter');
-  const sortFilter = document.getElementById('prospectSortFilter');
-  if (posFilter) {
-    posFilter.addEventListener('change', () => renderAvailableProspects());
+  // Set up filters (re-get elements after innerHTML update)
+  const posFilterNew = document.getElementById('prospectPositionFilter');
+  const sortFilterNew = document.getElementById('prospectSortFilter');
+  if (posFilterNew) {
+    posFilterNew.addEventListener('change', () => renderAvailableProspects());
   }
-  if (sortFilter) {
-    sortFilter.addEventListener('change', () => renderAvailableProspects());
+  if (sortFilterNew) {
+    sortFilterNew.addEventListener('change', () => renderAvailableProspects());
   }
 }
 
