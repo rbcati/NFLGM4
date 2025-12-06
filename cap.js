@@ -67,11 +67,19 @@ function recalcCap(league, team) {
   }
   
   const C = window.Constants;
+  const capEnabled = window.state?.settings?.salaryCapEnabled !== false;
   
   try {
     // Calculate active player cap hits
     const active = team.roster.reduce((sum, p) => {
-      return sum + (p ? capHitFor(p, 0) : 0);
+      if (!p) return sum;
+      const hit = capHitFor(p, 0);
+      // Sanity check: cap hit should be reasonable (0-50M per player)
+      if (hit > 50 || hit < 0) {
+        console.warn(`Invalid cap hit for player ${p.name || p.id}: ${hit}M`);
+        return sum;
+      }
+      return sum + hit;
     }, 0);
     
     // Get dead money for current season
@@ -79,16 +87,24 @@ function recalcCap(league, team) {
     if (!team.deadCapBook) {
       team.deadCapBook = {};
     }
-    const dead = team.deadCapBook[league.season] || 0;
+    const season = league.season || league.year || 2025;
+    const dead = team.deadCapBook[season] || 0;
     
     // Calculate total cap with rollover
-    const capTotal = capEnabled ? (C.SALARY_CAP.BASE + (team.capRollover || 0)) : 9999;
+    const baseCap = C?.SALARY_CAP?.BASE || 220; // Default to 220M if not defined
+    const rollover = team.capRollover || 0;
+    const capTotal = capEnabled ? (baseCap + rollover) : 9999;
 
     // Update team cap values
     team.capTotal = Math.round(capTotal * 10) / 10;
     team.capUsed = Math.round((active + dead) * 10) / 10;
     team.deadCap = Math.round(dead * 10) / 10;
     team.capRoom = capEnabled ? Math.round((team.capTotal - team.capUsed) * 10) / 10 : 9999;
+    
+    // Sanity check: if capUsed is way over capTotal, log warning
+    if (capEnabled && team.capUsed > team.capTotal * 1.5) {
+      console.warn(`Team ${team.name || team.abbr} has excessive cap usage: $${team.capUsed.toFixed(1)}M / $${team.capTotal.toFixed(1)}M`);
+    }
     
   } catch (error) {
     console.error('Error in recalcCap:', error);
