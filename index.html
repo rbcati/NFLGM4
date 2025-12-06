@@ -22,35 +22,33 @@
     <link rel="stylesheet" href="ui-enhancements.css" />
 </head>
 <body>
-    <header class="topbar" role="navigation">
-        <div class="brand">NFL GM</div>
-        <nav id="site-nav" class="nav-pills" aria-label="Primary">
-  <a href="#/hub" class="nav-pill" data-view="hub">Home</a>
-  <a href="#/roster" class="nav-pill" data-view="roster">Roster</a>
-  <a href="#/contracts" class="nav-pill" data-view="contracts">Contracts</a>
-  <a href="#/trade" class="nav-pill" data-view="trade">Trades</a>
-
-  <div id="tradeProposals">
-    <button id="btnRefreshProposals" class="btn">Refresh trade proposals</button>
-    <div id="tradeProposalsList"></div>
-  </div>
-
-  <a href="#/standings" class="nav-pill" data-view="standings">Standings</a>
-  <a href="#/freeagency" class="nav-pill" data-view="freeagency">Free Agency</a>
-  <a href="#/draft" class="nav-pill" data-view="draft">Draft</a>
-  <a href="#/scouting" class="nav-pill" data-view="scouting">Scouting</a>
-  <a href="#/coaching" class="nav-pill" data-view="coaching">Coaching</a>
-  <a href="#/playerDatabase" class="nav-pill" data-view="playerDatabase">Players</a>
-  <a href="#/history" class="nav-pill" data-view="history">History</a>
-  <a href="#/hallOfFame" class="nav-pill" data-view="hallOfFame">Hall of Fame</a>
-  <a href="#/settings" class="nav-pill" data-view="settings">Settings</a>
-</nav>
-        <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Toggle menu">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    <header class="topbar" role="banner">
+        <button class="nav-toggle" id="navToggle" aria-expanded="true" aria-controls="nav-sidebar" aria-label="Toggle navigation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </button>
+        <div class="brand">NFL GM</div>
     </header>
 
     <main class="layout">
+        <aside id="nav-sidebar" class="nav-sidebar" aria-label="Primary navigation">
+            <nav id="site-nav" class="nav-menu">
+                <a href="#/hub" class="nav-item" data-view="hub">Home</a>
+                <a href="#/roster" class="nav-item" data-view="roster">Roster</a>
+                <a href="#/contracts" class="nav-item" data-view="contracts">Contracts</a>
+                <a href="#/trade" class="nav-item" data-view="trade">Trades</a>
+                <a href="#/standings" class="nav-item" data-view="standings">Standings</a>
+                <a href="#/freeagency" class="nav-item" data-view="freeagency">Free Agency</a>
+                <a href="#/draft" class="nav-item" data-view="draft">Draft</a>
+                <a href="#/scouting" class="nav-item" data-view="scouting">Scouting</a>
+                <a href="#/coaching" class="nav-item" data-view="coaching">Coaching</a>
+                <a href="#/playerDatabase" class="nav-item" data-view="playerDatabase">Players</a>
+                <a href="#/history" class="nav-item" data-view="history">History</a>
+                <a href="#/records" class="nav-item" data-view="records">Records</a>
+                <a href="#/hallOfFame" class="nav-item" data-view="hallOfFame">Hall of Fame</a>
+                <a href="#/settings" class="nav-item" data-view="settings">Settings</a>
+            </nav>
+        </aside>
+        
         <aside class="sidebar">
             <div class="section">
                 <label for="userTeam">Your Team</label>
