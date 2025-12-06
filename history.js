@@ -356,6 +356,74 @@
     `;
   }
 
+  /**
+   * Calculate and record coach rankings for a season
+   * Should be called at end of season
+   */
+  function calculateAndRecordCoachRankings(league, year) {
+    if (!league || !league.teams) return;
+
+    const offensiveRankings = [];
+    const defensiveRankings = [];
+
+    league.teams.forEach(team => {
+      if (team.staff) {
+        // Offensive Coordinator
+        if (team.staff.offCoordinator) {
+          const oc = team.staff.offCoordinator;
+          const ocStats = oc.stats?.asCoordinator?.OC || {};
+          const pointsPerGame = ocStats.pointsPerGame || [];
+          const avgPPG = pointsPerGame.length > 0 ? 
+            pointsPerGame.reduce((sum, val) => sum + val, 0) / pointsPerGame.length : 0;
+          
+          offensiveRankings.push({
+            name: oc.name,
+            id: oc.id,
+            team: {
+              name: team.name,
+              abbr: team.abbr,
+              id: team.id
+            },
+            stats: {
+              pointsPerGame: avgPPG,
+              seasons: ocStats.seasons || 0
+            }
+          });
+        }
+
+        // Defensive Coordinator
+        if (team.staff.defCoordinator) {
+          const dc = team.staff.defCoordinator;
+          const dcStats = dc.stats?.asCoordinator?.DC || {};
+          const pointsAllowedPerGame = dcStats.pointsAllowedPerGame || [];
+          const avgPAPG = pointsAllowedPerGame.length > 0 ?
+            pointsAllowedPerGame.reduce((sum, val) => sum + val, 0) / pointsAllowedPerGame.length : 0;
+          
+          defensiveRankings.push({
+            name: dc.name,
+            id: dc.id,
+            team: {
+              name: team.name,
+              abbr: team.abbr,
+              id: team.id
+            },
+            stats: {
+              pointsAllowedPerGame: avgPAPG,
+              seasons: dcStats.seasons || 0
+            }
+          });
+        }
+      }
+    });
+
+    // Sort: Offensive by points per game (descending), Defensive by points allowed (ascending)
+    offensiveRankings.sort((a, b) => (b.stats.pointsPerGame || 0) - (a.stats.pointsPerGame || 0));
+    defensiveRankings.sort((a, b) => (a.stats.pointsAllowedPerGame || 999) - (b.stats.pointsAllowedPerGame || 999));
+
+    // Record rankings
+    recordCoachRankings(league, year, offensiveRankings, defensiveRankings);
+  }
+
   // Export functions
   window.renderHistory = renderHistory;
   window.initializeHistory = initializeHistory;
@@ -363,6 +431,7 @@
   window.recordMVP = recordMVP;
   window.recordAward = recordAward;
   window.recordCoachRankings = recordCoachRankings;
+  window.calculateAndRecordCoachRankings = calculateAndRecordCoachRankings;
 
   console.log('✅ History system loaded');
 
