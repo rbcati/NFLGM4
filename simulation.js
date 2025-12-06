@@ -182,6 +182,94 @@ function simGameStats(home, away) {
 }
 
 /**
+ * Starts the offseason period after the Super Bowl.
+ * This allows users to resign players, sign free agents, and draft rookies
+ * before starting the new season.
+ */
+function startOffseason() {
+  try {
+    const L = window.state?.league;
+    if (!L) {
+      console.error('No league loaded to start offseason');
+      return;
+    }
+
+    console.log('Starting offseason...');
+    
+    // Set offseason flag
+    window.state.offseason = true;
+    window.state.offseasonYear = L.year;
+    
+    // Process salary cap rollover for each team
+    if (typeof window.processCapRollover === 'function') {
+      L.teams.forEach(team => {
+        try {
+          window.processCapRollover(L, team);
+        } catch (error) {
+          console.error('Error processing cap rollover for team', team?.abbr || team?.name, error);
+        }
+      });
+    }
+    
+    // Recalculate cap for all teams after rollover
+    if (typeof window.recalcAllTeamCaps === 'function') {
+      window.recalcAllTeamCaps(L);
+    } else if (typeof window.recalcCap === 'function') {
+      L.teams.forEach(team => {
+        try {
+          window.recalcCap(L, team);
+        } catch (error) {
+          console.error('Error recalculating cap for team', team?.abbr || team?.name, error);
+        }
+      });
+    }
+    
+    // Run any offseason processing hooks (e.g., coaching stats)
+    if (typeof window.runOffseason === 'function') {
+      try {
+        window.runOffseason();
+      } catch (error) {
+        console.error('Error in runOffseason:', error);
+      }
+    }
+    
+    // Save state
+    if (typeof window.saveState === 'function') {
+      window.saveState();
+    }
+    
+    // Show offseason message and navigate to hub
+    if (typeof window.setStatus === 'function') {
+      window.setStatus(`🏆 ${L.year} Season Complete! Entering Offseason - Resign players, sign free agents, and draft rookies before the ${L.year + 1} season.`, 'success', 10000);
+    }
+    
+    // Navigate to hub and show offseason prompt
+    if (window.location) {
+      window.location.hash = '#/hub';
+    }
+    
+    // Render hub to show offseason UI
+    if (typeof window.renderHub === 'function') {
+      setTimeout(() => {
+        window.renderHub();
+      }, 100);
+    }
+    
+    // Update cap sidebar if available
+    if (typeof window.updateCapSidebar === 'function') {
+      window.updateCapSidebar();
+    }
+    
+    console.log('Offseason started successfully');
+  } catch (err) {
+    console.error('Error starting offseason:', err);
+    if (typeof window.setStatus === 'function') {
+      window.setStatus(`Error starting offseason: ${err.message}`);
+    }
+  }
+}
+
+/**
  * Advances the game world to the next season.
  *
  * This function processes end-of-season operations, including salary cap rollover
@@ -198,16 +286,9 @@ function startNewSeason() {
       return;
     }
 
-    // Process salary cap rollover for each team, if supported
-    if (typeof window.processCapRollover === 'function') {
-      L.teams.forEach(team => {
-        try {
-          window.processCapRollover(L, team);
-        } catch (error) {
-          console.error('Error processing cap rollover for team', team?.abbr || team?.name, error);
-        }
-      });
-    }
+    // Clear offseason flag
+    window.state.offseason = false;
+    window.state.offseasonYear = null;
 
     // Increment global year and season counters
     window.state.year = (window.state.year || 2025) + 1;
@@ -236,6 +317,19 @@ function startNewSeason() {
       }
     });
 
+    // Recalculate cap for all teams (in case of changes during offseason)
+    if (typeof window.recalcAllTeamCaps === 'function') {
+      window.recalcAllTeamCaps(L);
+    } else if (typeof window.recalcCap === 'function') {
+      L.teams.forEach(team => {
+        try {
+          window.recalcCap(L, team);
+        } catch (error) {
+          console.error('Error recalculating cap for team', team?.abbr || team?.name, error);
+        }
+      });
+    }
+
     // Generate a new schedule for the upcoming season
     if (typeof window.makeSchedule === 'function') {
       try {
@@ -251,7 +345,12 @@ function startNewSeason() {
     // Refresh the UI for the new season
     if (typeof window.renderHub === 'function') window.renderHub();
     if (typeof window.setStatus === 'function') {
-      window.setStatus(`Welcome to the ${window.state.year} season!`);
+      window.setStatus(`Welcome to the ${window.state.year} season!`, 'success', 5000);
+    }
+    
+    // Update cap sidebar if available
+    if (typeof window.updateCapSidebar === 'function') {
+      window.updateCapSidebar();
     }
   } catch (err) {
     console.error('Error starting new season:', err);
@@ -305,12 +404,17 @@ function simulateWeek() {
 
     // NEW SEASON PROGRESSION CHECK
     // If the regular season is over and a Super Bowl champion has been crowned,
-    // advance to a new season instead of restarting playoffs.
+    // transition to offseason instead of starting new season immediately.
     if (window.state && window.state.playoffs && window.state.playoffs.winner && L.week > scheduleWeeks.length) {
-      console.log('Season complete, starting new season');
-      window.setStatus('Season complete! Preparing new season...');
-      if (typeof window.startNewSeason === 'function') {
-        window.startNewSeason();
+      console.log('Season complete, transitioning to offseason');
+      window.setStatus('Season complete! Entering offseason...');
+      if (typeof window.startOffseason === 'function') {
+        window.startOffseason();
+      } else {
+        // Fallback: start new season if offseason function doesn't exist
+        if (typeof window.startNewSeason === 'function') {
+          window.startNewSeason();
+        }
       }
       return;
     }
@@ -492,5 +596,6 @@ if (typeof window !== 'undefined') {
   window.simulateWeek = simulateWeek;
   window.simGameStats = simGameStats;
   window.applyResult = applyResult;
+  window.startOffseason = startOffseason;
   window.startNewSeason = startNewSeason;
 }
