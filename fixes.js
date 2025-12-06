@@ -2068,6 +2068,7 @@ window.on = on;
     }, 100);
     
     // Ensure onboarding modal is shown if game isn't ready
+    // Also ensure game results modal is closed
     setTimeout(() => {
       try {
         const currentState = window.state || {};
@@ -2087,6 +2088,20 @@ window.on = on;
               modal.hidden = false;
               modal.style.display = 'flex';
             }
+          }
+        }
+        
+        // Force close game results modal if it's open
+        const gameResultsModal = document.getElementById('gameResultsModal');
+        if (gameResultsModal && !gameResultsModal.hidden) {
+          console.log('🔒 Closing game results modal that was auto-opened');
+          gameResultsModal.hidden = true;
+          gameResultsModal.style.display = 'none';
+          gameResultsModal.style.visibility = 'hidden';
+          gameResultsModal.style.opacity = '0';
+          document.body.style.overflow = 'auto';
+          if (window.gameResultsViewer && typeof window.gameResultsViewer.hideModal === 'function') {
+            window.gameResultsViewer.hideModal();
           }
         }
       } catch (err) {
@@ -2110,6 +2125,43 @@ window.on = on;
   
   // Also initialize after a short delay to catch late-loading elements
   setTimeout(initializeAll, 500);
+  
+  // Force close game results modal on startup (multiple checks to be sure)
+  function forceCloseGameResultsModal() {
+    const modal = document.getElementById('gameResultsModal');
+    if (modal) {
+      modal.hidden = true;
+      modal.style.display = 'none';
+      modal.style.visibility = 'hidden';
+      modal.style.opacity = '0';
+      document.body.style.overflow = 'auto';
+      if (window.gameResultsViewer && typeof window.gameResultsViewer.hideModal === 'function') {
+        window.gameResultsViewer.hideModal();
+      }
+    }
+  }
+  
+  // Close modal immediately if it exists
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(forceCloseGameResultsModal, 50);
+    });
+  } else {
+    setTimeout(forceCloseGameResultsModal, 50);
+  }
+  
+  // Also close on window load
+  window.addEventListener('load', forceCloseGameResultsModal);
+  
+  // Periodic check to ensure it stays closed (for first 3 seconds)
+  let checkCount = 0;
+  const closeCheckInterval = setInterval(() => {
+    checkCount++;
+    forceCloseGameResultsModal();
+    if (checkCount >= 6) { // Check 6 times over 3 seconds
+      clearInterval(closeCheckInterval);
+    }
+  }, 500);
   
   console.log('✅ Critical fixes loaded');
 })();
