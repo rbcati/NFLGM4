@@ -76,8 +76,9 @@ function recalcCap(league, team) {
       const hit = capHitFor(p, 0);
       // Sanity check: cap hit should be reasonable (0-50M per player)
       if (hit > 50 || hit < 0) {
-        console.warn(`Invalid cap hit for player ${p.name || p.id}: ${hit}M`);
-        return sum;
+        console.warn(`Invalid cap hit for player ${p.name || p.id}: ${hit}M (baseAnnual: ${p.baseAnnual}, signingBonus: ${p.signingBonus}, yearsTotal: ${p.yearsTotal})`);
+        // Use baseAnnual as fallback if capHitFor returns invalid value
+        return sum + (p.baseAnnual || 0);
       }
       return sum + hit;
     }, 0);
