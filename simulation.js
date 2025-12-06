@@ -561,6 +561,20 @@ function simulateWeek() {
       }
     }
 
+    // Process weekly depth chart updates (playbook knowledge, chemistry)
+    if (typeof window.processWeeklyDepthChartUpdates === 'function') {
+      try {
+        L.teams.forEach(team => {
+          if (team && team.roster) {
+            window.processWeeklyDepthChartUpdates(team);
+          }
+        });
+      } catch (depthChartError) {
+        console.error('Error in depth chart updates:', depthChartError);
+        // Don't stop simulation for depth chart errors
+      }
+    }
+
     console.log(`Week ${previousWeek} simulation complete - ${gamesSimulated} games simulated`);
 
     // Update UI to show results
