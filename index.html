@@ -275,14 +275,14 @@
       </div>
     </div>
 
-<script src="error-overlay.js"></script>
+<script src="fixes.js"></script>
+<!-- Note: fixes.js now includes error-overlay.js, missing-functions.js, league-creation-fix.js, team-selection-fix.js, navbar-fix.js, and dom-helpers-fix.js -->
 <script src="constants.js"></script>
 <script src="utils.js"></script>
 <script src="expanded-names.js"></script>
 
 <!-- Player systems -->
 <script src="player-progression.js"></script>
-<script src="missing-functions.js"></script>
 <script src="player.js"></script>
 <script src="player.legacy.js"></script>
 
@@ -293,6 +293,7 @@
 <!-- Staff & coaching -->
 <script src="staff.js"></script>
 <script src="coaching.js"></script>
+<!-- Note: coaching.js now includes coaching-advanced.js, coaching-integration.js, coaching-roles.js, and training.js -->
 
 <!-- League core AFTER dependencies -->
 <script src="league.js"></script>
@@ -324,11 +325,7 @@
 <script src="draft.js"></script>
 <script src="rookies.js"></script>
 
-<!-- Coaching extensions -->
-<script src="training.js"></script>
-<script src="coaching-integration.js"></script>
-<script src="coaching-roles.js"></script>
-<script src="coaching-advanced.js"></script>
+<!-- Coaching extensions (now combined in coaching.js) -->
 <script src="owner-mode.js"></script>
 
 <!-- Team & stats -->
@@ -345,8 +342,7 @@
 
 <!-- Main Game Controller -->
 <script src="main.js"></script>
-<script src="league-creation-fix.js"></script>
-<script src="team-selection-fix.js"></script>
+<!-- Note: Fix files are now combined in fixes.js -->
 
 </body>
 </html>
