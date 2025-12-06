@@ -585,35 +585,294 @@ window.exerciseFifthYearOptionOnPlayer = function(playerId) {
   }
 };
 
+/**
+ * Opens interactive contract extension modal (replaces prompt-based UI)
+ * @param {string} playerId - Player ID to extend
+ */
 window.openContractExtensionModal = function(playerId) {
   const league = window.state?.league;
   const team = league?.teams?.[window.state?.userTeamId];
   const player = team?.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
   
-  if (!player) return setStatus('Player not found, rip.');
+  if (!player) {
+    setStatus('Player not found', 'error');
+    return;
+  }
 
-  const yearsPrompt = prompt(`How many **NEW** years to add to ${player.name}'s deal? (${CONTRACT_CONSTANTS.EXTENSION_MIN_YEARS}-${CONTRACT_CONSTANTS.EXTENSION_MAX_YEARS}):`, '4');
-  const baseSalaryPrompt = prompt(`**Average Annual Salary** (M):`, capHitFor(player, 0).toFixed(1));
-  const signingBonusPrompt = prompt(`**Signing Bonus** (M):`, '5.0');
-  
-  if (yearsPrompt && baseSalaryPrompt && signingBonusPrompt) {
-    const years = parseInt(yearsPrompt);
-    const baseSalary = parseFloat(baseSalaryPrompt);
-    const signingBonus = parseFloat(signingBonusPrompt);
-    
-    // Check if player is on a rookie contract (player.yearsTotal might exist)
-    if (player.draftRound <= 7 && player.yearsTotal === CONTRACT_CONSTANTS.ROOKIE_CONTRACT_LENGTH) {
-      setStatus('Rookie contracts can only be extended, not renegotiated with current years remaining.');
+  const currentCapHit = capHitFor(player, 0);
+  const franchiseSalary = calculateFranchiseTagSalary(player.pos, league);
+  const transitionSalary = calculateTransitionTagSalary(player.pos, league);
+
+  // Remove existing modal if present
+  const existingModal = document.getElementById('contractExtensionModal');
+  if (existingModal) {
+    existingModal.remove();
+  }
+
+  // Create modal
+  const modal = document.createElement('div');
+  modal.className = 'modal';
+  modal.id = 'contractExtensionModal';
+  modal.innerHTML = `
+    <div class="modal-content" style="max-width: 800px; width: 95%; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; padding: 20px; border-bottom: 1px solid var(--hairline);">
+        <h2 style="margin: 0; font-size: 20px; color: var(--text);">Contract Extension: ${player.name}</h2>
+        <button class="close" onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 24px; color: var(--text-muted); cursor: pointer; padding: 0; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;">&times;</button>
+      </div>
+      <div class="modal-body" style="padding: 20px;">
+        <div class="player-info-card" style="background: var(--surface); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--hairline);">
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; font-size: 14px;">
+            <div><strong>Position:</strong> ${player.pos}</div>
+            <div><strong>Age:</strong> ${player.age}</div>
+            <div><strong>Overall:</strong> ${player.ovr}</div>
+            <div><strong>Current Cap Hit:</strong> $${currentCapHit.toFixed(1)}M</div>
+            <div><strong>Years Remaining:</strong> ${player.years || 0}</div>
+          </div>
+        </div>
+
+        <div class="contract-form" style="display: grid; gap: 20px;">
+          <div class="form-section">
+            <h3 style="margin: 0 0 15px 0; font-size: 18px; color: var(--accent);">Contract Terms</h3>
+            
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">Years to Add</label>
+              <input type="number" id="extYears" min="2" max="7" value="4" 
+                     style="width: 100%; padding: 10px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                     onchange="updateExtensionSummary()" oninput="updateExtensionSummary()">
+              <small style="color: var(--text-muted); font-size: 12px; display: block; margin-top: 5px;">Add 2-7 years to existing contract</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">Average Annual Salary ($M)</label>
+              <input type="number" id="extBaseSalary" min="0.5" step="0.1" value="${currentCapHit.toFixed(1)}"
+                     style="width: 100%; padding: 10px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                     onchange="updateExtensionSummary()" oninput="updateExtensionSummary()">
+              <small style="color: var(--text-muted); font-size: 12px; display: block; margin-top: 5px;">Base salary per year</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">Signing Bonus ($M)</label>
+              <input type="number" id="extSigningBonus" min="0" step="0.1" value="5.0"
+                     style="width: 100%; padding: 10px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                     onchange="updateExtensionSummary()" oninput="updateExtensionSummary()">
+              <small style="color: var(--text-muted); font-size: 12px; display: block; margin-top: 5px;">One-time signing bonus (prorated over contract)</small>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+              <label style="display: block; margin-bottom: 8px; font-weight: 500; color: var(--text);">Guaranteed Money %</label>
+              <input type="number" id="extGuaranteed" min="0" max="95" step="1" value="50"
+                     style="width: 100%; padding: 10px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                     onchange="updateExtensionSummary()" oninput="updateExtensionSummary()">
+              <small style="color: var(--text-muted); font-size: 12px; display: block; margin-top: 5px;">Percentage of contract guaranteed (0-95%)</small>
+            </div>
+          </div>
+
+          <div class="contract-summary" style="background: var(--surface-strong); padding: 20px; border-radius: 8px; border: 1px solid var(--hairline-strong);">
+            <h3 style="margin: 0 0 15px 0; font-size: 18px; color: var(--accent);">Contract Summary</h3>
+            <div id="extensionSummary" style="display: grid; gap: 10px; font-size: 14px;">
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Total Contract Value:</span>
+                <strong id="summaryTotal" style="color: var(--text);">$0.0M</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Average Annual Value:</span>
+                <strong id="summaryAAV" style="color: var(--text);">$0.0M</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">First Year Cap Hit:</span>
+                <strong id="summaryCapHit" style="color: var(--text);">$0.0M</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between;">
+                <span style="color: var(--text-muted);">Guaranteed Money:</span>
+                <strong id="summaryGuaranteed" style="color: var(--text);">$0.0M</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--hairline);">
+                <span style="color: var(--text-muted);">Cap Room After:</span>
+                <strong id="summaryCapRoom" style="color: var(--success-text);">$0.0M</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="tag-options" style="margin-top: 20px;">
+            <h3 style="margin: 0 0 15px 0; font-size: 18px; color: var(--accent);">Tag Options</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+              ${!team.franchiseTagged ? `
+                <button class="btn" onclick="window.applyFranchiseTagFromModal('${player.id}')" 
+                        style="padding: 12px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; color: var(--text); cursor: pointer; transition: all 0.2s; text-align: left;">
+                  <div style="font-weight: 600; margin-bottom: 5px;">Franchise Tag</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">$${franchiseSalary.toFixed(1)}M (1 year, fully guaranteed)</div>
+                </button>
+              ` : '<div style="padding: 12px; background: var(--surface); border-radius: 6px; text-align: center; color: var(--text-muted); border: 1px solid var(--hairline);">Franchise tag already used</div>'}
+              ${!team.transitionTagged ? `
+                <button class="btn" onclick="window.applyTransitionTagFromModal('${player.id}')"
+                        style="padding: 12px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; color: var(--text); cursor: pointer; transition: all 0.2s; text-align: left;">
+                  <div style="font-weight: 600; margin-bottom: 5px;">Transition Tag</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">$${transitionSalary.toFixed(1)}M (1 year, 80% guaranteed)</div>
+                </button>
+              ` : '<div style="padding: 12px; background: var(--surface); border-radius: 6px; text-align: center; color: var(--text-muted); border: 1px solid var(--hairline);">Transition tag already used</div>'}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 20px; border-top: 1px solid var(--hairline); display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn" onclick="this.closest('.modal').remove()" 
+                style="padding: 10px 20px; background: var(--surface); border: 1px solid var(--hairline); border-radius: 6px; color: var(--text); cursor: pointer; font-size: 14px;">Cancel</button>
+        <button class="btn primary" onclick="window.submitContractExtension('${player.id}')"
+                style="padding: 10px 20px; background: var(--accent); border: none; border-radius: 6px; color: white; cursor: pointer; font-weight: 600; font-size: 14px;">Submit Extension</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  // Update summary immediately
+  updateExtensionSummary();
+
+  // Close on background click
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) {
+      modal.remove();
     }
-    
-    const result = extendContract(league, team, player, years, baseSalary, signingBonus);
-    setStatus(result.message);
-    
-    if (result.success) {
+  });
+};
+
+/**
+ * Updates contract extension summary
+ */
+window.updateExtensionSummary = function() {
+  const yearsEl = document.getElementById('extYears');
+  const baseSalaryEl = document.getElementById('extBaseSalary');
+  const signingBonusEl = document.getElementById('extSigningBonus');
+  const guaranteedEl = document.getElementById('extGuaranteed');
+
+  if (!yearsEl || !baseSalaryEl || !signingBonusEl || !guaranteedEl) return;
+
+  const years = parseInt(yearsEl.value || '4', 10);
+  const baseSalary = parseFloat(baseSalaryEl.value || '0', 10);
+  const signingBonus = parseFloat(signingBonusEl.value || '0', 10);
+  const guaranteedPct = parseFloat(guaranteedEl.value || '50', 10) / 100;
+
+  const totalValue = (baseSalary * years) + signingBonus;
+  const aav = totalValue / years;
+  const firstYearCapHit = baseSalary + (signingBonus / years);
+  const guaranteedMoney = totalValue * guaranteedPct;
+
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  
+  // Get current player cap hit
+  const modal = document.getElementById('contractExtensionModal');
+  const playerId = modal?.querySelector('button[onclick*="submitContractExtension"]')?.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+  const player = team?.roster?.find(p => p.id === playerId || p.id === parseInt(playerId));
+  const currentCapHit = player ? (capHitFor(player, 0)) : 0;
+  
+  const capImpact = firstYearCapHit - currentCapHit;
+  const capRoomAfter = (team?.capRoom || 0) - capImpact;
+
+  const summaryTotal = document.getElementById('summaryTotal');
+  const summaryAAV = document.getElementById('summaryAAV');
+  const summaryCapHit = document.getElementById('summaryCapHit');
+  const summaryGuaranteed = document.getElementById('summaryGuaranteed');
+  const summaryCapRoom = document.getElementById('summaryCapRoom');
+
+  if (summaryTotal) summaryTotal.textContent = `$${totalValue.toFixed(1)}M`;
+  if (summaryAAV) summaryAAV.textContent = `$${aav.toFixed(1)}M`;
+  if (summaryCapHit) summaryCapHit.textContent = `$${firstYearCapHit.toFixed(1)}M`;
+  if (summaryGuaranteed) summaryGuaranteed.textContent = `$${guaranteedMoney.toFixed(1)}M (${(guaranteedPct * 100).toFixed(0)}%)`;
+  if (summaryCapRoom) {
+    summaryCapRoom.textContent = `$${capRoomAfter.toFixed(1)}M`;
+    summaryCapRoom.style.color = capRoomAfter >= 0 ? 'var(--success-text)' : 'var(--error-text)';
+  }
+};
+
+/**
+ * Submits contract extension
+ */
+window.submitContractExtension = function(playerId) {
+  const yearsEl = document.getElementById('extYears');
+  const baseSalaryEl = document.getElementById('extBaseSalary');
+  const signingBonusEl = document.getElementById('extSigningBonus');
+
+  if (!yearsEl || !baseSalaryEl || !signingBonusEl) {
+    setStatus('Form elements not found', 'error');
+    return;
+  }
+
+  const years = parseInt(yearsEl.value || '4', 10);
+  const baseSalary = parseFloat(baseSalaryEl.value || '0', 10);
+  const signingBonus = parseFloat(signingBonusEl.value || '0', 10);
+
+  if (years < 2 || years > 7) {
+    setStatus('Years must be between 2 and 7', 'error');
+    return;
+  }
+
+  if (baseSalary < 0.5) {
+    setStatus('Base salary must be at least $0.5M', 'error');
+    return;
+  }
+
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  const player = team?.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
+
+  if (!player) {
+    setStatus('Player not found', 'error');
+    return;
+  }
+
+  // Check if player is on a rookie contract
+  if (player.draftRound <= 7 && player.yearsTotal === CONTRACT_CONSTANTS.ROOKIE_CONTRACT_LENGTH) {
+    setStatus('Rookie contracts can only be extended, not renegotiated with current years remaining.');
+    return;
+  }
+
+  const result = extendContract(league, team, player, years, baseSalary, signingBonus);
+  setStatus(result.message, result.success ? 'success' : 'error');
+  
+  if (result.success) {
+    document.getElementById('contractExtensionModal')?.remove();
+    if (window.renderContractManagement) {
       window.renderContractManagement(league, window.state.userTeamId);
     }
-  } else {
-    setStatus('Extension cancelled. 🧘');
+  }
+};
+
+/**
+ * Applies franchise tag from modal
+ */
+window.applyFranchiseTagFromModal = function(playerId) {
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  const player = team?.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
+
+  if (!player) {
+    setStatus('Player not found', 'error');
+    return;
+  }
+
+  if (window.applyFranchiseTagToPlayer) {
+    window.applyFranchiseTagToPlayer(playerId);
+    document.getElementById('contractExtensionModal')?.remove();
+  }
+};
+
+/**
+ * Applies transition tag from modal
+ */
+window.applyTransitionTagFromModal = function(playerId) {
+  const league = window.state?.league;
+  const team = league?.teams?.[window.state?.userTeamId];
+  const player = team?.roster.find(p => p.id === playerId || p.id === parseInt(playerId));
+
+  if (!player) {
+    setStatus('Player not found', 'error');
+    return;
+  }
+
+  if (window.applyTransitionTagToPlayer) {
+    window.applyTransitionTagToPlayer(playerId);
+    document.getElementById('contractExtensionModal')?.remove();
   }
 };
 
