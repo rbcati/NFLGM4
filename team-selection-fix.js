@@ -91,9 +91,17 @@
         const canonicalTeams = getCanonicalTeams(namesMode);
         const lookup = buildLookup(canonicalTeams);
 
-        const selected = window.state?.userTeamId;
-        if (typeof selected === 'number' && canonicalTeams[selected]) {
-            log(`Selected team BEFORE league creation: ${canonicalTeams[selected].name}`);
+        // Save the selected team's identity BEFORE reordering
+        let selectedTeamIdentity = null;
+        const originalUserTeamId = window.state?.userTeamId;
+        if (typeof originalUserTeamId === 'number' && teams[originalUserTeamId]) {
+            const originalTeam = teams[originalUserTeamId];
+            selectedTeamIdentity = {
+                abbr: originalTeam.abbr,
+                name: originalTeam.name,
+                originalIndex: originalUserTeamId
+            };
+            log(`Selected team BEFORE league creation: ${originalTeam.name} (index ${originalUserTeamId})`);
         }
 
         const orderedTeams = normalizeTeamsOrder(Array.isArray(teams) ? teams.slice() : [], lookup);
@@ -110,6 +118,28 @@
                     team.id = index;
                 }
             });
+
+            // Fix userTeamId: find the selected team's new index after reordering
+            if (selectedTeamIdentity && window.state) {
+                const newIndex = league.teams.findIndex(team => 
+                    (team.abbr === selectedTeamIdentity.abbr && team.name === selectedTeamIdentity.name) ||
+                    (team.abbr && selectedTeamIdentity.abbr && team.abbr === selectedTeamIdentity.abbr) ||
+                    (team.name && selectedTeamIdentity.name && team.name === selectedTeamIdentity.name)
+                );
+                
+                if (newIndex !== -1 && newIndex !== originalUserTeamId) {
+                    log(`Updating userTeamId from ${originalUserTeamId} to ${newIndex} for ${selectedTeamIdentity.name}`);
+                    window.state.userTeamId = newIndex;
+                    if (window.state.viewTeamId === originalUserTeamId) {
+                        window.state.viewTeamId = newIndex;
+                    }
+                    if (window.state.player?.teamId === originalUserTeamId) {
+                        window.state.player.teamId = newIndex;
+                    }
+                } else if (newIndex === -1) {
+                    warn(`Could not find selected team ${selectedTeamIdentity.name} after reordering!`);
+                }
+            }
         }
 
         if (window.state?.league?.teams) {
