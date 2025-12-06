@@ -1252,12 +1252,16 @@ console.log('[LeagueCreationFix] Loaded');
     const expectedNavItems = [
       { href: '#/hub', text: 'Home', view: 'hub' },
       { href: '#/roster', text: 'Roster', view: 'roster' },
+      { href: '#/contracts', text: 'Contracts', view: 'contracts' },
       { href: '#/trade', text: 'Trades', view: 'trade' },
       { href: '#/standings', text: 'Standings', view: 'standings' },
       { href: '#/freeagency', text: 'Free Agency', view: 'freeagency' },
       { href: '#/draft', text: 'Draft', view: 'draft' },
       { href: '#/scouting', text: 'Scouting', view: 'scouting' },
       { href: '#/coaching', text: 'Coaching', view: 'coaching' },
+      { href: '#/playerDatabase', text: 'Players', view: 'playerDatabase' },
+      { href: '#/history', text: 'History', view: 'history' },
+      { href: '#/hallOfFame', text: 'Hall of Fame', view: 'hallOfFame' },
       { href: '#/settings', text: 'Settings', view: 'settings' }
     ];
     
