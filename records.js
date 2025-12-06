@@ -104,8 +104,40 @@
           recTD: { player: null, value: 0, year: null, week: null },
           sacks: { player: null, value: 0, year: null, week: null },
           interceptions: { player: null, value: 0, year: null, week: null }
+        },
+        
+        // Team records (year-by-year tracking)
+        teamHistory: {}, // {teamId: [{year, wins, losses, ptsFor, ptsAgainst, playoffWins, playoffLosses, superBowlWins, superBowlLosses}]}
+        
+        // Team leaderboards
+        teamLeaderboards: {
+          mostWins: [], // All-time wins
+          mostPlayoffWins: [], // Playoff wins
+          mostSuperBowlWins: [], // Super Bowl wins (active teams)
+          mostSuperBowlWinsRetired: [], // Super Bowl wins (retired players)
+          mostSuperBowlWinsActive: [], // Super Bowl wins (active players)
+          mostHallOfFame: [], // Teams with most HoF players
+          mostAllPro: [], // Teams with most All-Pro selections
+          rushYardsAllowed: [], // Defensive rushing yards allowed (career)
+          passYardsAllowed: [], // Defensive passing yards allowed (career)
+          passDefenseRank: [], // Pass defense ranking (best)
+          passOffenseRank: [] // Pass offense ranking (best)
+        },
+        
+        // Player playoff/Super Bowl leaderboards
+        playerLeaderboards: {
+          mostPlayoffWins: [], // Players with most playoff wins
+          mostSuperBowlWins: [], // All players (active + retired)
+          mostSuperBowlWinsActive: [], // Active players only
+          mostSuperBowlWinsRetired: [], // Retired players only
+          mostWins: [] // Most career wins (players)
         }
       };
+    }
+    
+    // Initialize team history structure
+    if (!league.records.teamHistory) {
+      league.records.teamHistory = {};
     }
   }
 
@@ -399,6 +431,285 @@
   }
 
   /**
+   * Record team season history (called at end of season)
+   * @param {Object} league - League object
+   * @param {number} year - Season year
+   */
+  function recordTeamSeason(league, year) {
+    if (!league || !league.teams) return;
+    
+    initializeRecords(league);
+    
+    league.teams.forEach((team, teamId) => {
+      if (!team) return;
+      
+      // Get playoff stats from history or team data
+      const playoffWins = team.playoffWins || 0;
+      const playoffLosses = team.playoffLosses || 0;
+      const madePlayoffs = (playoffWins + playoffLosses) > 0 || team.madePlayoffs || false;
+      
+      // Get Super Bowl stats from history
+      const superBowlWins = (league.history?.superBowls || []).filter(sb => 
+        sb.winner && (sb.winner.id === teamId || sb.winner.name === team.name)
+      ).length;
+      const superBowlLosses = (league.history?.superBowls || []).filter(sb => 
+        sb.runnerUp && (sb.runnerUp.id === teamId || sb.runnerUp.name === team.name)
+      ).length;
+      
+      // Create season record
+      const seasonRecord = {
+        year: year,
+        wins: team.wins || 0,
+        losses: team.losses || 0,
+        ties: team.ties || 0,
+        ptsFor: team.ptsFor || 0,
+        ptsAgainst: team.ptsAgainst || 0,
+        madePlayoffs: madePlayoffs,
+        playoffWins: playoffWins,
+        playoffLosses: playoffLosses,
+        superBowlWins: superBowlWins,
+        superBowlLosses: superBowlLosses
+      };
+      
+      // Add to team history
+      if (!league.records.teamHistory[teamId]) {
+        league.records.teamHistory[teamId] = [];
+      }
+      league.records.teamHistory[teamId].push(seasonRecord);
+    });
+  }
+
+  /**
+   * Update team leaderboards
+   * @param {Object} league - League object
+   */
+  function updateTeamLeaderboards(league) {
+    if (!league || !league.teams) return;
+    
+    initializeRecords(league);
+    const leaderboards = league.records.teamLeaderboards;
+    
+    // Reset leaderboards
+    Object.keys(leaderboards).forEach(key => {
+      leaderboards[key] = [];
+    });
+    
+    // Calculate team totals from history
+    const teamTotals = {};
+    league.teams.forEach((team, teamId) => {
+      const history = league.records.teamHistory[teamId] || [];
+      
+      const totals = {
+        teamId: teamId,
+        team: {
+          name: team.name,
+          abbr: team.abbr || team.name
+        },
+        totalWins: 0,
+        totalLosses: 0,
+        totalPlayoffWins: 0,
+        totalPlayoffLosses: 0,
+        totalSuperBowlWins: 0,
+        totalSuperBowlLosses: 0,
+        totalPtsFor: 0,
+        totalPtsAgainst: 0,
+        totalRushYardsAllowed: 0,
+        totalPassYardsAllowed: 0
+      };
+      
+      history.forEach(season => {
+        totals.totalWins += season.wins || 0;
+        totals.totalLosses += season.losses || 0;
+        totals.totalPlayoffWins += season.playoffWins || 0;
+        totals.totalPlayoffLosses += season.playoffLosses || 0;
+        totals.totalSuperBowlWins += season.superBowlWins || 0;
+        totals.totalSuperBowlLosses += season.superBowlLosses || 0;
+        totals.totalPtsFor += season.ptsFor || 0;
+        totals.totalPtsAgainst += season.ptsAgainst || 0;
+      });
+      
+      teamTotals[teamId] = totals;
+    });
+    
+    // Most wins
+    Object.values(teamTotals).forEach(totals => {
+      leaderboards.mostWins.push({
+        team: totals.team,
+        value: totals.totalWins
+      });
+    });
+    leaderboards.mostWins.sort((a, b) => b.value - a.value);
+    
+    // Most playoff wins
+    Object.values(teamTotals).forEach(totals => {
+      if (totals.totalPlayoffWins > 0) {
+        leaderboards.mostPlayoffWins.push({
+          team: totals.team,
+          value: totals.totalPlayoffWins
+        });
+      }
+    });
+    leaderboards.mostPlayoffWins.sort((a, b) => b.value - a.value);
+    
+    // Most Super Bowl wins (teams)
+    Object.values(teamTotals).forEach(totals => {
+      if (totals.totalSuperBowlWins > 0) {
+        leaderboards.mostSuperBowlWins.push({
+          team: totals.team,
+          value: totals.totalSuperBowlWins
+        });
+      }
+    });
+    leaderboards.mostSuperBowlWins.sort((a, b) => b.value - a.value);
+    
+    // Most Hall of Fame players (by team)
+    league.teams.forEach((team, teamId) => {
+      if (!team.roster) return;
+      const hofCount = team.roster.filter(p => p.legacy?.hallOfFame || p.hallOfFame).length;
+      if (hofCount > 0) {
+        leaderboards.mostHallOfFame.push({
+          team: { name: team.name, abbr: team.abbr || team.name },
+          value: hofCount
+        });
+      }
+    });
+    leaderboards.mostHallOfFame.sort((a, b) => b.value - a.value);
+    
+    // Most All-Pro selections (by team)
+    league.teams.forEach((team, teamId) => {
+      if (!team.roster) return;
+      let allProCount = 0;
+      team.roster.forEach(player => {
+        const allProAwards = (player.awards || []).filter(a => 
+          a.award && a.award.includes('All-Pro')
+        ).length;
+        allProCount += allProAwards;
+      });
+      if (allProCount > 0) {
+        leaderboards.mostAllPro.push({
+          team: { name: team.name, abbr: team.abbr || team.name },
+          value: allProCount
+        });
+      }
+    });
+    leaderboards.mostAllPro.sort((a, b) => b.value - a.value);
+  }
+
+  /**
+   * Update player playoff/Super Bowl leaderboards
+   * @param {Object} league - League object
+   */
+  function updatePlayerLeaderboards(league) {
+    if (!league || !league.teams) return;
+    
+    initializeRecords(league);
+    const leaderboards = league.records.playerLeaderboards;
+    
+    // Reset
+    Object.keys(leaderboards).forEach(key => {
+      leaderboards[key] = [];
+    });
+    
+    // Collect all players (active and retired)
+    const allPlayers = [];
+    league.teams.forEach(team => {
+      if (team.roster) {
+        team.roster.forEach(player => {
+          allPlayers.push({ player, team });
+        });
+      }
+    });
+    
+    // Most playoff wins (players)
+    allPlayers.forEach(({ player, team }) => {
+      const playoffWins = player.legacy?.playoffStats?.wins || 0;
+      if (playoffWins > 0) {
+        leaderboards.mostPlayoffWins.push({
+          player: {
+            id: player.id,
+            name: player.name,
+            pos: player.pos,
+            team: team.name,
+            teamAbbr: team.abbr
+          },
+          value: playoffWins,
+          retired: player.retired || false
+        });
+      }
+    });
+    leaderboards.mostPlayoffWins.sort((a, b) => b.value - a.value);
+    
+    // Most Super Bowl wins (all players)
+    allPlayers.forEach(({ player, team }) => {
+      const superBowlWins = (player.awards || []).filter(a => 
+        a.award === 'Super Bowl Champion'
+      ).length;
+      if (superBowlWins > 0) {
+        const isRetired = player.retired || false;
+        leaderboards.mostSuperBowlWins.push({
+          player: {
+            id: player.id,
+            name: player.name,
+            pos: player.pos,
+            team: team.name,
+            teamAbbr: team.abbr
+          },
+          value: superBowlWins,
+          retired: isRetired
+        });
+        
+        // Separate by active/retired
+        if (isRetired) {
+          leaderboards.mostSuperBowlWinsRetired.push({
+            player: {
+              id: player.id,
+              name: player.name,
+              pos: player.pos,
+              team: team.name,
+              teamAbbr: team.abbr
+            },
+            value: superBowlWins
+          });
+        } else {
+          leaderboards.mostSuperBowlWinsActive.push({
+            player: {
+              id: player.id,
+              name: player.name,
+              pos: player.pos,
+              team: team.name,
+              teamAbbr: team.abbr
+            },
+            value: superBowlWins
+          });
+        }
+      }
+    });
+    
+    leaderboards.mostSuperBowlWins.sort((a, b) => b.value - a.value);
+    leaderboards.mostSuperBowlWinsActive.sort((a, b) => b.value - a.value);
+    leaderboards.mostSuperBowlWinsRetired.sort((a, b) => b.value - a.value);
+    
+    // Most wins (players - career wins with team)
+    allPlayers.forEach(({ player, team }) => {
+      const careerWins = player.legacy?.careerWins || 0;
+      if (careerWins > 0) {
+        leaderboards.mostWins.push({
+          player: {
+            id: player.id,
+            name: player.name,
+            pos: player.pos,
+            team: team.name,
+            teamAbbr: team.abbr
+          },
+          value: careerWins,
+          retired: player.retired || false
+        });
+      }
+    });
+    leaderboards.mostWins.sort((a, b) => b.value - a.value);
+  }
+
+  /**
    * Check and update single game records
    * @param {Object} league - League object
    * @param {number} year - Season year
@@ -457,9 +768,17 @@
     
     console.log(`Updating all-time records for ${year}...`);
     
+    // Record team season history first
+    recordTeamSeason(league, year);
+    
+    // Update player records
     updateCareerTotals(league);
     updateCareerAverages(league);
     updateSingleSeasonRecords(league, year);
+    
+    // Update team and player leaderboards
+    updateTeamLeaderboards(league);
+    updatePlayerLeaderboards(league);
     
     // Update single game records for all weeks
     if (league.resultsByWeek) {
@@ -498,6 +817,8 @@
         <div class="records-tabs">
           <button class="tab-btn active" data-tab="career-totals">Career Totals</button>
           <button class="tab-btn" data-tab="career-averages">Career Leaderboards</button>
+          <button class="tab-btn" data-tab="team-records">Team Records</button>
+          <button class="tab-btn" data-tab="player-playoffs">Playoffs & Super Bowls</button>
           <button class="tab-btn" data-tab="single-season">Single Season</button>
           <button class="tab-btn" data-tab="single-game">Single Game</button>
         </div>
@@ -509,6 +830,14 @@
           
           <div id="career-averages-tab" class="records-tab-content">
             ${renderCareerAverages(records.careerAverages)}
+          </div>
+          
+          <div id="team-records-tab" class="records-tab-content">
+            ${renderTeamRecords(records.teamLeaderboards, records.teamHistory, L)}
+          </div>
+          
+          <div id="player-playoffs-tab" class="records-tab-content">
+            ${renderPlayerPlayoffRecords(records.playerLeaderboards)}
           </div>
           
           <div id="single-season-tab" class="records-tab-content">
@@ -797,6 +1126,226 @@
     `;
   }
 
+  /**
+   * Render team records and leaderboards
+   */
+  function renderTeamRecords(teamLeaderboards, teamHistory, league) {
+    if (!teamLeaderboards) return '<p>No team records available.</p>';
+    
+    return `
+      <div class="team-records-section">
+        <h3>Team Leaderboards</h3>
+        
+        <div class="leaderboards-grid">
+          <div class="leaderboard-card">
+            <h4>Most All-Time Wins</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(teamLeaderboards.mostWins || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.team.abbr || entry.team.name}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Playoff Wins</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(teamLeaderboards.mostPlayoffWins || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.team.abbr || entry.team.name}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Super Bowl Wins</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(teamLeaderboards.mostSuperBowlWins || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.team.abbr || entry.team.name}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Hall of Fame Players</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Team</th><th>HoF Players</th></tr>
+              </thead>
+              <tbody>
+                ${(teamLeaderboards.mostHallOfFame || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.team.abbr || entry.team.name}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most All-Pro Selections</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Team</th><th>All-Pros</th></tr>
+              </thead>
+              <tbody>
+                ${(teamLeaderboards.mostAllPro || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.team.abbr || entry.team.name}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Render player playoff and Super Bowl records
+   */
+  function renderPlayerPlayoffRecords(playerLeaderboards) {
+    if (!playerLeaderboards) return '<p>No playoff records available.</p>';
+    
+    return `
+      <div class="player-playoff-records-section">
+        <h3>Playoff & Super Bowl Records</h3>
+        
+        <div class="leaderboards-grid">
+          <div class="leaderboard-card">
+            <h4>Most Playoff Wins (Players)</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(playerLeaderboards.mostPlayoffWins || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.player.name}</td>
+                    <td>${entry.player.pos}</td>
+                    <td>${entry.player.teamAbbr || entry.player.team}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Super Bowl Wins (All Players)</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(playerLeaderboards.mostSuperBowlWins || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.player.name} ${entry.retired ? '(Retired)' : ''}</td>
+                    <td>${entry.player.pos}</td>
+                    <td>${entry.player.teamAbbr || entry.player.team}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Super Bowl Wins (Active Players)</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(playerLeaderboards.mostSuperBowlWinsActive || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.player.name}</td>
+                    <td>${entry.player.pos}</td>
+                    <td>${entry.player.teamAbbr || entry.player.team}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Super Bowl Wins (Retired Players)</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(playerLeaderboards.mostSuperBowlWinsRetired || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.player.name}</td>
+                    <td>${entry.player.pos}</td>
+                    <td>${entry.player.teamAbbr || entry.player.team}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="leaderboard-card">
+            <h4>Most Career Wins (Players)</h4>
+            <table class="table table-sm">
+              <thead>
+                <tr><th>Rank</th><th>Player</th><th>Pos</th><th>Team</th><th>Wins</th></tr>
+              </thead>
+              <tbody>
+                ${(playerLeaderboards.mostWins || []).slice(0, 10).map((entry, idx) => `
+                  <tr>
+                    <td>${idx + 1}</td>
+                    <td>${entry.player.name} ${entry.retired ? '(Retired)' : ''}</td>
+                    <td>${entry.player.pos}</td>
+                    <td>${entry.player.teamAbbr || entry.player.team}</td>
+                    <td><strong>${entry.value}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // Export functions
   window.initializeRecords = initializeRecords;
   window.updateAllRecords = updateAllRecords;
@@ -804,6 +1353,9 @@
   window.updateCareerAverages = updateCareerAverages;
   window.updateSingleSeasonRecords = updateSingleSeasonRecords;
   window.updateSingleGameRecords = updateSingleGameRecords;
+  window.recordTeamSeason = recordTeamSeason;
+  window.updateTeamLeaderboards = updateTeamLeaderboards;
+  window.updatePlayerLeaderboards = updatePlayerLeaderboards;
   window.renderRecords = renderRecords;
 
   console.log('✅ All-Time Records System loaded');
