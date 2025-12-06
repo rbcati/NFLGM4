@@ -795,16 +795,45 @@ console.log('[LeagueCreationFix] Loaded');
                 }
             });
 
-            // Fix userTeamId: find the selected team's new index after reordering
+            // FIXED: Better team matching logic
             if (selectedTeamIdentity && window.state) {
-                const newIndex = league.teams.findIndex(team => 
-                    (team.abbr === selectedTeamIdentity.abbr && team.name === selectedTeamIdentity.name) ||
-                    (team.abbr && selectedTeamIdentity.abbr && team.abbr === selectedTeamIdentity.abbr) ||
-                    (team.name && selectedTeamIdentity.name && team.name === selectedTeamIdentity.name)
+                // Try multiple matching strategies
+                let newIndex = -1;
+                
+                // Strategy 1: Exact match on both abbr and name
+                newIndex = league.teams.findIndex(team => 
+                    team.abbr === selectedTeamIdentity.abbr && 
+                    team.name === selectedTeamIdentity.name
                 );
                 
-                if (newIndex !== -1 && newIndex !== originalUserTeamId) {
-                    log(`Updating userTeamId from ${originalUserTeamId} to ${newIndex} for ${selectedTeamIdentity.name}`);
+                // Strategy 2: Match on abbreviation only (more reliable)
+                if (newIndex === -1 && selectedTeamIdentity.abbr) {
+                    newIndex = league.teams.findIndex(team => 
+                        team.abbr === selectedTeamIdentity.abbr
+                    );
+                }
+                
+                // Strategy 3: Match on name only (fallback)
+                if (newIndex === -1 && selectedTeamIdentity.name) {
+                    newIndex = league.teams.findIndex(team => 
+                        team.name === selectedTeamIdentity.name
+                    );
+                }
+                
+                // Strategy 4: Use original index if team at that index matches
+                if (newIndex === -1 && originalUserTeamId < league.teams.length) {
+                    const teamAtOriginalIndex = league.teams[originalUserTeamId];
+                    if (teamAtOriginalIndex && 
+                        (teamAtOriginalIndex.abbr === selectedTeamIdentity.abbr ||
+                         teamAtOriginalIndex.name === selectedTeamIdentity.name)) {
+                        newIndex = originalUserTeamId;
+                    }
+                }
+                
+                if (newIndex !== -1) {
+                    if (newIndex !== originalUserTeamId) {
+                        log(`Updating userTeamId from ${originalUserTeamId} to ${newIndex} for ${selectedTeamIdentity.name}`);
+                    }
                     window.state.userTeamId = newIndex;
                     if (window.state.viewTeamId === originalUserTeamId) {
                         window.state.viewTeamId = newIndex;
@@ -812,8 +841,9 @@ console.log('[LeagueCreationFix] Loaded');
                     if (window.state.player?.teamId === originalUserTeamId) {
                         window.state.player.teamId = newIndex;
                     }
-                } else if (newIndex === -1) {
-                    warn(`Could not find selected team ${selectedTeamIdentity.name} after reordering!`);
+                } else {
+                    warn(`Could not find selected team ${selectedTeamIdentity.name} (${selectedTeamIdentity.abbr}) after reordering! Keeping original index ${originalUserTeamId}`);
+                    // Keep original index as fallback
                 }
             }
         }
