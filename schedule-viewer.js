@@ -210,8 +210,18 @@ class ScheduleViewer {
                     const homeScore = result.scoreHome || 0;
                     const awayScore = result.scoreAway || 0;
                     
+                    // Find game index for box score
+                    const weekResults = state.league?.resultsByWeek?.[weekNumber - 1] || [];
+                    const gameIndex = weekResults.findIndex(r => 
+                        r && r.home === result.home && r.away === result.away
+                    );
+                    
                     html += `
-                        <div class="result-item game-result" data-week="${weekNumber}" data-home="${result.home}" data-away="${result.away}">
+                        <div class="result-item game-result clickable-game" 
+                             data-week="${weekNumber}" 
+                             data-home="${result.home}" 
+                             data-away="${result.away}"
+                             ${gameIndex >= 0 ? `onclick="window.showBoxScore(${weekNumber}, ${gameIndex})" style="cursor: pointer;" title="Click to view box score"` : ''}>
                             <div class="game-teams">
                                 <span class="away-team ${!homeWin ? 'winner' : ''}">${awayTeam.name}</span>
                                 <span class="at">@</span>
@@ -224,6 +234,7 @@ class ScheduleViewer {
                             </div>
                             <div class="game-result-indicator">
                                 ${homeWin ? 'Home Win' : 'Away Win'}
+                                ${gameIndex >= 0 ? '<span class="box-score-link">📊 Box Score</span>' : ''}
                             </div>
                         </div>
                     `;
