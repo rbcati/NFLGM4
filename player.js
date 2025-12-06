@@ -925,13 +925,15 @@ let C = getConstants();
       const ratings = window.generatePlayerRatings ? window.generatePlayerRatings(pos) : generateBasicRatings(pos, ovr || 70);
       const playerOvr = ovr || (window.calculateOvr ? window.calculateOvr(pos, ratings) : (ovr || 70));
       // Use fixed contract generation that creates realistic salaries
+      // Always use window.generateContract if available (from fixes.js with corrected salaries)
       const contractDetails = window.generateContract ? window.generateContract(playerOvr, pos) : {
         years: U.rand(1, 4),
-        // FIXED: Realistic salary ranges based on OVR
-        baseAnnual: playerOvr >= 90 ? U.rand(20, 35) : 
-                   playerOvr >= 80 ? U.rand(8, 20) : 
-                   playerOvr >= 70 ? U.rand(3, 8) : 
-                   playerOvr >= 60 ? U.rand(1, 3) : U.rand(0.5, 1),
+        // FIXED: Reduced salary ranges to fit within $220M cap
+        // With ~35 players, average should be ~$6M, but most are depth players
+        baseAnnual: playerOvr >= 90 ? U.rand(12, 22) : 
+                   playerOvr >= 80 ? U.rand(4, 12) : 
+                   playerOvr >= 70 ? U.rand(1.5, 5) : 
+                   playerOvr >= 60 ? U.rand(0.6, 2) : U.rand(0.4, 0.8),
         signingBonus: 0,
         guaranteedPct: 0.5
       };
@@ -946,7 +948,7 @@ let C = getConstants();
         ratings: ratings,
         ovr: playerOvr,
         years: contractDetails.years,
-        yearsTotal: contractDetails.years,
+        yearsTotal: contractDetails.yearsTotal || contractDetails.years, // Ensure yearsTotal is set for proration
         baseAnnual: contractDetails.baseAnnual,
         signingBonus: contractDetails.signingBonus || 0,
         guaranteedPct: contractDetails.guaranteedPct || 0.5,
@@ -2033,11 +2035,11 @@ let C = getConstants();
             ovr: playerOvr,
             years: utils.rand(1, 4),
             yearsTotal: undefined,
-            // FIXED: Realistic salary based on OVR
-            baseAnnual: playerOvr >= 90 ? utils.rand(20, 35) : 
-                       playerOvr >= 80 ? utils.rand(8, 20) : 
-                       playerOvr >= 70 ? utils.rand(3, 8) : 
-                       playerOvr >= 60 ? utils.rand(1, 3) : utils.rand(0.5, 1),
+            // FIXED: Reduced salary ranges to fit within $220M cap
+            baseAnnual: playerOvr >= 90 ? utils.rand(12, 22) : 
+                       playerOvr >= 80 ? utils.rand(4, 12) : 
+                       playerOvr >= 70 ? utils.rand(1.5, 5) : 
+                       playerOvr >= 60 ? utils.rand(0.6, 2) : utils.rand(0.4, 0.8),
             ratings: generatePlayerRatingsFactory(position, playerOvr),
             abilities: constants?.ABILITIES_BY_POS?.[position]
                 ? [utils.choice(constants.ABILITIES_BY_POS[position])]
