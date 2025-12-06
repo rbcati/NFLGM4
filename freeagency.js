@@ -227,64 +227,104 @@ function renderFreeAgency() {
       return;
     }
     
-    const tbl = document.getElementById('faTable');
-    if (!tbl) {
-      console.error('Free agency table not found');
+    const userTeamId = window.state?.userTeamId ?? 0;
+    const userTeam = L.teams[userTeamId];
+    const capRoom = userTeam?.capRoom || 0;
+    
+    const faContainer = document.getElementById('freeagency');
+    if (!faContainer) {
+      console.error('Free agency container not found');
       return;
     }
     
-    // Clear and rebuild table
-    tbl.innerHTML = '<thead><tr><th>Name</th><th>POS</th><th>OVR</th><th>Age</th><th>Base</th><th>Bonus</th><th>Years</th><th>Abilities</th><th>Action</th></tr></thead>';
-    const tbody = document.createElement('tbody');
+    // Enhanced Free Agency UI with filters and search
+    let html = `
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+          <h2 style="margin: 0;">Free Agency</h2>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+              <strong style="color: var(--text-muted); font-size: 14px;">Cap Room:</strong>
+              <span style="color: ${capRoom >= 0 ? 'var(--success-text)' : 'var(--error-text)'}; font-weight: 600; font-size: 16px;">
+                $${capRoom.toFixed(1)}M
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 20px;">
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-size: 13px; color: var(--text-muted);">Search</label>
+            <input type="text" id="faSearch" placeholder="Search players..." 
+                   style="width: 100%; padding: 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                   oninput="filterFreeAgents()">
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-size: 13px; color: var(--text-muted);">Position</label>
+            <select id="faPositionFilter" 
+                    style="width: 100%; padding: 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                    onchange="filterFreeAgents()">
+              <option value="">All Positions</option>
+              <option value="QB">QB</option>
+              <option value="RB">RB</option>
+              <option value="WR">WR</option>
+              <option value="TE">TE</option>
+              <option value="OL">OL</option>
+              <option value="DL">DL</option>
+              <option value="LB">LB</option>
+              <option value="CB">CB</option>
+              <option value="S">S</option>
+              <option value="K">K</option>
+              <option value="P">P</option>
+            </select>
+          </div>
+          <div>
+            <label style="display: block; margin-bottom: 5px; font-size: 13px; color: var(--text-muted);">Sort By</label>
+            <select id="faSortBy" 
+                    style="width: 100%; padding: 8px; border-radius: 6px; background: var(--surface); color: var(--text); border: 1px solid var(--hairline); font-size: 14px;"
+                    onchange="filterFreeAgents()">
+              <option value="ovr">Overall (High to Low)</option>
+              <option value="ovr-asc">Overall (Low to High)</option>
+              <option value="age">Age (Young to Old)</option>
+              <option value="age-desc">Age (Old to Young)</option>
+              <option value="salary">Salary (Low to High)</option>
+              <option value="salary-desc">Salary (High to Low)</option>
+              <option value="name">Name (A-Z)</option>
+            </select>
+          </div>
+        </div>
+        
+        <div style="overflow-x: auto;">
+          <table class="table" id="faTable" style="width: 100%; border-collapse: collapse;">
+            <thead>
+              <tr style="background: var(--surface-strong); border-bottom: 2px solid var(--hairline-strong);">
+                <th style="padding: 12px; text-align: left; font-size: 13px; font-weight: 600; color: var(--text);">Name</th>
+                <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text);">POS</th>
+                <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text);">OVR</th>
+                <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text);">Age</th>
+                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: var(--text);">Base Salary</th>
+                <th style="padding: 12px; text-align: right; font-size: 13px; font-weight: 600; color: var(--text);">Bonus</th>
+                <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text);">Years</th>
+                <th style="padding: 12px; text-align: center; font-size: 13px; font-weight: 600; color: var(--text);">Action</th>
+              </tr>
+            </thead>
+            <tbody id="faTableBody">
+            </tbody>
+          </table>
+        </div>
+        
+        <div id="faResultsCount" style="margin-top: 10px; color: var(--text-muted); font-size: 13px; text-align: center;"></div>
+      </div>
+    `;
     
-    const freeAgents = window.state.freeAgents || [];
-    freeAgents.forEach((p, i) => {
-      const tr = document.createElement('tr');
-      const abilities = (p.abilities || []).join(', ') || 'None';
-      
-      tr.innerHTML = `
-        <td>${p.name}</td>
-        <td>${p.pos}</td>
-        <td>${p.ovr}</td>
-        <td>${p.age}</td>
-        <td>$${p.baseAnnual.toFixed(1)}M</td>
-        <td>$${p.signingBonus.toFixed(1)}M</td>
-        <td>${p.yearsTotal}</td>
-        <td>${abilities}</td>
-        <td><button class="btn btn-primary btn-sm" onclick="openContractNegotiation(${i})">Negotiate</button></td>
-      `;
-      
-      // Make row clickable for selection
-      tr.addEventListener('click', function(e) {
-        // Don't select if clicking the button
-        if (e.target.tagName === 'BUTTON') return;
-        
-        // Remove selection from other rows
-        document.querySelectorAll('#faTable tbody tr').forEach(row => {
-          row.classList.remove('selected');
-        });
-        
-        // Add selection to this row
-        tr.classList.add('selected');
-        
-        // Enable the sign button
-        const signBtn = document.getElementById('btnSignFA');
-        if (signBtn) {
-          signBtn.disabled = false;
-        }
-      });
-      
-      tbody.appendChild(tr);
-    });
+    faContainer.innerHTML = html;
     
-    tbl.appendChild(tbody);
-
-    // Lock team selector to USER TEAM only
+    // Render initial table
+    filterFreeAgents();
+    
+    // Lock team selector to USER TEAM only (if it exists in the original HTML)
     const sel = document.getElementById('faTeam');
     if (sel) {
-      const userTeamId = window.state?.userTeamId ?? 0;
-      const userTeam = L.teams[userTeamId];
-
       sel.innerHTML = '';
       if (userTeam) {
         const opt = document.createElement('option');
@@ -297,21 +337,136 @@ function renderFreeAgency() {
       sel.dataset.filled = '1';
     }
     
-    // Set up sign button
-    const signBtn = document.getElementById('btnSignFA');
-    if (signBtn && !signBtn.dataset.hasListener) {
-      signBtn.addEventListener('click', function() {
-        signFreeAgent();
-      });
-      signBtn.dataset.hasListener = '1';
-    }
-    
     console.log('Free agency rendered successfully');
     
   } catch (error) {
     console.error('Error rendering free agency:', error);
   }
 }
+
+/**
+ * Filters and sorts free agents based on search and filters
+ */
+window.filterFreeAgents = function() {
+  const searchTerm = (document.getElementById('faSearch')?.value || '').toLowerCase();
+  const positionFilter = document.getElementById('faPositionFilter')?.value || '';
+  const sortBy = document.getElementById('faSortBy')?.value || 'ovr';
+  const tbody = document.getElementById('faTableBody');
+  const resultsCount = document.getElementById('faResultsCount');
+  
+  if (!tbody) return;
+  
+  let freeAgents = [...(window.state?.freeAgents || [])];
+  
+  // Apply filters
+  if (searchTerm) {
+    freeAgents = freeAgents.filter(p => 
+      (p.name || '').toLowerCase().includes(searchTerm) ||
+      (p.pos || '').toLowerCase().includes(searchTerm)
+    );
+  }
+  
+  if (positionFilter) {
+    freeAgents = freeAgents.filter(p => p.pos === positionFilter);
+  }
+  
+  // Apply sorting
+  freeAgents.sort((a, b) => {
+    switch(sortBy) {
+      case 'ovr':
+        return (b.ovr || 0) - (a.ovr || 0);
+      case 'ovr-asc':
+        return (a.ovr || 0) - (b.ovr || 0);
+      case 'age':
+        return (a.age || 0) - (b.age || 0);
+      case 'age-desc':
+        return (b.age || 0) - (a.age || 0);
+      case 'salary':
+        return (a.baseAnnual || 0) - (b.baseAnnual || 0);
+      case 'salary-desc':
+        return (b.baseAnnual || 0) - (a.baseAnnual || 0);
+      case 'name':
+        return (a.name || '').localeCompare(b.name || '');
+      default:
+        return (b.ovr || 0) - (a.ovr || 0);
+    }
+  });
+  
+  // Clear and rebuild table
+  tbody.innerHTML = '';
+  
+  const userTeamId = window.state?.userTeamId ?? 0;
+  const userTeam = window.state?.league?.teams?.[userTeamId];
+  const capRoom = userTeam?.capRoom || 0;
+  
+  freeAgents.forEach((p, i) => {
+    const originalIndex = window.state.freeAgents.indexOf(p);
+    const abilities = (p.abilities || []).slice(0, 2).join(', ') || 'None';
+    const totalValue = (p.baseAnnual || 0) * (p.yearsTotal || 1) + (p.signingBonus || 0);
+    const firstYearCapHit = (p.baseAnnual || 0) + ((p.signingBonus || 0) / (p.yearsTotal || 1));
+    const canAfford = capRoom >= firstYearCapHit;
+    
+    const tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.style.transition = 'background 0.2s';
+    tr.onmouseover = () => tr.style.background = 'var(--surface-strong)';
+    tr.onmouseout = () => {
+      if (!tr.classList.contains('selected')) {
+        tr.style.background = '';
+      }
+    };
+    
+    tr.innerHTML = `
+      <td style="padding: 10px;">
+        <div style="font-weight: 600; color: var(--text);">${p.name}</div>
+        ${abilities !== 'None' ? `<div style="font-size: 11px; color: var(--text-muted); margin-top: 2px;">${abilities}</div>` : ''}
+      </td>
+      <td style="padding: 10px; text-align: center; color: var(--text);">${p.pos}</td>
+      <td style="padding: 10px; text-align: center;">
+        <span style="font-weight: 600; color: ${p.ovr >= 85 ? 'var(--accent)' : p.ovr >= 75 ? 'var(--success-text)' : 'var(--text)'};">
+          ${p.ovr}
+        </span>
+      </td>
+      <td style="padding: 10px; text-align: center; color: var(--text);">${p.age}</td>
+      <td style="padding: 10px; text-align: right; color: var(--text);">$${(p.baseAnnual || 0).toFixed(1)}M</td>
+      <td style="padding: 10px; text-align: right; color: var(--text-muted); font-size: 12px;">$${(p.signingBonus || 0).toFixed(1)}M</td>
+      <td style="padding: 10px; text-align: center; color: var(--text);">${p.yearsTotal || 0}</td>
+      <td style="padding: 10px; text-align: center;">
+        <button class="btn btn-sm" 
+                onclick="event.stopPropagation(); openContractNegotiation(${originalIndex})" 
+                style="padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: 500;"
+                ${!canAfford ? 'title="Insufficient cap space"' : ''}>
+          ${canAfford ? 'Negotiate' : '⚠️'}
+        </button>
+      </td>
+    `;
+    
+    // Make row clickable for selection
+    tr.addEventListener('click', function(e) {
+      if (e.target.tagName === 'BUTTON') return;
+      
+      document.querySelectorAll('#faTableBody tr').forEach(row => {
+        row.classList.remove('selected');
+        row.style.background = '';
+      });
+      
+      tr.classList.add('selected');
+      tr.style.background = 'var(--surface-strong)';
+      
+      const signBtn = document.getElementById('btnSignFA');
+      if (signBtn) {
+        signBtn.disabled = false;
+      }
+    });
+    
+    tbody.appendChild(tr);
+  });
+  
+  // Update results count
+  if (resultsCount) {
+    resultsCount.textContent = `Showing ${freeAgents.length} of ${window.state?.freeAgents?.length || 0} free agents`;
+  }
+};
 
 function signFreeAgent(playerIndex) {
   console.log('Attempting to sign free agent:', playerIndex);
