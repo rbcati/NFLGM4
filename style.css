@@ -584,6 +584,59 @@ select:disabled {
   pointer-events: auto;
 }
 
+/* Ensure game results modal is properly styled and closable */
+#gameResultsModal {
+  z-index: 10000;
+}
+
+#gameResultsModal .close {
+  background: none;
+  border: none;
+  font-size: 28px;
+  font-weight: bold;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  transition: all var(--dur) var(--ease);
+  line-height: 1;
+}
+
+#gameResultsModal .close:hover {
+  background: var(--surface);
+  color: var(--text);
+  transform: scale(1.1);
+}
+
+#gameResultsModal .close:active {
+  transform: scale(0.95);
+}
+
+/* Ensure modal content is scrollable on mobile */
+.game-results-modal {
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .game-results-modal {
+    max-height: 95vh;
+    margin: var(--space-2);
+  }
+  
+  #gameResultsModal .close {
+    width: 44px;
+    height: 44px;
+    font-size: 32px;
+  }
+}
+
 .modal-card {
   background: var(--bg-secondary);
   border: 1px solid var(--hairline-strong);
