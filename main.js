@@ -506,15 +506,43 @@ class GameController {
             console.log('✅ League created successfully:', {
                 teams: window.state.league?.teams?.length || 0,
                 userTeamId: window.state.userTeamId,
-                onboarded: window.state.onboarded
+                onboarded: window.state.onboarded,
+                hasLeague: !!window.state.league
             });
             
-            // Navigate to hub and render
+            // Ensure state is fully ready
+            if (window.state.league && !window.state.onboarded) {
+                window.state.onboarded = true;
+            }
+            
+            // Hide modal first
+            const modalEl = document.getElementById('onboardModal');
+            if (modalEl) {
+                modalEl.hidden = true;
+                modalEl.style.display = 'none';
+            }
+            
+            // Navigate to hub
             location.hash = '#/hub';
             
             // Wait for hash change and then render
             setTimeout(() => {
                 try {
+                    // Force show hub view first
+                    const hubView = document.getElementById('hub');
+                    if (hubView) {
+                        hubView.hidden = false;
+                        hubView.style.display = 'block';
+                    }
+                    
+                    // Hide all other views
+                    document.querySelectorAll('.view').forEach(view => {
+                        if (view.id !== 'hub') {
+                            view.hidden = true;
+                            view.style.display = 'none';
+                        }
+                    });
+                    
                     // Update UI components
                     if (window.initializeUIFixes) {
                         window.initializeUIFixes();
@@ -534,10 +562,10 @@ class GameController {
                     if (window.renderHub && typeof window.renderHub === 'function') {
                         setTimeout(() => {
                             window.renderHub();
-                        }, 50);
+                        }, 100);
                     }
                     
-                    // Force show hub view
+                    // Force show hub view (again to be sure)
                     if (window.show && typeof window.show === 'function') {
                         window.show('hub');
                     }
@@ -546,7 +574,7 @@ class GameController {
                 } catch (err) {
                     console.error('Error updating UI after league creation:', err);
                 }
-            }, 200);
+            }, 300);
             
             this.setStatus('New game created successfully!', 'success', 3000);
         } catch (error) {
