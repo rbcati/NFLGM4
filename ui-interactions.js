@@ -140,19 +140,32 @@
   // ============================================
   
   function initSmoothScroll() {
-    // Smooth scroll for anchor links
+    // Smooth scroll for anchor links (only for actual anchor links, not SPA routes)
     document.querySelectorAll('a[href^="#"]').forEach(anchor => {
       anchor.addEventListener('click', function(e) {
         const href = this.getAttribute('href');
-        if (href === '#' || href === '#/') return;
         
-        const target = document.querySelector(href);
-        if (target) {
-          e.preventDefault();
-          target.scrollIntoView({
-            behavior: 'smooth',
-            block: 'start'
-          });
+        // Skip SPA routes (hash routes starting with #/)
+        if (href.startsWith('#/')) {
+          return; // Let the router handle it
+        }
+        
+        // Skip empty hash
+        if (href === '#' || href === '') return;
+        
+        // Only handle actual anchor links (like #section-id)
+        try {
+          const target = document.querySelector(href);
+          if (target) {
+            e.preventDefault();
+            target.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        } catch (error) {
+          // Invalid selector, likely an SPA route - let it pass through
+          console.debug('Skipping smooth scroll for:', href);
         }
       });
     });
