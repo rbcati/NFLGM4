@@ -274,6 +274,19 @@ window.renderRoster = function() {
         const titleEl = document.getElementById('rosterTitle');
         if (titleEl) titleEl.textContent = `${team.name} Roster`;
         
+        // Generate and render depth chart
+        if (window.generateDepthChart && window.renderDepthChart) {
+            try {
+                window.generateDepthChart(team);
+                const depthChartContainer = document.getElementById('depthChartContainer');
+                if (depthChartContainer) {
+                    depthChartContainer.innerHTML = window.renderDepthChart(team);
+                }
+            } catch (error) {
+                console.error('Error rendering depth chart:', error);
+            }
+        }
+        
         const rosterTable = document.getElementById('rosterTable');
         if (!rosterTable) return;
         
@@ -286,6 +299,10 @@ window.renderRoster = function() {
                     <th>Pos</th>
                     <th>Age</th>
                     <th>OVR</th>
+                    <th>Eff</th>
+                    <th>Depth</th>
+                    <th>PB</th>
+                    <th>Chem</th>
                     <th>Contract</th>
                     <th>Cap Hit</th>
                     <th>Abilities</th>
@@ -299,21 +316,53 @@ window.renderRoster = function() {
         if (!team.roster || team.roster.length === 0) {
             const tr = tbody.insertRow();
             const td = tr.insertCell();
-            td.colSpan = 8;
+            td.colSpan = 12;
             td.textContent = 'No players on roster';
             return;
         }
         
-        // Sort roster by position and overall rating
+        // Initialize depth chart stats for all players
+        if (window.initializeDepthChartStats) {
+            team.roster.forEach(player => {
+                window.initializeDepthChartStats(player, team);
+            });
+        }
+        
+        // Generate depth chart to get effective ratings
+        if (window.generateDepthChart) {
+            window.generateDepthChart(team);
+        }
+        
+        // Sort roster by position and effective rating (from depth chart)
         const sortedRoster = [...team.roster].sort((a, b) => {
             if (a.pos !== b.pos) return a.pos.localeCompare(b.pos);
-            return (b.ovr || 0) - (a.ovr || 0);
+            // Use effective rating if available, otherwise use OVR
+            const aEff = window.calculateEffectiveRating ? window.calculateEffectiveRating(a, team, a.pos) : (a.ovr || 0);
+            const bEff = window.calculateEffectiveRating ? window.calculateEffectiveRating(b, team, b.pos) : (b.ovr || 0);
+            return bEff - aEff;
         });
         
         sortedRoster.forEach(player => {
             const tr = tbody.insertRow();
             tr.dataset.playerId = player.id;
             tr.style.cursor = 'pointer';
+            
+            // Initialize depth chart stats if not already done
+            if (window.initializeDepthChartStats) {
+                window.initializeDepthChartStats(player, team);
+            }
+            
+            // Get depth chart data
+            const dc = player.depthChart || {};
+            const effectiveRating = window.calculateEffectiveRating ? window.calculateEffectiveRating(player, team, player.pos) : (player.ovr || 0);
+            const depthPosition = dc.depthPosition || 'N/A';
+            const playbookKnowledge = dc.playbookKnowledge || 50;
+            const chemistry = dc.chemistry || 50;
+            
+            // Highlight starter (depth position 1)
+            if (depthPosition === 1) {
+                tr.classList.add('starter-row');
+            }
             
             // Checkbox
             const cellCheckbox = tr.insertCell();
@@ -331,6 +380,41 @@ window.renderRoster = function() {
             tr.insertCell().textContent = player.pos || 'N/A';
             tr.insertCell().textContent = player.age || 'N/A';
             tr.insertCell().textContent = player.ovr || 'N/A';
+            
+            // Effective Rating (from depth chart)
+            const effCell = tr.insertCell();
+            effCell.textContent = Math.round(effectiveRating);
+            effCell.className = 'effective-rating';
+            if (effectiveRating >= 85) effCell.classList.add('rating-elite');
+            else if (effectiveRating >= 75) effCell.classList.add('rating-good');
+            else if (effectiveRating < 65) effCell.classList.add('rating-poor');
+            
+            // Depth Position
+            const depthCell = tr.insertCell();
+            depthCell.textContent = depthPosition;
+            depthCell.className = 'depth-position';
+            if (depthPosition === 1) {
+                depthCell.classList.add('depth-starter');
+                depthCell.textContent = 'ST';
+            } else if (depthPosition === 2) {
+                depthCell.classList.add('depth-backup');
+            }
+            
+            // Playbook Knowledge
+            const pbCell = tr.insertCell();
+            pbCell.textContent = `${Math.round(playbookKnowledge)}%`;
+            pbCell.className = 'playbook-knowledge';
+            if (playbookKnowledge >= 80) pbCell.classList.add('pb-excellent');
+            else if (playbookKnowledge >= 60) pbCell.classList.add('pb-good');
+            else if (playbookKnowledge < 40) pbCell.classList.add('pb-poor');
+            
+            // Chemistry
+            const chemCell = tr.insertCell();
+            chemCell.textContent = `${Math.round(chemistry)}%`;
+            chemCell.className = 'chemistry';
+            if (chemistry >= 75) chemCell.classList.add('chem-excellent');
+            else if (chemistry >= 55) chemCell.classList.add('chem-good');
+            else if (chemistry < 35) chemCell.classList.add('chem-poor');
             
             // Contract info
             const years = player.years || 0;
