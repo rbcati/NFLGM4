@@ -486,32 +486,68 @@ class GameController {
             if (!saveResult.success) {
                 console.warn('Failed to save initial game state:', saveResult.error);
             }
+            // Hide modal
             const modal = this.getElement('onboardModal');
             if (modal) {
                 modal.hidden = true;
                 modal.style.display = 'none';
             }
+            
             // Ensure state is properly set
             if (!window.state.onboarded) {
                 window.state.onboarded = true;
             }
+            
+            // Mark state as needing save
+            if (window.state) {
+                window.state.needsSave = true;
+            }
+            
+            console.log('✅ League created successfully:', {
+                teams: window.state.league?.teams?.length || 0,
+                userTeamId: window.state.userTeamId,
+                onboarded: window.state.onboarded
+            });
+            
             // Navigate to hub and render
             location.hash = '#/hub';
-            // Wait a bit for hash change to process
+            
+            // Wait for hash change and then render
             setTimeout(() => {
-                if (window.initializeUIFixes) {
-                    window.initializeUIFixes();
+                try {
+                    // Update UI components
+                    if (window.initializeUIFixes) {
+                        window.initializeUIFixes();
+                    }
+                    if (typeof window.updateCapSidebar === 'function') {
+                        window.updateCapSidebar();
+                    }
+                    
+                    // Force router to run
+                    if (window.router && typeof window.router === 'function') {
+                        window.router('hub');
+                    } else if (window.fixedRouter && typeof window.fixedRouter === 'function') {
+                        window.fixedRouter();
+                    }
+                    
+                    // Render hub content
+                    if (window.renderHub && typeof window.renderHub === 'function') {
+                        setTimeout(() => {
+                            window.renderHub();
+                        }, 50);
+                    }
+                    
+                    // Force show hub view
+                    if (window.show && typeof window.show === 'function') {
+                        window.show('hub');
+                    }
+                    
+                    console.log('✅ UI updated after league creation');
+                } catch (err) {
+                    console.error('Error updating UI after league creation:', err);
                 }
-                if (typeof window.updateCapSidebar === 'function') {
-                    window.updateCapSidebar();
-                }
-                if (window.router && typeof window.router === 'function') {
-                    window.router('hub');
-                }
-                if (window.renderHub && typeof window.renderHub === 'function') {
-                    window.renderHub();
-                }
-            }, 100);
+            }, 200);
+            
             this.setStatus('New game created successfully!', 'success', 3000);
         } catch (error) {
             console.error('Error in initNewGame:', error);
