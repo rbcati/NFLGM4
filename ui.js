@@ -479,6 +479,8 @@ window.renderHub = function() {
         const L = window.state?.league;
         if (!L) return;
         
+        const isOffseason = window.state?.offseason === true;
+        
         // Update season/week info
         const hubSeason = document.getElementById('hubSeason');
         const hubWeek = document.getElementById('hubWeek');
@@ -486,12 +488,69 @@ window.renderHub = function() {
         const hubGames = document.getElementById('hubGames');
         
         if (hubSeason) hubSeason.textContent = L.year || '2025';
-        if (hubWeek) hubWeek.textContent = L.week || '1';
-        if (hubWeeks) hubWeeks.textContent = '18';
         
-        // Calculate games this week
-        const currentWeekGames = L.schedule?.weeks?.find(week => week.weekNumber === L.week)?.games || [];
-        if (hubGames) hubGames.textContent = currentWeekGames.length;
+        if (isOffseason) {
+            // Show offseason info
+            if (hubWeek) hubWeek.textContent = 'Offseason';
+            if (hubWeeks) hubWeeks.textContent = '';
+            if (hubGames) hubGames.textContent = '0';
+            
+            // Add offseason banner and button to hub
+            const hubContainer = document.getElementById('hub');
+            if (hubContainer) {
+                // Check if offseason banner already exists
+                let offseasonBanner = document.getElementById('offseasonBanner');
+                if (!offseasonBanner) {
+                    offseasonBanner = document.createElement('div');
+                    offseasonBanner.id = 'offseasonBanner';
+                    offseasonBanner.className = 'card';
+                    offseasonBanner.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    offseasonBanner.style.color = 'white';
+                    offseasonBanner.style.marginBottom = '1rem';
+                    hubContainer.insertBefore(offseasonBanner, hubContainer.firstChild);
+                }
+                
+                offseasonBanner.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <h2 style="margin: 0; color: white;">🏆 ${L.year} Season Complete - Offseason</h2>
+                            <p style="margin: 0.5rem 0 0 0; opacity: 0.9;">
+                                Resign players, sign free agents, and draft rookies before starting the ${L.year + 1} season.
+                            </p>
+                        </div>
+                        <button id="btnStartNewSeason" class="btn" style="background: white; color: #667eea; font-weight: bold; padding: 0.75rem 1.5rem;">
+                            Start ${L.year + 1} Season
+                        </button>
+                    </div>
+                `;
+                
+                // Add event listener for start new season button
+                const btnStartNewSeason = document.getElementById('btnStartNewSeason');
+                if (btnStartNewSeason) {
+                    btnStartNewSeason.onclick = function() {
+                        if (window.startNewSeason) {
+                            window.startNewSeason();
+                        } else {
+                            window.setStatus('Error: startNewSeason function not available', 'error');
+                        }
+                    };
+                }
+            }
+        } else {
+            // Regular season info
+            if (hubWeek) hubWeek.textContent = L.week || '1';
+            if (hubWeeks) hubWeeks.textContent = '18';
+            
+            // Calculate games this week
+            const currentWeekGames = L.schedule?.weeks?.find(week => week.weekNumber === L.week)?.games || [];
+            if (hubGames) hubGames.textContent = currentWeekGames.length;
+            
+            // Remove offseason banner if it exists
+            const offseasonBanner = document.getElementById('offseasonBanner');
+            if (offseasonBanner) {
+                offseasonBanner.remove();
+            }
+        }
         
         // Render power rankings
         renderPowerRankings();
@@ -501,8 +560,10 @@ window.renderHub = function() {
             window.renderLeagueTeamRatings(L, 'leagueTeamRatings');
         }
         
-        // Render last week results
-        renderLastWeekResults();
+        // Render last week results (only if not offseason)
+        if (!isOffseason) {
+            renderLastWeekResults();
+        }
         
         console.log('✅ Hub rendered successfully');
         
