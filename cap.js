@@ -7,6 +7,7 @@
  * @returns {number} Prorated amount per year
  */
 function prorationPerYear(p) { 
+  if (!p || !p.signingBonus || !p.yearsTotal || p.yearsTotal === 0) return 0;
   return p.signingBonus / p.yearsTotal; 
 }
 
@@ -17,10 +18,13 @@ function prorationPerYear(p) {
  * @returns {number} Cap hit in millions, rounded to 1 decimal
  */
 function capHitFor(p, relSeason) {
-  if (!p || p.years <= 0 || relSeason >= p.years || !p.baseAnnual || !p.signingBonus || !p.yearsTotal) return 0;
+  // If no player, no years left, or checking past contract end, cap hit is 0
+  if (!p || p.years <= 0 || relSeason >= p.years) return 0;
   
-  const base = p.baseAnnual;
-  const pr = prorationPerYear(p);
+  // Cap Hit = Base Annual Salary + Prorated Signing Bonus
+  const base = p.baseAnnual || 0;
+  const pr = prorationPerYear(p); // This will return 0 if no signing bonus
+  
   return Math.round((base + pr) * 10) / 10;
 }
 
