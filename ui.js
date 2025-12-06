@@ -1697,6 +1697,13 @@ window.renderTradeCenter = function () {
   // Initial render
   clearSelections();
   renderTeamLists();
+  
+  // Render Trade Block UI
+  if (global.renderTradeBlock) {
+    setTimeout(() => {
+      global.renderTradeBlock();
+    }, 100);
+  }
 
   // --- 4) When you change the CPU team, re-render lists ---
 
