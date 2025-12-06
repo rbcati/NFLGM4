@@ -435,16 +435,16 @@ function renderContractManagement(league, userTeamId) {
             </div>
           </div>
           <div class="contract-actions">
-            <button class="btn btn-sm" onclick="window.openContractExtensionModal(${player.id})">
+            <button class="btn btn-sm" onclick="window.openContractExtensionModal('${player.id || ''}')">
               Extend Contract
             </button>
             ${!team.franchiseTagged ? `
-              <button class="btn btn-sm" onclick="window.applyFranchiseTagToPlayer(${player.id})" title="Franchise Tag: $${franchiseSalary.toFixed(1)}M">
+              <button class="btn btn-sm" onclick="window.applyFranchiseTagToPlayer('${player.id || ''}')" title="Franchise Tag: $${franchiseSalary.toFixed(1)}M">
                 Franchise Tag
               </button>
             ` : ''}
             ${!team.transitionTagged ? `
-              <button class="btn btn-sm" onclick="window.applyTransitionTagToPlayer(${player.id})" title="Transition Tag: $${transitionSalary.toFixed(1)}M">
+              <button class="btn btn-sm" onclick="window.applyTransitionTagToPlayer('${player.id || ''}')" title="Transition Tag: $${transitionSalary.toFixed(1)}M">
                 Transition Tag
               </button>
             ` : ''}
@@ -481,7 +481,7 @@ function renderContractManagement(league, userTeamId) {
             </div>
           </div>
           <div class="contract-actions">
-            <button class="btn btn-sm" onclick="window.exerciseFifthYearOptionOnPlayer(${player.id})">
+            <button class="btn btn-sm" onclick="window.exerciseFifthYearOptionOnPlayer('${player.id || ''}')">
               Exercise 5th Year Option
             </button>
           </div>
