@@ -991,6 +991,12 @@ console.log('[LeagueCreationFix] Loaded');
               console.log('✅ History rendered');
             }
             break;
+          case 'records':
+            if (window.renderRecords) {
+              window.renderRecords();
+              console.log('✅ Records rendered');
+            }
+            break;
           case 'hallOfFame':
             if (window.renderHallOfFame) {
               window.renderHallOfFame();
@@ -1261,6 +1267,7 @@ console.log('[LeagueCreationFix] Loaded');
       { href: '#/coaching', text: 'Coaching', view: 'coaching' },
       { href: '#/playerDatabase', text: 'Players', view: 'playerDatabase' },
       { href: '#/history', text: 'History', view: 'history' },
+      { href: '#/records', text: 'Records', view: 'records' },
       { href: '#/hallOfFame', text: 'Hall of Fame', view: 'hallOfFame' },
       { href: '#/settings', text: 'Settings', view: 'settings' }
     ];
