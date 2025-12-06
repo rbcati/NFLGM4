@@ -962,10 +962,11 @@ console.log('[LeagueCreationFix] Loaded');
     });
     
     // Only render content if game is ready
-    if (!state.league || !state.onboarded) {
+    const currentState = window.state || {};
+    if (!currentState.league || !currentState.onboarded) {
       console.log('Game not ready, skipping content rendering');
       // Ensure onboarding modal is shown if game isn't ready
-      if (!state.onboarded && window.openOnboard) {
+      if (!currentState.onboarded && window.openOnboard) {
         setTimeout(() => {
           window.openOnboard().catch(err => {
             console.error('Failed to open onboarding modal:', err);
@@ -1098,25 +1099,26 @@ console.log('[LeagueCreationFix] Loaded');
   // Basic settings renderer
   function renderSettings() {
     const settingsView = document.getElementById('settings');
+    const currentState = window.state || {};
     if (settingsView && !settingsView.dataset.rendered) {
       settingsView.innerHTML = `
         <div class="card">
           <h2>Settings</h2>
           <div class="section">
             <label for="settingsYear">Current Season</label>
-            <input type="number" id="settingsYear" value="${state.league?.year || 2025}" readonly>
+            <input type="number" id="settingsYear" value="${currentState.league?.year || 2025}" readonly>
           </div>
           <div class="section">
             <label>Game Mode</label>
-            <p>${state.gameMode === 'gm' ? 'General Manager' : 'Career Mode'}</p>
+            <p>${currentState.gameMode === 'gm' ? 'General Manager' : 'Career Mode'}</p>
           </div>
           <div class="section">
             <label>Your Role</label>
-            <p>${state.playerRole || 'GM'}</p>
+            <p>${currentState.playerRole || 'GM'}</p>
           </div>
           <div class="section">
             <label>Team Names</label>
-            <p>${state.namesMode === 'real' ? 'Real NFL Teams' : 'Fictional Teams'}</p>
+            <p>${currentState.namesMode === 'real' ? 'Real NFL Teams' : 'Fictional Teams'}</p>
           </div>
           <div class="section">
             <button id="btnResetGame" class="btn danger">Reset Game</button>
@@ -1760,7 +1762,7 @@ window.on = on;
           const chosenMode = document.querySelector('input[name="namesMode"]:checked')?.value || 'fictional';
           const teamIdx = teamSelect?.value ?? '0';
           
-          if (teamSelect && teamSelect.value) {
+          if (teamSelect && teamSelect.value && teamSelect.value !== '0') {
             window.initNewGame({ chosenMode, teamIdx }).catch(err => {
               console.error('Failed to initialize game:', err);
               window.setStatus?.('Failed to start game. Please try again.', 'error');
@@ -1768,6 +1770,9 @@ window.on = on;
           } else {
             window.setStatus?.('Please select a team first.', 'error');
           }
+        } else {
+          console.error('initNewGame function not available');
+          window.setStatus?.('Game initialization system not ready. Please refresh the page.', 'error');
         }
         return false;
       }
@@ -1828,13 +1833,20 @@ window.on = on;
         if (window.handleLoadGame) {
           window.handleLoadGame(e);
         } else if (window.loadState) {
-          const loaded = window.loadState();
-          if (loaded) {
-            window.state = loaded;
-            location.reload();
-          } else {
-            window.setStatus?.('No save file found!', 'error');
+          try {
+            const loaded = window.loadState();
+            if (loaded) {
+              window.state = loaded;
+              location.reload();
+            } else {
+              window.setStatus?.('No save file found!', 'error');
+            }
+          } catch (err) {
+            console.error('Error loading game:', err);
+            window.setStatus?.('Failed to load game. Please try again.', 'error');
           }
+        } else {
+          window.setStatus?.('Load system not available. Please refresh the page.', 'error');
         }
         return false;
       }
@@ -1959,22 +1971,25 @@ window.on = on;
     }
     viewport.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
     
-    // Prevent iOS Safari bounce/zoom
-    document.addEventListener('touchmove', function(e) {
-      if (e.touches.length > 1) {
-        e.preventDefault(); // Prevent pinch zoom
-      }
-    }, { passive: false });
-    
-    // Prevent double-tap zoom
-    let lastTouchEnd = 0;
-    document.addEventListener('touchend', function(e) {
-      const now = Date.now();
-      if (now - lastTouchEnd <= 300) {
-        e.preventDefault();
-      }
-      lastTouchEnd = now;
-    }, false);
+    // Prevent iOS Safari bounce/zoom (only on iOS)
+    if (/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+      document.addEventListener('touchmove', function(e) {
+        // Only prevent pinch zoom, allow single finger scrolling
+        if (e.touches.length > 1) {
+          e.preventDefault();
+        }
+      }, { passive: false });
+      
+      // Prevent double-tap zoom (but allow single taps)
+      let lastTouchEnd = 0;
+      document.addEventListener('touchend', function(e) {
+        const now = Date.now();
+        if (now - lastTouchEnd <= 300) {
+          e.preventDefault();
+        }
+        lastTouchEnd = now;
+      }, false);
+    }
     
     console.log('✅ iOS optimizations added');
   }
@@ -2039,22 +2054,30 @@ window.on = on;
     
     // Ensure onboarding modal is shown if game isn't ready
     setTimeout(() => {
-      if (window.state && (!window.state.league || !window.state.onboarded)) {
-        const modal = document.getElementById('onboardModal');
-        if (modal && modal.hidden) {
-          console.log('🎯 Game not ready - ensuring onboarding modal is visible');
-          if (window.openOnboard) {
-            window.openOnboard().catch(err => {
-              console.error('Failed to open onboarding modal:', err);
-            });
-          } else {
-            // Fallback: manually show modal
-            modal.hidden = false;
-            modal.style.display = 'flex';
+      try {
+        const currentState = window.state || {};
+        if (!currentState.league || !currentState.onboarded) {
+          const modal = document.getElementById('onboardModal');
+          if (modal && modal.hidden) {
+            console.log('🎯 Game not ready - ensuring onboarding modal is visible');
+            if (window.openOnboard && typeof window.openOnboard === 'function') {
+              window.openOnboard().catch(err => {
+                console.error('Failed to open onboarding modal:', err);
+                // Fallback: manually show modal
+                modal.hidden = false;
+                modal.style.display = 'flex';
+              });
+            } else {
+              // Fallback: manually show modal
+              modal.hidden = false;
+              modal.style.display = 'flex';
+            }
           }
         }
+      } catch (err) {
+        console.error('Error checking game state:', err);
       }
-    }, 300);
+    }, 500);
     
     console.log('✅ All critical fixes initialized');
   }
