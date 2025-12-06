@@ -944,8 +944,14 @@ function renderLastWeekResults() {
         const winner = homeScore > awayScore ? homeTeam : awayTeam;
         const isUserTeam = result.home === window.state?.userTeamId || result.away === window.state?.userTeamId;
         
+        // Find game index in week for box score
+        const gameIndex = lastWeekResults.indexOf(result);
+        
         return `
-            <div class="result-item ${isUserTeam ? 'user-game' : ''}">
+            <div class="result-item ${isUserTeam ? 'user-game' : ''} clickable-game" 
+                 onclick="window.showBoxScore(${lastWeek}, ${gameIndex})" 
+                 style="cursor: pointer;" 
+                 title="Click to view box score">
                 <div class="teams">
                     <span class="team ${result.away === winner.id ? 'winner' : ''}">${awayTeam.name}</span>
                     <span class="score">${awayScore}</span>
@@ -953,6 +959,7 @@ function renderLastWeekResults() {
                     <span class="team ${result.home === winner.id ? 'winner' : ''}">${homeTeam.name}</span>
                     <span class="score">${homeScore}</span>
                 </div>
+                <div class="box-score-link">📊 View Box Score</div>
             </div>
         `;
     }).join('');
