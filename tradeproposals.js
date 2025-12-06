@@ -234,17 +234,72 @@ function generateAITradeProposals() {
 
 function renderTradeProposals() {
   const L = tp_getLeague();
-  if (!L) return;
+  if (!L) {
+    console.warn('TradeProposals: No league available');
+    return;
+  }
 
   const userId = window.state?.userTeamId ?? 0;
   const userTeam = L.teams[userId];
+  
+  if (!userTeam) {
+    console.warn('TradeProposals: User team not found');
+    return;
+  }
 
-  const container = document.getElementById('tradeProposals');
-  const listEl = document.getElementById('tradeProposalsList');
-  const refreshBtn = document.getElementById('btnRefreshProposals');
-
+  // Try multiple possible container locations
+  let container = document.getElementById('tradeProposals');
+  let listEl = document.getElementById('tradeProposalsList');
+  let refreshBtn = document.getElementById('btnRefreshProposals');
+  
+  // If not found in nav, try creating in trade view
   if (!container || !listEl) {
-    console.error('TradeProposals: missing #tradeProposals or #tradeProposalsList');
+    const tradeView = document.getElementById('trade');
+    if (tradeView) {
+      // Create container in trade view
+      let existingContainer = tradeView.querySelector('#tradeProposalsContainer');
+      if (!existingContainer) {
+        existingContainer = document.createElement('div');
+        existingContainer.id = 'tradeProposalsContainer';
+        existingContainer.className = 'card mt';
+        existingContainer.innerHTML = `
+          <h3>AI Trade Proposals</h3>
+          <button id="btnRefreshProposals" class="btn btn-sm">Refresh</button>
+          <div id="tradeProposalsList"></div>
+        `;
+        tradeView.appendChild(existingContainer);
+      }
+      listEl = document.getElementById('tradeProposalsList');
+      refreshBtn = document.getElementById('btnRefreshProposals');
+    }
+  }
+
+  // If container not found, try to create it in trade view
+  if (!listEl) {
+    const tradeView = document.getElementById('trade');
+    if (tradeView) {
+      let existingContainer = tradeView.querySelector('#tradeProposalsContainer');
+      if (!existingContainer) {
+        existingContainer = document.createElement('div');
+        existingContainer.id = 'tradeProposalsContainer';
+        existingContainer.className = 'card mt';
+        existingContainer.innerHTML = `
+          <div class="row">
+            <h3>AI Trade Proposals</h3>
+            <div class="spacer"></div>
+            <button id="btnRefreshProposals" class="btn btn-sm">Refresh</button>
+          </div>
+          <div id="tradeProposalsList"></div>
+        `;
+        tradeView.appendChild(existingContainer);
+      }
+      listEl = document.getElementById('tradeProposalsList');
+      refreshBtn = document.getElementById('btnRefreshProposals');
+    }
+  }
+  
+  if (!listEl) {
+    console.warn('TradeProposals: Could not find or create container');
     return;
   }
 
