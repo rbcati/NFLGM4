@@ -748,13 +748,21 @@ console.log('[LeagueCreationFix] Loaded');
         return payload;
     }
 
-    const originalMakeLeague = window.makeLeague;
-    if (typeof originalMakeLeague !== 'function') {
-        warn('makeLeague is not available; cannot apply team selection fix.');
-        return;
+    // Wait for makeLeague to be available
+    function applyTeamSelectionFix() {
+        const originalMakeLeague = window.makeLeague;
+        if (typeof originalMakeLeague !== 'function') {
+            // Try again after a short delay
+            setTimeout(applyTeamSelectionFix, 100);
+            return;
+        }
+        
+        // Apply the fix
+        applyFixToMakeLeague(originalMakeLeague);
     }
-
-    window.makeLeague = function patchedMakeLeague(teams, options = {}) {
+    
+    function applyFixToMakeLeague(originalMakeLeague) {
+        window.makeLeague = function patchedMakeLeague(teams, options = {}) {
         const namesMode = window.state?.namesMode || 'fictional';
         const canonicalTeams = getCanonicalTeams(namesMode);
         const lookup = buildLookup(canonicalTeams);
@@ -817,9 +825,13 @@ console.log('[LeagueCreationFix] Loaded');
 
         window.verifyTeamAssignment = verifyTeamAssignment;
         return league;
-    };
-
-    log('Team selection fix initialized.');
+        };
+    }
+    
+    // Start trying to apply the fix
+    applyTeamSelectionFix();
+    
+    log('Team selection fix initialized (will apply when makeLeague is available).');
 })();
 
 // ============================================================================
