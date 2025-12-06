@@ -1351,10 +1351,12 @@ console.log('[LeagueCreationFix] Loaded');
       return;
     }
     
-    // Check localStorage for saved state
+    // Check localStorage for saved state and default to collapsed on small screens/standalone
     const savedState = localStorage.getItem('navSidebarCollapsed');
-    const isCollapsed = savedState === 'true';
-    
+    const isSmallScreen = window.innerWidth < 1024;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const isCollapsed = savedState === 'true' || (!savedState && (isSmallScreen || isStandalone));
+
     if (isCollapsed) {
       navSidebar.classList.add('collapsed');
       layout.classList.add('nav-collapsed');
@@ -1363,7 +1365,7 @@ console.log('[LeagueCreationFix] Loaded');
     
     navToggle.addEventListener('click', () => {
       const isCurrentlyCollapsed = navSidebar.classList.contains('collapsed');
-      
+
       if (isCurrentlyCollapsed) {
         navSidebar.classList.remove('collapsed');
         layout.classList.remove('nav-collapsed');
@@ -1376,7 +1378,20 @@ console.log('[LeagueCreationFix] Loaded');
         localStorage.setItem('navSidebarCollapsed', 'true');
       }
     });
-    
+
+    // Close navigation after selecting an item on mobile to free space
+    navSidebar.addEventListener('click', (event) => {
+      const link = event.target.closest('a.nav-item');
+      if (!link) return;
+
+      if (window.innerWidth < 1024) {
+        navSidebar.classList.add('collapsed');
+        layout.classList.add('nav-collapsed');
+        navToggle.setAttribute('aria-expanded', 'false');
+        localStorage.setItem('navSidebarCollapsed', 'true');
+      }
+    });
+
     console.log('✅ Navigation toggle set up');
   }
   
@@ -1886,9 +1901,11 @@ window.on = on;
     if (!navSidebar || !navToggle) return;
     
     const savedState = localStorage.getItem('navSidebarCollapsed');
-    const isCollapsed = savedState === 'true';
-    
-    if (isCollapsed) {
+    const isSmallScreen = window.innerWidth < 1024;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    const shouldCollapse = savedState === 'true' || (!savedState && (isSmallScreen || isStandalone));
+
+    if (shouldCollapse) {
       navSidebar.classList.add('collapsed');
       if (layout) layout.classList.add('nav-collapsed');
       navToggle.setAttribute('aria-expanded', 'false');
