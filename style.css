@@ -5044,3 +5044,128 @@ select:disabled {
     grid-template-columns: 1fr;
   }
 }
+
+/* Injury History Styles */
+.player-injury-history {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface-strong);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.injury-assessment {
+  margin-bottom: var(--space-3);
+  padding: var(--space-2);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+}
+
+.assessment-level {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: var(--space-1);
+}
+
+.assessment-level.none,
+.assessment-level.low {
+  color: var(--success, #34C759);
+}
+
+.assessment-level.moderate {
+  color: var(--warning, #FF9500);
+}
+
+.assessment-level.high,
+.assessment-level.very-high {
+  color: var(--danger, #FF3B30);
+}
+
+.assessment-stats {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: var(--space-1) 0;
+}
+
+.assessment-recommendation {
+  font-size: 0.9rem;
+  font-style: italic;
+  color: var(--text);
+  margin-top: var(--space-2);
+}
+
+.injury-history-list {
+  margin-top: var(--space-3);
+}
+
+.injury-history-list table {
+  font-size: 0.85rem;
+}
+
+.severity-badge {
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.severity-badge.minor {
+  background: var(--warning-light, rgba(255, 149, 0, 0.2));
+  color: var(--warning);
+}
+
+.severity-badge.moderate {
+  background: rgba(255, 149, 0, 0.3);
+  color: var(--warning);
+}
+
+.severity-badge.major {
+  background: var(--danger-light, rgba(255, 59, 48, 0.2));
+  color: var(--danger);
+}
+
+.injury-minor {
+  border-left: 3px solid var(--warning);
+}
+
+.injury-moderate {
+  border-left: 3px solid var(--warning);
+}
+
+.injury-major {
+  border-left: 3px solid var(--danger);
+}
+
+/* Season History Styles */
+.player-season-history {
+  margin-top: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface-strong);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.season-history-list table {
+  font-size: 0.9rem;
+}
+
+.season-history-list .positive {
+  color: var(--success, #34C759);
+  font-weight: 600;
+}
+
+.season-history-list .negative {
+  color: var(--danger, #FF3B30);
+  font-weight: 600;
+}
+
+.injury-count {
+  font-size: 0.85rem;
+  color: var(--warning);
+}
+
+.injury-count.has-major {
+  color: var(--danger);
+  font-weight: 600;
+}
