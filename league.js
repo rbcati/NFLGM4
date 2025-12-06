@@ -76,15 +76,22 @@ window.makeLeague = function(
         }
 
         // --- B. Calculate Salary Cap ---
-        team.capTotal = C.SALARY_CAP?.BASE || 255.4; // Default to 2025 cap if missing
+        team.capTotal = C.SALARY_CAP?.BASE || 220; // Use constant from SALARY_CAP.BASE
         team.deadCap = 0;
+        team.deadCapBook = {}; // Initialize dead cap book
 
-        team.capUsed = team.roster.reduce((total, p) => {
-            const hit = window.capHitFor ? window.capHitFor(p, 0) : p.baseAnnual || 0;
+        // FIXED: Use proper cap calculation function
+        if (window.recalcCap) {
+          // Use the proper recalcCap function which handles prorated bonuses correctly
+          window.recalcCap(L, team);
+        } else {
+          // Fallback calculation
+          team.capUsed = team.roster.reduce((total, p) => {
+            const hit = window.capHitFor ? window.capHitFor(p, 0) : (p.baseAnnual || 0);
             return total + hit;
-        }, 0);
-
-        team.capRoom = team.capTotal - team.capUsed;
+          }, 0);
+          team.capRoom = team.capTotal - team.capUsed;
+        }
 
         // --- C. Generate Draft Picks (Next 3 Years) ---
         team.picks = [];
