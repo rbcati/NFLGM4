@@ -868,6 +868,11 @@ class GameController {
                     window.renderDraft();
                 }
                 break;
+            case 'injuries':
+                if (window.renderInjuriesPage) {
+                    window.renderInjuriesPage();
+                }
+                break;
             case 'settings':
                 if (window.renderSettings) {
                     window.renderSettings();
