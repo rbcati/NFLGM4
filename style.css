@@ -239,7 +239,6 @@ html, body {
   cursor: pointer;
   transition: all var(--dur) var(--ease);
   flex-shrink: 0;
-  touch-action: manipulation;
 }
 
 .nav-toggle:hover {
@@ -269,7 +268,6 @@ html, body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
   transform: translateX(0);
   pointer-events: auto;
-  will-change: transform;
 }
 
 .nav-sidebar.collapsed {
@@ -384,21 +382,16 @@ html, body {
     backdrop-filter: blur(2px);
     -webkit-backdrop-filter: blur(2px);
   }
-
+  
+  .nav-sidebar:not(.collapsed) ~ .nav-overlay,
   body.nav-open .nav-overlay {
     display: block;
-    pointer-events: auto;
   }
-
+  
   /* Ensure nav sidebar is above overlay when open */
   .nav-sidebar:not(.collapsed) {
     z-index: 51;
   }
-}
-
-/* Prevent background scroll when the nav is open on touch devices */
-body.nav-open {
-  overflow: hidden;
 }
 
 /* Premium Navigation Pills - Legacy (keep for compatibility) */
@@ -6411,4 +6404,367 @@ input:focus, select:focus, textarea:focus {
   .injury-table td {
     padding: var(--space-1);
   }
+}
+
+/* Enhanced Coaching UI Styles */
+.coaching-section {
+  margin-bottom: var(--space-6);
+}
+
+.coaching-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--hairline);
+}
+
+.coaching-table-wrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-2);
+}
+
+.coaching-table.modern-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.coaching-table.modern-table thead {
+  background: var(--surface-elevated);
+  border-bottom: 2px solid var(--hairline-strong);
+}
+
+.coaching-table.modern-table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+}
+
+.coaching-table.modern-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text-muted);
+}
+
+.coaching-table.modern-table tr:hover {
+  background: var(--surface-strong);
+}
+
+.coaching-table.modern-table tr.user-row {
+  background: rgba(10, 132, 255, 0.1);
+  border-left: 3px solid var(--accent);
+}
+
+.coaching-table.modern-table tr.user-row:hover {
+  background: rgba(10, 132, 255, 0.15);
+}
+
+.badge-user {
+  background: var(--accent);
+  color: white;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: var(--space-2);
+}
+
+.badge-position {
+  background: var(--surface-strong);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.badge-championship {
+  background: var(--warning);
+  color: #000;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.badge-ranking {
+  background: var(--success);
+  color: white;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.stat-value.stat-good {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.stat-value.stat-avg {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.stat-value.stat-poor {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Enhanced Scouting UI Styles */
+.scouting-dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+.scouting-budget-card,
+.scouting-limits-card {
+  background: var(--surface);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+
+.scouting-budget-card h3,
+.scouting-limits-card h3 {
+  font-size: 1rem;
+  margin-bottom: var(--space-3);
+  color: var(--text);
+}
+
+.budget-display {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.budget-remaining {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.budget-total {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.budget-bar {
+  height: 8px;
+  background: var(--surface-strong);
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+}
+
+.budget-used {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  transition: width 0.3s ease;
+}
+
+.limits-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.limit-item {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+}
+
+.limit-item strong {
+  color: var(--text);
+}
+
+.scouting-empty {
+  text-align: center;
+  padding: var(--space-8);
+}
+
+/* Weekly Stats Styles */
+.weekly-stats-container {
+  margin-top: var(--space-4);
+}
+
+.weekly-stats-table {
+  display: grid;
+  grid-template-columns: 60px 100px 60px 1fr;
+  gap: var(--space-2);
+  background: var(--surface);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+}
+
+.weekly-stats-header {
+  display: contents;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.5px;
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--hairline-strong);
+  margin-bottom: var(--space-2);
+}
+
+.weekly-stats-header > span {
+  padding: var(--space-2);
+}
+
+.weekly-stats-row {
+  display: contents;
+  padding: var(--space-2);
+}
+
+.weekly-stats-row > span {
+  padding: var(--space-2);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.weekly-stats-row:last-child > span {
+  border-bottom: none;
+}
+
+.week-number {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.result.W {
+  color: var(--success);
+  font-weight: 700;
+}
+
+.result.L {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.result.T {
+  color: var(--warning);
+  font-weight: 700;
+}
+
+/* Enhanced Schedule Styles */
+.schedule-header-info {
+  padding: var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--hairline);
+}
+
+.schedule-weeks-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.week-schedule-card {
+  background: var(--surface);
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--hairline);
+  transition: all 0.2s ease;
+}
+
+.week-schedule-card:hover {
+  border-color: var(--hairline-strong);
+  box-shadow: var(--shadow-md);
+}
+
+.week-schedule-card.current-week {
+  border: 2px solid var(--accent);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.1);
+}
+
+.week-schedule-card h3 {
+  font-size: 1.1rem;
+  margin-bottom: var(--space-3);
+  color: var(--text);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.week-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.game-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3);
+  background: var(--surface-strong);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+}
+
+.game-item.user-game {
+  border: 2px solid var(--accent);
+  background: rgba(10, 132, 255, 0.1);
+}
+
+.game-item.completed {
+  opacity: 0.8;
+}
+
+.game-teams {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+}
+
+.game-score {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 var(--space-4);
+}
+
+.score.winner {
+  font-weight: 700;
+  color: var(--success);
+  font-size: 1.1rem;
+}
+
+.watch-live-btn {
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.watch-live-btn:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.bye-week {
+  opacity: 0.6;
+  font-style: italic;
 }
