@@ -570,6 +570,13 @@ class GameController {
                         window.show('hub');
                     }
                     
+                    // Update cap sidebar
+                    if (window.updateCapSidebar && typeof window.updateCapSidebar === 'function') {
+                        setTimeout(() => {
+                            window.updateCapSidebar();
+                        }, 150);
+                    }
+                    
                     console.log('✅ UI updated after league creation');
                 } catch (err) {
                     console.error('Error updating UI after league creation:', err);
