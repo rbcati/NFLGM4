@@ -188,42 +188,123 @@ class GameController {
     // --- SCHEDULE RENDERING ---
     renderSchedule() {
         try {
-            console.log('Rendering schedule...');
-            const scheduleContainer = this.getElement('schedule');
+            console.log('Rendering enhanced schedule...');
+            const scheduleContainer = document.getElementById('schedule');
             if (!scheduleContainer) {
                 console.warn('Schedule container not found');
                 return;
             }
+            
             const L = window.state?.league;
-            if (!L || !L.schedule) {
-                scheduleContainer.innerHTML = '<div class="card"><p>No schedule available</p></div>';
+            if (!L) {
+                scheduleContainer.innerHTML = '<div class="card"><p>No league data available</p></div>';
                 return;
             }
+
+            const currentWeek = L.week || 1;
+            const userTeamId = window.state?.userTeamId;
+            
             let scheduleHTML = '<div class="card"><h2>Season Schedule</h2>';
-            scheduleHTML += `<p>Current Week: ${L.week || 1}</p>`;
-            for (let week = 1; week <= 18; week++) {
-                if (L.schedule[week] && L.schedule[week].length > 0) {
-                    scheduleHTML += `<h3>Week ${week}</h3>`;
-                    scheduleHTML += '<div class="schedule-week">';
-                    L.schedule[week].forEach(game => {
-                        const homeTeam = L.teams.find(t => t.id === game.home);
-                        const awayTeam = L.teams.find(t => t.id === game.away);
-                        if (homeTeam && awayTeam) {
-                            scheduleHTML += `
-                                <div class="schedule-game">
-                                    <span class="away-team">${awayTeam.name}</span>
-                                    <span class="at">@</span>
-                                    <span class="home-team">${homeTeam.name}</span>
-                                </div>
-                            `;
+            scheduleHTML += `<div class="schedule-header-info"><span>Current Week: ${currentWeek}</span></div>`;
+            
+            // Try different schedule formats
+            let scheduleWeeks = [];
+            if (L.schedule) {
+                if (Array.isArray(L.schedule)) {
+                    scheduleWeeks = L.schedule;
+                } else if (L.schedule.weeks) {
+                    scheduleWeeks = L.schedule.weeks;
+                } else {
+                    // Legacy format: L.schedule[week]
+                    for (let w = 1; w <= 18; w++) {
+                        if (L.schedule[w] && Array.isArray(L.schedule[w])) {
+                            scheduleWeeks.push({ weekNumber: w, games: L.schedule[w] });
                         }
-                    });
-                    scheduleHTML += '</div>';
+                    }
                 }
             }
+
+            if (scheduleWeeks.length === 0) {
+                scheduleHTML += '<p class="muted">No schedule data available. Schedule will be generated when the season starts.</p>';
+            } else {
+                scheduleHTML += '<div class="schedule-weeks-container">';
+                
+                for (let week = 1; week <= 18; week++) {
+                    const weekData = scheduleWeeks.find(w => (w.weekNumber || w.week) === week) || 
+                                   scheduleWeeks[week - 1];
+                    
+                    if (!weekData) continue;
+                    
+                    const games = weekData.games || [];
+                    const weekResults = L.resultsByWeek?.[week - 1] || [];
+                    
+                    scheduleHTML += `<div class="week-schedule-card ${week === currentWeek ? 'current-week' : ''}">`;
+                    scheduleHTML += `<h3>Week ${week}${week < currentWeek ? ' (Completed)' : week === currentWeek ? ' (Current)' : ''}</h3>`;
+                    scheduleHTML += '<div class="week-games-list">';
+                    
+                    if (games.length === 0) {
+                        scheduleHTML += '<p class="muted">No games scheduled</p>';
+                    } else {
+                        games.forEach((game, idx) => {
+                            if (!game || (game.bye && Array.isArray(game.bye))) {
+                                // Bye week
+                                if (game.bye) {
+                                    scheduleHTML += `<div class="game-item bye-week">`;
+                                    game.bye.forEach(teamId => {
+                                        const team = L.teams[teamId];
+                                        if (team) scheduleHTML += `<span class="team-name">${team.abbr}</span>`;
+                                    });
+                                    scheduleHTML += `<span class="bye-label">- BYE</span></div>`;
+                                }
+                            } else {
+                                // Regular game
+                                const homeTeam = L.teams[game.home];
+                                const awayTeam = L.teams[game.away];
+                                
+                                if (!homeTeam || !awayTeam) return;
+                                
+                                const isUserGame = game.home === userTeamId || game.away === userTeamId;
+                                const isCompleted = game.homeScore !== undefined && game.awayScore !== undefined;
+                                const gameResult = weekResults.find(r => r && r.home === game.home && r.away === game.away);
+                                
+                                scheduleHTML += `<div class="game-item ${isUserGame ? 'user-game' : ''} ${isCompleted ? 'completed' : 'upcoming'}">`;
+                                scheduleHTML += `<div class="game-teams">`;
+                                scheduleHTML += `<span class="away-team">${awayTeam.abbr || awayTeam.name}</span>`;
+                                scheduleHTML += `<span class="at">@</span>`;
+                                scheduleHTML += `<span class="home-team">${homeTeam.abbr || homeTeam.name}</span>`;
+                                scheduleHTML += `</div>`;
+                                
+                                if (isCompleted && gameResult) {
+                                    const homeScore = gameResult.scoreHome || game.homeScore || 0;
+                                    const awayScore = gameResult.scoreAway || game.awayScore || 0;
+                                    const homeWin = homeScore > awayScore;
+                                    scheduleHTML += `<div class="game-score">`;
+                                    scheduleHTML += `<span class="score ${!homeWin ? 'winner' : ''}">${awayScore}</span>`;
+                                    scheduleHTML += `<span class="score-sep">-</span>`;
+                                    scheduleHTML += `<span class="score ${homeWin ? 'winner' : ''}">${homeScore}</span>`;
+                                    scheduleHTML += `</div>`;
+                                    scheduleHTML += `<button class="btn btn-sm" onclick="window.showBoxScore && window.showBoxScore(${week}, ${idx})">📊 Box Score</button>`;
+                                } else {
+                                    scheduleHTML += `<button class="btn btn-sm btn-primary watch-live-btn" onclick="window.watchLiveGame && window.watchLiveGame(${game.home}, ${game.away})">📺 Watch Live</button>`;
+                                }
+                                
+                                scheduleHTML += `</div>`;
+                            }
+                        });
+                    }
+                    
+                    scheduleHTML += '</div></div>';
+                }
+                
+                scheduleHTML += '</div>';
+            }
+            
             scheduleHTML += '</div>';
-            scheduleContainer.innerHTML = scheduleHTML;
-            console.log('✅ Schedule rendered successfully');
+            
+            const scheduleWrap = scheduleContainer.querySelector('#scheduleWrap') || scheduleContainer;
+            scheduleWrap.innerHTML = scheduleHTML;
+            
+            console.log('✅ Enhanced schedule rendered successfully');
         } catch (error) {
             console.error('Error rendering schedule:', error);
             this.setStatus('Failed to render schedule', 'error');
