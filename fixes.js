@@ -1093,6 +1093,15 @@ console.log('[LeagueCreationFix] Loaded');
             }
             break;
           case 'coaching':
+            // Render scheme management first
+            if (window.renderSchemeManagement) {
+              window.renderSchemeManagement();
+            }
+            // Set up tab switching
+            if (window.setupCoachingTabs) {
+              window.setupCoachingTabs();
+            }
+            // Render coaching stats
             if (window.renderCoachingStats) {
               window.renderCoachingStats();
               console.log('✅ Coaching rendered');
@@ -1128,6 +1137,14 @@ console.log('[LeagueCreationFix] Loaded');
             if (window.renderRecords) {
               window.renderRecords();
               console.log('✅ Records rendered');
+            }
+            break;
+          case 'injuries':
+            if (window.renderInjuriesPage) {
+              window.renderInjuriesPage();
+              console.log('✅ Injuries page rendered');
+            } else {
+              console.warn('⚠️ renderInjuriesPage function not found');
             }
             break;
           case 'hallOfFame':
@@ -2337,5 +2354,34 @@ window.on = on;
   
   console.log('✅ Critical fixes loaded');
 })();
+
+/**
+ * Sets up coaching view tabs
+ */
+function setupCoachingTabs() {
+  const tabButtons = document.querySelectorAll('#coaching .tab-btn');
+  const tabContents = document.querySelectorAll('#coaching .tab-content');
+  
+  tabButtons.forEach(btn => {
+    if (btn._hasListener) return;
+    btn._hasListener = true;
+    
+    btn.addEventListener('click', () => {
+      const tabName = btn.dataset.tab;
+      
+      // Update active states
+      tabButtons.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+      
+      btn.classList.add('active');
+      const targetContent = document.getElementById(tabName === 'scheme' ? 'schemeManagement' : 'coaching-content');
+      if (targetContent) {
+        targetContent.classList.add('active');
+      }
+    });
+  });
+}
+
+window.setupCoachingTabs = setupCoachingTabs;
 
 console.log('✅ Combined fixes.js loaded - includes error-overlay, missing-functions, league-creation-fix, team-selection-fix, navbar-fix, dom-helpers-fix, and critical-fixes');
