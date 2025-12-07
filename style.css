@@ -6233,3 +6233,175 @@ input:focus, select:focus, textarea:focus {
 .fit-rating.average {
   color: var(--text-muted);
 }
+
+/* ========================================
+   INJURIES PAGE
+   ======================================== */
+
+.injury-summary {
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+}
+
+.injury-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: space-around;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.stat-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.stat-value.injury-major {
+  color: #dc3545;
+}
+
+.stat-value.injury-moderate {
+  color: #ffc107;
+}
+
+.stat-value.injury-minor {
+  color: #17a2b8;
+}
+
+.stat-value.injury-season-ending {
+  color: #dc3545;
+  font-size: 1.2rem;
+}
+
+.injuries-by-team {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.team-injuries-card {
+  padding: var(--space-3);
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+}
+
+.team-injuries-card.user-team {
+  border: 2px solid var(--primary);
+  background: var(--bg-secondary);
+}
+
+.team-injuries-header {
+  margin-bottom: var(--space-2);
+  padding-bottom: var(--space-2);
+  border-bottom: 2px solid var(--hairline);
+}
+
+.team-injuries-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.injury-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-2);
+}
+
+.injury-table th {
+  background: var(--bg-secondary);
+  padding: var(--space-2);
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid var(--hairline);
+  font-size: 0.9rem;
+}
+
+.injury-table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 0.9rem;
+}
+
+.injury-row.injury-major {
+  background: rgba(220, 53, 69, 0.1);
+}
+
+.injury-row.injury-moderate {
+  background: rgba(255, 193, 7, 0.1);
+}
+
+.injury-row.injury-minor {
+  background: rgba(23, 162, 184, 0.1);
+}
+
+.severity-badge {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.severity-badge.major {
+  background: #dc3545;
+  color: white;
+}
+
+.severity-badge.moderate {
+  background: #ffc107;
+  color: #000;
+}
+
+.severity-badge.minor {
+  background: #17a2b8;
+  color: white;
+}
+
+.status-badge {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status-badge.season-ending {
+  background: #dc3545;
+  color: white;
+}
+
+.status-badge.active {
+  background: #ffc107;
+  color: #000;
+}
+
+@media (max-width: 768px) {
+  .injury-stats {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  
+  .injury-table {
+    font-size: 0.8rem;
+  }
+  
+  .injury-table th,
+  .injury-table td {
+    padding: var(--space-1);
+  }
+}
