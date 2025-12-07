@@ -1,0 +1,766 @@
+/*
+ * Mobile CSS - All responsive styles consolidated
+ * Part of modular CSS structure
+ * 
+ * All @media queries consolidated here for easier maintenance
+ */
+
+/* ============================================================================
+   MOBILE RESPONSIVE - 768px and below
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  /* Navigation */
+  .nav-sidebar {
+    width: 260px;
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
+    background: rgba(14, 18, 25, 0.98);
+    z-index: 1000;
+    transform: translateX(-100%);
+  }
+
+  .nav-sidebar.collapsed {
+    transform: translateX(-100%);
+    pointer-events: none;
+  }
+  
+  .nav-sidebar:not(.collapsed) {
+    transform: translateX(0);
+    pointer-events: auto;
+  }
+  
+  .layout {
+    padding-left: var(--space-2) !important;
+    padding-right: var(--space-2) !important;
+    padding-top: var(--space-2) !important;
+    grid-template-columns: 1fr !important;
+    gap: var(--space-2) !important;
+    margin-top: 0 !important;
+    min-height: auto !important;
+  }
+  
+  .layout.nav-collapsed {
+    padding-left: var(--space-2) !important;
+  }
+  
+  .nav-item {
+    font-size: 14px;
+    min-height: 44px;
+    padding: var(--space-3) var(--space-4);
+  }
+  
+  .topbar {
+    padding: var(--space-2) var(--space-3);
+    z-index: 1001;
+    position: sticky;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+  
+  .brand {
+    font-size: 14px;
+    flex: 1;
+  }
+  
+  .nav-toggle {
+    width: 44px;
+    height: 44px;
+    display: flex !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 1002 !important;
+    position: relative;
+    background: var(--surface) !important;
+    border: 1px solid var(--hairline) !important;
+    border-radius: var(--radius-md) !important;
+    flex-shrink: 0;
+  }
+
+  /* Cards */
+  .card {
+    padding: var(--space-4);
+    margin-bottom: var(--space-3);
+    border-radius: var(--radius-lg);
+  }
+  
+  .content {
+    padding: var(--space-2);
+  }
+  
+  /* Tables */
+  .table-wrapper,
+  table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    display: block;
+  }
+  
+  table {
+    font-size: 0.85rem;
+  }
+  
+  table th,
+  table td {
+    padding: var(--space-2) var(--space-2);
+    white-space: nowrap;
+  }
+  
+  /* Sidebar */
+  .sidebar {
+    position: relative;
+    top: 0;
+    margin-bottom: var(--space-3);
+    order: 2;
+  }
+  
+  /* Grid layouts */
+  .grid.two,
+  .grid.three {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Typography */
+  h2 {
+    font-size: 1.25rem;
+    margin-bottom: var(--space-3);
+  }
+  
+  h3 {
+    font-size: 1.1rem;
+    margin-bottom: var(--space-2);
+  }
+  
+  /* Buttons */
+  .btn {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.875rem;
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Forms */
+  .section {
+    padding: var(--space-3);
+    margin-bottom: var(--space-3);
+  }
+  
+  /* Coaching/Scouting */
+  .coaching-table-wrapper,
+  .coaching-table,
+  .scouting-dashboard {
+    font-size: 0.8rem;
+  }
+  
+  .coaching-table th,
+  .coaching-table td {
+    padding: var(--space-2);
+    font-size: 0.75rem;
+  }
+  
+  /* Weekly stats */
+  .weekly-stats-container {
+    font-size: 0.85rem;
+  }
+  
+  /* Schedule */
+  .week-schedule-card {
+    padding: var(--space-3);
+  }
+  
+  /* Prospects */
+  .prospect-card {
+    padding: var(--space-3);
+    margin-bottom: var(--space-2);
+  }
+  
+  /* Muted text */
+  .muted,
+  .text-muted {
+    font-size: 0.75rem;
+  }
+  
+  /* Views */
+  .view {
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  /* Modals */
+  .modal-content,
+  #gameResultsModal .modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: var(--space-4);
+  }
+
+  #gameResultsModal .close {
+    width: 44px;
+    height: 44px;
+    font-size: 32px;
+  }
+  
+  /* Standings */
+  .standings-table {
+    font-size: 0.8rem;
+  }
+  
+  .standings-tabs {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .standings-tab {
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+  }
+  
+  .conferences-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .standings-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  
+  .standings-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .season-info {
+    align-items: center;
+    text-align: center;
+  }
+  
+  /* Roster */
+  #rosterTable {
+    font-size: 0.8rem;
+  }
+  
+  /* Content overflow */
+  .content {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+  
+  /* Actions */
+  .actions {
+    gap: var(--space-2);
+  }
+  
+  .actions .btn {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  /* Stats sections */
+  .stats-section {
+    margin-bottom: var(--space-3);
+  }
+  
+  .stats-section h3 {
+    font-size: 1rem;
+  }
+  
+  /* Ratings grid */
+  .ratings-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+  
+  /* Navigation sidebar position */
+  .nav-sidebar {
+    top: calc(48px + env(safe-area-inset-top, 0px));
+    height: calc(100vh - 48px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+  
+  /* Topbar */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 1001;
+  }
+  
+  /* Spacing */
+  .mt,
+  .mt-2,
+  .mt-3,
+  .mt-4 {
+    margin-top: var(--space-2) !important;
+  }
+  
+  .mb,
+  .mb-2,
+  .mb-3,
+  .mb-4 {
+    margin-bottom: var(--space-2) !important;
+  }
+  
+  /* Row layouts */
+  .row {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  
+  /* Forms */
+  select {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.875rem;
+  }
+  
+  input[type="text"],
+  input[type="number"],
+  input[type="date"] {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.875rem;
+  }
+
+  /* Save data manager */
+  .save-actions {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+
+  .backup-item {
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: stretch;
+  }
+  
+  .backup-actions {
+    justify-content: center;
+  }
+  
+  .backup-details {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .save-buttons .btn,
+  .backup-cleanup {
+    text-align: center;
+  }
+
+  /* Trade */
+  .trade-player, .trade-pick {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: var(--space-1);
+  }
+  
+  .trade-values {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .power-ranking-item {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+    text-align: center;
+  }
+
+  /* Contract modal */
+  .modal-overlay {
+    padding: var(--space-2);
+  }
+  
+  .contract-modal {
+    max-width: 100%;
+  }
+  
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: var(--space-4);
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+
+  /* Coaching role */
+  .coaching-role-info {
+    grid-template-columns: 1fr;
+  }
+
+  .metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Owner mode */
+  .owner-mode-content {
+    grid-template-columns: 1fr;
+  }
+
+  .financial-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Contract management */
+  .contract-sections {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
+  
+  .contract-section {
+    padding: var(--space-3);
+  }
+  
+  .player-stats {
+    grid-template-columns: 1fr;
+    gap: var(--space-1);
+  }
+  
+  .contract-actions {
+    flex-direction: column;
+  }
+  
+  .btn-contract {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Draft */
+  .draft-main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .prospects-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .leaderboards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Box scores */
+  .box-score-teams {
+    grid-template-columns: 1fr;
+  }
+
+  .game-score-summary {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .team-score {
+    min-width: 100%;
+  }
+
+  .box-score-table {
+    font-size: 0.8rem;
+  }
+
+  .box-score-table th,
+  .box-score-table td {
+    padding: var(--space-1);
+  }
+
+  .modal-large {
+    max-width: 100vw;
+    max-height: 100vh;
+    margin: 0;
+    border-radius: 0;
+  }
+
+  /* Player database */
+  .best-player-info {
+    grid-template-columns: 1fr;
+  }
+
+  .player-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .coach-rankings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Injuries */
+  .injury-stats {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+  
+  .injury-table {
+    font-size: 0.8rem;
+  }
+  
+  .injury-table th,
+  .injury-table td {
+    padding: var(--space-1);
+  }
+
+  /* Playoff bracket */
+  .playoff-bracket-grid {
+    grid-template-columns: 1fr;
+    min-width: 100%;
+  }
+
+  .bracket-rounds {
+    grid-template-columns: 1fr;
+  }
+
+  .superbowl-matchup {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .vs-divider {
+    order: 2;
+    padding: var(--space-2);
+  }
+
+  .superbowl-matchup .team:first-child {
+    order: 1;
+  }
+
+  .superbowl-matchup .team:last-child {
+    order: 3;
+  }
+
+  /* Free agency */
+  #freeagencyTable {
+    font-size: 0.875rem;
+  }
+
+  #freeagencyTable tr {
+    grid-template-columns: 30px 1fr 40px 40px 60px 80px 60px;
+    gap: var(--space-1);
+    min-width: 500px;
+    padding: var(--space-2);
+  }
+
+  #freeagencyTable th,
+  #freeagencyTable td {
+    padding: var(--space-2);
+    font-size: 0.8rem;
+  }
+
+  /* Depth chart */
+  .depth-chart-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .depth-stats {
+    font-size: 0.7rem;
+  }
+  
+  #rosterTable {
+    font-size: 0.875rem;
+  }
+  
+  #rosterTable th,
+  #rosterTable td {
+    padding: var(--space-2);
+  }
+
+  /* Navigation pills */
+  .nav-pills {
+    flex-direction: column;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--surface-strong);
+    border-top: 1px solid var(--hairline);
+    z-index: 1000;
+    padding: var(--space-2);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .nav-pills[aria-expanded="true"],
+  .nav-pills.nav-open {
+    max-height: 500px;
+  }
+
+  .nav-pill {
+    width: 100%;
+    text-align: left;
+    padding: var(--space-3);
+    border-radius: var(--radius-sm);
+  }
+}
+
+/* ============================================================================
+   TABLET RESPONSIVE - 1024px and below
+   ============================================================================ */
+
+@media (max-width: 1024px) {
+  .layout {
+    grid-template-columns: 1fr;
+    padding: var(--space-4);
+    padding-left: calc(220px + var(--space-4));
+  }
+  
+  .layout.nav-collapsed {
+    padding-left: var(--space-4);
+  }
+  
+  .sidebar {
+    position: relative;
+    order: -1;
+  }
+  
+  .nav-pills {
+    flex-wrap: wrap;
+  }
+
+  .conferences-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  
+  .standings-header {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+  
+  .standings-controls {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  .season-info {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+/* ============================================================================
+   SMALL MOBILE - 480px and below
+   ============================================================================ */
+
+@media (max-width: 480px) {
+  .standings-table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  .standings-tabs {
+    gap: 2px;
+  }
+  
+  .standings-tab {
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+  }
+  
+  .divisions-grid {
+    gap: var(--space-3);
+  }
+  
+  .backup-cleanup {
+    flex-direction: column;
+    gap: var(--space-2);
+    text-align: center;
+  }
+
+  .playoff-bracket-container {
+    padding: 0;
+  }
+
+  .conference-bracket {
+    padding: var(--space-4);
+  }
+
+  .superbowl-bracket {
+    padding: var(--space-4);
+  }
+
+  .superbowl-title {
+    font-size: 1.5rem;
+  }
+
+  #freeagencyTable tr {
+    min-width: 400px;
+    font-size: 0.75rem;
+  }
+
+  :root {
+    --space-6: 16px;
+    --space-8: 24px;
+  }
+  
+  .results-grid, .scouting-grid, .hof-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+   PRINT STYLES
+   ============================================================================ */
+
+@media print {
+  .modal, .btn, button, .nav-pill {
+    display: none !important;
+  }
+  
+  .card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* ============================================================================
+   REDUCED MOTION
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================================
+   DARK MODE
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  .card {
+    background: var(--surface);
+    border-color: var(--hairline);
+  }
+  
+  .table {
+    background: var(--surface);
+  }
+}
+
+/* ============================================================================
+   iOS SPECIFIC
+   ============================================================================ */
+
+@supports (-webkit-touch-callout: none) {
+  * {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  }
+  
+  input, select, textarea {
+    font-size: 16px;
+  }
+}
