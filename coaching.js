@@ -639,44 +639,48 @@ function renderActiveCoaches(coaches) {
   
   return `
     <div class="coaching-section">
-      <h3>Head Coaches</h3>
-      <table class="coaching-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Team</th>
-            <th>Seasons</th>
-            <th>W-L-T</th>
-            <th>Win %</th>
-            <th>Playoff Record</th>
-            <th>Super Bowls</th>
-            <th>Conf. Championships</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${headCoaches.map(coach => renderCoachRow(coach, 'HC')).join('')}
-        </tbody>
-      </table>
+      <h3 class="coaching-section-title">Head Coaches</h3>
+      <div class="coaching-table-wrapper">
+        <table class="coaching-table modern-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Team</th>
+              <th>Seasons</th>
+              <th>W-L-T</th>
+              <th>Win %</th>
+              <th>Playoff Record</th>
+              <th>Super Bowls</th>
+              <th>Conf. Championships</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${headCoaches.map(coach => renderCoachRow(coach, 'HC')).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
     
-    <div class="coaching-section">
-      <h3>Coordinators</h3>
-      <table class="coaching-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Team</th>
-            <th>Seasons</th>
-            <th>Avg PPG/PAPG</th>
-            <th>Best Ranking</th>
-            <th>HC Experience</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${coordinators.map(coach => renderCoachRow(coach, 'COORD')).join('')}
-        </tbody>
-      </table>
+    <div class="coaching-section mt-3">
+      <h3 class="coaching-section-title">Coordinators</h3>
+      <div class="coaching-table-wrapper">
+        <table class="coaching-table modern-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Position</th>
+              <th>Team</th>
+              <th>Seasons</th>
+              <th>Avg PPG/PAPG</th>
+              <th>Best Ranking</th>
+              <th>HC Experience</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${coordinators.map(coach => renderCoachRow(coach, 'COORD')).join('')}
+          </tbody>
+        </table>
+      </div>
     </div>
   `;
 }
@@ -688,24 +692,25 @@ function renderActiveCoaches(coaches) {
  * @returns {string} HTML string
  */
 function renderCoachRow(coach, type) {
-  const userClass = coach.isUser ? ' class="user-row"' : '';
+  const userClass = coach.isUser ? 'user-row' : '';
   
   if (type === 'HC') {
     const stats = coach.stats.asHeadCoach;
     const record = `${stats.regularSeason.wins}-${stats.regularSeason.losses}-${stats.regularSeason.ties}`;
     const winPct = (stats.regularSeason.winPercentage * 100).toFixed(1);
+    const winPctClass = parseFloat(winPct) >= 60 ? 'stat-good' : parseFloat(winPct) >= 50 ? 'stat-avg' : 'stat-poor';
     const playoffRecord = `${stats.playoffs.wins}-${stats.playoffs.losses}`;
     
     return `
-      <tr${userClass}>
-        <td>${coach.name}${coach.isUser ? ' (You)' : ''}</td>
-        <td>${coach.currentTeamName}</td>
-        <td>${stats.seasons}</td>
-        <td>${record}</td>
-        <td>${winPct}%</td>
-        <td>${playoffRecord}</td>
-        <td>${stats.championships.superBowls}</td>
-        <td>${stats.championships.conferenceChampionships}</td>
+      <tr class="${userClass}">
+        <td><strong>${coach.name}${coach.isUser ? ' <span class="badge-user">(You)</span>' : ''}</strong></td>
+        <td>${coach.currentTeamName || 'N/A'}</td>
+        <td>${stats.seasons || 0}</td>
+        <td><strong>${record}</strong></td>
+        <td><span class="stat-value ${winPctClass}">${winPct}%</span></td>
+        <td>${playoffRecord || '0-0'}</td>
+        <td><span class="badge-championship">${stats.championships.superBowls || 0}</span></td>
+        <td>${stats.championships.conferenceChampionships || 0}</td>
       </tr>
     `;
   } else {
@@ -717,14 +722,14 @@ function renderCoachRow(coach, type) {
     const hcExperience = coach.stats.asHeadCoach.seasons;
     
     return `
-      <tr${userClass}>
-        <td>${coach.name}${coach.isUser ? ' (You)' : ''}</td>
-        <td>${coach.position}</td>
-        <td>${coach.currentTeamName}</td>
+      <tr class="${userClass}">
+        <td><strong>${coach.name}${coach.isUser ? ' <span class="badge-user">(You)</span>' : ''}</strong></td>
+        <td><span class="badge-position">${coach.position}</span></td>
+        <td>${coach.currentTeamName || 'N/A'}</td>
         <td>${coordStats.seasons || 0}</td>
-        <td>${avgStat.toFixed(1)}</td>
-        <td>${bestRanking > 0 ? `#${bestRanking}` : 'N/A'}</td>
-        <td>${hcExperience > 0 ? `${hcExperience} seasons` : 'None'}</td>
+        <td><strong>${avgStat.toFixed(1)}</strong></td>
+        <td>${bestRanking > 0 ? `<span class="badge-ranking">#${bestRanking}</span>` : '<span class="muted">N/A</span>'}</td>
+        <td>${hcExperience > 0 ? `${hcExperience} seasons` : '<span class="muted">None</span>'}</td>
       </tr>
     `;
   }
