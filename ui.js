@@ -344,6 +344,7 @@ window.renderRoster = function() {
                     <th>Age</th>
                     <th>OVR</th>
                     <th>Eff</th>
+                    <th>Morale</th>
                     <th>Depth</th>
                     <th>PB</th>
                     <th>Chem</th>
@@ -357,10 +358,10 @@ window.renderRoster = function() {
         
         const tbody = rosterTable.querySelector('tbody');
         
-        if (!team.roster || team.roster.length === 0) {
+            if (!team.roster || team.roster.length === 0) {
             const tr = tbody.insertRow();
             const td = tr.insertCell();
-            td.colSpan = 12;
+            td.colSpan = 13;
             td.textContent = 'No players on roster';
             return;
         }
@@ -432,6 +433,15 @@ window.renderRoster = function() {
             if (effectiveRating >= 85) effCell.classList.add('rating-elite');
             else if (effectiveRating >= 75) effCell.classList.add('rating-good');
             else if (effectiveRating < 65) effCell.classList.add('rating-poor');
+            
+            // Morale
+            const morale = player.morale || 50;
+            const moraleCell = tr.insertCell();
+            moraleCell.textContent = `${Math.round(morale)}%`;
+            moraleCell.className = 'morale';
+            if (morale >= 80) moraleCell.classList.add('morale-excellent');
+            else if (morale >= 60) moraleCell.classList.add('morale-good');
+            else if (morale < 40) moraleCell.classList.add('morale-poor');
             
             // Depth Position
             const depthCell = tr.insertCell();
@@ -819,6 +829,11 @@ window.renderHub = function() {
         // Render trade proposals on hub
         renderHubTradeProposals();
         
+        // Update cap sidebar
+        if (window.updateCapSidebar) {
+            window.updateCapSidebar();
+        }
+        
         console.log('✅ Hub rendered successfully');
         
     } catch (error) {
@@ -1155,10 +1170,26 @@ function renderUpcomingGames() {
     if (!gamesList) return;
     
     const currentWeek = L.week || 1;
-    const scheduleWeeks = L.schedule?.weeks || L.schedule || [];
-    const weekSchedule = Array.isArray(scheduleWeeks) ? 
-        scheduleWeeks.find(w => w.weekNumber === currentWeek) || 
-        scheduleWeeks[currentWeek - 1] : null;
+    let scheduleWeeks = L.schedule?.weeks || L.schedule || [];
+    
+    // Handle different schedule formats
+    if (Array.isArray(scheduleWeeks) && scheduleWeeks.length > 0) {
+        // Check if it's an array of week objects or array of arrays
+        if (scheduleWeeks[0] && typeof scheduleWeeks[0] === 'object' && scheduleWeeks[0].weekNumber !== undefined) {
+            // Array of week objects with weekNumber property
+            scheduleWeeks = scheduleWeeks;
+        } else if (Array.isArray(scheduleWeeks[0]) || (scheduleWeeks[0] && scheduleWeeks[0].games)) {
+            // Already in correct format
+            scheduleWeeks = scheduleWeeks;
+        }
+    }
+    
+    // Find the current week's schedule
+    let weekSchedule = null;
+    if (Array.isArray(scheduleWeeks)) {
+        weekSchedule = scheduleWeeks.find(w => w && (w.weekNumber === currentWeek || w.week === currentWeek)) || 
+                      scheduleWeeks[currentWeek - 1] || null;
+    }
     
     if (!weekSchedule || !weekSchedule.games) {
         gamesList.innerHTML = '<div class="muted">No games scheduled this week</div>';
