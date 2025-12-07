@@ -658,20 +658,21 @@ window.calculatePositionGrade = calculatePositionGrade;
 
 // --- Global Functions (Make sure they use the safer checks!) ---
 
-  // Export to global scope
-  if (typeof global !== 'undefined' && global !== null) {
-    global.contractManagement = {
-      getExpiringContracts,
-      getFifthYearOptionEligible,
-      calculateFranchiseTagSalary,
-      calculateTransitionTagSalary,
-      calculateFifthYearOptionSalary,
-      applyFranchiseTag,
-      applyTransitionTag,
+// Export to global scope
+if (typeof global !== 'undefined' && global !== null) {
+  global.contractManagement = {
+    getExpiringContracts,
+    getFifthYearOptionEligible,
+    calculateFranchiseTagSalary,
+    calculateTransitionTagSalary,
+    calculateFifthYearOptionSalary,
+    applyFranchiseTag,
+    applyTransitionTag,
     exerciseFifthYearOption,
     extendContract,
     updateContract
   };
+}
 
 window.applyFranchiseTagToPlayer = function(playerId) {
   const league = window.state?.league;
