@@ -1044,8 +1044,11 @@ function renderPowerRankings() {
         } else if (team.ovr) {
             teamRating = team.ovr;
         } else {
-            // Calculate team rating on the fly
-            if (window.calculateTeamRating) {
+            // Try scheme-adjusted rating first, then fall back to base
+            if (window.calculateTeamRatingWithSchemeFit) {
+                const schemeRatings = window.calculateTeamRatingWithSchemeFit(team);
+                teamRating = schemeRatings.overall;
+            } else if (window.calculateTeamRating) {
                 const ratings = window.calculateTeamRating(team);
                 teamRating = ratings.overall;
             } else {
@@ -1499,19 +1502,57 @@ window.renderScouting = function() {
         if (!scoutingContainer) return;
         
         // Check if dedicated scouting system is available
-        if (window.renderScoutingSystem && window.renderScoutingSystem !== window.renderScouting) {
-            window.renderScoutingSystem();
+        if (window.renderScoutingInterface && typeof window.renderScoutingInterface === 'function') {
+            window.renderScoutingInterface();
             return;
         }
         
-        // Fallback scouting interface
+        // Use the scouting system render function if available
+        if (window.initializeScoutingSystem) {
+            window.initializeScoutingSystem();
+        }
+        
+        if (window.renderScoutingInterface && typeof window.renderScoutingInterface === 'function') {
+            window.renderScoutingInterface();
+            return;
+        }
+        
+        // Fallback scouting interface with improved styling
+        const draftClass = window.state?.draftClass || [];
+        const scouting = window.state?.scouting || { budget: 2000000, used: 0, weeklyScouts: { basic: 0, thorough: 0, combine: 0 } };
+        const budgetRemaining = scouting.budget - scouting.used;
+        
         scoutingContainer.innerHTML = `
             <div class="card">
-                <h2>Scouting</h2>
-                <div class="muted">Scouting system not fully implemented yet.</div>
-                <div class="actions mt">
-                    <button class="btn primary" onclick="alert('Scouting system coming soon!')">Scout Players</button>
-                </div>
+                <h2>Scouting - ${(window.state?.league?.year || 2025) + 1} Draft Class</h2>
+                ${draftClass.length > 0 ? `
+                    <div class="scouting-dashboard">
+                        <div class="scouting-budget-card">
+                            <h3>Scouting Budget</h3>
+                            <div class="budget-display">
+                                <span class="budget-remaining">$${(budgetRemaining / 1000).toFixed(0)}k</span>
+                                <span class="budget-total">of $${(scouting.budget / 1000).toFixed(0)}k remaining</span>
+                            </div>
+                            <div class="budget-bar">
+                                <div class="budget-used" style="width: ${(scouting.used / scouting.budget * 100)}%"></div>
+                            </div>
+                        </div>
+                        <div class="scouting-limits-card">
+                            <h3>Weekly Limits</h3>
+                            <div class="limits-grid">
+                                <div class="limit-item"><span>Basic:</span> <strong>${scouting.weeklyScouts.basic}/10</strong></div>
+                                <div class="limit-item"><span>Thorough:</span> <strong>${scouting.weeklyScouts.thorough}/5</strong></div>
+                                <div class="limit-item"><span>Combine:</span> <strong>${scouting.weeklyScouts.combine}/2</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="muted">Use the draft page to scout individual prospects.</p>
+                ` : `
+                    <div class="scouting-empty">
+                        <p class="muted">No draft class available. Generate a draft class first.</p>
+                        ${window.generateDraftClass ? `<button class="btn primary" onclick="window.generateDraftClass()">Generate Draft Class</button>` : ''}
+                    </div>
+                `}
             </div>
         `;
         
