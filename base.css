@@ -1,0 +1,233 @@
+/*
+ * Base CSS - Variables, Reset, Typography
+ * Part of modular CSS structure
+ */
+
+/* ============================================================================
+   RESET & VARIABLES
+   ============================================================================ */
+
+/* Reset */
+* { 
+  box-sizing: border-box; 
+  margin: 0; 
+  padding: 0; 
+}
+
+:root {
+  /* Core Palette - Enhanced Dark Mode */
+  --bg: #0a0c10;
+  --bg-secondary: #161b22;
+  --surface: rgba(22, 27, 34, 0.75);
+  --surface-strong: rgba(30, 36, 44, 0.85);
+  --surface-elevated: rgba(40, 46, 54, 0.9);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.15);
+  --text: #E6EDF3;
+  --text-muted: #9FB0C2;
+  --text-subtle: #7C8E9B;
+  --accent: #0A84FF;
+  --accent-hover: #409CFF;
+  --accent-muted: rgba(10, 132, 255, 0.1);
+  --danger: #FF453A;
+  --success: #34C759;
+  --warning: #FF9F0A;
+
+  /* Glass Effects */
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-blur: blur(20px);
+
+  /* Spacing Scale */
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px;
+  --space-12: 48px; --space-16: 64px;
+
+  /* Border Radius */
+  --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; 
+  --radius-xl: 20px; --radius-2xl: 24px; --radius-pill: 999px;
+
+  /* Shadows - Layered for depth */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 16px 64px rgba(0, 0, 0, 0.4);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  --dur-fast: 150ms; --dur: 200ms; --dur-slow: 300ms;
+
+  /* Typography Scale */
+  --text-xs: 0.75rem; --text-sm: 0.875rem; --text-base: 1rem;
+  --text-lg: 1.125rem; --text-xl: 1.25rem; --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem; --text-4xl: 2.25rem;
+
+  /* Additional variables */
+  --success-bg: rgba(34, 197, 94, 0.1);
+  --success-text: #22c55e;
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-text: #ef4444;
+  --warning-bg: rgba(245, 158, 11, 0.1);
+  --warning-text: #f59e0b;
+  --accent-rgb: 59, 130, 246;
+  --success-rgb: 34, 197, 94;
+  --error-rgb: 239, 68, 68;
+  --warning-rgb: 245, 158, 11;
+  
+  /* Modal specific variables */
+  --modal-bg: rgba(10, 12, 16, 0.95);
+  --modal-backdrop: rgba(0, 0, 0, 0.7);
+}
+
+body.theme-light {
+  --bg: #f5f7fb;
+  --bg-secondary: #e9eef6;
+  --surface: rgba(255, 255, 255, 0.85);
+  --surface-strong: rgba(255, 255, 255, 0.95);
+  --surface-elevated: rgba(255, 255, 255, 0.98);
+  --hairline: rgba(0, 0, 0, 0.06);
+  --hairline-strong: rgba(0, 0, 0, 0.12);
+  --text: #0f172a;
+  --text-muted: #334155;
+  --text-subtle: #475569;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-muted: rgba(37, 99, 235, 0.12);
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(15, 23, 42, 0.08);
+  --glass-shadow: 0 8px 32px rgba(15, 23, 42, 0.16);
+  --modal-bg: rgba(255, 255, 255, 0.96);
+  --modal-backdrop: rgba(0, 0, 0, 0.4);
+}
+
+/* ============================================================================
+   BASE STYLES
+   ============================================================================ */
+
+html, body {
+  background: 
+    radial-gradient(1400px 1400px at 15% -15%, rgba(20, 35, 60, 0.4), transparent 65%),
+    radial-gradient(1000px 1000px at 85% 15%, rgba(0, 120, 255, 0.08), transparent 55%),
+    radial-gradient(800px 800px at 50% 100%, rgba(255, 255, 255, 0.02), transparent 50%),
+    var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-size: 14px; /* Zen GM style - 14px base */
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ============================================================================
+   TYPOGRAPHY
+   ============================================================================ */
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text);
+  font-weight: 600;
+  line-height: 1.2;
+  margin-bottom: var(--space-4);
+}
+
+h1 { font-size: var(--text-3xl); }
+h2 { font-size: var(--text-2xl); }
+h3 { font-size: var(--text-xl); }
+h4 { font-size: var(--text-lg); }
+h5 { font-size: var(--text-base); }
+h6 { font-size: var(--text-sm); }
+
+p {
+  margin-bottom: var(--space-4);
+  color: var(--text-muted);
+}
+
+/* ============================================================================
+   UTILITY CLASSES
+   ============================================================================ */
+
+.section { margin-bottom: var(--space-6); }
+.row { display: flex; gap: var(--space-4); align-items: center; }
+.spacer { flex: 1; }
+.muted { color: var(--text-muted); }
+.subtle { color: var(--text-subtle); }
+.small { font-size: var(--text-sm); }
+.mt { margin-top: var(--space-6); }
+.mb { margin-bottom: var(--space-6); }
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+
+.grid {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.grid.two { 
+  grid-template-columns: 1fr 1fr; 
+}
+
+.grid.three {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.content {
+  padding: var(--space-6);
+}
+
+.view {
+  display: none;
+}
+
+.view:not([hidden]) {
+  display: block;
+}
+
+/* ============================================================================
+   ACCESSIBILITY
+   ============================================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::selection {
+  background: var(--accent-muted);
+  color: var(--text);
+}
+
+/* ============================================================================
+   SCROLLBAR
+   ============================================================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--hairline);
+  border-radius: var(--radius-pill);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hairline-strong);
+}
