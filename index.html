@@ -231,8 +231,15 @@
 
             <section id="coaching" class="view" hidden>
                 <div class="card">
-                    <h2>Coaching Statistics</h2>
-                    <div id="coaching-content">
+                    <h2>Coaching & Scheme Management</h2>
+                    <div class="coaching-tabs">
+                        <button class="tab-btn active" data-tab="scheme">Scheme</button>
+                        <button class="tab-btn" data-tab="coaching-stats">Coaching Stats</button>
+                    </div>
+                    <div id="schemeManagement" class="tab-content active">
+                        <p>Loading scheme management...</p>
+                    </div>
+                    <div id="coaching-content" class="tab-content">
                         <p>Loading coaching statistics...</p>
                     </div>
                 </div>
@@ -352,6 +359,7 @@
 
 <!-- Team & stats -->
 <script src="team-ratings.js"></script>
+<script src="scheme-management.js"></script>
 <script src="team-statistics.js"></script>
 <script src="player-stats-viewer.js"></script>
 <script src="game-results-viewer.js"></script>
