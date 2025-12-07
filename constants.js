@@ -160,16 +160,19 @@
   };
   
   const OFFENSIVE_SCHEMES = {
-    'West Coast': { keyStats: ['throwAccuracy', 'catching', 'passBlock'], description: 'High-percentage, short passes.' },
-    'Vertical': { keyStats: ['throwPower', 'speed', 'passBlock'], description: 'Deep shots and explosive plays.' },
-    'Run Heavy': { keyStats: ['trucking', 'runBlock', 'passRushPower'], description: 'Ground and pound to control the clock.' },
-    'Spread': { keyStats: ['acceleration', 'juking', 'throwAccuracy'], description: 'Uses speed and space to create mismatches.'}
+    'Pass Heavy': { keyStats: ['throwAccuracy', 'throwPower', 'catching', 'passBlock'], description: 'Air it out with a pass-first approach.' },
+    'Run Heavy': { keyStats: ['trucking', 'runBlock', 'acceleration', 'strength'], description: 'Ground and pound to control the clock.' },
+    'Balanced': { keyStats: ['throwAccuracy', 'trucking', 'catching', 'runBlock'], description: 'Mix of run and pass plays.' },
+    'West Coast': { keyStats: ['throwAccuracy', 'catching', 'passBlock', 'awareness'], description: 'High-percentage, short passes.' },
+    'Vertical': { keyStats: ['throwPower', 'speed', 'passBlock', 'catching'], description: 'Deep shots and explosive plays.' }
   };
   
   const DEFENSIVE_SCHEMES = {
-    '4-3 Zone': { keyStats: ['coverage', 'awareness', 'intelligence'], description: 'Disciplined zone coverage to prevent big plays.' },
-    '3-4 Man': { keyStats: ['passRushPower', 'speed', 'coverage'], description: 'Aggressive man coverage with a strong pass rush.' },
-    'Blitz Heavy': { keyStats: ['passRushSpeed', 'acceleration', 'runStop'], description: 'Sends extra rushers to create chaos.' }
+    '4-3': { keyStats: ['runStop', 'tackling', 'awareness', 'coverage'], description: 'Traditional 4-3 defense with strong run support.' },
+    '3-4': { keyStats: ['passRushPower', 'speed', 'coverage', 'awareness'], description: '3-4 defense with versatile linebackers.' },
+    'Nickel': { keyStats: ['coverage', 'speed', 'awareness', 'intelligence'], description: 'Extra defensive back for pass coverage.' },
+    'Aggressive': { keyStats: ['passRushPower', 'passRushSpeed', 'tackling', 'speed'], description: 'Attack the quarterback and force turnovers.' },
+    'Conservative': { keyStats: ['coverage', 'awareness', 'tackling', 'intelligence'], description: 'Bend but don\'t break, prevent big plays.' }
   };
   
   // --- VIII. EXPORT EVERYTHING ---
