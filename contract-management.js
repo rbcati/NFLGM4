@@ -3,11 +3,11 @@
 'use strict';
 
 // Ensure necessary helper functions exist before use (prevents crashes)
-const U = global.Utils;
-const C = global.Constants;
-const capHitFor = global.capHitFor || ((player) => player.baseAnnual || 0);
-const recalcCap = global.recalcCap || (() => console.warn('recalcCap not found, skipping cap update.'));
-const setStatus = global.setStatus || ((msg) => console.log('Status:', msg));
+const U = global.Utils || window.Utils;
+const C = global.Constants || window.Constants;
+const capHitFor = global.capHitFor || window.capHitFor || ((player) => player.baseAnnual || 0);
+const recalcCap = global.recalcCap || window.recalcCap || (() => console.warn('recalcCap not found, skipping cap update.'));
+const setStatus = global.setStatus || window.setStatus || ((msg) => console.log('Status:', msg));
 
 /**
  * Helper function to round a number to a specific number of decimal places
@@ -415,6 +415,9 @@ function renderContractManagement(league, userTeamId) {
         <div class="contract-list">
   `;
 
+  // Calculate next year's cap space (projected)
+  const nextYearCap = calculateNextYearCapSpace(league, team);
+  
   if (expiring.length === 0) {
     html += '<p class="muted">No expiring contracts at this time.</p>';
   } else {
@@ -423,6 +426,9 @@ function renderContractManagement(league, userTeamId) {
       const franchiseSalary = calculateFranchiseTagSalary(player.pos, league);
       const transitionSalary = calculateTransitionTagSalary(player.pos, league);
       
+      // Calculate position-specific grade
+      const positionGrade = calculatePositionGrade(player);
+      
       html += `
         <div class="contract-card">
           <div class="contract-player-info">
@@ -430,7 +436,11 @@ function renderContractManagement(league, userTeamId) {
               <strong>${player.name || 'Unknown'}</strong> - ${player.pos || 'N/A'}
               <div class="contract-details">
                 Age: ${player.age || 'N/A'} | OVR: ${player.ovr || 'N/A'} | 
+                Position Grade: <strong>${positionGrade.grade}</strong> (${positionGrade.description}) |
                 Current Cap: $${currentCapHit.toFixed(1)}M | Years Left: ${player.years || 0}
+              </div>
+              <div class="position-breakdown">
+                ${positionGrade.breakdown}
               </div>
             </div>
           </div>
@@ -498,7 +508,7 @@ function renderContractManagement(league, userTeamId) {
         <h3>Salary Cap Summary</h3>
         <div class="cap-summary">
           <div class="cap-item">
-            <span>Total Cap:</span>
+            <span>Total Cap (Current Year):</span>
             <strong>$${team.capTotal?.toFixed(1) || '0.0'}M</strong>
           </div>
           <div class="cap-item">
@@ -510,10 +520,17 @@ function renderContractManagement(league, userTeamId) {
             <strong>$${team.deadCap?.toFixed(1) || '0.0'}M</strong>
           </div>
           <div class="cap-item">
-            <span>Cap Room:</span>
+            <span>Cap Room (Current Year):</span>
             <strong style="color: ${(team.capRoom || 0) > 0 ? '#28a745' : '#dc3545'}">
               $${team.capRoom?.toFixed(1) || '0.0'}M
             </strong>
+          </div>
+          <div class="cap-item cap-item-next-year">
+            <span>Projected Cap Room (Next Year):</span>
+            <strong style="color: ${(nextYearCap.room || 0) > 0 ? '#28a745' : '#dc3545'}">
+              $${nextYearCap.room?.toFixed(1) || '0.0'}M
+            </strong>
+            <div class="muted small">(After expiring contracts)</div>
           </div>
         </div>
       </div>
@@ -523,19 +540,134 @@ function renderContractManagement(league, userTeamId) {
   container.innerHTML = html;
 }
 
+/**
+ * Calculates projected cap space for next year (after expiring contracts)
+ * @param {Object} league - League object
+ * @param {Object} team - Team object
+ * @returns {Object} Projected cap info for next year
+ */
+function calculateNextYearCapSpace(league, team) {
+  if (!league || !team) {
+    return { total: 220, used: 0, room: 220 };
+  }
+  
+  const C = window.Constants;
+  const baseCap = C?.SALARY_CAP?.BASE || 220;
+  const rollover = team.capRollover || 0;
+  const projectedTotal = baseCap + rollover;
+  
+  // Calculate projected cap used (excluding players with 1 year left)
+  const expiring = getExpiringContracts(league, team.id || window.state?.userTeamId);
+  const expiringIds = new Set(expiring.map(p => p.id));
+  
+  let projectedUsed = 0;
+  let projectedDead = team.deadCapBook?.[(league.season || league.year || 2025) + 1] || 0;
+  
+  team.roster.forEach(player => {
+    if (!expiringIds.has(player.id) && player.years > 1) {
+      // Player will still be on roster next year
+      const nextYearCapHit = capHitFor(player, 1); // Cap hit for next season
+      projectedUsed += nextYearCapHit;
+    }
+  });
+  
+  projectedUsed += projectedDead;
+  const projectedRoom = projectedTotal - projectedUsed;
+  
+  return {
+    total: projectedTotal,
+    used: projectedUsed,
+    dead: projectedDead,
+    room: projectedRoom
+  };
+}
+
+/**
+ * Calculates position-specific grade for a player
+ * @param {Object} player - Player object
+ * @returns {Object} Grade information with breakdown
+ */
+function calculatePositionGrade(player) {
+  if (!player || !player.ratings || !player.pos) {
+    return { grade: 'N/A', description: 'No data', breakdown: '' };
+  }
+  
+  const pos = player.pos;
+  const ratings = player.ratings;
+  const C = window.Constants;
+  const weights = C?.OVR_WEIGHTS?.[pos] || {};
+  
+  let weightedSum = 0;
+  let totalWeight = 0;
+  const breakdownParts = [];
+  
+  // Calculate weighted average for position-specific attributes
+  Object.keys(weights).forEach(stat => {
+    const weight = weights[stat];
+    const rating = ratings[stat] || 50;
+    weightedSum += rating * weight;
+    totalWeight += weight;
+    
+    if (weight > 0.1) { // Only show significant attributes
+      breakdownParts.push(`${stat}: ${Math.round(rating)}`);
+    }
+  });
+  
+  const positionRating = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : player.ovr || 50;
+  
+  // Determine grade
+  let grade, description;
+  if (positionRating >= 90) {
+    grade = 'A+';
+    description = 'Elite';
+  } else if (positionRating >= 85) {
+    grade = 'A';
+    description = 'Excellent';
+  } else if (positionRating >= 80) {
+    grade = 'B+';
+    description = 'Very Good';
+  } else if (positionRating >= 75) {
+    grade = 'B';
+    description = 'Good';
+  } else if (positionRating >= 70) {
+    grade = 'C+';
+    description = 'Above Average';
+  } else if (positionRating >= 65) {
+    grade = 'C';
+    description = 'Average';
+  } else if (positionRating >= 60) {
+    grade = 'D+';
+    description = 'Below Average';
+  } else {
+    grade = 'D';
+    description = 'Poor';
+  }
+  
+  return {
+    grade: grade,
+    description: description,
+    rating: positionRating,
+    breakdown: breakdownParts.length > 0 ? breakdownParts.join(', ') : 'N/A'
+  };
+}
+
 // Make renderContractManagement globally available
 window.renderContractManagement = renderContractManagement;
+window.calculateNextYearCapSpace = calculateNextYearCapSpace;
+window.calculatePositionGrade = calculatePositionGrade;
 
 // --- Global Functions (Make sure they use the safer checks!) ---
 
-  global.contractManagement = {
-    getExpiringContracts,
-    getFifthYearOptionEligible,
-    calculateFranchiseTagSalary,
-    calculateTransitionTagSalary,
-    calculateFifthYearOptionSalary,
-    applyFranchiseTag,
-    applyTransitionTag,
+  // Export to global scope
+  if (typeof global !== 'undefined' && global !== null) {
+    global.contractManagement = {
+      getExpiringContracts,
+      getFifthYearOptionEligible,
+      calculateFranchiseTagSalary,
+      calculateTransitionTagSalary,
+      calculateFifthYearOptionSalary,
+      applyFranchiseTag,
+      applyTransitionTag,
     exerciseFifthYearOption,
     extendContract,
     updateContract
