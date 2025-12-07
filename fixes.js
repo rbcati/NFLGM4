@@ -1342,9 +1342,22 @@ console.log('[LeagueCreationFix] Loaded');
         filter: brightness(1.1) !important;
       }
       
-      /* Mobile navigation toggle - hide by default */
+      /* Mobile navigation toggle - show on mobile, hide on desktop */
       .nav-toggle {
         display: none !important;
+      }
+      
+      @media (max-width: 768px) {
+        .nav-toggle {
+          display: flex !important;
+        }
+        
+        .topbar {
+          display: flex !important;
+          align-items: center !important;
+          gap: var(--space-3) !important;
+          justify-content: flex-start !important;
+        }
       }
       
       @media (max-width: 1024px) {
@@ -1356,23 +1369,6 @@ console.log('[LeagueCreationFix] Loaded');
         .nav-pill {
           font-size: 0.875rem !important;
           padding: 0 var(--space-3) !important;
-        }
-      }
-      
-      @media (max-width: 768px) {
-        .topbar {
-          grid-template-columns: 1fr !important;
-          gap: var(--space-4) !important;
-          text-align: center !important;
-        }
-        
-        .nav-pills {
-          order: 2 !important;
-          width: 100% !important;
-        }
-        
-        .brand {
-          order: 1 !important;
         }
       }
       
@@ -1413,130 +1409,133 @@ console.log('[LeagueCreationFix] Loaded');
     const navToggle = document.getElementById('navToggle');
     const navSidebar = document.getElementById('nav-sidebar');
     const layout = document.querySelector('.layout');
-    const body = document.body;
-
+    
     if (!navToggle || !navSidebar || !layout) {
       console.warn('Navigation toggle elements not found');
       return;
     }
-
-    const isSmallScreen = () => window.innerWidth < 1024;
-
-    // Overlay creator
-    const getOrCreateOverlay = () => {
-      let navOverlay = document.getElementById('navOverlay');
-      if (!navOverlay) {
-        navOverlay = document.createElement('div');
-        navOverlay.id = 'navOverlay';
-        navOverlay.className = 'nav-overlay';
-        navOverlay.setAttribute('role', 'presentation');
-        navOverlay.addEventListener('click', () => closeNav());
-        document.body.appendChild(navOverlay);
-      }
-      return navOverlay;
-    };
-
-    const navState = {
-      open: () => {
-        const navOverlay = getOrCreateOverlay();
-        navSidebar.classList.remove('collapsed');
-        layout.classList.remove('nav-collapsed');
-        if (isSmallScreen()) {
-          body.classList.add('nav-open');
-          navOverlay.style.display = 'block';
-          navOverlay.setAttribute('aria-hidden', 'false');
-        }
-        navToggle.setAttribute('aria-expanded', 'true');
-        localStorage.setItem('navSidebarCollapsed', 'false');
-      },
-      close: (persist = true) => {
-        const navOverlay = getOrCreateOverlay();
-        navSidebar.classList.add('collapsed');
-        layout.classList.add('nav-collapsed');
-        body.classList.remove('nav-open');
-        navToggle.setAttribute('aria-expanded', 'false');
-        navOverlay.style.display = 'none';
-        navOverlay.setAttribute('aria-hidden', 'true');
-        if (persist) {
-          localStorage.setItem('navSidebarCollapsed', 'true');
-        }
-      }
-    };
-
-    const closeNav = () => navState.close(true);
-    const openNav = () => navState.open();
-
-    // Check localStorage for saved state
+    
+    // Check if mobile
+    const isMobile = window.innerWidth <= 768;
     const savedState = localStorage.getItem('navSidebarCollapsed');
-    const standalone = window.matchMedia('(display-mode: standalone)').matches;
-    const shouldStartCollapsed = savedState === 'true' || (!savedState && isSmallScreen() && standalone);
-
-    if (isSmallScreen()) {
-      // default collapsed unless user explicitly kept it open
-      if (savedState === 'false') {
-        openNav();
-      } else {
-        closeNav(false);
-      }
-    } else if (shouldStartCollapsed) {
-      closeNav(false);
-    } else {
-      openNav();
+    
+    // Create overlay element for mobile
+    let navOverlay = document.getElementById('navOverlay');
+    if (!navOverlay) {
+      navOverlay = document.createElement('div');
+      navOverlay.id = 'navOverlay';
+      navOverlay.className = 'nav-overlay';
+      document.body.appendChild(navOverlay);
     }
-
-    // Ensure toggle button is always visible and clickable on mobile
-    if (isSmallScreen()) {
-      navToggle.style.display = 'flex';
-      navToggle.style.visibility = 'visible';
-      navToggle.style.opacity = '1';
-      navToggle.style.pointerEvents = 'auto';
-      navToggle.style.zIndex = '101';
-    }
-
-    navToggle.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const isCollapsed = navSidebar.classList.contains('collapsed');
-      if (isCollapsed) {
-        openNav();
+    
+    // Initialize state - on mobile, start collapsed
+    function initializeNavState() {
+      const isMobileNow = window.innerWidth <= 768;
+      
+      if (isMobileNow) {
+        // Mobile: start collapsed unless user explicitly wants it open
+        if (savedState === 'false') {
+          openNav();
+        } else {
+          closeNav();
+        }
+        navToggle.style.display = 'flex';
       } else {
-        closeNav();
+        // Desktop: use saved state or default to open
+        if (savedState === 'true') {
+          closeNav();
+        } else {
+          openNav();
+        }
+        navToggle.style.display = isMobileNow ? 'flex' : 'none';
       }
-    });
-
-    // Close navigation after selecting an item on mobile to free space
-    navSidebar.addEventListener('click', (event) => {
-      const link = event.target.closest('a.nav-item');
-      if (!link) return;
-
-      if (isSmallScreen()) {
-        closeNav();
+    }
+    
+    function openNav() {
+      navSidebar.classList.remove('collapsed');
+      layout.classList.remove('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'true');
+      if (isMobile && navOverlay) {
+        navOverlay.classList.add('show');
+        document.body.classList.add('nav-open');
       }
-    });
-
-    // Close nav when clicking outside on mobile
-    document.addEventListener('click', (e) => {
-      if (!isSmallScreen()) return;
-      if (!navSidebar.classList.contains('collapsed') &&
-          !navSidebar.contains(e.target) &&
-          !navToggle.contains(e.target)) {
-        closeNav();
+    }
+    
+    function closeNav() {
+      navSidebar.classList.add('collapsed');
+      layout.classList.add('nav-collapsed');
+      navToggle.setAttribute('aria-expanded', 'false');
+      if (navOverlay) {
+        navOverlay.classList.remove('show');
+        document.body.classList.remove('nav-open');
       }
-    });
-
-    // Handle window resize to update mobile state and overlay
+    }
+    
+    // Initialize on load
+    initializeNavState();
+    
+    // Handle window resize
     let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
-        const nowMobile = isSmallScreen();
-        ensureNavigationToggleVisible();
+        const isMobileNow = window.innerWidth <= 768;
+        navToggle.style.display = isMobileNow ? 'flex' : 'none';
+        if (!isMobileNow) {
+          // Desktop: auto-open if collapsed
+          if (navSidebar.classList.contains('collapsed')) {
+            openNav();
+          }
+          navOverlay.classList.remove('show');
+        }
+      }, 250);
+    });
+    
+    // Toggle button click
+    navToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const isCurrentlyCollapsed = navSidebar.classList.contains('collapsed');
 
-        // Keep sidebar collapsed when entering mobile view for reliability
-        if (nowMobile) {
-          closeNav(false);
-        } else if (savedState === 'false') {
-          openNav();
+      if (isCurrentlyCollapsed) {
+        openNav();
+        localStorage.setItem('navSidebarCollapsed', 'false');
+      } else {
+        closeNav();
+        localStorage.setItem('navSidebarCollapsed', 'true');
+      }
+    });
+
+    // Close nav when clicking overlay
+    navOverlay.addEventListener('click', () => {
+      closeNav();
+      localStorage.setItem('navSidebarCollapsed', 'true');
+    });
+
+    // Close navigation after selecting an item on mobile
+    navSidebar.addEventListener('click', (event) => {
+      const link = event.target.closest('a.nav-item');
+      if (link && isMobile) {
+        // Small delay to allow navigation to process
+        setTimeout(() => {
+          closeNav();
+          localStorage.setItem('navSidebarCollapsed', 'true');
+        }, 100);
+      }
+    });
+    
+    console.log('✅ Navigation toggle setup complete');
+  }
+    
+    // Handle window resize to update mobile state
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        const isNowMobile = window.innerWidth < 1024;
+        if (isNowMobile) {
+          // Ensure toggle is visible on mobile
+          ensureNavigationToggleVisible();
         }
       }, 250);
     });
