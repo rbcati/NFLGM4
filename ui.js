@@ -810,6 +810,7 @@ window.renderHub = function() {
         // Render last week results (only if not offseason)
         if (!isOffseason) {
             renderLastWeekResults();
+            renderUpcomingGames();
         }
         
         // Render standings on hub
@@ -1125,6 +1126,95 @@ function renderLastWeekResults() {
                 <div class="box-score-link">📊 View Box Score</div>
             </div>
         `;
+    }).join('');
+}
+
+/**
+ * Renders upcoming games for the current week with "Watch Live" buttons
+ */
+function renderUpcomingGames() {
+    const L = window.state?.league;
+    if (!L) return;
+    
+    // Create or get container for upcoming games
+    let container = document.getElementById('hubUpcomingGames');
+    if (!container) {
+        const hubContainer = document.getElementById('hub');
+        if (hubContainer) {
+            container = document.createElement('div');
+            container.id = 'hubUpcomingGames';
+            container.className = 'card mt';
+            container.innerHTML = '<h3>This Week\'s Games</h3><div class="list" id="upcomingGamesList"></div>';
+            hubContainer.appendChild(container);
+        } else {
+            return;
+        }
+    }
+    
+    const gamesList = document.getElementById('upcomingGamesList');
+    if (!gamesList) return;
+    
+    const currentWeek = L.week || 1;
+    const scheduleWeeks = L.schedule?.weeks || L.schedule || [];
+    const weekSchedule = Array.isArray(scheduleWeeks) ? 
+        scheduleWeeks.find(w => w.weekNumber === currentWeek) || 
+        scheduleWeeks[currentWeek - 1] : null;
+    
+    if (!weekSchedule || !weekSchedule.games) {
+        gamesList.innerHTML = '<div class="muted">No games scheduled this week</div>';
+        return;
+    }
+    
+    const userTeamId = window.state?.userTeamId;
+    const games = weekSchedule.games.filter(g => g && g.home !== undefined && g.away !== undefined);
+    
+    if (games.length === 0) {
+        gamesList.innerHTML = '<div class="muted">No games scheduled this week</div>';
+        return;
+    }
+    
+    gamesList.innerHTML = games.map(game => {
+        const homeTeam = L.teams[game.home];
+        const awayTeam = L.teams[game.away];
+        
+        if (!homeTeam || !awayTeam) return '';
+        
+        const isUserGame = game.home === userTeamId || game.away === userTeamId;
+        const isCompleted = game.homeScore !== undefined && game.awayScore !== undefined;
+        
+        if (isCompleted) {
+            // Show completed game with box score link
+            const homeScore = game.homeScore || 0;
+            const awayScore = game.awayScore || 0;
+            const winner = homeScore > awayScore ? homeTeam : awayTeam;
+            
+            return `
+                <div class="result-item ${isUserGame ? 'user-game' : ''}">
+                    <div class="teams">
+                        <span class="team ${game.away === winner.id ? 'winner' : ''}">${awayTeam.name}</span>
+                        <span class="score">${awayScore}</span>
+                        <span class="at">@</span>
+                        <span class="team ${game.home === winner.id ? 'winner' : ''}">${homeTeam.name}</span>
+                        <span class="score">${homeScore}</span>
+                    </div>
+                    <div class="box-score-link">📊 View Box Score</div>
+                </div>
+            `;
+        } else {
+            // Show upcoming game with "Watch Live" button
+            return `
+                <div class="result-item ${isUserGame ? 'user-game' : ''}">
+                    <div class="teams">
+                        <span class="team">${awayTeam.name}</span>
+                        <span class="at">@</span>
+                        <span class="team">${homeTeam.name}</span>
+                    </div>
+                    <button class="watch-live-btn" onclick="window.watchLiveGame(${game.home}, ${game.away})">
+                        📺 Watch Live
+                    </button>
+                </div>
+            `;
+        }
     }).join('');
 }
 
