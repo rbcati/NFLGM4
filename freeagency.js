@@ -1023,6 +1023,7 @@ function updateCapSidebar() {
 
 // Make functions globally available
 window.ensureFA = ensureFA;
+window.updateCapSidebar = updateCapSidebar;
 window.renderFreeAgency = renderFreeAgency;
 window.signFreeAgent = signFreeAgent;
 window.generateBasicName = generateBasicName;
