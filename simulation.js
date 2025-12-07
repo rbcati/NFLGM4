@@ -1197,6 +1197,15 @@ function simulateWeek() {
     if (!L.resultsByWeek) L.resultsByWeek = {};
     L.resultsByWeek[L.week - 1] = results;
 
+    // Update single game records
+    if (typeof window.updateSingleGameRecords === 'function') {
+      try {
+        window.updateSingleGameRecords(L, L.year || L.season || 2025, L.week);
+      } catch (recordsError) {
+        console.error('Error updating single game records:', recordsError);
+      }
+    }
+
     // Advance to next week
     const previousWeek = L.week;
     L.week++;
