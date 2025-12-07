@@ -426,8 +426,22 @@ class GameController {
     async renderSchedule() {
         try {
             console.log('Rendering enhanced schedule...');
-            if (window.scheduleViewer) {
-                window.scheduleViewer.refresh();
+            // Try using the schedule viewer first
+            if (window.scheduleViewer && window.scheduleViewer.refresh) {
+                try {
+                    window.scheduleViewer.refresh();
+                } catch (e) {
+                    console.warn('Schedule viewer refresh failed, using fallback:', e);
+                    // Fall back to GameController render
+                    if (this.renderSchedule) {
+                        this.renderSchedule();
+                    }
+                }
+            } else {
+                // Use GameController render method
+                if (this.renderSchedule) {
+                    this.renderSchedule();
+                }
             }
             console.log('✅ Enhanced schedule rendered successfully');
         } catch (error) {
