@@ -367,6 +367,158 @@
     return `🚑 ${injury.type} (${weeks} week${weeks !== 1 ? 's' : ''})`;
   }
 
+  /**
+   * Renders the league-wide injuries page
+   */
+  function renderInjuriesPage() {
+    const L = window.state?.league;
+    if (!L || !L.teams) {
+      console.error('No league data available for injuries page');
+      return;
+    }
+    
+    const container = document.getElementById('injuriesContent');
+    if (!container) {
+      console.error('Injuries container not found');
+      return;
+    }
+    
+    // Collect all injured players across all teams
+    const allInjuries = [];
+    
+    L.teams.forEach(team => {
+      if (!team.roster) return;
+      
+      team.roster.forEach(player => {
+        if (player.injured && player.injuries && player.injuries.length > 0) {
+          player.injuries.forEach(injury => {
+            allInjuries.push({
+              player: player,
+              team: team,
+              injury: injury
+            });
+          });
+        }
+      });
+    });
+    
+    // Sort by severity (major first), then by weeks remaining
+    allInjuries.sort((a, b) => {
+      const severityOrder = { 'major': 3, 'moderate': 2, 'minor': 1 };
+      const aSev = severityOrder[a.injury.severity] || 0;
+      const bSev = severityOrder[b.injury.severity] || 0;
+      if (aSev !== bSev) return bSev - aSev;
+      return b.injury.weeksRemaining - a.injury.weeksRemaining;
+    });
+    
+    if (allInjuries.length === 0) {
+      container.innerHTML = `
+        <div class="injury-summary">
+          <p class="muted">🎉 No active injuries across the league!</p>
+        </div>
+      `;
+      return;
+    }
+    
+    // Group by team
+    const injuriesByTeam = {};
+    allInjuries.forEach(item => {
+      const teamId = item.team.id;
+      if (!injuriesByTeam[teamId]) {
+        injuriesByTeam[teamId] = {
+          team: item.team,
+          injuries: []
+        };
+      }
+      injuriesByTeam[teamId].injuries.push(item);
+    });
+    
+    // Count by severity
+    const severityCounts = {
+      major: allInjuries.filter(i => i.injury.severity === 'major').length,
+      moderate: allInjuries.filter(i => i.injury.severity === 'moderate').length,
+      minor: allInjuries.filter(i => i.injury.severity === 'minor').length,
+      seasonEnding: allInjuries.filter(i => i.injury.seasonEnding).length
+    };
+    
+    const userTeamId = window.state?.userTeamId ?? 0;
+    
+    let html = `
+      <div class="injury-summary">
+        <div class="injury-stats">
+          <div class="stat-item">
+            <span class="stat-label">Total Injuries:</span>
+            <span class="stat-value">${allInjuries.length}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Major:</span>
+            <span class="stat-value injury-major">${severityCounts.major}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Moderate:</span>
+            <span class="stat-value injury-moderate">${severityCounts.moderate}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Minor:</span>
+            <span class="stat-value injury-minor">${severityCounts.minor}</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label">Season-Ending:</span>
+            <span class="stat-value injury-season-ending">${severityCounts.seasonEnding}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div class="injuries-by-team">
+        <h3>Injuries by Team</h3>
+        ${Object.values(injuriesByTeam).map(({ team, injuries }) => `
+          <div class="team-injuries-card ${team.id === userTeamId ? 'user-team' : ''}">
+            <div class="team-injuries-header">
+              <h4>${team.name || team.abbr} (${injuries.length} ${injuries.length === 1 ? 'injury' : 'injuries'})</h4>
+            </div>
+            <table class="injury-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Pos</th>
+                  <th>OVR</th>
+                  <th>Injury</th>
+                  <th>Severity</th>
+                  <th>Weeks Left</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${injuries.map(({ player, injury }) => `
+                  <tr class="injury-row injury-${injury.severity}">
+                    <td>${player.name || 'Unknown'}</td>
+                    <td>${player.pos || 'N/A'}</td>
+                    <td>${player.ovr || 'N/A'}</td>
+                    <td>${injury.type}</td>
+                    <td>
+                      <span class="severity-badge ${injury.severity}">
+                        ${injury.severity.charAt(0).toUpperCase() + injury.severity.slice(1)}
+                      </span>
+                    </td>
+                    <td>${injury.weeksRemaining || 0}</td>
+                    <td>
+                      ${injury.seasonEnding ? 
+                        '<span class="status-badge season-ending">❌ Season-Ending</span>' : 
+                        '<span class="status-badge active">⚠️ Active</span>'
+                      }
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    
+    container.innerHTML = html;
+  }
+
   // Export functions
   window.generateInjury = generateInjury;
   window.applyInjury = applyInjury;
@@ -376,6 +528,7 @@
   window.getInjuryStatus = getInjuryStatus;
   window.recordSeasonOVR = recordSeasonOVR;
   window.getInjuryPronenessAssessment = getInjuryPronenessAssessment;
+  window.renderInjuriesPage = renderInjuriesPage;
 
   console.log('✅ Injury System loaded');
 
