@@ -224,47 +224,46 @@ function renderStandingsPage() {
     ? window.renderOverallStandings
     : renderOverallStandings;
 
-  if (standingsView) {
-    // Use the dedicated standings view with tabs
-    // NOTE: Requires external CSS for styling and setupStandingsTabs() for logic
-    standingsView.innerHTML = `
-      <div class="card">
-        <div class="standings-header">
-          <h2>NFL Standings</h2>
-          <div class="standings-controls">
-            <div class="season-info">
-              <span class="season-year">${L.year}</span>
-              <span class="week-info">Week ${L.week}</span>
-            </div>
-            <div class="standings-tabs">
-              <button class="standings-tab active" data-tab="division">Division</button>
-              <button class="standings-tab" data-tab="conference">Conference</button>
-              <button class="standings-tab" data-tab="overall">Overall</button>
-              <button class="standings-tab" data-tab="schedule">Schedule</button>
-              <button class="standings-tab" data-tab="playoff">Playoff Picture</button>
-            </div>
+  // Render into standingsWrap if it exists (preferred), otherwise into standingsView
+  if (standingsWrap) {
+    // Render into the wrap container (preferred - this is inside the standings section)
+    standingsWrap.innerHTML = `
+      <div class="standings-header">
+        <h2>NFL Standings</h2>
+        <div class="standings-controls">
+          <div class="season-info">
+            <span class="season-year">${L.year || L.season || 2025}</span>
+            <span class="week-info">Week ${L.week || 1}</span>
+          </div>
+          <div class="standings-tabs">
+            <button class="standings-tab active" data-tab="division">Division</button>
+            <button class="standings-tab" data-tab="conference">Conference</button>
+            <button class="standings-tab" data-tab="overall">Overall</button>
+            <button class="standings-tab" data-tab="schedule">Schedule</button>
+            <button class="standings-tab" data-tab="playoff">Playoff Picture</button>
           </div>
         </div>
+      </div>
+      
+      <div class="standings-content">
+        <div id="standings-division" class="standings-section active">
+          ${divisionRenderer(standingsData)}
+        </div>
+
+        <div id="standings-conference" class="standings-section">
+          ${conferenceRenderer(standingsData)}
+        </div>
+
+        <div id="standings-overall" class="standings-section">
+          ${overallRenderer(standingsData)}
+        </div>
         
-        <div class="standings-content">
-          <div id="standings-division" class="standings-section active">
-            ${divisionRenderer(standingsData)}
-          </div>
-
-          <div id="standings-conference" class="standings-section">
-            ${conferenceRenderer(standingsData)}
-          </div>
-
-          <div id="standings-overall" class="standings-section">
-            ${overallRenderer(standingsData)}
-          </div>
-          
-          <div id="standings-schedule" class="standings-section">
-            ${renderScheduleStandings(L)} </div>
-          
-          <div id="standings-playoff" class="standings-section">
-            ${renderPlayoffPicture(standingsData)}
-          </div>
+        <div id="standings-schedule" class="standings-section">
+          ${renderScheduleStandings(L)}
+        </div>
+        
+        <div id="standings-playoff" class="standings-section">
+          ${renderPlayoffPicture(standingsData)}
         </div>
       </div>
     `;
@@ -282,20 +281,19 @@ function renderStandingsPage() {
     } else {
       console.warn('Missing function: makeTeamsClickable.');
     }
-
-  } else {
-    // Use the simple standings wrapper (Fallback)
-    targetContainer.innerHTML = `
+  } else if (standingsView) {
+    // Fallback: render directly into standings view
+    standingsView.innerHTML = `
       <div class="card">
         <h2>League Standings</h2>
         <div class="conferences-grid">
           <div class="conference-standings">
             <h3 class="conference-title">AFC</h3>
-            ${window.renderSimpleConferenceStandings(standingsData.afc)}
+            ${renderSimpleConferenceStandings(standingsData.afc || [])}
           </div>
           <div class="conference-standings">
             <h3 class="conference-title">NFC</h3>
-            ${window.renderSimpleConferenceStandings(standingsData.nfc)}
+            ${renderSimpleConferenceStandings(standingsData.nfc || [])}
           </div>
         </div>
       </div>
@@ -304,6 +302,8 @@ function renderStandingsPage() {
     if (typeof window.makeTeamsClickable === 'function') {
         setTimeout(() => window.makeTeamsClickable(), 100);
     }
+  } else {
+    console.error('Could not find standings container. Standings may not display.');
   }
   
   console.log('✅ Standings page rendered successfully, period.');
