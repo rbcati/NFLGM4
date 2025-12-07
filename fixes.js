@@ -1413,95 +1413,94 @@ console.log('[LeagueCreationFix] Loaded');
     const navToggle = document.getElementById('navToggle');
     const navSidebar = document.getElementById('nav-sidebar');
     const layout = document.querySelector('.layout');
-    
+    const body = document.body;
+
     if (!navToggle || !navSidebar || !layout) {
       console.warn('Navigation toggle elements not found');
       return;
     }
-    
+
+    const isSmallScreen = () => window.innerWidth < 1024;
+
+    // Overlay creator
+    const getOrCreateOverlay = () => {
+      let navOverlay = document.getElementById('navOverlay');
+      if (!navOverlay) {
+        navOverlay = document.createElement('div');
+        navOverlay.id = 'navOverlay';
+        navOverlay.className = 'nav-overlay';
+        navOverlay.setAttribute('role', 'presentation');
+        navOverlay.addEventListener('click', () => closeNav());
+        document.body.appendChild(navOverlay);
+      }
+      return navOverlay;
+    };
+
+    const navState = {
+      open: () => {
+        const navOverlay = getOrCreateOverlay();
+        navSidebar.classList.remove('collapsed');
+        layout.classList.remove('nav-collapsed');
+        if (isSmallScreen()) {
+          body.classList.add('nav-open');
+          navOverlay.style.display = 'block';
+          navOverlay.setAttribute('aria-hidden', 'false');
+        }
+        navToggle.setAttribute('aria-expanded', 'true');
+        localStorage.setItem('navSidebarCollapsed', 'false');
+      },
+      close: (persist = true) => {
+        const navOverlay = getOrCreateOverlay();
+        navSidebar.classList.add('collapsed');
+        layout.classList.add('nav-collapsed');
+        body.classList.remove('nav-open');
+        navToggle.setAttribute('aria-expanded', 'false');
+        navOverlay.style.display = 'none';
+        navOverlay.setAttribute('aria-hidden', 'true');
+        if (persist) {
+          localStorage.setItem('navSidebarCollapsed', 'true');
+        }
+      }
+    };
+
+    const closeNav = () => navState.close(true);
+    const openNav = () => navState.open();
+
     // Check localStorage for saved state
-    // On mobile, start collapsed but allow user to expand it
     const savedState = localStorage.getItem('navSidebarCollapsed');
-    const isSmallScreen = window.innerWidth < 1024;
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    
-    // Only auto-collapse if explicitly saved, or if it's a new session on mobile
-    // But always allow the user to expand it
-    const shouldStartCollapsed = savedState === 'true' || (!savedState && isSmallScreen && isStandalone);
-    
-    // On mobile, always start collapsed but ensure toggle is visible
-    if (isSmallScreen) {
-      // Start collapsed on mobile for space, but user can expand
-      if (savedState !== 'false') {
-        navSidebar.classList.add('collapsed');
-        layout.classList.add('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'false');
+    const standalone = window.matchMedia('(display-mode: standalone)').matches;
+    const shouldStartCollapsed = savedState === 'true' || (!savedState && isSmallScreen() && standalone);
+
+    if (isSmallScreen()) {
+      // default collapsed unless user explicitly kept it open
+      if (savedState === 'false') {
+        openNav();
       } else {
-        // User explicitly wants it open
-        navSidebar.classList.remove('collapsed');
-        layout.classList.remove('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'true');
+        closeNav(false);
       }
+    } else if (shouldStartCollapsed) {
+      closeNav(false);
     } else {
-      // Desktop: use saved state or default to open
-      if (shouldStartCollapsed) {
-        navSidebar.classList.add('collapsed');
-        layout.classList.add('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'false');
-      } else {
-        navSidebar.classList.remove('collapsed');
-        layout.classList.remove('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'true');
-      }
+      openNav();
     }
-    
+
     // Ensure toggle button is always visible and clickable on mobile
-    if (isSmallScreen) {
+    if (isSmallScreen()) {
       navToggle.style.display = 'flex';
       navToggle.style.visibility = 'visible';
       navToggle.style.opacity = '1';
       navToggle.style.pointerEvents = 'auto';
       navToggle.style.zIndex = '101';
     }
-    
-    // Create overlay element for mobile if it doesn't exist
-    let navOverlay = document.getElementById('navOverlay');
-    if (!navOverlay && window.innerWidth < 1024) {
-      navOverlay = document.createElement('div');
-      navOverlay.id = 'navOverlay';
-      navOverlay.className = 'nav-overlay';
-      navOverlay.addEventListener('click', () => {
-        navSidebar.classList.add('collapsed');
-        layout.classList.add('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'false');
-        localStorage.setItem('navSidebarCollapsed', 'true');
-      });
-      document.body.appendChild(navOverlay);
-    }
-    
+
     navToggle.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const isCurrentlyCollapsed = navSidebar.classList.contains('collapsed');
-
-      if (isCurrentlyCollapsed) {
-        navSidebar.classList.remove('collapsed');
-        layout.classList.remove('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'true');
-        localStorage.setItem('navSidebarCollapsed', 'false');
-        // Show overlay on mobile
-        if (navOverlay && window.innerWidth < 1024) {
-          navOverlay.style.display = 'block';
-        }
+      const isCollapsed = navSidebar.classList.contains('collapsed');
+      if (isCollapsed) {
+        openNav();
       } else {
-        navSidebar.classList.add('collapsed');
-        layout.classList.add('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'false');
-        localStorage.setItem('navSidebarCollapsed', 'true');
-        // Hide overlay
-        if (navOverlay) {
-          navOverlay.style.display = 'none';
-        }
+        closeNav();
       }
     });
 
@@ -1510,39 +1509,34 @@ console.log('[LeagueCreationFix] Loaded');
       const link = event.target.closest('a.nav-item');
       if (!link) return;
 
-      if (window.innerWidth < 1024) {
-        navSidebar.classList.add('collapsed');
-        layout.classList.add('nav-collapsed');
-        navToggle.setAttribute('aria-expanded', 'false');
-        localStorage.setItem('navSidebarCollapsed', 'true');
+      if (isSmallScreen()) {
+        closeNav();
       }
     });
-    
-    // Add overlay click handler for mobile (close nav when clicking outside)
-    if (window.innerWidth < 1024) {
-      document.addEventListener('click', (e) => {
-        // Only handle if nav is open and click is outside
-        if (!navSidebar.classList.contains('collapsed') && 
-            !navSidebar.contains(e.target) && 
-            !navToggle.contains(e.target) &&
-            e.target !== navSidebar) {
-          navSidebar.classList.add('collapsed');
-          layout.classList.add('nav-collapsed');
-          navToggle.setAttribute('aria-expanded', 'false');
-          localStorage.setItem('navSidebarCollapsed', 'true');
-        }
-      });
-    }
-    
-    // Handle window resize to update mobile state
+
+    // Close nav when clicking outside on mobile
+    document.addEventListener('click', (e) => {
+      if (!isSmallScreen()) return;
+      if (!navSidebar.classList.contains('collapsed') &&
+          !navSidebar.contains(e.target) &&
+          !navToggle.contains(e.target)) {
+        closeNav();
+      }
+    });
+
+    // Handle window resize to update mobile state and overlay
     let resizeTimeout;
     window.addEventListener('resize', () => {
       clearTimeout(resizeTimeout);
       resizeTimeout = setTimeout(() => {
-        const isNowMobile = window.innerWidth < 1024;
-        if (isNowMobile) {
-          // Ensure toggle is visible on mobile
-          ensureNavigationToggleVisible();
+        const nowMobile = isSmallScreen();
+        ensureNavigationToggleVisible();
+
+        // Keep sidebar collapsed when entering mobile view for reliability
+        if (nowMobile) {
+          closeNav(false);
+        } else if (savedState === 'false') {
+          openNav();
         }
       }, 250);
     });
