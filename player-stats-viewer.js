@@ -342,6 +342,40 @@ class PlayerStatsViewer {
             `;
         }
 
+        // Section 5.5: Weekly Stats Breakdown
+        const weeklyStats = this.getWeeklyStats(player);
+        if (weeklyStats.length > 0) {
+            statsHTML += `
+                <div class="stats-section full-width">
+                    <h3>📊 Weekly Performance Breakdown</h3>
+                    <div class="weekly-stats-container">
+                        <div class="weekly-stats-table">
+                            <div class="weekly-stats-header">
+                                <span>Week</span>
+                                <span>Opponent</span>
+                                <span>Result</span>
+                                <span>Stats Summary</span>
+                            </div>
+            `;
+            
+            weeklyStats.forEach(weekData => {
+                statsHTML += `
+                    <div class="weekly-stats-row">
+                        <span class="week-number">${weekData.week}</span>
+                        <span class="opponent">${weekData.opponent || 'N/A'}</span>
+                        <span class="result ${weekData.result || ''}">${weekData.result || '—'}</span>
+                        <span class="stats-summary">${weekData.summary}</span>
+                    </div>
+                `;
+            });
+            
+            statsHTML += `
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
 
         // Section 6: Milestones (from Legacy)
         if (player.legacy?.milestones && player.legacy.milestones.length > 0) {
@@ -470,6 +504,123 @@ class PlayerStatsViewer {
             return value.toLocaleString();
         }
         return value.toFixed(1);
+    }
+
+    /**
+     * Get weekly stats breakdown from game results
+     * @param {Object} player - Player object
+     * @returns {Array} Array of weekly stat objects
+     */
+    getWeeklyStats(player) {
+        const weeklyData = [];
+        const L = window.state?.league;
+        if (!L || !L.resultsByWeek || !player.id) return weeklyData;
+
+        // Find player's team
+        let playerTeam = null;
+        let playerTeamId = null;
+        for (const team of L.teams || []) {
+            if (team.roster) {
+                const foundPlayer = team.roster.find(p => p.id === player.id);
+                if (foundPlayer) {
+                    playerTeam = team;
+                    playerTeamId = team.id;
+                    break;
+                }
+            }
+        }
+        if (!playerTeam) return weeklyData;
+
+        // Iterate through all weeks
+        const maxWeek = Math.min(18, Object.keys(L.resultsByWeek).length);
+        for (let week = 1; week <= maxWeek; week++) {
+            const weekResults = L.resultsByWeek[week - 1];
+            if (!weekResults || !Array.isArray(weekResults)) continue;
+
+            // Find games this player's team played
+            for (const gameResult of weekResults) {
+                if (!gameResult || !gameResult.boxScore) continue;
+                
+                const isHome = gameResult.home === playerTeamId;
+                const isAway = gameResult.away === playerTeamId;
+                if (!isHome && !isAway) continue;
+
+                const side = isHome ? 'home' : 'away';
+                const opponentId = isHome ? gameResult.away : gameResult.home;
+                const opponent = L.teams[opponentId];
+                const opponentName = opponent ? opponent.abbr : 'N/A';
+
+                // Find player in box score
+                const playerStats = gameResult.boxScore[side];
+                if (!playerStats) continue;
+
+                let found = false;
+                for (const playerId in playerStats) {
+                    const pData = playerStats[playerId];
+                    if (pData && (pData.id === player.id || pData.name === player.name)) {
+                        found = true;
+                        const stats = pData.stats || {};
+                        const summary = this.formatPlayerGameSummary(player.pos, stats);
+                        
+                        // Determine result
+                        let result = '';
+                        if (gameResult.scoreHome !== undefined && gameResult.scoreAway !== undefined) {
+                            const teamScore = isHome ? gameResult.scoreHome : gameResult.scoreAway;
+                            const oppScore = isHome ? gameResult.scoreAway : gameResult.scoreHome;
+                            result = teamScore > oppScore ? 'W' : teamScore < oppScore ? 'L' : 'T';
+                        }
+
+                        weeklyData.push({
+                            week: week,
+                            opponent: opponentName,
+                            result: result,
+                            summary: summary,
+                            stats: stats
+                        });
+                        break;
+                    }
+                }
+                if (found) break; // Only count one game per week
+            }
+        }
+
+        return weeklyData;
+    }
+
+    /**
+     * Format a summary of player stats for a single game
+     * @param {string} position - Player position
+     * @param {Object} stats - Game stats object
+     * @returns {string} Formatted summary
+     */
+    formatPlayerGameSummary(position, stats) {
+        const summaries = [];
+
+        if (position === 'QB') {
+            if (stats.passYd !== undefined) summaries.push(`${stats.passYd} pass yds`);
+            if (stats.passTD !== undefined && stats.passTD > 0) summaries.push(`${stats.passTD} TD`);
+            if (stats.passInt !== undefined && stats.passInt > 0) summaries.push(`${stats.passInt} INT`);
+            if (stats.rushYd !== undefined && stats.rushYd > 0) summaries.push(`${stats.rushYd} rush yds`);
+        } else if (position === 'RB') {
+            if (stats.rushYd !== undefined) summaries.push(`${stats.rushYd} rush yds`);
+            if (stats.rushTD !== undefined && stats.rushTD > 0) summaries.push(`${stats.rushTD} TD`);
+            if (stats.recYd !== undefined && stats.recYd > 0) summaries.push(`${stats.recYd} rec yds`);
+        } else if (['WR', 'TE'].includes(position)) {
+            if (stats.recYd !== undefined) summaries.push(`${stats.recYd} rec yds`);
+            if (stats.recTD !== undefined && stats.recTD > 0) summaries.push(`${stats.recTD} TD`);
+            if (stats.receptions !== undefined && stats.receptions > 0) summaries.push(`${stats.receptions} rec`);
+        } else if (['DL', 'LB'].includes(position)) {
+            if (stats.tackles !== undefined && stats.tackles > 0) summaries.push(`${stats.tackles} tkl`);
+            if (stats.sacks !== undefined && stats.sacks > 0) summaries.push(`${stats.sacks} sack`);
+        } else if (['CB', 'S'].includes(position)) {
+            if (stats.tackles !== undefined && stats.tackles > 0) summaries.push(`${stats.tackles} tkl`);
+            if (stats.interceptions !== undefined && stats.interceptions > 0) summaries.push(`${stats.interceptions} INT`);
+        } else if (position === 'K') {
+            if (stats.fieldGoals !== undefined && stats.fieldGoals > 0) summaries.push(`${stats.fieldGoals} FG`);
+            if (stats.extraPoints !== undefined && stats.extraPoints > 0) summaries.push(`${stats.extraPoints} XP`);
+        }
+
+        return summaries.length > 0 ? summaries.join(', ') : 'DNP';
     }
     
     // Existing showModal, hideModal, makePlayersClickable, cleanupStaleData, refreshClickablePlayers, setupDOMObserver, disconnect are UNCHANGED
