@@ -1051,6 +1051,10 @@ console.log('[LeagueCreationFix] Loaded');
               window.renderStandings();
               console.log('✅ Standings (legacy) rendered');
             }
+            // Update cap sidebar when viewing standings
+            if (window.updateCapSidebar) {
+              setTimeout(() => window.updateCapSidebar(), 100);
+            }
             break;
           case 'freeagency':
             if (window.renderFreeAgency) {
