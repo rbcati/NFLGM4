@@ -741,8 +741,26 @@ let C = getConstants();
   function renderDepthChart(team) {
     if (!team || !team.roster) return '<p>No roster available</p>';
     
-    // Generate/update depth chart
-    const depthChart = generateDepthChart(team);
+    // Only generate depth chart if it doesn't exist or is empty
+    // This preserves manual adjustments
+    let depthChart = team.depthChart;
+    if (!depthChart || Object.keys(depthChart).length === 0) {
+      depthChart = generateDepthChart(team);
+    } else {
+      // Update effective ratings without changing order
+      Object.keys(depthChart).forEach(pos => {
+        const entries = depthChart[pos] || [];
+        entries.forEach(entry => {
+          const player = team.roster.find(p => p.id === entry.playerId);
+          if (player) {
+            entry.effectiveRating = calculateEffectiveRating(player, team, pos);
+            entry.ovr = player.ovr;
+            entry.playbookKnowledge = player.depthChart?.playbookKnowledge || 50;
+            entry.chemistry = player.depthChart?.chemistry || 50;
+          }
+        });
+      });
+    }
     
     // Update Constants reference
     C = getConstants();
@@ -780,8 +798,9 @@ let C = getConstants();
         html += `</div>`;
         html += `</div>`;
         html += `<div class="depth-actions">`;
-        html += `<button class="btn btn-sm" onclick="movePlayerDepth('${entry.playerId}', '${pos}', ${entry.depthPosition - 1})" ${entry.depthPosition === 1 ? 'disabled' : ''}>↑</button>`;
-        html += `<button class="btn btn-sm" onclick="movePlayerDepth('${entry.playerId}', '${pos}', ${entry.depthPosition + 1})" ${entry.depthPosition >= depth.length ? 'disabled' : ''}>↓</button>`;
+        // Use number directly in onclick to avoid string conversion issues
+        html += `<button class="btn btn-sm" onclick="if(window.movePlayerDepth) { window.movePlayerDepth(${entry.playerId}, '${pos}', ${entry.depthPosition - 1}); } else { console.error('movePlayerDepth not available'); }" ${entry.depthPosition === 1 ? 'disabled' : ''}>↑</button>`;
+        html += `<button class="btn btn-sm" onclick="if(window.movePlayerDepth) { window.movePlayerDepth(${entry.playerId}, '${pos}', ${entry.depthPosition + 1}); } else { console.error('movePlayerDepth not available'); }" ${entry.depthPosition >= depth.length ? 'disabled' : ''}>↓</button>`;
         html += `</div>`;
         html += `</div>`;
       });
@@ -803,46 +822,96 @@ let C = getConstants();
    * @param {number} newDepth - New depth position
    */
   window.movePlayerDepth = function(playerId, position, newDepth) {
-    const team = window.currentTeam();
-    if (!team || !team.roster) return;
-    
-    const player = team.roster.find(p => p.id === playerId);
-    if (!player) return;
-    
-    const depthChart = team.depthChart || {};
-    const positionDepth = depthChart[position] || [];
-    
-    if (newDepth < 1 || newDepth > positionDepth.length) return;
-    
-    // Swap positions
-    const currentIndex = positionDepth.findIndex(e => e.playerId === playerId);
-    const targetIndex = newDepth - 1;
-    
-    if (currentIndex === -1 || currentIndex === targetIndex) return;
-    
-    // Swap entries
-    const temp = positionDepth[currentIndex];
-    positionDepth[currentIndex] = positionDepth[targetIndex];
-    positionDepth[targetIndex] = temp;
-    
-    // Update depth positions
-    positionDepth.forEach((entry, index) => {
-      const p = team.roster.find(pl => pl.id === entry.playerId);
-      if (p) {
-        setDepthChartPosition(p, index + 1, position);
-        entry.depthPosition = index + 1;
+    try {
+      const team = window.currentTeam ? window.currentTeam() : (window.state?.league?.teams?.[window.state?.userTeamId]);
+      if (!team || !team.roster) {
+        console.error('No team found for depth chart move');
+        return;
       }
-    });
-    
-    // Regenerate depth chart to update effective ratings
-    generateDepthChart(team);
-    
-    // Refresh UI if on roster page
-    if (window.renderRoster) {
-      window.renderRoster();
+      
+      // Ensure depth chart exists
+      if (!team.depthChart) {
+        generateDepthChart(team);
+      }
+      
+      const depthChart = team.depthChart || {};
+      const positionDepth = depthChart[position] || [];
+      
+      if (positionDepth.length === 0) {
+        console.error(`No players at position ${position}`);
+        return;
+      }
+      
+      // Convert playerId to number if it's a string
+      const searchId = typeof playerId === 'string' ? parseInt(playerId) : playerId;
+      const player = team.roster.find(p => p.id === searchId || p.id === playerId);
+      if (!player) {
+        console.error(`Player ${playerId} not found`);
+        return;
+      }
+      
+      // Validate new depth
+      if (newDepth < 1 || newDepth > positionDepth.length) {
+        console.error(`Invalid depth position ${newDepth} (range: 1-${positionDepth.length})`);
+        return;
+      }
+      
+      // Find current position
+      const currentIndex = positionDepth.findIndex(e => {
+        const eId = typeof e.playerId === 'string' ? parseInt(e.playerId) : e.playerId;
+        return eId === searchId || e.playerId === playerId;
+      });
+      
+      const targetIndex = newDepth - 1;
+      
+      if (currentIndex === -1) {
+        console.error(`Player ${playerId} not found in depth chart at position ${position}`);
+        return;
+      }
+      
+      if (currentIndex === targetIndex) {
+        return; // Already at that position
+      }
+      
+      // Swap entries
+      const temp = positionDepth[currentIndex];
+      positionDepth[currentIndex] = positionDepth[targetIndex];
+      positionDepth[targetIndex] = temp;
+      
+      // Update depth positions in entries and player objects
+      positionDepth.forEach((entry, index) => {
+        const eId = typeof entry.playerId === 'string' ? parseInt(entry.playerId) : entry.playerId;
+        const p = team.roster.find(pl => pl.id === eId || pl.id === entry.playerId);
+        if (p) {
+          setDepthChartPosition(p, index + 1, position);
+          entry.depthPosition = index + 1;
+        }
+      });
+      
+      // DO NOT regenerate depth chart - preserve manual adjustments
+      // Only update the depth chart object reference
+      team.depthChart = depthChart;
+      
+      // Refresh UI
+      const depthChartContainer = document.getElementById('depthChartContainer');
+      if (depthChartContainer && window.renderDepthChart) {
+        depthChartContainer.innerHTML = window.renderDepthChart(team);
+      }
+      
+      // Also refresh roster table if it exists
+      if (window.renderRoster) {
+        window.renderRoster();
+      }
+      
+      if (window.setStatus) {
+        window.setStatus(`${player.name} moved to depth position ${newDepth} at ${position}`, 'success');
+      }
+    } catch (error) {
+      console.error('Error in movePlayerDepth:', error);
+      if (window.setStatus) {
+        window.setStatus(`Error moving player: ${error.message}`, 'error');
+      }
     }
-    
-    window.setStatus(`${player.name} moved to depth position ${newDepth} at ${position}`);
   };
 
   /**
