@@ -12,10 +12,21 @@
    */
   function getGameResult(week, gameIndex) {
     const L = window.state?.league;
-    if (!L || !L.resultsByWeek) return null;
+    if (!L || !L.resultsByWeek) {
+      console.error('No league or resultsByWeek found');
+      return null;
+    }
     
     const weekResults = L.resultsByWeek[week - 1];
-    if (!weekResults || !Array.isArray(weekResults)) return null;
+    if (!weekResults || !Array.isArray(weekResults)) {
+      console.error(`No results found for week ${week}`);
+      return null;
+    }
+    
+    if (gameIndex < 0 || gameIndex >= weekResults.length) {
+      console.error(`Invalid game index ${gameIndex} for week ${week} (found ${weekResults.length} games)`);
+      return null;
+    }
     
     return weekResults[gameIndex] || null;
   }
