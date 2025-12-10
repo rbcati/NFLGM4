@@ -1,4 +1,3 @@
-
 // live-game-viewer.js - Live game simulation with play-by-play and play calling
 'use strict';
 
@@ -722,30 +721,51 @@ class LiveGameViewer {
 }
 
 // Initialize global instance
-window.liveGameViewer = new LiveGameViewer();
+if (!window.liveGameViewer) {
+  window.liveGameViewer = new LiveGameViewer();
+}
 
 /**
- * Helper function to start watching a game
+ * Helper function to start watching a game (with live coaching for user's team)
  * @param {number} homeTeamId - Home team ID
  * @param {number} awayTeamId - Away team ID
  */
+
 window.watchLiveGame = function(homeTeamId, awayTeamId) {
-  const L = window.state?.league;
-  if (!L || !L.teams) {
-    console.error('No league loaded');
-    return;
+  try {
+    const L = window.state?.league;
+    if (!L || !L.teams) {
+      console.error('No league loaded');
+      window.setStatus('No league loaded. Please start a new game.', 'error');
+      return;
+    }
+
+    // Ensure liveGameViewer is initialized
+    if (!window.liveGameViewer) {
+      window.liveGameViewer = new LiveGameViewer();
+    }
+
+    const homeTeam = L.teams[homeTeamId];
+    const awayTeam = L.teams[awayTeamId];
+    const userTeamId = window.state?.userTeamId;
+
+    if (!homeTeam || !awayTeam) {
+      console.error('Invalid team IDs:', homeTeamId, awayTeamId);
+      window.setStatus('Could not find teams for live game.', 'error');
+      return;
+    }
+
+    // Check if this is a user's team game for play calling
+    const isUserGame = homeTeamId === userTeamId || awayTeamId === userTeamId;
+    
+    window.setStatus(`Starting live game: ${awayTeam.name} @ ${homeTeam.name}${isUserGame ? ' (You can call plays!)' : ''}`, 'success');
+    window.liveGameViewer.startGame(homeTeam, awayTeam, userTeamId);
+  } catch (error) {
+    console.error('Error starting live game:', error);
+    if (window.setStatus) {
+      window.setStatus(`Error starting live game: ${error.message}`, 'error');
+    }
   }
-
-  const homeTeam = L.teams[homeTeamId];
-  const awayTeam = L.teams[awayTeamId];
-  const userTeamId = window.state?.userTeamId;
-
-  if (!homeTeam || !awayTeam) {
-    console.error('Invalid team IDs');
-    return;
-  }
-
-  window.liveGameViewer.startGame(homeTeam, awayTeam, userTeamId);
 };
 
 console.log('✅ Live Game Viewer loaded');
