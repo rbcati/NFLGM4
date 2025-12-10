@@ -825,6 +825,19 @@ function startOffseason() {
       }
     }
     
+    // Update owner mode at season end
+    if (window.state?.ownerMode?.enabled && typeof window.calculateRevenue === 'function' && typeof window.updateFanSatisfaction === 'function') {
+      try {
+        window.updateFanSatisfaction();
+        window.calculateRevenue();
+        if (typeof window.renderOwnerModeInterface === 'function') {
+          window.renderOwnerModeInterface();
+        }
+      } catch (ownerError) {
+        console.error('Error updating owner mode at season end:', ownerError);
+      }
+    }
+    
     // Save state
     if (typeof window.saveState === 'function') {
       window.saveState();
@@ -1235,6 +1248,16 @@ function simulateWeek() {
     }
 
     console.log(`Week ${previousWeek} simulation complete - ${gamesSimulated} games simulated`);
+
+    // Update owner mode revenue and fan satisfaction after games
+    if (window.state?.ownerMode?.enabled && typeof window.calculateRevenue === 'function' && typeof window.updateFanSatisfaction === 'function') {
+      try {
+        window.updateFanSatisfaction();
+        window.calculateRevenue();
+      } catch (ownerError) {
+        console.error('Error updating owner mode:', ownerError);
+      }
+    }
 
     // Update UI to show results
     try {
