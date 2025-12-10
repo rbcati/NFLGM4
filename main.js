@@ -132,6 +132,72 @@ class GameController {
                 return;
             }
             // Enhanced hub content with simulate league button
+            const L = window.state?.league;
+            const userTeamId = window.state?.userTeamId || 0;
+            const userTeam = L?.teams?.[userTeamId];
+            
+            let divisionStandingsHTML = '';
+            if (userTeam && L) {
+                // Get user's division
+                const userConf = userTeam.conf;
+                const userDiv = userTeam.div;
+                const divisionName = ['East', 'North', 'South', 'West'][userDiv] || 'Unknown';
+                const confName = userConf === 0 ? 'AFC' : 'NFC';
+                
+                // Get all teams in user's division
+                const divTeams = L.teams
+                    .filter(t => t.conf === userConf && t.div === userDiv)
+                    .sort((a, b) => {
+                        const winPctA = (a.record?.w || 0) / Math.max(1, (a.record?.w || 0) + (a.record?.l || 0));
+                        const winPctB = (b.record?.w || 0) / Math.max(1, (b.record?.w || 0) + (b.record?.l || 0));
+                        if (winPctB !== winPctA) return winPctB - winPctA;
+                        const diffA = (a.record?.pf || 0) - (a.record?.pa || 0);
+                        const diffB = (b.record?.pf || 0) - (b.record?.pa || 0);
+                        return diffB - diffA;
+                    });
+                
+                divisionStandingsHTML = `
+                    <div class="card mt">
+                        <h3>${confName} ${divisionName} Division</h3>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Team</th>
+                                    <th>W</th>
+                                    <th>L</th>
+                                    <th>T</th>
+                                    <th>Win %</th>
+                                    <th>PF</th>
+                                    <th>PA</th>
+                                    <th>Diff</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${divTeams.map(team => {
+                                    const record = team.record || { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
+                                    const totalGames = record.w + record.l + record.t;
+                                    const winPct = totalGames > 0 ? ((record.w + record.t * 0.5) / totalGames).toFixed(3) : '0.000';
+                                    const isUserTeam = team.id === userTeamId;
+                                    const rowClass = isUserTeam ? 'highlight' : '';
+                                    return `
+                                        <tr class="${rowClass}">
+                                            <td><strong>${team.abbr || team.name}</strong>${isUserTeam ? ' (You)' : ''}</td>
+                                            <td>${record.w}</td>
+                                            <td>${record.l}</td>
+                                            <td>${record.t}</td>
+                                            <td>${winPct}</td>
+                                            <td>${record.pf}</td>
+                                            <td>${record.pa}</td>
+                                            <td>${record.pf - record.pa > 0 ? '+' : ''}${record.pf - record.pa}</td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
+            
             hubContainer.innerHTML = `
                 <div class="card">
                     <h2>Team Hub</h2>
@@ -162,6 +228,7 @@ class GameController {
                         </div>
                     </div>
                 </div>
+                ${divisionStandingsHTML}
             `;
             // Add event listeners for simulate buttons
             const btnSimSeason = hubContainer.querySelector('#btnSimSeason');
