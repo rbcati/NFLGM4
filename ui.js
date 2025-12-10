@@ -1127,13 +1127,21 @@ function renderLastWeekResults() {
         const isUserTeam = result.home === window.state?.userTeamId || result.away === window.state?.userTeamId;
         
         // Find game index in week for box score
-        const gameIndex = lastWeekResults.indexOf(result);
+        // Find game index properly by matching team IDs
+        const gameIndex = lastWeekResults.findIndex(r => {
+            if (!r) return false;
+            const rHome = typeof r.home === 'object' ? r.home.id : r.home;
+            const rAway = typeof r.away === 'object' ? r.away.id : r.away;
+            const resHome = typeof result.home === 'object' ? result.home.id : result.home;
+            const resAway = typeof result.away === 'object' ? result.away.id : result.away;
+            return rHome === resHome && rAway === resAway;
+        });
+        
+        const hasBoxScore = gameIndex >= 0 && lastWeekResults[gameIndex]?.boxScore;
         
         return `
-            <div class="result-item ${isUserTeam ? 'user-game' : ''} clickable-game" 
-                 onclick="window.showBoxScore(${lastWeek}, ${gameIndex})" 
-                 style="cursor: pointer;" 
-                 title="Click to view box score">
+            <div class="result-item ${isUserTeam ? 'user-game' : ''} ${hasBoxScore ? 'clickable-game' : ''}" 
+                 ${hasBoxScore ? `onclick="if(window.showBoxScore) { window.showBoxScore(${lastWeek}, ${gameIndex}); } else { console.error('showBoxScore not available'); }" style="cursor: pointer;" title="Click to view box score"` : ''}>
                 <div class="teams">
                     <span class="team ${result.away === winner.id ? 'winner' : ''}">${awayTeam.name}</span>
                     <span class="score">${awayScore}</span>
@@ -1141,7 +1149,7 @@ function renderLastWeekResults() {
                     <span class="team ${result.home === winner.id ? 'winner' : ''}">${homeTeam.name}</span>
                     <span class="score">${homeScore}</span>
                 </div>
-                <div class="box-score-link">📊 View Box Score</div>
+                ${hasBoxScore ? '<div class="box-score-link">📊 View Box Score</div>' : ''}
             </div>
         `;
     }).join('');
@@ -1222,8 +1230,19 @@ function renderUpcomingGames() {
             const awayScore = game.awayScore || 0;
             const winner = homeScore > awayScore ? homeTeam : awayTeam;
             
+            // Find game index in week results for box score
+            const currentWeek = L.week || 1;
+            const weekResults = L.resultsByWeek?.[currentWeek - 1] || [];
+            const gameIndex = weekResults.findIndex(r => 
+                r && ((typeof r.home === 'object' ? r.home.id : r.home) === game.home) && 
+                ((typeof r.away === 'object' ? r.away.id : r.away) === game.away)
+            );
+            
             return `
-                <div class="result-item ${isUserGame ? 'user-game' : ''}">
+                <div class="result-item ${isUserGame ? 'user-game' : ''} clickable-game" 
+                     onclick="${gameIndex >= 0 ? `if(window.showBoxScore) { window.showBoxScore(${currentWeek}, ${gameIndex}); }` : ''}" 
+                     style="cursor: ${gameIndex >= 0 ? 'pointer' : 'default'};" 
+                     title="${gameIndex >= 0 ? 'Click to view box score' : ''}">
                     <div class="teams">
                         <span class="team ${game.away === winner.id ? 'winner' : ''}">${awayTeam.name}</span>
                         <span class="score">${awayScore}</span>
@@ -1912,16 +1931,16 @@ window.renderTradeCenter = function () {
   renderTeamLists();
   
   // Render Trade Block UI
-  if (global.renderTradeBlock) {
+  if (window.renderTradeBlock) {
     setTimeout(() => {
-      global.renderTradeBlock();
+      window.renderTradeBlock();
     }, 100);
   }
   
   // Render Trade History
-  if (global.renderTradeHistory) {
+  if (window.renderTradeHistory) {
     setTimeout(() => {
-      global.renderTradeHistory();
+      window.renderTradeHistory();
     }, 150);
   }
 
