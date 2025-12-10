@@ -135,6 +135,7 @@ class GameController {
             const L = window.state?.league;
             const userTeamId = window.state?.userTeamId || 0;
             const userTeam = L?.teams?.[userTeamId];
+            const isOffseason = window.state?.offseason === true;
             
             let divisionStandingsHTML = '';
             if (userTeam && L) {
@@ -215,9 +216,10 @@ class GameController {
                         <div>
                             <h3>League Actions</h3>
                             <div class="actions">
-                                <button class="btn primary" id="btnSimWeek">Simulate Week</button>
-                                <button class="btn" id="btnSimSeason" onclick="handleSimulateSeason()">Simulate Season</button>
+                                ${!isOffseason ? '<button class="btn primary" id="btnSimWeek">Simulate Week</button>' : ''}
+                                ${!isOffseason ? '<button class="btn" id="btnSimSeason" onclick="handleSimulateSeason()">Simulate Season</button>' : ''}
                                 <button class="btn" onclick="location.hash='#/standings'">View Standings</button>
+                                ${isOffseason ? `<button class="btn primary" id="btnStartNewSeason">Start ${(L?.year || 2025) + 1} Season</button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -229,9 +231,18 @@ class GameController {
                     </div>
                 </div>
                 ${divisionStandingsHTML}
+                ${isOffseason ? `
+                    <div class="card mt" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem;">
+                        <h2 style="margin: 0 0 0.5rem 0; color: white;">🏆 ${L?.year || 2025} Season Complete - Offseason</h2>
+                        <p style="margin: 0 0 1rem 0; opacity: 0.9;">
+                            Resign players, sign free agents, and draft rookies before starting the ${(L?.year || 2025) + 1} season.
+                        </p>
+                    </div>
+                ` : ''}
             `;
             // Add event listeners for simulate buttons
             const btnSimSeason = hubContainer.querySelector('#btnSimSeason');
+            const btnStartNewSeason = hubContainer.querySelector('#btnStartNewSeason');
             // btnSimWeek handled in events.js to avoid duplicates
             // Render additional interfaces
             setTimeout(() => {
@@ -241,9 +252,22 @@ class GameController {
                 if (window.renderOwnerModeInterface) {
                     window.renderOwnerModeInterface();
                 }
+                // Render offseason banner if in offseason
+                if (isOffseason && typeof window.renderHubStandings === 'function') {
+                    window.renderHubStandings(L);
+                }
             }, 100);
             if (btnSimSeason) {
                 btnSimSeason.addEventListener('click', () => this.handleSimulateSeason());
+            }
+            if (btnStartNewSeason) {
+                btnStartNewSeason.addEventListener('click', () => {
+                    if (typeof window.startNewSeason === 'function') {
+                        window.startNewSeason();
+                    } else {
+                        this.setStatus('Error: startNewSeason function not available', 'error');
+                    }
+                });
             }
             console.log('✅ Hub rendered successfully');
         } catch (error) {
