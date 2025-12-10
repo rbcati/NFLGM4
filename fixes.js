@@ -1398,22 +1398,6 @@ console.log('[LeagueCreationFix] Loaded');
     
     console.log('✅ Navigation toggle setup complete');
   }
-    
-    // Handle window resize to update mobile state
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        const isNowMobile = window.innerWidth < 1024;
-        if (isNowMobile) {
-          // Ensure toggle is visible on mobile
-          ensureNavigationToggleVisible();
-        }
-      }, 250);
-    });
-
-    console.log('✅ Navigation toggle set up');
-  }
   
   // Fix the navigation HTML structure if needed
   function fixNavigationHTML() {
