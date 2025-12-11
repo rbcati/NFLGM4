@@ -522,7 +522,10 @@ class GameController {
                                     scheduleHTML += `</div>`;
                                     scheduleHTML += `<button class="btn btn-sm" onclick="window.showBoxScore && window.showBoxScore(${week}, ${idx})">📊 Box Score</button>`;
                                 } else {
-                                    scheduleHTML += `<button class="btn btn-sm btn-primary watch-live-btn" onclick="window.watchLiveGame && window.watchLiveGame(${game.home}, ${game.away})">📺 Watch Live</button>`;
+                                    // Ensure team IDs are numbers for watchLiveGame
+                                    const homeId = typeof game.home === 'object' ? game.home.id : game.home;
+                                    const awayId = typeof game.away === 'object' ? game.away.id : game.away;
+                                    scheduleHTML += `<button class="btn btn-sm btn-primary watch-live-btn" onclick="if(window.watchLiveGame) { window.watchLiveGame(${homeId}, ${awayId}); } else { console.error('watchLiveGame not available'); }">📺 Watch Live</button>`;
                                 }
                                 
                                 scheduleHTML += `</div>`;
