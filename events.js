@@ -260,17 +260,61 @@ async function handleOnboardStart(e) {
 }
 
 async function handleSimulateWeek(button) {
-    if (button) {
-        button.disabled = true;
-        button.textContent = 'Simulating...';
-    }
-    await new Promise(resolve => setTimeout(resolve, 50));
-    if (window.simulateWeek) {
-        window.simulateWeek();
-    }
-    if (button) {
-        button.disabled = false;
-        button.textContent = 'Simulate Week';
+    try {
+        const L = window.state?.league;
+        const userTeamId = window.state?.userTeamId;
+        
+        // Check if user's team has a game this week
+        let userGame = null;
+        if (L && userTeamId !== undefined && L.schedule) {
+            const scheduleWeeks = L.schedule.weeks || (Array.isArray(L.schedule) ? L.schedule : []);
+            const currentWeek = L.week || 1;
+            const weekData = scheduleWeeks.find(w => (w.weekNumber || w.week) === currentWeek) || scheduleWeeks[currentWeek - 1];
+            
+            if (weekData && weekData.games) {
+                userGame = weekData.games.find(g => g && !g.bye && (g.home === userTeamId || g.away === userTeamId));
+            }
+        }
+        
+        // Prompt user if they want to watch their game live
+        if (userGame && window.watchLiveGame) {
+            const homeTeam = L.teams[userGame.home];
+            const awayTeam = L.teams[userGame.away];
+            const opponent = userGame.home === userTeamId ? awayTeam : homeTeam;
+            const isHome = userGame.home === userTeamId;
+            
+            const watchLive = confirm(
+                `Watch your game live?\n\n` +
+                `${isHome ? 'Home' : 'Away'}: ${isHome ? homeTeam.name : awayTeam.name}\n` +
+                `${!isHome ? 'Home' : 'Away'}: ${!isHome ? homeTeam.name : awayTeam.name}\n\n` +
+                `Click OK to watch live (you can call plays!)\n` +
+                `Click Cancel to simulate all games instantly.`
+            );
+            
+            if (watchLive) {
+                // Watch the game live
+                window.watchLiveGame(userGame.home, userGame.away);
+                return; // Don't simulate - the live viewer will handle it
+            }
+        }
+        
+        // Regular simulation
+        if (button) {
+            button.disabled = true;
+            button.textContent = 'Simulating...';
+        }
+        await new Promise(resolve => setTimeout(resolve, 50));
+        if (window.simulateWeek) {
+            window.simulateWeek();
+        }
+    } catch (error) {
+        console.error('Error in handleSimulateWeek:', error);
+        window.setStatus(`Error: ${error.message}`, 'error');
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Simulate Week';
+        }
     }
 }
 
