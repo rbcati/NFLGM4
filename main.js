@@ -146,14 +146,31 @@ class GameController {
                 const confName = userConf === 0 ? 'AFC' : 'NFC';
                 
                 // Get all teams in user's division
+                // Support both team.record (legacy) and team.wins/losses/ties (current) formats
                 const divTeams = L.teams
                     .filter(t => t.conf === userConf && t.div === userDiv)
+                    .map(team => {
+                        // Normalize record data - support both formats
+                        const wins = team.wins ?? team.record?.w ?? 0;
+                        const losses = team.losses ?? team.record?.l ?? 0;
+                        const ties = team.ties ?? team.record?.t ?? 0;
+                        const pf = team.ptsFor ?? team.pointsFor ?? team.record?.pf ?? 0;
+                        const pa = team.ptsAgainst ?? team.pointsAgainst ?? team.record?.pa ?? 0;
+                        return {
+                            ...team,
+                            _normalizedRecord: { wins, losses, ties, pf, pa }
+                        };
+                    })
                     .sort((a, b) => {
-                        const winPctA = (a.record?.w || 0) / Math.max(1, (a.record?.w || 0) + (a.record?.l || 0));
-                        const winPctB = (b.record?.w || 0) / Math.max(1, (b.record?.w || 0) + (b.record?.l || 0));
-                        if (winPctB !== winPctA) return winPctB - winPctA;
-                        const diffA = (a.record?.pf || 0) - (a.record?.pa || 0);
-                        const diffB = (b.record?.pf || 0) - (b.record?.pa || 0);
+                        const ra = a._normalizedRecord;
+                        const rb = b._normalizedRecord;
+                        const totalGamesA = ra.wins + ra.losses + ra.ties;
+                        const totalGamesB = rb.wins + rb.losses + rb.ties;
+                        const winPctA = totalGamesA > 0 ? (ra.wins + ra.ties * 0.5) / totalGamesA : 0;
+                        const winPctB = totalGamesB > 0 ? (rb.wins + rb.ties * 0.5) / totalGamesB : 0;
+                        if (Math.abs(winPctB - winPctA) > 0.001) return winPctB - winPctA;
+                        const diffA = ra.pf - ra.pa;
+                        const diffB = rb.pf - rb.pa;
                         return diffB - diffA;
                     });
                 
@@ -175,17 +192,17 @@ class GameController {
                             </thead>
                             <tbody>
                                 ${divTeams.map(team => {
-                                    const record = team.record || { w: 0, l: 0, t: 0, pf: 0, pa: 0 };
-                                    const totalGames = record.w + record.l + record.t;
-                                    const winPct = totalGames > 0 ? ((record.w + record.t * 0.5) / totalGames).toFixed(3) : '0.000';
+                                    const record = team._normalizedRecord;
+                                    const totalGames = record.wins + record.losses + record.ties;
+                                    const winPct = totalGames > 0 ? ((record.wins + record.ties * 0.5) / totalGames).toFixed(3) : '0.000';
                                     const isUserTeam = team.id === userTeamId;
                                     const rowClass = isUserTeam ? 'highlight' : '';
                                     return `
                                         <tr class="${rowClass}">
                                             <td><strong>${team.abbr || team.name}</strong>${isUserTeam ? ' (You)' : ''}</td>
-                                            <td>${record.w}</td>
-                                            <td>${record.l}</td>
-                                            <td>${record.t}</td>
+                                            <td>${record.wins}</td>
+                                            <td>${record.losses}</td>
+                                            <td>${record.ties}</td>
                                             <td>${winPct}</td>
                                             <td>${record.pf}</td>
                                             <td>${record.pa}</td>
@@ -277,9 +294,138 @@ class GameController {
     }
 
     // --- SCHEDULE RENDERING ---
-    renderSchedule() {
+    // This method has been moved to the async renderSchedule below (line ~519)
+    // to properly delegate to scheduleViewer and avoid duplication
+
+    // --- SIMULATION FUNCTIONS ---
+    handleSimulateWeek() {
+        try {
+            console.log('Simulating week...');
+            this.setStatus('Simulating week...', 'info');
+            if (window.simulateWeek) {
+                window.simulateWeek();
+                this.setStatus('Week simulated successfully', 'success');
+                setTimeout(() => this.renderHub(), 1000);
+            } else if (window.state?.league) {
+                const L = window.state.league;
+                if (L.week < 18) {
+                    L.week++;
+                    this.setStatus(`Advanced to week ${L.week}`, 'success');
+                    setTimeout(() => this.renderHub(), 1000);
+                } else {
+                    this.setStatus('Season complete!', 'success');
+                }
+            } else {
+                this.setStatus('No league data available', 'error');
+            }
+        } catch (error) {
+            console.error('Error simulating week:', error);
+            this.setStatus('Failed to simulate week', 'error');
+        }
+    }
+
+    handleSimulateSeason() {
+        try {
+            console.log('Simulating season...');
+            this.setStatus('Simulating season...', 'info');
+            if (window.state?.league) {
+                const L = window.state.league;
+                L.week = 18;
+                this.setStatus('Season completed!', 'success');
+                setTimeout(() => this.renderHub(), 1000);
+            } else {
+                this.setStatus('No league data available', 'error');
+            }
+        } catch (error) {
+            console.error('Error simulating season:', error);
+            this.setStatus('Failed to simulate season', 'error');
+        }
+    }
+
+    // --- ENHANCED GAME RESULTS DISPLAY ---
+    async renderGameResults() {
+        try {
+            console.log('Rendering enhanced game results...');
+            const L = window.state.league;
+            if (!L || !L.resultsByWeek) {
+                console.warn('No game results available');
+                return;
+            }
+            const hubResults = this.getElement('hubResults');
+            if (!hubResults) return;
+            const lastWeek = L.week > 1 ? L.week - 1 : 1;
+            const weekResults = L.resultsByWeek[lastWeek];
+            if (!weekResults || weekResults.length === 0) {
+                hubResults.innerHTML = '<p class="muted">No results available for last week</p>';
+                return;
+            }
+            let resultsHTML = '';
+            weekResults.forEach(result => {
+                if (result.bye) {
+                    const byeTeams = result.bye.map(teamId => {
+                        const team = L.teams[teamId];
+                        return team ? team.name : 'Unknown Team';
+                    }).join(', ');
+                    resultsHTML += `
+                        <div class="result-item bye-week" data-week="${lastWeek}">
+                            <div class="bye-teams">${byeTeams} - BYE</div>
+                        </div>
+                    `;
+                } else {
+                    const homeTeam = L.teams[result.home];
+                    const awayTeam = L.teams[result.away];
+                    if (homeTeam && awayTeam) {
+                        const homeWin = result.homeWin;
+                        const homeScore = result.scoreHome || 0;
+                        const awayScore = result.scoreAway || 0;
+                        resultsHTML += `
+                            <div class="result-item game-result" data-week="${lastWeek}" data-home="${result.home}" data-away="${result.away}">
+                                <div class="game-teams">
+                                    <span class="away-team ${!homeWin ? 'winner' : ''}">${awayTeam.name}</span>
+                                    <span class="at">@</span>
+                                    <span class="home-team ${homeWin ? 'winner' : ''}">${homeTeam.name}</span>
+                                </div>
+                                <div class="game-score">
+                                    <span class="away-score ${!homeWin ? 'winner' : ''}">${awayScore}</span>
+                                    <span class="score-separator">-</span>
+                                    <span class="home-score ${homeWin ? 'winner' : ''}">${homeScore}</span>
+                                </div>
+                                <div class="game-result-indicator">
+                                    ${homeWin ? 'Home Win' : 'Away Win'}
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+            });
+            hubResults.innerHTML = resultsHTML;
+            if (window.gameResultsViewer) {
+                window.gameResultsViewer.makeGameResultsClickable();
+            }
+            console.log('✅ Enhanced game results rendered successfully');
+        } catch (error) {
+            console.error('Error rendering game results:', error);
+        }
+    }
+
+    // --- ENHANCED SCHEDULE DISPLAY ---
+    // Note: The actual renderSchedule implementation is above (line 280)
+    // This method delegates to scheduleViewer if available, otherwise uses the base implementation
+    async renderSchedule() {
         try {
             console.log('Rendering enhanced schedule...');
+            // Try using the schedule viewer first
+            if (window.scheduleViewer && typeof window.scheduleViewer.refresh === 'function') {
+                try {
+                    await window.scheduleViewer.refresh();
+                    console.log('✅ Schedule rendered via scheduleViewer');
+                    return;
+                } catch (e) {
+                    console.warn('Schedule viewer refresh failed, using fallback:', e);
+                }
+            }
+            // Fall back to the base renderSchedule implementation (line 280)
+            // Use a different approach to avoid recursion - call the base implementation directly
             const scheduleContainer = document.getElementById('schedule');
             if (!scheduleContainer) {
                 console.warn('Schedule container not found');
@@ -394,149 +540,10 @@ class GameController {
             
             const scheduleWrap = scheduleContainer.querySelector('#scheduleWrap') || scheduleContainer;
             scheduleWrap.innerHTML = scheduleHTML;
-            
             console.log('✅ Enhanced schedule rendered successfully');
         } catch (error) {
             console.error('Error rendering schedule:', error);
             this.setStatus('Failed to render schedule', 'error');
-        }
-    }
-
-    // --- SIMULATION FUNCTIONS ---
-    handleSimulateWeek() {
-        try {
-            console.log('Simulating week...');
-            this.setStatus('Simulating week...', 'info');
-            if (window.simulateWeek) {
-                window.simulateWeek();
-                this.setStatus('Week simulated successfully', 'success');
-                setTimeout(() => this.renderHub(), 1000);
-            } else if (window.state?.league) {
-                const L = window.state.league;
-                if (L.week < 18) {
-                    L.week++;
-                    this.setStatus(`Advanced to week ${L.week}`, 'success');
-                    setTimeout(() => this.renderHub(), 1000);
-                } else {
-                    this.setStatus('Season complete!', 'success');
-                }
-            } else {
-                this.setStatus('No league data available', 'error');
-            }
-        } catch (error) {
-            console.error('Error simulating week:', error);
-            this.setStatus('Failed to simulate week', 'error');
-        }
-    }
-
-    handleSimulateSeason() {
-        try {
-            console.log('Simulating season...');
-            this.setStatus('Simulating season...', 'info');
-            if (window.state?.league) {
-                const L = window.state.league;
-                L.week = 18;
-                this.setStatus('Season completed!', 'success');
-                setTimeout(() => this.renderHub(), 1000);
-            } else {
-                this.setStatus('No league data available', 'error');
-            }
-        } catch (error) {
-            console.error('Error simulating season:', error);
-            this.setStatus('Failed to simulate season', 'error');
-        }
-    }
-
-    // --- ENHANCED GAME RESULTS DISPLAY ---
-    async renderGameResults() {
-        try {
-            console.log('Rendering enhanced game results...');
-            const L = window.state.league;
-            if (!L || !L.resultsByWeek) {
-                console.warn('No game results available');
-                return;
-            }
-            const hubResults = this.getElement('hubResults');
-            if (!hubResults) return;
-            const lastWeek = L.week > 1 ? L.week - 1 : 1;
-            const weekResults = L.resultsByWeek[lastWeek];
-            if (!weekResults || weekResults.length === 0) {
-                hubResults.innerHTML = '<p class="muted">No results available for last week</p>';
-                return;
-            }
-            let resultsHTML = '';
-            weekResults.forEach(result => {
-                if (result.bye) {
-                    const byeTeams = result.bye.map(teamId => {
-                        const team = L.teams[teamId];
-                        return team ? team.name : 'Unknown Team';
-                    }).join(', ');
-                    resultsHTML += `
-                        <div class="result-item bye-week" data-week="${lastWeek}">
-                            <div class="bye-teams">${byeTeams} - BYE</div>
-                        </div>
-                    `;
-                } else {
-                    const homeTeam = L.teams[result.home];
-                    const awayTeam = L.teams[result.away];
-                    if (homeTeam && awayTeam) {
-                        const homeWin = result.homeWin;
-                        const homeScore = result.scoreHome || 0;
-                        const awayScore = result.scoreAway || 0;
-                        resultsHTML += `
-                            <div class="result-item game-result" data-week="${lastWeek}" data-home="${result.home}" data-away="${result.away}">
-                                <div class="game-teams">
-                                    <span class="away-team ${!homeWin ? 'winner' : ''}">${awayTeam.name}</span>
-                                    <span class="at">@</span>
-                                    <span class="home-team ${homeWin ? 'winner' : ''}">${homeTeam.name}</span>
-                                </div>
-                                <div class="game-score">
-                                    <span class="away-score ${!homeWin ? 'winner' : ''}">${awayScore}</span>
-                                    <span class="score-separator">-</span>
-                                    <span class="home-score ${homeWin ? 'winner' : ''}">${homeScore}</span>
-                                </div>
-                                <div class="game-result-indicator">
-                                    ${homeWin ? 'Home Win' : 'Away Win'}
-                                </div>
-                            </div>
-                        `;
-                    }
-                }
-            });
-            hubResults.innerHTML = resultsHTML;
-            if (window.gameResultsViewer) {
-                window.gameResultsViewer.makeGameResultsClickable();
-            }
-            console.log('✅ Enhanced game results rendered successfully');
-        } catch (error) {
-            console.error('Error rendering game results:', error);
-        }
-    }
-
-    // --- ENHANCED SCHEDULE DISPLAY ---
-    async renderSchedule() {
-        try {
-            console.log('Rendering enhanced schedule...');
-            // Try using the schedule viewer first
-            if (window.scheduleViewer && window.scheduleViewer.refresh) {
-                try {
-                    window.scheduleViewer.refresh();
-                } catch (e) {
-                    console.warn('Schedule viewer refresh failed, using fallback:', e);
-                    // Fall back to GameController render
-                    if (this.renderSchedule) {
-                        this.renderSchedule();
-                    }
-                }
-            } else {
-                // Use GameController render method
-                if (this.renderSchedule) {
-                    this.renderSchedule();
-                }
-            }
-            console.log('✅ Enhanced schedule rendered successfully');
-        } catch (error) {
-            console.error('Error rendering schedule:', error);
         }
     }
 
