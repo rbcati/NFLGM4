@@ -337,33 +337,88 @@ function renderPlayerSchemeFits(team, offScheme, defScheme) {
       fitRating,
       schemeType
     };
-  }).sort((a, b) => b.fitRating - a.fitRating);
+  }).sort((a, b) => {
+    // Sort by fit rating descending, then by OVR
+    if (Math.abs(b.fitRating - a.fitRating) > 1) {
+      return b.fitRating - a.fitRating;
+    }
+    return (b.player.ovr || 0) - (a.player.ovr || 0);
+  });
+  
+  // Group by fit quality for better visualization
+  const excellent = players.filter(p => p.fitRating >= 70);
+  const good = players.filter(p => p.fitRating >= 60 && p.fitRating < 70);
+  const average = players.filter(p => p.fitRating >= 50 && p.fitRating < 60);
+  const poor = players.filter(p => p.fitRating < 50);
+  
+  const getFitColor = (rating) => {
+    if (rating >= 70) return '#28a745';
+    if (rating >= 60) return '#17a2b8';
+    if (rating >= 50) return '#ffc107';
+    return '#dc3545';
+  };
+  
+  const getFitLabel = (rating) => {
+    if (rating >= 70) return 'Excellent';
+    if (rating >= 60) return 'Good';
+    if (rating >= 50) return 'Average';
+    return 'Poor';
+  };
   
   return `
-    <table class="scheme-fit-table">
-      <thead>
-        <tr>
-          <th>Player</th>
-          <th>Pos</th>
-          <th>OVR</th>
-          <th>Scheme Fit</th>
-          <th>Fit Rating</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${players.map(({ player, fitRating, schemeType }) => `
-          <tr class="${fitRating >= 70 ? 'excellent-fit' : fitRating >= 60 ? 'good-fit' : fitRating < 50 ? 'poor-fit' : ''}">
-            <td>${player.name || 'Unknown'}</td>
-            <td>${player.pos || 'N/A'}</td>
-            <td>${player.ovr || 'N/A'}</td>
-            <td>${schemeType}</td>
-            <td class="fit-rating ${fitRating >= 70 ? 'excellent' : fitRating >= 60 ? 'good' : fitRating < 50 ? 'poor' : 'average'}">
-              ${fitRating}%
-            </td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+    <div class="scheme-fit-container">
+      <div class="scheme-fit-summary">
+        <div class="fit-summary-stat excellent">
+          <div class="fit-summary-count">${excellent.length}</div>
+          <div class="fit-summary-label">Excellent</div>
+        </div>
+        <div class="fit-summary-stat good">
+          <div class="fit-summary-count">${good.length}</div>
+          <div class="fit-summary-label">Good</div>
+        </div>
+        <div class="fit-summary-stat average">
+          <div class="fit-summary-count">${average.length}</div>
+          <div class="fit-summary-label">Average</div>
+        </div>
+        <div class="fit-summary-stat poor">
+          <div class="fit-summary-count">${poor.length}</div>
+          <div class="fit-summary-label">Poor</div>
+        </div>
+      </div>
+      
+      <div class="scheme-fit-grid">
+        ${players.map(({ player, fitRating, schemeType }) => {
+          const fitColor = getFitColor(fitRating);
+          const fitLabel = getFitLabel(fitRating);
+          const barWidth = fitRating;
+          
+          return `
+            <div class="scheme-fit-card ${fitRating >= 70 ? 'excellent-fit' : fitRating >= 60 ? 'good-fit' : fitRating < 50 ? 'poor-fit' : 'average-fit'}">
+              <div class="scheme-fit-card-header">
+                <div class="scheme-fit-player-info">
+                  <div class="scheme-fit-player-name">${player.name || 'Unknown'}</div>
+                  <div class="scheme-fit-player-details">
+                    <span class="scheme-fit-position">${player.pos || 'N/A'}</span>
+                    <span class="scheme-fit-ovr">OVR ${player.ovr || 'N/A'}</span>
+                    <span class="scheme-fit-type">${schemeType}</span>
+                  </div>
+                </div>
+                <div class="scheme-fit-rating-badge" style="background: ${fitColor}20; color: ${fitColor}; border-color: ${fitColor}">
+                  <div class="fit-rating-value">${Math.round(fitRating)}</div>
+                  <div class="fit-rating-label">${fitLabel}</div>
+                </div>
+              </div>
+              <div class="scheme-fit-progress-container">
+                <div class="scheme-fit-progress-bar">
+                  <div class="scheme-fit-progress-fill" style="width: ${barWidth}%; background: ${fitColor}"></div>
+                </div>
+                <div class="scheme-fit-percentage">${Math.round(fitRating)}%</div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
   `;
 }
 
