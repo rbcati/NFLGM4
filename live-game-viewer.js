@@ -745,18 +745,28 @@ window.watchLiveGame = function(homeTeamId, awayTeamId) {
       window.liveGameViewer = new LiveGameViewer();
     }
 
-    const homeTeam = L.teams[homeTeamId];
-    const awayTeam = L.teams[awayTeamId];
+    // Normalize team IDs - handle both object and number formats
+    const homeId = typeof homeTeamId === 'object' ? homeTeamId.id : parseInt(homeTeamId, 10);
+    const awayId = typeof awayTeamId === 'object' ? awayTeamId.id : parseInt(awayTeamId, 10);
+
+    if (isNaN(homeId) || isNaN(awayId)) {
+      console.error('Invalid team IDs:', homeTeamId, awayTeamId);
+      window.setStatus('Invalid team IDs for live game.', 'error');
+      return;
+    }
+
+    const homeTeam = L.teams[homeId];
+    const awayTeam = L.teams[awayId];
     const userTeamId = window.state?.userTeamId;
 
     if (!homeTeam || !awayTeam) {
-      console.error('Invalid team IDs:', homeTeamId, awayTeamId);
+      console.error('Teams not found for IDs:', homeId, awayId);
       window.setStatus('Could not find teams for live game.', 'error');
       return;
     }
 
     // Check if this is a user's team game for play calling
-    const isUserGame = homeTeamId === userTeamId || awayTeamId === userTeamId;
+    const isUserGame = homeId === userTeamId || awayId === userTeamId;
     
     window.setStatus(`Starting live game: ${awayTeam.name} @ ${homeTeam.name}${isUserGame ? ' (You can call plays!)' : ''}`, 'success');
     window.liveGameViewer.startGame(homeTeam, awayTeam, userTeamId);
