@@ -660,12 +660,32 @@ let C = getConstants();
    * @param {string} position - Position on depth chart (may differ from natural position)
    */
   function setDepthChartPosition(player, depthPosition, position = null) {
-    initializeDepthChartStats(player);
-    player.depthChart.depthPosition = depthPosition;
-    if (position) {
-      player.depthChart.currentPosition = position;
+    try {
+      if (!player) {
+        console.error('setDepthChartPosition: player is null or undefined');
+        return;
+      }
+      initializeDepthChartStats(player);
+      if (!player.depthChart) {
+        player.depthChart = {
+          playbookKnowledge: 50,
+          chemistry: 50,
+          depthPosition: null,
+          preferredPosition: player.pos,
+          versatility: 0,
+          practiceReps: 0,
+          lastUpdated: (window.state?.league?.year) || 2025
+        };
+      }
+      player.depthChart.depthPosition = depthPosition;
+      if (position) {
+        player.depthChart.currentPosition = position;
+      }
+      player.depthChart.lastUpdated = (window.state?.league?.year) || 2025;
+    } catch (error) {
+      console.error('Error in setDepthChartPosition:', error, { player: player?.id, depthPosition, position });
+      // Don't throw - allow the operation to continue
     }
-    player.depthChart.lastUpdated = (window.state?.league?.year) || 2025;
   }
 
   /**
@@ -880,11 +900,17 @@ let C = getConstants();
       
       // Update depth positions in entries and player objects
       positionDepth.forEach((entry, index) => {
-        const eId = typeof entry.playerId === 'string' ? parseInt(entry.playerId) : entry.playerId;
-        const p = team.roster.find(pl => pl.id === eId || pl.id === entry.playerId);
-        if (p) {
-          setDepthChartPosition(p, index + 1, position);
-          entry.depthPosition = index + 1;
+        try {
+          const eId = typeof entry.playerId === 'string' ? parseInt(entry.playerId) : entry.playerId;
+          const p = team.roster.find(pl => pl && (pl.id === eId || pl.id === entry.playerId));
+          if (p) {
+            setDepthChartPosition(p, index + 1, position);
+            entry.depthPosition = index + 1;
+          } else {
+            console.warn(`Player not found for depth chart entry: ${entry.playerId}`);
+          }
+        } catch (error) {
+          console.error('Error updating depth position:', error, { entry, index });
         }
       });
       
