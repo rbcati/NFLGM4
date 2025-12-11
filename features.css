@@ -1020,6 +1020,120 @@
   font-style: italic;
 }
 
+/* ============================================================================
+   SCHEME FIT ANALYSIS (Player Scheme Fit)
+   ============================================================================ */
+
+.scheme-fit-analysis {
+  margin-top: var(--space-4);
+}
+
+.scheme-fit-list {
+  margin-top: var(--space-3);
+}
+
+.scheme-fit-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: var(--space-3);
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.scheme-fit-table thead {
+  background: var(--bg-secondary);
+}
+
+.scheme-fit-table th {
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 2px solid var(--hairline);
+}
+
+.scheme-fit-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--hairline);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.scheme-fit-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.scheme-fit-table tbody tr:hover {
+  background: var(--surface-strong);
+}
+
+.scheme-fit-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.scheme-fit-table tr.excellent-fit {
+  background: rgba(40, 167, 69, 0.1);
+  border-left: 3px solid #28a745;
+}
+
+.scheme-fit-table tr.excellent-fit:hover {
+  background: rgba(40, 167, 69, 0.15);
+}
+
+.scheme-fit-table tr.good-fit {
+  background: rgba(23, 162, 184, 0.1);
+  border-left: 3px solid #17a2b8;
+}
+
+.scheme-fit-table tr.good-fit:hover {
+  background: rgba(23, 162, 184, 0.15);
+}
+
+.scheme-fit-table tr.poor-fit {
+  background: rgba(220, 53, 69, 0.1);
+  border-left: 3px solid #dc3545;
+}
+
+.scheme-fit-table tr.poor-fit:hover {
+  background: rgba(220, 53, 69, 0.15);
+}
+
+.fit-rating {
+  font-weight: 600;
+  font-size: var(--text-base);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  min-width: 50px;
+  text-align: center;
+}
+
+.fit-rating.excellent {
+  color: #28a745;
+  background: rgba(40, 167, 69, 0.15);
+}
+
+.fit-rating.good {
+  color: #17a2b8;
+  background: rgba(23, 162, 184, 0.15);
+}
+
+.fit-rating.average {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.fit-rating.poor {
+  color: #dc3545;
+  background: rgba(220, 53, 69, 0.15);
+}
+
 /* Note: Additional feature styles (Player Stats Modal, Contracts, Draft, Box Scores,
    Records, Injuries, History, Live Game Viewer, Depth Chart, Playoff Bracket, 
    Player Database) should be extracted from the original style.css file.
