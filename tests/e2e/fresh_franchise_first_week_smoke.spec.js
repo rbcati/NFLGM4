@@ -125,8 +125,11 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
   await advanceBtn.click();
   // In case a soft readiness gate dialog still shows, dismiss it.
   const gateAdvanceBtn = page.getByTestId('gate-advance-anyway-btn');
-  if (await gateAdvanceBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+  try {
+    await gateAdvanceBtn.waitFor({ state: 'visible', timeout: 2000 });
     await gateAdvanceBtn.click();
+  } catch (err) {
+    if (err.name !== 'TimeoutError') throw err;
   }
   // The Simulate (Skip) prompt is REQUIRED in this flow (fresh franchise, the
   // user always has a Week 1 game). Assert it appears and is clickable rather
@@ -148,7 +151,14 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
 
   // ── Post-game summary should appear after skip simulation ──────────────────
   const postGameSummary = page.getByTestId('post-game-summary');
-  if (await postGameSummary.isVisible({ timeout: 5000 }).catch(() => false)) {
+  let postGameSummaryVisible = false;
+  try {
+    await postGameSummary.waitFor({ state: "visible", timeout: 5000 });
+    postGameSummaryVisible = true;
+  } catch (err) {
+    if (err.name !== "TimeoutError") throw err;
+  }
+  if (postGameSummaryVisible) {
     // Verify it shows a valid final score (two numbers separated by a dash or in score circles)
     await expect(postGameSummary).toBeVisible();
     const summaryText = await postGameSummary.textContent();
@@ -186,7 +196,14 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
   await expect(page.getByTestId('game-book-decision-summary')).toBeVisible({ timeout: SMOKE_TIMEOUT });
 
   const gameBookPlayerLink = page.getByTestId('game-book-top-performer-link').first().or(page.getByTestId('game-book-player-link').first());
-  if (await gameBookPlayerLink.isVisible({ timeout: 5000 }).catch(() => false)) {
+  let gbpVisible = false;
+  try {
+    await gameBookPlayerLink.waitFor({ state: "visible", timeout: 5000 });
+    gbpVisible = true;
+  } catch (err) {
+    if (err.name !== "TimeoutError") throw err;
+  }
+  if (gbpVisible) {
     await gameBookPlayerLink.click();
     await expect(page.getByTestId('player-profile')).toBeVisible({ timeout: SMOKE_TIMEOUT });
     await expect(page.getByTestId('player-profile-summary')).toBeVisible({ timeout: SMOKE_TIMEOUT });
@@ -200,7 +217,14 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
 
   // ── Return to HQ and verify Last Result card shows the correct score ─────────
   await page.getByTestId('return-to-hq').click();
-  if (!(await page.getByTestId('franchise-hq').isVisible({ timeout: 3000 }).catch(() => false))) {
+  let hqVisible = false;
+  try {
+    await page.getByTestId('franchise-hq').waitFor({ state: "visible", timeout: 3000 });
+    hqVisible = true;
+  } catch (err) {
+    if (err.name !== "TimeoutError") throw err;
+  }
+  if (!hqVisible) {
     await page.getByRole('button', { name: /^Back to HQ$/i }).click();
   }
   await expect(page.getByTestId('franchise-hq')).toBeVisible({ timeout: SMOKE_TIMEOUT });
@@ -208,10 +232,17 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
   // (twin-grid dashboard restructure) and is hidden until that <details> is
   // opened; hq-last-result-card is the always-visible canonical result entry
   // point rendered directly on HQ, so assert against that instead.
+  await page.getByTestId('hq-more-drawer').click();
   await expect(page.getByTestId('hq-last-result-card')).toBeVisible({ timeout: SMOKE_TIMEOUT });
   // hq-next-action may be absent in newer twin-grid layout (removed in dashboard
   // restructure); skip the mandatory check and search for its content flexibly.
-  const hqNextActionPresent = await page.getByTestId('hq-next-action').isVisible({ timeout: 3000 }).catch(() => false);
+  let hqNextActionPresent = false;
+  try {
+    await page.getByTestId('hq-next-action').waitFor({ state: "visible", timeout: 3000 });
+    hqNextActionPresent = true;
+  } catch (err) {
+    if (err.name !== "TimeoutError") throw err;
+  }
 
   // Last Result card should NOT show placeholder opponent (TBD) or zero score
   const lastResultCard = page.getByTestId('hq-last-result-card');
@@ -240,7 +271,14 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
   const reviewGameBookCta = hqNextActionPresent
     ? page.getByTestId('hq-next-action').getByRole('button', { name: /Review Game Book/i })
     : page.getByRole('button', { name: /Review Game Book/i }).first();
-  if (await reviewGameBookCta.isVisible().catch(() => false)) {
+  let reviewVisible = false;
+  try {
+    await reviewGameBookCta.waitFor({ state: "visible", timeout: 1000 });
+    reviewVisible = true;
+  } catch (err) {
+    if (err.name !== "TimeoutError") throw err;
+  }
+  if (reviewVisible) {
     await reviewGameBookCta.click();
     await expect(page.getByTestId('game-book')).toBeVisible({ timeout: SMOKE_TIMEOUT });
     await expect(page.getByTestId('game-book-final-score')).toBeVisible({ timeout: SMOKE_TIMEOUT });
@@ -254,6 +292,7 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
   await expect(page.getByTestId('app-bootstrap-loading')).toBeHidden({ timeout: SMOKE_TIMEOUT });
   await expect(page.getByTestId('app-shell-ready')).toBeVisible({ timeout: SMOKE_TIMEOUT });
   await expect(page.getByTestId('franchise-hq')).toBeVisible({ timeout: SMOKE_TIMEOUT });
+  await page.getByTestId('hq-more-drawer').click();
   await expect(page.getByTestId('hq-last-result-card')).toBeVisible({ timeout: SMOKE_TIMEOUT });
 
   // After reload, Last Result should still show real opponent and score
