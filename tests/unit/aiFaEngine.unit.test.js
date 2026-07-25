@@ -346,6 +346,19 @@ describe('getAIFaTargets', () => {
     expect(r2.get(2).map((p) => p.id)).toEqual([9, 'a', 'z']);
   });
 
+  it('defensively excludes unavailable null-team rows from AI targets', () => {
+    const teams = [makeTeam({ id: 10, wins: 12, losses: 4, capRoom: 50 })];
+    const players = [
+      makePlayer({ id: 'eligible', teamId: null, status: 'free_agent', ovr: 80 }),
+      makePlayer({ id: 'retired', teamId: null, status: 'retired', retired: true, ovr: 99 }),
+      makePlayer({ id: 'draft', teamId: null, status: 'draft_eligible', ovr: 99 }),
+      makePlayer({ id: 'active-null', teamId: null, status: 'active', ovr: 99 }),
+      makePlayer({ id: 'team-zero', teamId: 0, status: 'active', ovr: 99 }),
+    ];
+    const targets = getAIFaTargets(teams, players, meta, 2026, 1).get(10) ?? [];
+    expect(targets.map((player) => player.id)).toEqual(['eligible']);
+  });
+
   it('resolves equal-score offers independently of incoming offer order', () => {
     const player = makePlayer({ id: 9047 });
     const offers = [

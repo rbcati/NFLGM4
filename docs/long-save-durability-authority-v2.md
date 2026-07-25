@@ -41,10 +41,12 @@ CLI determinism legs and `--seeds` runs execute in clean child processes. This a
 - Retention market heat used a falsy team-id predicate, so rostered team `0` players could be counted as free agents. The repair uses `teamId == null` plus non-retired/non-draft status filtering for the market free-agent pool.
 - Minimum-roster reconciliation now uses the canonical signable-free-agent predicate, live economy cap before stale team cap totals, pre-commit cap projection, and post-mutation rollback without emitting a SIGN transaction on failure.
 - Durable schedule normalization now uses production season identity precedence (`seasonId ?? season ?? year ?? null`) so schedule reuse across different production season IDs is detectable.
+- The remaining state divergence was not an FA score tie. A bounded two-leg trace found the first differing durable influence before FA: weekly dynamic events used `generateDynamicEvents()`'s default `Math.random`, which gave the same rookie morale `96` in one leg and `90` in the other before offseason progression. That changed a later player's progression OVR, candidate order, pending cap reservations, offers, and ultimately team assignments such as `5013` (`27` versus `28`). Production weekly and FA event calls now pass the existing seeded `Utils.random` stream, and equal-volatility event candidates use canonical player-ID order so the same draws remain attached to the same players.
+- All production pools that can generate/evaluate FA offers, market heat, or signings now use `isSignableFreeAgent`; broad legacy `isFreeAgent` membership no longer allows retired, draft-pool, removed, inconsistent active/null-team, or team-0 rows to affect those authorities.
 
 ## Current evidence
 
-Commands run on this branch after the minimum-roster contract, bounded continuity evidence, team-id-0 retention, and FA ordering/timestamp repairs:
+Commands run on this branch after the seeded dynamic-event and strict-signability repairs:
 
 - `node --check src/core/ai-logic.js && node --check src/core/retention/reSigning.js && node --check tests/durability/invariants/continuity.js` — passed.
 - `node --check src/worker/worker.js` — passed.
@@ -53,24 +55,26 @@ Commands run on this branch after the minimum-roster contract, bounded continuit
 - `npm run durability:test` — passed, 5 files / 83 tests.
 - `npm run check:sim-types` — passed.
 - `npm run build` — passed with the existing Vite chunk-size warning.
-- `npm run durability:smoke` — passed one full season with save/reload OK (201 pass / 0 fail / 39 skip, peak RSS 455 MB).
-- `npm run test:unit` — passed, 462 files / 5663 tests.
-- `npm run durability:5 -- --seed=1684 --determinism --collect-all --write-report --summary` — completed both isolated five-season legs with zero invariant failures and save/reload OK in both legs, but exited nonzero because state determinism remained false.
+- `npm run durability:smoke` — passed one full season with save/reload OK (201 pass / 0 fail / 39 skip, peak RSS 473 MB).
+- `npm run test:unit` — passed, 462 files / 5675 tests.
+- `npm run durability:5 -- --seed=1684 --determinism --collect-all --write-report --summary` — passed both isolated five-season legs with zero invariant failures and identical canonical state.
+- `npm run durability:5 -- --seeds=1684,1702,1703 --collect-all --write-report --summary` — passed all three isolated seeds, each completing 5/5 seasons with zero invariant failures.
+- `npm run durability:10 -- --seed=1684 --collect-all --write-report --summary` — attempted honestly, but did not complete: two invariant failures appeared at the season-8 rollover and the process exhausted the approximately 4 GB V8 heap during season 9 after reaching the playoffs.
 
 Latest five-season determinism result:
 
 - Seed: 1684
 - Completed: 5/5 seasons in each isolated child leg
-- First leg runtime/peak RSS: 508.5 seconds / 2212 MB
-- Second leg runtime/peak RSS: 516.5 seconds / 2174 MB
+- First leg runtime/peak RSS: 408.9 seconds / 2215 MB
+- Second leg runtime/peak RSS: 398.5 seconds / 2215 MB
 - Invariants: 750 pass / 0 fail / 132 skip in both legs
 - Save/reload: OK at season 1 and season 5 in both legs
 - Lifecycle deterministic: true
-- State deterministic: false
-- First remaining durable divergence: checkpoint `2:afterSeasonRollover`, domain `players`, entity `5013`, field `teamId`
+- State deterministic: true
+- First divergence: none
 
-The current first reported divergence is now player `5013.teamId` (`27` vs `28`) at `2:afterSeasonRollover`. This confirms there is still at least one unrepaired FA/offseason ordering boundary upstream of durable team assignment and contract differences, so the PR must remain red for Durability Authority V2.
+The three-seed five-season matrix also completed with `overallPassed=true`: seeds `1684`, `1702`, and `1703` each completed 5/5 seasons with zero invariant failures. This proves the five-season and multi-seed gates on this head; it does not convert the failed ten-season attempt into ten-season authority.
 
 ## Remaining limitations / not yet proven
 
-This branch must still not claim five-season state determinism, ten-season safety, or multi-seed durable authority. The season-5 roster-size failure is gone and save/reload is stable in the latest five-season runs, but the seed-1684 five-season state-determinism gate is still red. Because that principal determinism gate remains red, the three-seed five-season matrix, ten-season seed-1684 proof, and optional twenty-season run were not honestly claimable from this head.
+This branch may claim five-season state determinism for seed 1684 and successful five-season execution for seeds 1684/1702/1703. It must **not** claim ten-season safety: the required ten-season attempt became invalid at the season-8 rollover and then ended in a V8 out-of-memory crash during season 9. The two season-8 invariant findings and long-run memory growth are a separate later causal cluster; under the first-confirmed-cluster scope they were recorded rather than hidden or repaired here. A 20-season attempt was not appropriate after the ten-season gate failed and exhausted the available heap.

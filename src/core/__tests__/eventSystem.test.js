@@ -30,6 +30,31 @@ describe('eventSystem dynamic event generation', () => {
     const events = generateDynamicEvents({ players: [makePlayer()], teams: [{ id: 1, name: 'User', abbr: 'USR' }], phase: 'draft', rng: () => 0.1 });
     expect(events.some((e) => e.type === 'draft_rumor')).toBe(true);
   });
+
+  it('maps seeded event draws to canonical players independent of cache order', () => {
+    const players = [
+      makePlayer({ id: 'z-player', name: 'Zed' }),
+      makePlayer({ id: 'a-player', name: 'Alpha' }),
+    ];
+    const teams = [{ id: 1, abbr: 'USR', wins: 2, losses: 7 }];
+    const seededDraws = () => {
+      const values = [0.01, 0.99, 0.99, 0.99, 0.01, 0.99, 0.99, 0.99];
+      let index = 0;
+      return () => values[index++] ?? 0.99;
+    };
+    const summarize = (rows) => rows.map((event) => ({
+      type: event.type,
+      playerId: event.playerId,
+      teamId: event.teamId,
+      effects: event.effects,
+    }));
+
+    const ordered = generateDynamicEvents({ players, teams, week: 8, phase: 'regular', rng: seededDraws() });
+    const reversed = generateDynamicEvents({ players: [...players].reverse(), teams, week: 8, phase: 'regular', rng: seededDraws() });
+
+    expect(summarize(reversed)).toEqual(summarize(ordered));
+    expect(ordered[0]?.playerId).toBe('a-player');
+  });
 });
 
 describe('season awards', () => {

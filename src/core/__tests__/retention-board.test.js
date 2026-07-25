@@ -42,4 +42,17 @@ describe('retention workflow helpers', () => {
     expect(withTeamZero.expectedMarketDifficulty).toBe(withoutTeamZero.expectedMarketDifficulty);
     expect(withTeamZero.demand).toEqual(withoutTeamZero.demand);
   });
+
+  it('does not let retired or draft-pool rows alter free-agent market heat', () => {
+    const team = { id: 1, wins: 7, losses: 10, ties: 0, capRoom: 40 };
+    const player = { id: 'target', teamId: 1, status: 'active', pos: 'QB', ovr: 72, potential: 72, age: 27, contract: { years: 1, baseAnnual: 6 } };
+    const unavailable = [
+      { id: 'retired', teamId: null, status: 'retired', retired: true, pos: 'QB', ovr: 95 },
+      { id: 'draft', teamId: null, status: 'draft_eligible', pos: 'QB', ovr: 95 },
+    ];
+    const withUnavailable = evaluateReSigningPriority(player, team, { players: [player, ...unavailable], week: 5 });
+    const withoutUnavailable = evaluateReSigningPriority(player, team, { players: [player], week: 5 });
+    expect(withUnavailable.expectedMarketDifficulty).toBe(withoutUnavailable.expectedMarketDifficulty);
+    expect(withUnavailable.demand).toEqual(withoutUnavailable.demand);
+  });
 });

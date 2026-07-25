@@ -1,4 +1,5 @@
 import { estimateHoldoutRisk } from '../contracts/realisticContracts.js';
+import { stableIdCompare } from '../referenceIntegrity.js';
 
 const EVENT_TYPES = Object.freeze({
   HOLDOUT: 'holdout',
@@ -80,7 +81,7 @@ export function generateDynamicEvents({ players = [], teams = [], userTeamId = n
   const candidates = players
     .filter((p) => Number(p?.teamId) >= 0 && p?.status !== 'retired' && p?.status !== 'draft_eligible')
     .map((p) => scorePlayer(p, teamById[Number(p.teamId)], { week, phase }))
-    .sort((a, b) => b.volatility - a.volatility)
+    .sort((a, b) => (b.volatility - a.volatility) || stableIdCompare(a?.player?.id, b?.player?.id))
     .slice(0, 80);
 
   const events = [];

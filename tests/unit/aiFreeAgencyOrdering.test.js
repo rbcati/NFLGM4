@@ -12,4 +12,15 @@ describe('AI free-agency offer pool ordering', () => {
     expect(a.WR.map((p) => p.id)).toEqual(['1', '2', '9', '10']);
     expect(b.WR.map((p) => p.id)).toEqual(a.WR.map((p) => p.id));
   });
+
+  it('excludes non-signable null-team rows and team-zero players from offer pools', () => {
+    const pool = buildSortedFreeAgentsMapForOffers([
+      fa('eligible'),
+      { ...fa('retired'), status: 'retired', retired: true, ovr: 99 },
+      { ...fa('draft'), status: 'draft_eligible', ovr: 99 },
+      { ...fa('active-null'), status: 'active', ovr: 99 },
+      { ...fa('team-zero'), teamId: 0, status: 'active', ovr: 99 },
+    ]);
+    expect(pool.WR.map((p) => p.id)).toEqual(['eligible']);
+  });
 });

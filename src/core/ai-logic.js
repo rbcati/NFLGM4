@@ -16,7 +16,7 @@ import { buildAiTeamStrategy } from './aiTeamStrategy.js';
 import NewsEngine from './news-engine.js';
 import { getTeamContextForNegotiation } from './teamContext/negotiationContext.js';
 import { evaluateContractOffer } from './contracts/negotiation.js';
-import { isFreeAgent, isSignableFreeAgent } from './freeAgency/membership.js';
+import { isSignableFreeAgent } from './freeAgency/membership.js';
 import { evaluateReSigningPriority } from './retention/reSigning.js';
 import { buildFreeAgencyMarketAnalysis } from './freeAgency/freeAgencyMarketAnalysis.js';
 import { buildContractFromMarket, evaluateContractMarket } from './contractModel.js';
@@ -33,7 +33,7 @@ import { buildFranchiseTagContract, buildRFATenderContract, TENDER_CONFIG } from
 export function buildSortedFreeAgentsMapForOffers(allPlayers = []) {
     const freeAgentsMap = {};
     for (const p of allPlayers) {
-        if (isFreeAgent(p)) {
+        if (isSignableFreeAgent(p)) {
             if (!freeAgentsMap[p.pos]) freeAgentsMap[p.pos] = [];
             freeAgentsMap[p.pos].push(p);
         }
@@ -851,7 +851,7 @@ class AiLogic {
         const roster = cache.getPlayersByTeam(teamId);
         const meta   = cache.getMeta();
         const allPlayers = cache.getAllPlayers().slice().sort((a, b) => stableIdCompare(a.id, b.id));
-        const freeAgents = allPlayers.filter((p) => isFreeAgent(p));
+        const freeAgents = allPlayers.filter((p) => isSignableFreeAgent(p));
 
         const extensions = executeAIOffseasonExtensions(
             team,
@@ -1093,7 +1093,7 @@ class AiLogic {
         let marketByPos = null;
         const demandByPlayerId = new Map();
         if (freeAgentsMap) {
-            const flatFreeAgents = Object.values(freeAgentsMap).flat().filter(Boolean);
+            const flatFreeAgents = Object.values(freeAgentsMap).flat().filter((player) => isSignableFreeAgent(player));
             if (flatFreeAgents.length > 0) {
                 const analyzedFreeAgents = flatFreeAgents.map((fa) => {
                     const demand = calculateExtensionDemand(fa);
@@ -1127,7 +1127,7 @@ class AiLogic {
         const legacyGetCandidates = (pos) => {
             const allPlayers = cache.getAllPlayers();
             return allPlayers
-                .filter(p => isFreeAgent(p) && p.pos === pos)
+                .filter(p => isSignableFreeAgent(p) && p.pos === pos)
                 .sort((a, b) => ((b.ovr ?? 0) - (a.ovr ?? 0)) || stableIdCompare(a?.id, b?.id));
         };
 
@@ -1140,10 +1140,10 @@ class AiLogic {
                             (row.capFit !== 'expensive' || row.costSource === 'staleContract'),
                     )
                     .map(row => row._player)
-                    .filter(Boolean);
+                    .filter((player) => isSignableFreeAgent(player));
             }
             if (freeAgentsMap) {
-                return freeAgentsMap[pos] || [];
+                return (freeAgentsMap[pos] || []).filter((player) => isSignableFreeAgent(player));
             }
             return legacyGetCandidates(pos);
         };
@@ -1154,7 +1154,7 @@ class AiLogic {
             const group = normalizePositionGroup(pos);
             return Object.values(freeAgentsMap)
                 .flat()
-                .filter(Boolean)
+                .filter((player) => isSignableFreeAgent(player))
                 .some((player) => {
                     if (normalizePositionGroup(player?.pos) !== group) return false;
                     return Array.isArray(player?.offers) && player.offers.some((offer) => {
@@ -1244,7 +1244,7 @@ class AiLogic {
 
                 const pendingCap = evaluatePendingOfferCapReservation({
                     team,
-                    freeAgents: freeAgentsMap ? Object.values(freeAgentsMap).flat().filter(Boolean) : [],
+                    freeAgents: freeAgentsMap ? Object.values(freeAgentsMap).flat().filter((player) => isSignableFreeAgent(player)) : [],
                     teamId,
                     currentCapRoom: team.capRoom,
                     proposedOffer: { player: fa, offer: { teamId, contract: offerContract } },
@@ -1338,7 +1338,7 @@ class AiLogic {
         }
 
         // 2. Players Evaluate Offers
-        const freeAgents = allPlayers.filter(p => isFreeAgent(p) && p.offers && p.offers.length > 0);
+        const freeAgents = allPlayers.filter(p => isSignableFreeAgent(p) && p.offers && p.offers.length > 0);
 
         const txsToCommit = [];
         for (const player of freeAgents) {
@@ -1465,7 +1465,7 @@ class AiLogic {
      */
     static evaluateOffers(player, day = 1) {
         if (!player.offers || player.offers.length === 0) return { signed: false, offer: null };
-        const allFreeAgents = cache.getAllPlayers().filter((p) => isFreeAgent(p) && p.pos === player.pos);
+        const allFreeAgents = cache.getAllPlayers().filter((p) => isSignableFreeAgent(p) && p.pos === player.pos);
         const heat = computeMarketHeat(player.pos, allFreeAgents);
         const profile = buildContractProfile(player);
         const ask = buildDemandFromProfile(player, profile, {

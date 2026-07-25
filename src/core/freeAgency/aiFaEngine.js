@@ -14,6 +14,7 @@
 
 import { stableIdCompare } from '../referenceIntegrity.js';
 import { classifyDeadlinePosture, DEADLINE_POSTURE } from '../trades/tradeDeadlinePressure.js';
+import { isSignableFreeAgent } from './membership.js';
 
 // ── Bid factor constants per posture ──────────────────────────────────────────
 
@@ -277,7 +278,10 @@ export function getAIFaTargets(allTeams, availablePlayers, meta, season = 1, wee
   const result = new Map();
 
   const safeTeams = (Array.isArray(allTeams) ? allTeams : []).slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
-  const safeFA    = (Array.isArray(availablePlayers) ? availablePlayers : []).slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
+  const safeFA = (Array.isArray(availablePlayers) ? availablePlayers : [])
+    .filter((player) => isSignableFreeAgent(player))
+    .slice()
+    .sort((a, b) => stableIdCompare(a?.id, b?.id));
 
   for (const team of safeTeams) {
     if (!team?.id || Number(team.id) === userTeamId) continue;

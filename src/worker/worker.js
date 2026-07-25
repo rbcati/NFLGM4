@@ -177,7 +177,7 @@ import {
   expireAllPendingOffers,
   prunePendingOffers,
 } from '../core/freeAgency/pendingOffers.js';
-import { isFreeAgent } from '../core/freeAgency/membership.js';
+import { isSignableFreeAgent } from '../core/freeAgency/membership.js';
 import { stableIdCompare } from '../core/referenceIntegrity.js';
 import {
   shouldAITeamPursuePlayer,
@@ -965,7 +965,7 @@ function buildTeamContractSnapshot(teamId) {
     return years <= 1;
   });
 
-  const allFreeAgents = cache.getAllPlayers().filter((p) => isFreeAgent(p));
+  const allFreeAgents = cache.getAllPlayers().filter((p) => isSignableFreeAgent(p));
   const hotPositions = {};
   for (const pos of Object.keys(depth)) {
     hotPositions[pos] = computeMarketHeat(pos, allFreeAgents);
@@ -3708,6 +3708,7 @@ async function handleAdvanceWeek(payload, id) {
       year: meta?.year,
       phase: meta?.phase,
       suspensionFrequency: Number(getLeagueSetting('suspensionFrequency', 50)),
+      rng: Utils.random,
     });
     applyDynamicEventEffects(dynamicEvents);
     let currentMeta = cache.getMeta();
@@ -7389,7 +7390,7 @@ async function finalizeFreeAgencySigning(player, offer, liveMeta) {
 
 function evaluatePlayerOfferDecision(player, offers = [], liveMeta, memory = {}) {
   if (!player || !offers.length) return { status: 'pending', reason: 'No offers yet', bestOffer: null };
-  const freeAgents = cache.getAllPlayers().filter((p) => isFreeAgent(p));
+  const freeAgents = cache.getAllPlayers().filter((p) => isSignableFreeAgent(p));
   const heat = computeMarketHeat(player.pos, freeAgents);
   const profile = buildContractProfile(player);
   const ask = buildDemandFromProfile(player, profile, { marketHeat: heat, morale: player.morale ?? 68, fit: 65, teamSuccess: 0.5 });
@@ -7564,7 +7565,7 @@ async function resolvePendingFreeAgencyOffers({ resolutionDay = 7, onlyPlayerId 
   const nextMemory = { ...memory };
   const freeAgentsWithOffers = cache.getAllPlayers().filter((p) => {
     if (targetPlayerId != null && Number(p?.id) !== targetPlayerId) return false;
-    return (isFreeAgent(p)) && Array.isArray(p.offers) && p.offers.length > 0;
+    return isSignableFreeAgent(p) && Array.isArray(p.offers) && p.offers.length > 0;
   }).sort((a, b) => stableIdCompare(a?.id, b?.id));
 
   const results = [];
@@ -8444,7 +8445,7 @@ async function handleGetExtensionAsk({ playerId }, id) {
   if (!player) { post(toUI.ERROR, { message: 'Player not found' }, id); return; }
   const team = cache.getTeam(player.teamId ?? meta.userTeamId);
   const profile = buildContractProfile(player);
-  const marketHeat = computeMarketHeat(player.pos, cache.getAllPlayers().filter((p) => isFreeAgent(p)));
+  const marketHeat = computeMarketHeat(player.pos, cache.getAllPlayers().filter((p) => isSignableFreeAgent(p)));
   const demandFromProfile = inflateContract(buildDemandFromProfile(player, profile, {
     marketHeat,
     morale: calculateMorale(player, team, true),
@@ -12150,7 +12151,7 @@ async function injectAIFaBids(day) {
 
   const allTeams   = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
   const allPlayers = cache.getAllPlayers().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
-  const freeAgents = allPlayers.filter((p) => isFreeAgent(p));
+  const freeAgents = allPlayers.filter((p) => isSignableFreeAgent(p));
   if (freeAgents.length === 0) return;
 
   const userTeam = cache.getTeam(userTeamId);
@@ -12344,7 +12345,7 @@ async function handleAdvanceFreeAgencyDay(payload, id) {
     // Snapshot free-agent player IDs before bids/signings for post-pass events.
     const preBidFaIds = new Set(
       cache.getAllPlayers()
-        .filter((p) => isFreeAgent(p))
+        .filter((p) => isSignableFreeAgent(p))
         .map((p) => p.id),
     );
     try {
@@ -12387,6 +12388,7 @@ async function handleAdvanceFreeAgencyDay(payload, id) {
       year: meta?.year,
       phase: 'free_agency',
       suspensionFrequency: Number(getLeagueSetting('suspensionFrequency', 50)),
+      rng: Utils.random,
     });
     applyDynamicEventEffects(faEvents);
     let faMeta = cache.getMeta();
