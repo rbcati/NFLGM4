@@ -241,15 +241,21 @@ export async function simulateSingleWeek(page, options = {}) {
   // week-advance assertion below guarantees the transition actually happened.
   if (advanceAnyway) {
     const advanceAnywayBtn = page.getByRole('button', { name: /Advance anyway/i });
-    if (await advanceAnywayBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    try {
+      await advanceAnywayBtn.waitFor({ state: 'visible', timeout: 2000 });
       await expect(advanceAnywayBtn).toBeEnabled({ timeout: 5000 });
       await advanceAnywayBtn.click();
+    } catch (e) {
+      if (e.name !== 'TimeoutError') throw e;
     }
   }
   const skipPromptBtn = page.getByRole('button', { name: /Simulate \(Skip\)/i });
-  if (await skipPromptBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
+  try {
+    await skipPromptBtn.waitFor({ state: 'visible', timeout: 10000 });
     await expect(skipPromptBtn).toBeEnabled({ timeout: 5000 });
     await skipPromptBtn.click();
+  } catch (e) {
+    if (e.name !== 'TimeoutError') throw e;
   }
   await page.waitForFunction(
     (baseline) => {
