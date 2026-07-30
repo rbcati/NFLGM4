@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "./ScreenSystem.jsx";
-import { buildBoxScoreViewModel, buildPlayerStatSections, unwrapBoxScoreResponse } from "../utils/boxScoreViewModel.js";
+import { buildGameBookPresentation, unwrapBoxScoreResponse } from "../utils/boxScoreViewModel.js";
 import useStableRouteRequest from "../hooks/useStableRouteRequest.js";
 import { getPlayerProfileId, hasValidPlayerProfileId, openPlayerProfile } from "../utils/playerProfileNavigation.js";
 import { buildReasoningBullets } from "../../core/gameSummary.js";
@@ -45,6 +45,7 @@ function BoxScore({
   scheduleGame = null,
   isManualSimRun = false,
   backLabel = "Back to flow",
+  presentation = null,
 }) {
   const [activeTab, setActiveTab] = useState('passing');
   const [activeView, setActiveView] = useState('summary');
@@ -57,7 +58,7 @@ function BoxScore({
     setActiveTab('passing');
   }, [gameId]);
 
-  const canLoadArchive = Boolean(gameId && typeof actions?.getBoxScore === "function");
+  const canLoadArchive = Boolean(!presentation && gameId && typeof actions?.getBoxScore === "function");
   const { data: archiveGame } = useStableRouteRequest({
     requestKey: canLoadArchive ? `boxscore:${gameId}` : null,
     enabled: canLoadArchive,
@@ -68,8 +69,8 @@ function BoxScore({
   const fallbackGame = scheduleGame ?? league?.gameById?.[gameId] ?? null;
   const game = unwrapBoxScoreResponse(archiveGame) ?? fallbackGame;
   const vm = useMemo(
-    () => buildBoxScoreViewModel({ league, game, gameId, scheduleGame: fallbackGame, context: { season: league?.seasonId, week: league?.week } }),
-    [league, game, gameId, fallbackGame],
+    () => presentation ?? buildGameBookPresentation({ league, game, gameId, scheduleGame: fallbackGame, context: { season: league?.seasonId, week: league?.week } }),
+    [presentation, league, game, gameId, fallbackGame],
   );
 
   const dismissHandler = onClose ?? onBack;
@@ -94,7 +95,7 @@ function BoxScore({
   const rawFlags = vm.gameReasoningFlags ?? game?.gameReasoningFlags ?? [];
   const reasoningBullets = buildReasoningBullets(rawFlags);
 
-  const tableSections = buildPlayerStatSections(vm.playerTables, {});
+  const tableSections = vm.playerStatSections ?? [];
   const activeSection = tableSections.find((s) => s.key === activeTab) ?? null;
 
   // Score values
@@ -172,12 +173,12 @@ function BoxScore({
 
   // Key leaders — top performers surfaced above dense tables so mobile users
   // answer "who won it" before drilling into full stat sheets.
-  const keyLeaders = (vm.statLeaderCards ?? []).filter((leader) => leader.available);
+  const keyLeaders = vm.keyPerformers ?? [];
 
   // Decisive moments — short, always-visible teaser (turning points, falling
   // back to the first few scoring plays). The exhaustive list lives in the
   // collapsed "Full Scoring Summary" section below.
-  const decisiveMoments = (vm.turningPointRows?.length ? vm.turningPointRows : vm.scoringSummary ?? []).slice(0, 4);
+  const decisiveMoments = vm.decisiveMoments ?? [];
   const scoringSummaryRows = vm.scoringSummary ?? [];
   const teamComparisonRows = vm.teamComparisonRows ?? [];
   const playByPlayRows = vm.playByPlayRows ?? [];

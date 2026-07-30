@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react';
 import BoxScorePanel from './BoxScorePanel.jsx';
 import { EmptyState, ScreenHeader, SectionCard } from './ScreenSystem.jsx';
 import { buildWeeklyDecisionImpact } from '../utils/weeklyDecisionImpact.js';
-import { buildBoxScoreViewModel, unwrapBoxScoreResponse } from '../utils/boxScoreViewModel.js';
+import { buildGameBookPresentation, unwrapBoxScoreResponse } from '../utils/boxScoreViewModel.js';
 import useStableRouteRequest from '../hooks/useStableRouteRequest.js';
 import { resolveCanonicalCompletedGame } from '../utils/canonicalCompletedGame.js';
 import { getGame as getLocalArchivedGame } from '../../core/archive/gameArchive.ts';
@@ -98,7 +98,7 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
   const userTeam = (league?.teams ?? []).find((team) => Number(team?.id) === Number(league?.userTeamId));
   const prepContext = buildWeeklyDecisionImpact({ league, userTeam, lastGame: scheduleGame });
   const detailVm = useMemo(
-    () => buildBoxScoreViewModel({
+    () => buildGameBookPresentation({
       league,
       game: canonicalGame,
       gameId,
@@ -240,6 +240,7 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
       </div>
       <SectionCard variant="info" title="Game Book Detail" subtitle="Summary → Team stats → Player leaders → Drive/play recap.">
         <BoxScorePanel
+          presentation={detailVm}
           gameId={gameId}
           actions={actions}
           league={league}
@@ -253,4 +254,3 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
     </div>
   );
 }
-

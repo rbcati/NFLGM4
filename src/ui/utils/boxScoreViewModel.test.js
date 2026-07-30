@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { buildBoxScoreViewModel, unwrapBoxScoreResponse } from './boxScoreViewModel.js';
+import { buildBoxScoreViewModel, buildGameBookPresentation, unwrapBoxScoreResponse } from './boxScoreViewModel.js';
 import { buildGameBookStory } from './gameBookStory.js';
 
 describe('buildBoxScoreViewModel', () => {
+  it('keeps the compatibility export on the canonical Game Book presentation builder', () => {
+    expect(buildBoxScoreViewModel).toBe(buildGameBookPresentation);
+  });
+
   it('unwraps BOX_SCORE envelopes with explicit null payload game values', () => {
     expect(unwrapBoxScoreResponse({ type: 'BOX_SCORE', payload: { game: null, error: 'not found' } })).toBeNull();
   });
@@ -161,6 +165,30 @@ describe('buildBoxScoreViewModel', () => {
     expect(vm.statLeaderCards.find((card) => card.key === 'receiving')?.line).toContain('Home WR');
     expect(vm.statLeaderCards.find((card) => card.key === 'defense')?.line).toContain('Away Edge');
     expect(vm.statLeaderCards.find((card) => card.key === 'kicking')?.line).toContain('Home K');
+  });
+
+  it('exposes winner/tie and unique, deterministic key performers', () => {
+    const input = {
+      game: {
+        homeId: 1,
+        awayId: 2,
+        homeScore: 24,
+        awayScore: 24,
+        playerStats: {
+          home: {
+            10: { name: 'Dual Threat', stats: { passAtt: 20, passYd: 210, rushAtt: 8, rushYd: 70 } },
+            11: { name: 'Runner Up', stats: { rushAtt: 12, rushYd: 55 } },
+          },
+          away: {},
+        },
+      },
+    };
+    const first = buildGameBookPresentation(input);
+    const second = buildGameBookPresentation(input);
+    expect(first.tie).toBe(true);
+    expect(first.winner).toBeNull();
+    expect(first.keyPerformers.map((leader) => leader.playerId)).toEqual([10, 11]);
+    expect(second.keyPerformers).toEqual(first.keyPerformers);
   });
 
   it('marks stat leader cards unavailable instead of fabricating missing groups', () => {
