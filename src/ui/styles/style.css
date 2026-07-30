@@ -8049,6 +8049,12 @@ details[open] .nav-summary::after {
   border: 1px solid var(--hairline, #333);
   box-shadow: none;
 }
+.bs-sheet-view-tabs { position: sticky; top: 0; z-index: 3; display: flex; gap: 4px; padding: 8px; overflow-x: auto; background: var(--surface); border-bottom: 1px solid var(--hairline); }
+.bs-sheet-view-tab { min-height: 44px; flex: 1 0 auto; padding: 8px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text-muted); font-weight: 800; }
+.bs-sheet-view-tab.is-active { background: var(--accent-muted); color: var(--accent); }
+.bs-sheet-view-heading { margin: 0; padding: 12px 14px 4px; font-size: var(--text-sm); }
+.weekly-briefing-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.weekly-briefing-actions .btn { min-height: 44px; white-space: normal; }
 
 /* ── Single ✕ dismiss — top-right ──────────────────────────────────────── */
 .bs-sheet-dismiss {

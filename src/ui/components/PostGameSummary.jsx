@@ -9,6 +9,7 @@
 import React, { useEffect, useRef, useMemo } from 'react';
 import { buildPostgameEmotionalFrame } from '../utils/postgameEmotionalFrame.js';
 import GameResultSummaryCard from './GameResultSummaryCard.jsx';
+import { buildPostgameBriefing } from '../utils/postgameBriefing.js';
 
 function safeNum(value, fallback = 0) {
   const n = Number(value);
@@ -65,6 +66,9 @@ export default function PostGameSummary({
   recentResults,
   onClose,
   onViewGameBook,
+  onPreparationAction,
+  onContinue,
+  nextWeek,
 }) {
   const overlayRef = useRef(null);
   const closeButtonRef = useRef(null);
@@ -111,6 +115,8 @@ export default function PostGameSummary({
 
   if (!gameResult) return null;
 
+  const briefing = buildPostgameBriefing({ gameResult, leaders, injuries, nextWeek });
+
   const { homeScore = 0, awayScore = 0, homeTeam, awayTeam, userTeamId, week, phase } = gameResult;
   const homeId = safeNum(homeTeam?.id ?? gameResult.homeId);
   const awayId = safeNum(awayTeam?.id ?? gameResult.awayId);
@@ -130,13 +136,13 @@ export default function PostGameSummary({
   const homeAbbr = homeTeam?.abbr ?? gameResult.homeAbbr ?? 'HOME';
   const awayAbbr = awayTeam?.abbr ?? gameResult.awayAbbr ?? 'AWAY';
 
-  const injuryList = Array.isArray(injuries) ? injuries.filter(Boolean) : [];
+  const injuryList = briefing.injuries;
 
   return (
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Post-game summary"
+      aria-label="Weekly GM briefing"
       data-testid="post-game-summary"
       ref={overlayRef}
       style={{
@@ -146,7 +152,7 @@ export default function PostGameSummary({
         overflowY: 'auto',
         WebkitOverflowScrolling: 'touch',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '24px 16px 80px',
+        padding: 'max(24px, env(safe-area-inset-top)) 16px max(80px, env(safe-area-inset-bottom))',
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
     >
@@ -162,14 +168,14 @@ export default function PostGameSummary({
           </div>
           {week != null && (
             <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', fontWeight: 600, marginBottom: 8 }}>
-              Week {week} · {phase === 'playoffs' ? 'Playoffs' : 'Regular Season'}
+              Weekly GM Briefing · Week {week} · {phase === 'playoffs' ? 'Playoffs' : 'Regular Season'}
             </div>
           )}
           <MomentumBadge change={momentumChange} />
         </div>
 
         {/* Canonical final-score card (shared with Franchise HQ) */}
-        <GameResultSummaryCard
+          <GameResultSummaryCard
           variant="full"
           testId="post-game-summary-result-card"
           awayAbbr={awayAbbr}
@@ -179,9 +185,12 @@ export default function PostGameSummary({
           homeName={homeTeam?.name ?? homeAbbr}
           homeScore={homeScore}
         />
+        <p style={{ margin: '-4px 0 14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+          {briefing.userIsHome ? 'Home' : 'Away'} · {briefing.headline}
+        </p>
 
         {/* Game leaders */}
-        {Array.isArray(leaders) && leaders.length > 0 && (
+        {briefing.leaders.length > 0 && (
           <div style={{
             background: 'var(--surface)',
             border: '1px solid var(--hairline)',
@@ -193,7 +202,7 @@ export default function PostGameSummary({
               Game Leaders
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {leaders.map((leader, i) => (
+              {briefing.leaders.map((leader, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{
                     width: 36, height: 36, borderRadius: '50%', flexShrink: 0,
@@ -289,6 +298,20 @@ export default function PostGameSummary({
           </div>
         )}
 
+        {nextWeek && onPreparationAction ? (
+          <div data-testid="weekly-briefing-preparation" style={{ margin: '12px 0', padding: '12px 14px', background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 12 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 4 }}>Next-week preparation</div>
+            <div style={{ fontWeight: 800, marginBottom: 10 }}>Week {nextWeek.week}{nextWeek.opponentAbbr ? ` · vs ${nextWeek.opponentAbbr}` : ''}</div>
+            <div className="weekly-briefing-actions">
+              {[
+                ['Game Plan', 'Game Plan'], ['Set Lineup', 'Depth Chart'], ['Training', 'Training'], ['Scout Opponent', 'Weekly Prep'],
+              ].map(([label, destination]) => (
+                <button key={label} type="button" className="btn btn-sm" onClick={() => onPreparationAction(destination)}>{label}</button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {/* Actions */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
           {onViewGameBook && (
@@ -312,7 +335,7 @@ export default function PostGameSummary({
             type="button"
             ref={closeButtonRef}
             data-testid="post-game-summary-close"
-            onClick={onClose}
+            onClick={onContinue ?? onClose}
             style={{
               width: '100%', padding: '14px',
               background: resultColor,
@@ -323,7 +346,7 @@ export default function PostGameSummary({
               boxShadow: `0 4px 18px ${resultColor}40`,
             }}
           >
-            Return to Franchise HQ
+            {nextWeek?.week ? `Continue to Week ${nextWeek.week}` : 'Return to Franchise HQ'}
           </button>
         </div>
       </div>

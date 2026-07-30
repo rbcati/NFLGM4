@@ -34,6 +34,15 @@ function PostGamePersistenceHarness({ initialResult = null }) {
     setPostGameResultStash(null);
   };
 
+  const openPreparation = () => {
+    // App's supported fallback: preparation routes honestly to HQ and must
+    // never retain briefing state for a later, unrelated Game Book close.
+    setPostGameResultStash(null);
+    setPostGameResult(null);
+  };
+
+  const openUnrelatedGameBook = () => setExternalBoxScoreOpen(true);
+
   return (
     <div>
       {postGameResult && !externalBoxScoreOpen && (
@@ -45,6 +54,7 @@ function PostGamePersistenceHarness({ initialResult = null }) {
           <button data-testid="dismiss-result" onClick={dismissResult}>
             Back to Hub
           </button>
+          <button data-testid="open-preparation" onClick={openPreparation}>Game Plan</button>
         </div>
       )}
       {externalBoxScoreOpen && (
@@ -56,7 +66,10 @@ function PostGamePersistenceHarness({ initialResult = null }) {
         </div>
       )}
       {!postGameResult && !externalBoxScoreOpen && (
-        <div data-testid="hq-view">Franchise HQ</div>
+        <div data-testid="hq-view">
+          Franchise HQ
+          <button data-testid="open-unrelated-game-book" onClick={openUnrelatedGameBook}>Open unrelated Game Book</button>
+        </div>
       )}
     </div>
   );
@@ -119,5 +132,32 @@ describe('Postgame persistence stash/restore', () => {
     // Context is restored
     expect(queryByTestId('postgame-modal')).not.toBeNull();
     expect(getByTestId('result-label').textContent).toBe('VICTORY');
+  });
+
+  it('preparation navigation leaves no stale briefing for an unrelated Game Book close', () => {
+    const { getByTestId, queryByTestId } = render(
+      <PostGamePersistenceHarness initialResult={{ label: 'VICTORY', gameId: 'old-week' }} />,
+    );
+    fireEvent.click(getByTestId('open-preparation'));
+    expect(getByTestId('hq-view')).toBeTruthy();
+    fireEvent.click(getByTestId('open-unrelated-game-book'));
+    fireEvent.click(getByTestId('game-detail-back'));
+    expect(queryByTestId('postgame-modal')).toBeNull();
+    expect(getByTestId('hq-view')).toBeTruthy();
+  });
+
+  it('repeated Game Book cycles consume the stash and keep Continue reachable', () => {
+    const { getByTestId, queryByTestId } = render(
+      <PostGamePersistenceHarness initialResult={{ label: 'TIE', gameId: 'current-week' }} />,
+    );
+    for (let cycle = 0; cycle < 2; cycle += 1) {
+      fireEvent.click(getByTestId('view-box-score'));
+      fireEvent.click(getByTestId('game-detail-back'));
+      expect(getByTestId('dismiss-result')).toBeTruthy();
+    }
+    fireEvent.click(getByTestId('dismiss-result'));
+    fireEvent.click(getByTestId('open-unrelated-game-book'));
+    fireEvent.click(getByTestId('game-detail-back'));
+    expect(queryByTestId('postgame-modal')).toBeNull();
   });
 });

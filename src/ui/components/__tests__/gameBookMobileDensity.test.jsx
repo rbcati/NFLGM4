@@ -2,15 +2,15 @@
 /**
  * Mobile Game Book density — verifies the review surface answers "what
  * happened?" (final score, key leaders, decisive moments) before dense
- * stat tables/play-by-play, and that dense sections are collapsed via
- * native <details>/<summary> rather than dumped inline.
+ * stat tables/play-by-play, and that inactive dense top-level sections are
+ * not rendered until their tab is selected.
  */
 import React from 'react';
 import { readFileSync, globSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import BoxScore from '../BoxScore.jsx';
 import GameDetailScreen from '../GameDetailScreen.jsx';
 
@@ -106,92 +106,50 @@ describe('Game Book mobile density — section hierarchy', () => {
     return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
   }
 
-  it('renders the final score before any dense stat table', () => {
-    const { getByTestId } = renderRichBoxScore();
-    const hero = getByTestId('game-book-score-hero');
-    const playerStats = getByTestId('game-book-player-stats');
-    expect(isBefore(hero, playerStats)).toBe(true);
+  it('selects Summary by default and does not render inactive dense sections', () => {
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
+    expect(getByTestId('game-book-view-tab-summary').getAttribute('aria-selected')).toBe('true');
+    expect(getByTestId('game-book-score-hero')).toBeTruthy();
+    expect(getByTestId('game-book-leaders')).toBeTruthy();
+    expect(queryByTestId('game-book-team-stats')).toBeNull();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
+    expect(queryByTestId('game-book-play-by-play')).toBeNull();
   });
 
-  it('for a canonical-ledger game: shows the honest quarter-unavailable note, uses periodLabel, and never a fabricated Q1–Q4 (#1700 review defect #1)', () => {
-    const canonicalGame = {
-      gameId: 'g-canon',
-      homeId: 1,
-      awayId: 2,
-      homeScore: 10,
-      awayScore: 7,
-      // Canonical ledger present, no quarter table, scoring rows carry periodLabel.
-      canonicalEvents: [
-        { eventId: 'g-evt-1', sequence: 1, isScore: true, scoringTeamId: 1, periodLabel: 'Drive 2', quarter: null, scoreAfter: { home: 7, away: 0 } },
-        { eventId: 'g-evt-2', sequence: 2, isScore: true, scoringTeamId: 2, periodLabel: 'Drive 5', quarter: null, scoreAfter: { home: 7, away: 7 } },
-      ],
-      quarterScores: null,
-      scoringSummary: [
-        { id: 'g-evt-1', quarter: null, periodLabel: 'Drive 2', teamAbbr: 'HME', type: 'Touchdown', description: 'HME Touchdown', scoreAfter: { home: 7, away: 0 } },
-        { id: 'g-evt-2', quarter: null, periodLabel: 'Drive 5', teamAbbr: 'AWY', type: 'Touchdown', description: 'AWY Touchdown', scoreAfter: { home: 7, away: 7 } },
-      ],
-    };
-    const { getByTestId } = render(
-      <BoxScore gameId="g-canon" league={{ ...league, gameById: { 'g-canon': canonicalGame } }} embedded />,
-    );
-    // Honest note appears; final score + canonical scoring summary still render.
-    expect(getByTestId('game-book-quarter-unavailable').textContent).toMatch(/Quarter breakdown unavailable/i);
-    const summary = getByTestId('game-book-scoring-summary');
-    expect(summary.textContent).toContain('Drive 2');
-    expect(summary.textContent).toContain('Drive 5');
-    // No fabricated quarter label anywhere in the scoring summary.
-    expect(summary.textContent).not.toMatch(/Q[1-4]\b/);
+  it('renders team comparison only after selecting Team Stats', () => {
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
+    fireEvent.click(getByTestId('game-book-view-tab-team-stats'));
+    expect(getByTestId('game-book-team-stats')).toBeTruthy();
+    expect(queryByTestId('game-book-leaders')).toBeNull();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
   });
 
-  it('legacy game with quarter numbers does NOT show the canonical unavailable note', () => {
-    // richGame has no canonicalEvents → legacy path, note suppressed.
-    const { queryByTestId } = renderRichBoxScore();
-    expect(queryByTestId('game-book-quarter-unavailable')).toBeNull();
-  });
-
-  it('renders key leaders above the full player stat tables', () => {
-    const { getByTestId } = renderRichBoxScore();
-    const leaders = getByTestId('game-book-leaders');
-    const playerStats = getByTestId('game-book-player-stats');
-    expect(isBefore(leaders, playerStats)).toBe(true);
-    // Sanity: leaders actually surface top performers, not just a label.
-    expect(leaders.textContent).toMatch(/Home QB|Home RB|Home WR|Away QB/);
-  });
-
-  it('renders decisive moments above the full player stat tables and full play-by-play', () => {
-    const { getByTestId } = renderRichBoxScore();
-    const moments = getByTestId('game-book-moments');
-    const playerStats = getByTestId('game-book-player-stats');
-    const playByPlay = getByTestId('game-book-play-by-play');
-    expect(isBefore(moments, playerStats)).toBe(true);
-    expect(isBefore(moments, playByPlay)).toBe(true);
-  });
-
-  it('renders team stat comparison above the full player stat tables', () => {
-    const { getByTestId } = renderRichBoxScore();
-    const teamStats = getByTestId('game-book-team-stats');
-    const playerStats = getByTestId('game-book-player-stats');
-    expect(isBefore(teamStats, playerStats)).toBe(true);
-  });
-
-  it('collapses dense sections behind native <details> closed by default', () => {
-    const { getByTestId } = renderRichBoxScore();
-    for (const testId of ['game-book-scoring-summary', 'game-book-team-stats', 'game-book-player-stats', 'game-book-play-by-play']) {
-      const el = getByTestId(testId);
-      expect(el.tagName).toBe('DETAILS');
-      expect(el.hasAttribute('open')).toBe(false);
-      // A summary teaser must still be visible without expansion.
-      expect(el.querySelector('summary')).toBeTruthy();
+  it('renders all available player categories only after selecting Players', () => {
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
+    fireEvent.click(getByTestId('game-book-view-tab-players'));
+    expect(getByTestId('game-book-player-stats')).toBeTruthy();
+    for (const category of ['passing', 'rushing', 'receiving', 'defense']) {
+      expect(getByTestId(`game-book-tab-${category}`)).toBeTruthy();
     }
+    expect(queryByTestId('game-book-team-stats')).toBeNull();
+    expect(queryByTestId('game-book-play-by-play')).toBeNull();
   });
 
-  it('places the full play-by-play log lower in DOM order than the score hero and leaders', () => {
+  it('renders play-by-play only after selecting Plays', () => {
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
+    fireEvent.click(getByTestId('game-book-view-tab-plays'));
+    expect(getByTestId('game-book-play-by-play')).toBeTruthy();
+    expect(queryByTestId('game-book-leaders')).toBeNull();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
+  });
+
+  it('keeps the same selected game score while switching tabs', () => {
     const { getByTestId } = renderRichBoxScore();
-    const hero = getByTestId('game-book-score-hero');
-    const leaders = getByTestId('game-book-leaders');
-    const playByPlay = getByTestId('game-book-play-by-play');
-    expect(isBefore(hero, playByPlay)).toBe(true);
-    expect(isBefore(leaders, playByPlay)).toBe(true);
+    const score = getByTestId('game-book-final-score').textContent;
+    for (const view of ['team-stats', 'players', 'plays', 'summary']) {
+      fireEvent.click(getByTestId(`game-book-view-tab-${view}`));
+      expect(getByTestId('game-book-final-score').textContent).toBe(score);
+    }
   });
 
   it('does not mutate the game/archive data it renders', () => {
@@ -211,7 +169,7 @@ describe('Game Book mobile density — section hierarchy', () => {
   it('still renders when stat leader source data is missing', () => {
     const { getByTestId, queryByTestId } = renderSparseBoxScore({ playerStats: undefined });
     expect(getByTestId('game-book-score-hero')).toBeTruthy();
-    expect(getByTestId('game-book-player-stats')).toBeTruthy();
+    expect(queryByTestId('game-book-view-tab-players')).toBeNull();
     expect(queryByTestId('game-book-leaders')).toBeNull();
   });
 

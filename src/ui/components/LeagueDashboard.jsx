@@ -632,6 +632,8 @@ export default function LeagueDashboard({
   onDismissNotification,
   externalBoxScoreId,
   onConsumeExternalBoxScore,
+  externalDestination,
+  onConsumeExternalDestination,
   onGameDetailBack,
   advanceLabel = "Advance",
   advanceDisabled = false,
@@ -748,6 +750,12 @@ export default function LeagueDashboard({
     onConsumeExternalBoxScore?.();
   }, [externalBoxScoreId, onConsumeExternalBoxScore, activeTab]);
 
+  useEffect(() => {
+    if (!externalDestination) return;
+    setActiveTab(externalDestination);
+    onConsumeExternalDestination?.();
+  }, [externalDestination, onConsumeExternalDestination]);
+
   if (!league) {
     return (
       <div className="card" style={{ padding: "var(--space-5)", color: "var(--text-muted)" }}>
@@ -817,6 +825,10 @@ export default function LeagueDashboard({
   // fixed bottom nav and hamburger are collapsed so the result screen is not
   // boxed in. Returning to any other surface restores the nav automatically.
   const isGameBookFocus = gameDetailModal.open || activeTab === "Game Detail";
+  const closeGameDetailModal = () => {
+    onGameDetailBack?.();
+    setGameDetailModal({ open: false, gameId: null, source: null });
+  };
   const WEEKLY_OPERATIONS_TABS = new Set(["Game Plan", "Depth Chart", "Training", "Weekly Prep"]);
   const isWeeklyOperationsTab = WEEKLY_OPERATIONS_TABS.has(activeTab);
   const handleSectionChange = (sectionId) => {
@@ -1624,7 +1636,7 @@ export default function LeagueDashboard({
           <button
             type="button"
             className="player-profile-modal-backdrop"
-            onClick={() => setGameDetailModal({ open: false, gameId: null, source: null })}
+            onClick={closeGameDetailModal}
             aria-label="Close Game Book"
           />
           <div className="player-profile-modal-content" style={{ maxWidth: 'min(1200px, 100vw)', width: '100%', height: '100%', maxHeight: '100dvh' }}>
@@ -1632,14 +1644,11 @@ export default function LeagueDashboard({
               gameId={gameDetailModal.gameId}
               league={league}
               actions={actions}
-              onBack={() => {
-                onGameDetailBack?.();
-                setGameDetailModal({ open: false, gameId: null, source: null });
-              }}
+              onBack={closeGameDetailModal}
               onNavigate={setActiveTab}
               onPlayerSelect={handlePlayerSelect}
               onTeamSelect={handleTeamSelect}
-              backLabel={gameDetailModal.source === 'weekly-results' ? 'Back to Weekly Results' : 'Return to HQ'}
+              backLabel={gameDetailModal.source === 'weekly-results' ? 'Back to Weekly Results' : gameDetailModal.source === 'postgame' ? 'Back to Weekly Briefing' : 'Return to HQ'}
             />
           </div>
         </div>
