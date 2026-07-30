@@ -83,8 +83,7 @@ describe('BoxScore – opt-in auto-open replay gate', () => {
         embedded
       />,
     );
-    // Replay toggle and skip button have been removed; stat tabs are the navigation mechanism
-    expect(getByTestId('game-book-stat-tabs')).toBeTruthy();
+    expect(getByTestId('game-book-view-summary')).toBeTruthy();
     expect(queryByTestId('game-book-replay-toggle')).toBeNull();
     expect(queryByTestId('game-book-skip-to-box-score')).toBeNull();
   });
@@ -98,10 +97,7 @@ describe('BoxScore – opt-in auto-open replay gate', () => {
         embedded
       />,
     );
-    // Viewer initialMode prop no longer exists; stat tabs are shown instead
-    expect(getByTestId('game-book-tab-passing')).toBeTruthy();
-    expect(getByTestId('game-book-tab-rushing')).toBeTruthy();
-    expect(getByTestId('game-book-tab-defense')).toBeTruthy();
+    expect(getByTestId('game-book-view-summary')).toBeTruthy();
     expect(queryByTestId('rgfv-progress')).toBeNull();
   });
 
@@ -151,8 +147,7 @@ describe('BoxScore – opt-in auto-open replay gate', () => {
         embedded
       />,
     );
-    // Replay toggle and viewer removed; stat tabs present instead
-    expect(getByTestId('game-book-stat-tabs')).toBeTruthy();
+    expect(getByTestId('game-book-view-summary')).toBeTruthy();
     expect(queryByTestId('game-book-replay-toggle')).toBeNull();
   });
 

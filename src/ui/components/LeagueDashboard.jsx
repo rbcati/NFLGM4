@@ -1632,7 +1632,10 @@ export default function LeagueDashboard({
           <button
             type="button"
             className="player-profile-modal-backdrop"
-            onClick={() => setGameDetailModal({ open: false, gameId: null, source: null })}
+            onClick={() => {
+              onGameDetailBack?.();
+              setGameDetailModal({ open: false, gameId: null, source: null });
+            }}
             aria-label="Close Game Book"
           />
           <div className="player-profile-modal-content" style={{ maxWidth: 'min(1200px, 100vw)', width: '100%', height: '100%', maxHeight: '100dvh' }}>

@@ -13,6 +13,7 @@ function PostGamePersistenceHarness({ initialResult = null }) {
   const [postGameResult, setPostGameResult] = useState(initialResult);
   const [postGameResultStash, setPostGameResultStash] = useState(null);
   const [externalBoxScoreOpen, setExternalBoxScoreOpen] = useState(false);
+  const [destination, setDestination] = useState(null);
 
   const openBoxScore = (gameId) => {
     if (!gameId) return;
@@ -34,6 +35,14 @@ function PostGamePersistenceHarness({ initialResult = null }) {
     setPostGameResultStash(null);
   };
 
+  const openPreparation = () => {
+    setPostGameResultStash(null);
+    setPostGameResult(null);
+    setDestination('Game Plan');
+  };
+
+  const openUnrelatedGameBook = () => setExternalBoxScoreOpen(true);
+
   return (
     <div>
       {postGameResult && !externalBoxScoreOpen && (
@@ -45,6 +54,7 @@ function PostGamePersistenceHarness({ initialResult = null }) {
           <button data-testid="dismiss-result" onClick={dismissResult}>
             Back to Hub
           </button>
+          <button data-testid="open-preparation" onClick={openPreparation}>Game Plan</button>
         </div>
       )}
       {externalBoxScoreOpen && (
@@ -56,7 +66,7 @@ function PostGamePersistenceHarness({ initialResult = null }) {
         </div>
       )}
       {!postGameResult && !externalBoxScoreOpen && (
-        <div data-testid="hq-view">Franchise HQ</div>
+        <div data-testid="hq-view">{destination ?? 'Franchise HQ'}<button data-testid="open-unrelated-game-book" onClick={openUnrelatedGameBook}>Unrelated Game Book</button></div>
       )}
     </div>
   );
@@ -119,5 +129,24 @@ describe('Postgame persistence stash/restore', () => {
     // Context is restored
     expect(queryByTestId('postgame-modal')).not.toBeNull();
     expect(getByTestId('result-label').textContent).toBe('VICTORY');
+  });
+
+  it('preparation navigation leaves no briefing stash for an unrelated Game Book close', () => {
+    const { getByTestId, queryByTestId } = render(<PostGamePersistenceHarness initialResult={{ label: 'VICTORY', gameId: 'g5' }} />);
+    fireEvent.click(getByTestId('open-preparation'));
+    expect(getByTestId('hq-view').textContent).toContain('Game Plan');
+    fireEvent.click(getByTestId('open-unrelated-game-book'));
+    fireEvent.click(getByTestId('game-detail-back'));
+    expect(queryByTestId('postgame-modal')).toBeNull();
+  });
+
+  it('repeated Game Book cycles consume the retained result and never restore obsolete data', () => {
+    const { getByTestId, queryByTestId } = render(<PostGamePersistenceHarness initialResult={{ label: 'VICTORY', gameId: 'g6' }} />);
+    fireEvent.click(getByTestId('view-box-score'));
+    fireEvent.click(getByTestId('game-detail-back'));
+    fireEvent.click(getByTestId('dismiss-result'));
+    fireEvent.click(getByTestId('open-unrelated-game-book'));
+    fireEvent.click(getByTestId('game-detail-back'));
+    expect(queryByTestId('postgame-modal')).toBeNull();
   });
 });

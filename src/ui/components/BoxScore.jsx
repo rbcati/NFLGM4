@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { EmptyState } from "./ScreenSystem.jsx";
 import { buildBoxScoreViewModel, buildPlayerStatSections, unwrapBoxScoreResponse } from "../utils/boxScoreViewModel.js";
 import useStableRouteRequest from "../hooks/useStableRouteRequest.js";
@@ -48,6 +48,14 @@ function BoxScore({
 }) {
   const [activeTab, setActiveTab] = useState('passing');
   const [activeView, setActiveView] = useState('summary');
+
+  // A route can reuse this component instance for another game. Reset local
+  // disclosure only when game identity changes so no previous game's tab or
+  // player category appears while the new canonical record is selected.
+  useEffect(() => {
+    setActiveView('summary');
+    setActiveTab('passing');
+  }, [gameId]);
 
   const canLoadArchive = Boolean(gameId && typeof actions?.getBoxScore === "function");
   const { data: archiveGame } = useStableRouteRequest({

@@ -8,6 +8,12 @@ import BoxScore, { PlayerButton } from './BoxScore.jsx';
 vi.mock('../hooks/useStableRouteRequest.js', () => ({ default: vi.fn(() => ({ data: null })) }));
 import useStableRouteRequest from '../hooks/useStableRouteRequest.js';
 
+function openGameBookTab(label) {
+  const tab = [...document.querySelectorAll('[role="tab"]')].find((node) => node.textContent === label);
+  expect(tab, `${label} tab should be available`).toBeTruthy();
+  fireEvent.click(tab);
+}
+
 describe('BoxScore compact sheet — core rendering', () => {
   const baseLeague = { seasonId: 2031, week: 2, teams: [{ id: 1, abbr: 'KC' }, { id: 2, abbr: 'BUF' }] };
 
@@ -66,10 +72,11 @@ describe('BoxScore compact sheet — core rendering', () => {
       <BoxScore gameId="g3" league={{ ...baseLeague, gameById: { g3: game } }} embedded />,
     );
     expect(getByTestId('game-book-score-hero')).toBeTruthy();
+    expect(getByTestId('game-book-view-summary')).toBeTruthy();
+    expect(document.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe('Summary');
+    openGameBookTab('Players');
     expect(getByTestId('game-book-stat-tabs')).toBeTruthy();
     expect(getByTestId('game-book-tab-passing')).toBeTruthy();
-    expect(getByTestId('game-book-tab-rushing')).toBeTruthy();
-    expect(getByTestId('game-book-tab-defense')).toBeTruthy();
   });
 
   it('score-only game: renders score hero but no stat table rows', () => {
@@ -79,6 +86,20 @@ describe('BoxScore compact sheet — core rendering', () => {
     expect(getByTestId('game-book-score-hero')).toBeTruthy();
     // No player rows since no playerStats
     expect(queryAllByTestId('game-book-player-link')).toHaveLength(0);
+  });
+
+  it('resets to Summary when a different selected game replaces the current game', () => {
+    const detailed = { homeId: 1, awayId: 2, homeScore: 31, awayScore: 20, teamStats: { home: { passYards: 300 }, away: { passYards: 210 } } };
+    const next = { homeId: 1, awayId: 2, homeScore: 10, awayScore: 7 };
+    const league = { ...baseLeague, gameById: { detailed, next } };
+    const { getByTestId, queryByTestId, rerender } = render(<BoxScore gameId="detailed" league={league} embedded />);
+    openGameBookTab('Team Stats');
+    expect(getByTestId('game-book-team-stats').textContent).toContain('300');
+    rerender(<BoxScore gameId="next" league={league} embedded />);
+    expect(getByTestId('game-book-view-summary')).toBeTruthy();
+    expect(getByTestId('game-book-final-score').textContent).toContain('10');
+    expect(queryByTestId('game-book-team-stats')).toBeNull();
+    expect(document.body.textContent).not.toContain('300');
   });
 
   it('renders passing stat table by default when playerStats exist', () => {
@@ -96,7 +117,9 @@ describe('BoxScore compact sheet — core rendering', () => {
     const { getByTestId } = render(
       <BoxScore gameId="g-pass" league={{ ...baseLeague, gameById: { 'g-pass': game } }} embedded />,
     );
-    // Passing tab active by default
+    expect(document.querySelector('[data-testid="game-book-player-stats"]')).toBeNull();
+    openGameBookTab('Players');
+    // Passing category is active when Players first opens.
     expect(getByTestId('game-book-tab-passing').getAttribute('aria-selected')).toBe('true');
     expect(getByTestId('game-book-table-passing')).toBeTruthy();
     expect(getByTestId('game-book-table-passing').textContent).toContain('Home QB');
@@ -117,6 +140,7 @@ describe('BoxScore compact sheet — core rendering', () => {
     const { getByTestId } = render(
       <BoxScore gameId="g-def" league={{ ...baseLeague, gameById: { 'g-def': game } }} embedded />,
     );
+    openGameBookTab('Players');
     fireEvent.click(getByTestId('game-book-tab-defense'));
     expect(getByTestId('game-book-tab-defense').getAttribute('aria-selected')).toBe('true');
     expect(getByTestId('game-book-table-defense')).toBeTruthy();
@@ -141,6 +165,7 @@ describe('BoxScore compact sheet — core rendering', () => {
     const { getByTestId, queryByTestId } = render(
       <BoxScore gameId="g-tabs" league={{ ...baseLeague, gameById: { 'g-tabs': game } }} embedded />,
     );
+    openGameBookTab('Players');
     // Default: passing tab active, shows QB
     expect(getByTestId('game-book-table-passing').textContent).toContain('QB One');
     // Switch to rushing
@@ -166,6 +191,7 @@ describe('BoxScore compact sheet — core rendering', () => {
     const { getByTestId } = render(
       <BoxScore gameId="g-maxrows" league={{ ...baseLeague, gameById: { 'g-maxrows': game } }} embedded />,
     );
+    openGameBookTab('Players');
     const rows = getByTestId('game-book-table-passing').querySelectorAll('tbody tr');
     expect(rows.length).toBeLessThanOrEqual(6);
   });
@@ -318,6 +344,7 @@ describe('BoxScore player name resolution', () => {
       },
     };
     const { container } = render(<BoxScore gameId="g-named" league={{ ...baseLeague, gameById: { 'g-named': game } }} embedded />);
+    openGameBookTab('Players');
     expect(container.textContent).toContain('Named QB');
     expect(container.textContent).not.toContain('Unknown');
   });
@@ -332,6 +359,7 @@ describe('BoxScore player name resolution', () => {
       },
     };
     const { container } = render(<BoxScore gameId="g-fallback" league={{ ...baseLeague, gameById: { 'g-fallback': game } }} embedded />);
+    openGameBookTab('Players');
     expect(container.textContent).toContain('Player #77');
     expect(container.textContent).not.toContain('Unknown');
   });
@@ -353,6 +381,7 @@ describe('BoxScore player name resolution', () => {
       },
     };
     const { container } = render(<BoxScore gameId="g-roster" league={{ ...leagueWithRoster, gameById: { 'g-roster': game } }} embedded />);
+    openGameBookTab('Players');
     expect(container.textContent).toContain('Roster QB Name');
     expect(container.textContent).not.toContain('Unknown');
   });
@@ -373,6 +402,7 @@ describe('BoxScore player name resolution', () => {
     const { container, getByTestId } = render(
       <BoxScore gameId="g-noblank" league={{ ...baseLeague, gameById: { 'g-noblank': game } }} embedded />,
     );
+    openGameBookTab('Players');
     const passingTable = container.querySelector('[data-testid="game-book-table-passing"]');
     if (passingTable) {
       const cells = passingTable.querySelectorAll('td');
@@ -396,6 +426,7 @@ describe('BoxScore player name resolution', () => {
     const { container, getByTestId } = render(
       <BoxScore gameId="g-names" league={{ ...baseLeague, gameById: { 'g-names': game } }} embedded />,
     );
+    openGameBookTab('Players');
     expect(container.textContent).toContain('Home QB');
     // Switch to rushing to see away RB
     fireEvent.click(getByTestId('game-book-tab-rushing'));
@@ -428,6 +459,7 @@ describe('BoxScore player name resolution', () => {
     const { container } = render(
       <BoxScore gameId="g-mobile" league={{ ...baseLeague, gameById: { 'g-mobile': game } }} embedded />,
     );
+    openGameBookTab('Players');
     const table = container.querySelector('[data-testid="game-book-table-passing"]');
     expect(table).toBeTruthy();
     expect(table.className).toContain('bs-sheet-table');
@@ -472,6 +504,7 @@ describe('BoxScore player button interactions', () => {
     const { getAllByTestId } = render(
       <BoxScore gameId="g4" league={{ ...baseLeague, gameById: { g4: game } }} onPlayerSelect={onSelect} embedded />,
     );
+    openGameBookTab('Players');
     fireEvent.click(getAllByTestId('game-book-player-link')[0]);
     expect(onSelect.mock.calls[0][0]).toBe(11);
     expect(onSelect.mock.calls[0][1]).toMatchObject({
