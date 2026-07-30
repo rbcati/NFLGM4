@@ -218,13 +218,28 @@ export async function simulateSingleWeek(page, options = {}) {
     // not an assertion: readiness may still be gated (that is exactly what the
     // "Advance anyway" branch below exists to bypass), so we must not fail here.
     const advanceCta = page.getByTestId('advance-week-cta');
-    if (await advanceCta.isVisible().catch(() => false)) {
-      await advanceCta.isEnabled().catch(() => false);
+    try {
+      await advanceCta.waitFor({ state: 'visible', timeout: 500 });
+      try {
+        await expect(advanceCta).toBeEnabled({ timeout: 500 });
+      } catch (err) {
+        if (err.name !== 'TimeoutError') throw err;
+      }
+    } catch (err) {
+      if (err.name !== 'TimeoutError') throw err;
     }
   }
 
   const advanceCta = page.getByTestId('advance-week-cta');
-  if (await advanceCta.isVisible().catch(() => false)) {
+  let ctaVisible = false;
+  try {
+    await advanceCta.waitFor({ state: 'visible', timeout: 1000 });
+    ctaVisible = true;
+  } catch (err) {
+    if (err.name !== 'TimeoutError') throw err;
+  }
+
+  if (ctaVisible) {
     await advanceCta.click();
   } else {
     await page.evaluate(() => {
@@ -241,15 +256,21 @@ export async function simulateSingleWeek(page, options = {}) {
   // week-advance assertion below guarantees the transition actually happened.
   if (advanceAnyway) {
     const advanceAnywayBtn = page.getByRole('button', { name: /Advance anyway/i });
-    if (await advanceAnywayBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    try {
+      await advanceAnywayBtn.waitFor({ state: 'visible', timeout: 2000 });
       await expect(advanceAnywayBtn).toBeEnabled({ timeout: 5000 });
       await advanceAnywayBtn.click();
+    } catch (err) {
+      if (err.name !== 'TimeoutError') throw err;
     }
   }
   const skipPromptBtn = page.getByRole('button', { name: /Simulate \(Skip\)/i });
-  if (await skipPromptBtn.isVisible({ timeout: 10000 }).catch(() => false)) {
+  try {
+    await skipPromptBtn.waitFor({ state: 'visible', timeout: 10000 });
     await expect(skipPromptBtn).toBeEnabled({ timeout: 5000 });
     await skipPromptBtn.click();
+  } catch (err) {
+    if (err.name !== 'TimeoutError') throw err;
   }
   await page.waitForFunction(
     (baseline) => {
