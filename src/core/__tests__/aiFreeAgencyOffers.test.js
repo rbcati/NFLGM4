@@ -154,6 +154,19 @@ describe('AiLogic.makeFreeAgencyOffers stale contract handling', () => {
     );
   });
 
+  it('does not offer to unavailable players supplied by a stale shared pool', async () => {
+    const unavailable = [
+      { id: 13, name: 'Retired QB', pos: 'QB', teamId: null, status: 'retired', retired: true, ovr: 99, age: 30, offers: [] },
+      { id: 14, name: 'Draft QB', pos: 'QB', teamId: null, status: 'draft_eligible', ovr: 99, age: 22, offers: [] },
+    ];
+    mockCalculateExtensionDemand.mockReturnValue({ years: 1, yearsTotal: 1, baseAnnual: 5, signingBonus: 0 });
+
+    await AiLogic.makeFreeAgencyOffers(1, { QB: unavailable });
+
+    expect(mockBuildFreeAgencyMarketAnalysis).not.toHaveBeenCalled();
+    expect(mockCache.updatePlayer).not.toHaveBeenCalled();
+  });
+
   it('rebuild profile avoids old expensive veteran offers', async () => {
     const veteran = {
       id: 31,

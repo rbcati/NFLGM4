@@ -177,7 +177,8 @@ import {
   expireAllPendingOffers,
   prunePendingOffers,
 } from '../core/freeAgency/pendingOffers.js';
-import { isFreeAgent } from '../core/freeAgency/membership.js';
+import { isSignableFreeAgent } from '../core/freeAgency/membership.js';
+import { stableIdCompare } from '../core/referenceIntegrity.js';
 import {
   shouldAITeamPursuePlayer,
   computeAIOffer,
@@ -274,6 +275,7 @@ import {
   findAvailableJerseyNumber,
   buildRetiredNumberDisplay,
   derivePreferredJerseyNumber,
+  resolveRetiredPlayerForJersey,
 } from '../core/history/teamIdentityEngine.js';
 import { ensurePersonalityProfile, mentorshipBonusForPlayer, contractPersonalityModifier } from '../core/development/personalitySystem.js';
 import { applyTeamCultureWeek, classifyTeamCulture, buildTeamCultureNarrative, TEAM_CULTURE_DEFAULT } from '../core/teamCulture.js';
@@ -964,7 +966,7 @@ function buildTeamContractSnapshot(teamId) {
     return years <= 1;
   });
 
-  const allFreeAgents = cache.getAllPlayers().filter((p) => isFreeAgent(p));
+  const allFreeAgents = cache.getAllPlayers().filter((p) => isSignableFreeAgent(p));
   const hotPositions = {};
   for (const pos of Object.keys(depth)) {
     hotPositions[pos] = computeMarketHeat(pos, allFreeAgents);
@@ -1593,7 +1595,7 @@ function awardCompensatoryPicksForUpcomingDraft(metaObj = ensureCompMeta(cache.g
   if (!year) return [];
   if ((metaObj?.compPicksGeneratedForSeason ?? []).includes(year)) return [];
 
-  const allTeams = cache.getAllTeams();
+  const allTeams = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
   const rows = (metaObj?.offseasonFaMovements ?? []).filter((row) =>
     Number(row?.compSeason ?? year) === year && row?.qualifying && row?.externalSigning
   );
@@ -1659,7 +1661,7 @@ function calcAssetBundleValue({ playerIds = [], pickIds = [] } = {}, context = {
 
 function resolvePickById(pickId) {
   if (pickId == null) return null;
-  const allTeams = cache.getAllTeams();
+  const allTeams = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
   for (const team of allTeams) {
     const picks = Array.isArray(team?.picks) ? team.picks : [];
     const found = picks.find((pk) => String(pk?.id) === String(pickId));
@@ -3707,6 +3709,7 @@ async function handleAdvanceWeek(payload, id) {
       year: meta?.year,
       phase: meta?.phase,
       suspensionFrequency: Number(getLeagueSetting('suspensionFrequency', 50)),
+      rng: Utils.random,
     });
     applyDynamicEventEffects(dynamicEvents);
     let currentMeta = cache.getMeta();
@@ -7033,16 +7036,17 @@ async function handleRetireJerseyNumber({ teamId, playerId }, id) {
     return;
   }
 
-  // Find the player in the Ring of Honor or retired pool
-  let player = cache.getPlayer(playerId);
-  if (!player) {
-    // Check retiredPlayers in meta
-    const retired = Array.isArray(meta?.retiredPlayers) ? meta.retiredPlayers : [];
-    player = retired.find((p) => String(p?.id) === String(playerId)) ?? null;
-  }
-  if (!player) {
-    try { player = await Players.load(playerId); } catch (_) { player = null; }
-  }
+  // Legacy compact ledger rows may omit jerseyNumber. Load the durable player
+  // in that case without restoring the full record to the hot cache.
+  let player = null;
+  try {
+    player = await resolveRetiredPlayerForJersey({
+      playerId,
+      cachedPlayer: cache.getPlayer(playerId),
+      retiredPlayers: meta?.retiredPlayers,
+      loadPlayer: (idToLoad) => Players.load(idToLoad),
+    });
+  } catch (_) { player = null; }
   if (!player) {
     post(toUI.ERROR, { message: 'Player not found for jersey retirement.' }, id);
     return;
@@ -7388,7 +7392,7 @@ async function finalizeFreeAgencySigning(player, offer, liveMeta) {
 
 function evaluatePlayerOfferDecision(player, offers = [], liveMeta, memory = {}) {
   if (!player || !offers.length) return { status: 'pending', reason: 'No offers yet', bestOffer: null };
-  const freeAgents = cache.getAllPlayers().filter((p) => isFreeAgent(p));
+  const freeAgents = cache.getAllPlayers().filter((p) => isSignableFreeAgent(p));
   const heat = computeMarketHeat(player.pos, freeAgents);
   const profile = buildContractProfile(player);
   const ask = buildDemandFromProfile(player, profile, { marketHeat: heat, morale: player.morale ?? 68, fit: 65, teamSuccess: 0.5 });
@@ -7429,7 +7433,7 @@ function evaluatePlayerOfferDecision(player, offers = [], liveMeta, memory = {})
       askYears: ask.yearsTotal,
     });
     const score = legacyScore * 55 + (evalResult.score / 100) * 45;
-    if (score > bestScore) {
+    if (score > bestScore || (score === bestScore && (!bestOffer || stableIdCompare(offer?.teamId, bestOffer?.teamId) < 0))) {
       bestScore = score;
       bestOffer = { ...offer, _evaluation: evalResult, _teamContext: teamContext };
     }
@@ -7563,8 +7567,8 @@ async function resolvePendingFreeAgencyOffers({ resolutionDay = 7, onlyPlayerId 
   const nextMemory = { ...memory };
   const freeAgentsWithOffers = cache.getAllPlayers().filter((p) => {
     if (targetPlayerId != null && Number(p?.id) !== targetPlayerId) return false;
-    return (isFreeAgent(p)) && Array.isArray(p.offers) && p.offers.length > 0;
-  });
+    return isSignableFreeAgent(p) && Array.isArray(p.offers) && p.offers.length > 0;
+  }).sort((a, b) => stableIdCompare(a?.id, b?.id));
 
   const results = [];
   const pendingToNotify = [];
@@ -8443,7 +8447,7 @@ async function handleGetExtensionAsk({ playerId }, id) {
   if (!player) { post(toUI.ERROR, { message: 'Player not found' }, id); return; }
   const team = cache.getTeam(player.teamId ?? meta.userTeamId);
   const profile = buildContractProfile(player);
-  const marketHeat = computeMarketHeat(player.pos, cache.getAllPlayers().filter((p) => isFreeAgent(p)));
+  const marketHeat = computeMarketHeat(player.pos, cache.getAllPlayers().filter((p) => isSignableFreeAgent(p)));
   const demandFromProfile = inflateContract(buildDemandFromProfile(player, profile, {
     marketHeat,
     morale: calculateMorale(player, team, true),
@@ -11558,8 +11562,9 @@ function calculateAwards(stats, teams) {
 
 
 function runAiStaffCarousel(meta, teams) {
-  const market = buildStaffMarket(teams, { year: Number(meta?.year ?? 2025), size: 60 });
-  for (const team of teams) {
+  const sortedTeams = (teams || []).slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
+  const market = buildStaffMarket(sortedTeams, { year: Number(meta?.year ?? 2025), size: 60 });
+  for (const team of sortedTeams) {
     const staff = ensureTeamStaff(team, { year: Number(meta?.year ?? 2025) });
     const winPct = ((team?.wins ?? 0) + 0.5 * (team?.ties ?? 0)) / Math.max(1, (team?.wins ?? 0) + (team?.losses ?? 0) + (team?.ties ?? 0));
     const direction = winPct >= 0.62 ? 'contender' : winPct <= 0.42 ? 'rebuild' : 'balanced';
@@ -11569,7 +11574,7 @@ function runAiStaffCarousel(meta, teams) {
       const currentScore = Number(current?.overall ?? 55);
       const stayBias = direction === 'contender' ? 0.8 : direction === 'rebuild' ? 0.58 : 0.68;
       if (current && currentScore >= 75 && Utils.random() < stayBias) continue;
-      const pool = market.filter((m) => m.roleKey === roleKey).sort((a, b) => Number(b?.overall ?? 0) - Number(a?.overall ?? 0));
+      const pool = market.filter((m) => m.roleKey === roleKey).sort((a, b) => (Number(b?.overall ?? 0) - Number(a?.overall ?? 0)) || String(a?.id ?? a?.name ?? '').localeCompare(String(b?.id ?? b?.name ?? '')));
       if (!pool.length) continue;
       const shortlist = pool.slice(0, 12);
       const candidate = shortlist[Math.floor(Utils.random() * Math.max(2, shortlist.length / 2))] ?? shortlist[0];
@@ -11604,7 +11609,7 @@ async function handleAdvanceOffseason(payload, id) {
   }
 
   // ── Step 1: AI processes contract extensions ──────────────────────────────
-  const allTeams = cache.getAllTeams();
+  const allTeams = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
   for (const team of allTeams) {
     if (team.id !== meta.userTeamId) {
       await AiLogic.processExtensions(team.id);
@@ -11625,7 +11630,7 @@ async function handleAdvanceOffseason(payload, id) {
     const userConf = userTeamObj?.conf ?? null;
 
     // Pre-compute demand snapshots for all expiring players (same as injectAIFaBids)
-    const allPlayers = cache.getAllPlayers();
+    const allPlayers = cache.getAllPlayers().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
     const expiringPlayers = allPlayers.filter((p) => {
       const yrs = Number(p?.contractYearsLeft ?? p?.contract?.yearsRemaining ?? p?.contract?.years ?? 2);
       return yrs <= 1 && p?.teamId != null && Number(p.teamId) !== userTeamId;
@@ -11764,7 +11769,7 @@ async function handleAdvanceOffseason(payload, id) {
   // ── Step 2: Dynamic progression pass ─────────────────────────────────────
   // processPlayerProgression mutates each player's ratings, ovr, and
   // progressionDelta in place.  We then flush those fields to cache.
-  const allPlayers = cache.getAllPlayers();
+  const allPlayers = cache.getAllPlayers().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
   const focusByTeamId = buildTeamDevelopmentFocusMap(meta);
   const playersById = new Map(allPlayers.map((p) => [String(p?.id), p]));
   const attrPlayers = allPlayers.filter((player) => !!player?.attributesV2);
@@ -11995,6 +12000,28 @@ async function handleAdvanceOffseason(payload, id) {
     }
   }
 
+  if (retired.length > 0) {
+    const latestMeta = ensureDynastyMeta(cache.getMeta());
+    const existingRetired = Array.isArray(latestMeta?.retiredPlayers) ? latestMeta.retiredPlayers : [];
+    const existingIds = new Set(existingRetired.map((row) => String(row?.id ?? row?.playerId ?? '')));
+    const retiredRows = retired
+      .filter((row) => row?.id != null && !existingIds.has(String(row.id)))
+      .map((row) => ({
+        id: row.id,
+        playerId: row.id,
+        name: row.name ?? null,
+        pos: row.pos ?? null,
+        age: row.age ?? null,
+        teamId: row.teamId ?? null,
+        jerseyNumber: row.jerseyNumber ?? cache.getPlayer(row.id)?.jerseyNumber ?? null,
+        retirementYear: Number(meta?.year ?? 2025),
+        reason: row.reason ?? null,
+      }));
+    if (retiredRows.length > 0) {
+      cache.setMeta({ retiredPlayers: [...existingRetired, ...retiredRows] });
+    }
+  }
+
   if (hofClass.length > 0) {
     const hofMeta = ensureLeagueMemoryMeta(cache.getMeta());
     const updated = addHallOfFameClass(hofMeta, Number(meta?.year ?? 2025), hofClass);
@@ -12125,9 +12152,9 @@ async function injectAIFaBids(day) {
   const season = Number(meta?.season ?? meta?.year ?? 1);
   const week   = Number(meta?.currentWeek ?? 1);
 
-  const allTeams   = cache.getAllTeams();
-  const allPlayers = cache.getAllPlayers();
-  const freeAgents = allPlayers.filter((p) => isFreeAgent(p));
+  const allTeams   = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
+  const allPlayers = cache.getAllPlayers().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
+  const freeAgents = allPlayers.filter((p) => isSignableFreeAgent(p));
   if (freeAgents.length === 0) return;
 
   const userTeam = cache.getTeam(userTeamId);
@@ -12204,8 +12231,10 @@ async function injectAIFaBids(day) {
       if (!freshPlayer) continue;
       const existingOffers = Array.isArray(freshPlayer.offers) ? freshPlayer.offers : [];
       const withoutThisTeam = existingOffers.filter((o) => Number(o?.teamId) !== Number(teamId));
+      const deterministicTimestamp = Number(season ?? 0) * 100000 + Number(week ?? 0) * 1000 + Number(teamId ?? 0);
       cache.updatePlayer(player.id, {
-        offers: [...withoutThisTeam, { teamId, teamName: team.name, contract, timestamp: Date.now() }],
+        offers: [...withoutThisTeam, { teamId, teamName: team.name, contract, timestamp: deterministicTimestamp }]
+          .sort((a, b) => stableIdCompare(a?.teamId, b?.teamId)),
       });
     }
   }
@@ -12319,7 +12348,7 @@ async function handleAdvanceFreeAgencyDay(payload, id) {
     // Snapshot free-agent player IDs before bids/signings for post-pass events.
     const preBidFaIds = new Set(
       cache.getAllPlayers()
-        .filter((p) => isFreeAgent(p))
+        .filter((p) => isSignableFreeAgent(p))
         .map((p) => p.id),
     );
     try {
@@ -12362,6 +12391,7 @@ async function handleAdvanceFreeAgencyDay(payload, id) {
       year: meta?.year,
       phase: 'free_agency',
       suspensionFrequency: Number(getLeagueSetting('suspensionFrequency', 50)),
+      rng: Utils.random,
     });
     applyDynamicEventEffects(faEvents);
     let faMeta = cache.getMeta();
@@ -13445,6 +13475,11 @@ async function handleStartNewSeason(payload, id) {
       salaryCap: nextEconomy.currentSalaryCap,
     }),
   });
+
+  await AiLogic.ensureMinimumRosters({
+    includeUserTeam: typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__,
+  });
+  for (const team of cache.getAllTeams()) recalculateTeamCap(team.id);
 
   // ── Update franchise all-time leaders once per season rollover ──────────
   try {

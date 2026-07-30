@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isFreeAgent } from '../membership.js';
+import { isFreeAgent, isSignableFreeAgent } from '../membership.js';
 
 describe('isFreeAgent — canonical free-agency membership predicate', () => {
   it('treats a null/undefined teamId as a free agent', () => {
@@ -34,5 +34,24 @@ describe('isFreeAgent — canonical free-agency membership predicate', () => {
   it('is null-safe', () => {
     expect(isFreeAgent(null)).toBe(false);
     expect(isFreeAgent(undefined)).toBe(false);
+  });
+});
+
+describe('isSignableFreeAgent — production signing authority', () => {
+  it('accepts current and legacy free-agent rows', () => {
+    expect(isSignableFreeAgent({ teamId: null, status: 'free_agent' })).toBe(true);
+    expect(isSignableFreeAgent({ teamId: null, status: 'unsigned' })).toBe(true);
+    expect(isSignableFreeAgent({ teamId: 'FA' })).toBe(true);
+  });
+
+  it.each(['retired', 'draft_eligible', 'draft_pool', 'deleted', 'removed'])(
+    'rejects null-team %s rows',
+    (status) => expect(isSignableFreeAgent({ teamId: null, status })).toBe(false),
+  );
+
+  it('rejects retired flags, inconsistent active rows, and team zero players', () => {
+    expect(isSignableFreeAgent({ teamId: null, status: 'free_agent', retired: true })).toBe(false);
+    expect(isSignableFreeAgent({ teamId: null, status: 'active' })).toBe(false);
+    expect(isSignableFreeAgent({ teamId: 0, status: 'active' })).toBe(false);
   });
 });

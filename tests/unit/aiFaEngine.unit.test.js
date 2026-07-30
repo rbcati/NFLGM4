@@ -331,6 +331,45 @@ describe('getAIFaTargets', () => {
       expect(r1.get(10).map((p) => p.id)).toEqual(r2.get(10).map((p) => p.id));
     }
   });
+
+  it('orders teams and same-tier candidates by canonical id to stabilize offer writes', () => {
+    const meta = { userTeamId: 0 };
+    const teamsA = [makeTeam({ id: 17, wins: 8, losses: 8 }), makeTeam({ id: 2, wins: 8, losses: 8 })];
+    const teamsB = [...teamsA].reverse();
+    const playersA = [makePlayer({ id: 'z', ovr: 71 }), makePlayer({ id: 'a', ovr: 71 }), makePlayer({ id: 9, ovr: 71 })];
+    const playersB = [...playersA].reverse();
+    const r1 = getAIFaTargets(teamsA, playersA, meta, 2028, 1);
+    const r2 = getAIFaTargets(teamsB, playersB, meta, 2028, 1);
+    expect([...r1.keys()]).toEqual([2, 17]);
+    expect([...r2.keys()]).toEqual([2, 17]);
+    expect(r1.get(2).map((p) => p.id)).toEqual([9, 'a', 'z']);
+    expect(r2.get(2).map((p) => p.id)).toEqual([9, 'a', 'z']);
+  });
+
+  it('defensively excludes unavailable null-team rows from AI targets', () => {
+    const teams = [makeTeam({ id: 10, wins: 12, losses: 4, capRoom: 50 })];
+    const players = [
+      makePlayer({ id: 'eligible', teamId: null, status: 'free_agent', ovr: 80 }),
+      makePlayer({ id: 'retired', teamId: null, status: 'retired', retired: true, ovr: 99 }),
+      makePlayer({ id: 'draft', teamId: null, status: 'draft_eligible', ovr: 99 }),
+      makePlayer({ id: 'active-null', teamId: null, status: 'active', ovr: 99 }),
+      makePlayer({ id: 'team-zero', teamId: 0, status: 'active', ovr: 99 }),
+    ];
+    const targets = getAIFaTargets(teams, players, meta, 2026, 1).get(10) ?? [];
+    expect(targets.map((player) => player.id)).toEqual(['eligible']);
+  });
+
+  it('resolves equal-score offers independently of incoming offer order', () => {
+    const player = makePlayer({ id: 9047 });
+    const offers = [
+      { teamId: 30, amount: 8, years: 1 },
+      { teamId: 9, amount: 8, years: 1 },
+      { teamId: 17, amount: 8, years: 1 },
+    ];
+    const a = resolvePlayerChoice(player, offers, { adjustedDemand: 8, season: 2028, week: 1 });
+    const b = resolvePlayerChoice(player, [...offers].reverse(), { adjustedDemand: 8, season: 2028, week: 1 });
+    expect(b.winningOffer.teamId).toBe(a.winningOffer.teamId);
+  });
 });
 
 // ── AI_POSTURE_BID_FACTORS structure ─────────────────────────────────────────

@@ -43,6 +43,22 @@ export function retireJerseyNumber(team, player) {
   return { ...team, retiredNumbers: updated };
 }
 
+/** Resolve compact retirement data, falling back to durable storage when an
+ * older ledger row does not contain the jersey number required by the action. */
+export async function resolveRetiredPlayerForJersey({ playerId, cachedPlayer = null, retiredPlayers = [], loadPlayer }) {
+  if (cachedPlayer) return cachedPlayer;
+  const ledgerPlayer = (Array.isArray(retiredPlayers) ? retiredPlayers : [])
+    .find((player) => String(player?.id ?? player?.playerId) === String(playerId)) ?? null;
+  const ledgerJersey = Number(ledgerPlayer?.jerseyNumber);
+  if (ledgerPlayer && Number.isInteger(ledgerJersey) && ledgerJersey >= 1 && ledgerJersey <= 99) return ledgerPlayer;
+  if (typeof loadPlayer !== 'function') return ledgerPlayer;
+  try {
+    return (await loadPlayer(playerId)) ?? ledgerPlayer;
+  } catch {
+    return ledgerPlayer;
+  }
+}
+
 /**
  * Append a championship year to the franchise history.
  * Ignores duplicate years.

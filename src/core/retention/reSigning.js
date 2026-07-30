@@ -1,6 +1,7 @@
 import { buildContractProfile, buildDemandFromProfile, computeMarketHeat, inferTeamDirection } from '../contract-market.js';
 import { evaluateContractOffer } from '../contracts/negotiation.js';
 import { getTeamContextForNegotiation } from '../teamContext/negotiationContext.js';
+import { isSignableFreeAgent } from '../freeAgency/membership.js';
 
 function safeNum(v, d = 0) {
   const n = Number(v);
@@ -49,7 +50,7 @@ export function getExtensionReadiness(player = {}, context = {}) {
 
 export function evaluateReSigningPriority(player = {}, team = {}, league = {}) {
   const roster = (league?.players ?? []).filter((p) => Number(p?.teamId) === Number(team?.id));
-  const freeAgents = (league?.players ?? []).filter((p) => !p?.teamId || p?.status === 'free_agent');
+  const freeAgents = (league?.players ?? []).filter((p) => isSignableFreeAgent(p));
   const teamDirection = inferTeamDirection(team, Number(league?.week ?? 1));
   const profile = buildContractProfile(player, { tenureYears: safeNum(player?.tenureYears, 0) });
   const marketHeat = computeMarketHeat(player?.pos, freeAgents);

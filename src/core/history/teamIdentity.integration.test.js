@@ -5,7 +5,7 @@
  * and the migrateLeague schema from state.js.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   retireJerseyNumber,
   appendChampionshipYear,
@@ -13,6 +13,7 @@ import {
   findAvailableJerseyNumber,
   buildRetiredNumberDisplay,
   createDefaultTeamIdentity,
+  resolveRetiredPlayerForJersey,
 } from './teamIdentityEngine.js';
 import { State } from '../../core/state.js';
 
@@ -164,6 +165,33 @@ describe('retireJerseyNumber — handler semantics', () => {
     const player = makePlayer({ jerseyNumber: undefined });
     expect(() => retireJerseyNumber(team, player)).not.toThrow();
     expect(team.retiredNumbers).toHaveLength(0); // no mutation
+  });
+
+  it('uses a complete compact ledger row without loading the full player', async () => {
+    const loadPlayer = vi.fn();
+    const player = await resolveRetiredPlayerForJersey({
+      playerId: 'p1', retiredPlayers: [{ id: 'p1', jerseyNumber: 12 }], loadPlayer,
+    });
+    expect(player.jerseyNumber).toBe(12);
+    expect(loadPlayer).not.toHaveBeenCalled();
+  });
+
+  it('falls back to IndexedDB for a legacy compact row without jerseyNumber', async () => {
+    const loadPlayer = vi.fn(async () => makePlayer({ id: 'p1', jerseyNumber: 12 }));
+    const player = await resolveRetiredPlayerForJersey({
+      playerId: 'p1', retiredPlayers: [{ id: 'p1', name: 'Legacy' }], loadPlayer,
+    });
+    expect(player.jerseyNumber).toBe(12);
+    expect(loadPlayer).toHaveBeenCalledWith('p1');
+  });
+
+  it('leaves a truly invalid jersey number for handler validation to reject', async () => {
+    const player = await resolveRetiredPlayerForJersey({
+      playerId: 'p1',
+      retiredPlayers: [{ id: 'p1' }],
+      loadPlayer: vi.fn(async () => makePlayer({ jerseyNumber: null })),
+    });
+    expect(retireJerseyNumber(makeTeam(), player).retiredNumbers).toHaveLength(0);
   });
 });
 
