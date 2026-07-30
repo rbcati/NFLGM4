@@ -220,9 +220,16 @@ const LEADER_SPECS = [
 
 export function buildStatLeaderCards(playerTables = {}) {
   const players = [...(playerTables.away ?? []), ...(playerTables.home ?? [])];
+  const selectedPlayerIds = new Set();
   return LEADER_SPECS.map((spec) => {
     const candidates = players.filter((player) => spec.includeKeys.some((key) => (toNum(player?.stats?.[key]) ?? 0) > 0));
-    const player = sortLeaderCandidates(candidates, spec.primaryKeys, spec.tieKeys)[0] ?? null;
+    // A multi-role player can lead more than one category. The compact key-
+    // performer strip is more useful when every person appears once; choose the
+    // next recorded candidate in deterministic order rather than duplicating a
+    // player or manufacturing a line.
+    const player = sortLeaderCandidates(candidates, spec.primaryKeys, spec.tieKeys)
+      .find((candidate) => !selectedPlayerIds.has(String(candidate?.playerId))) ?? null;
+    if (player?.playerId != null) selectedPlayerIds.add(String(player.playerId));
     return {
       key: spec.key,
       label: spec.label,
@@ -488,7 +495,7 @@ export function unwrapBoxScoreResponse(response) {
   return response;
 }
 
-export function buildBoxScoreViewModel({ league, game, gameId, context = {}, scheduleGame = null } = {}) {
+export function buildGameBookPresentation({ league, game, gameId, context = {}, scheduleGame = null } = {}) {
   const rawGame = unwrapBoxScoreResponse(game);
   const payload = mergeArchivedGameWithScheduleResult(rawGame, scheduleGame) ?? normalizeArchivedGamePayload(rawGame ?? null) ?? rawGame ?? null;
   if (!payload) {
@@ -572,6 +579,10 @@ export function buildBoxScoreViewModel({ league, game, gameId, context = {}, sch
     return 'Game data missing.';
   })();
 
+  const playerStatSections = buildPlayerStatSections(playerTables);
+  const statLeaderCards = buildStatLeaderCards(playerTables);
+  const decisiveMoments = (turningPointRows.length ? turningPointRows : scoringSummary).slice(0, 4);
+
   return {
     gameId: payload?.gameId ?? payload?.id ?? gameId ?? null,
     season: payload?.seasonId ?? context?.season ?? league?.seasonId ?? null,
@@ -584,6 +595,8 @@ export function buildBoxScoreViewModel({ league, game, gameId, context = {}, sch
     finalScoreLine: formatScoreLine(awayTeam, homeTeam, finalScore),
     headlineSummary: buildHeadline({ awayTeam, homeTeam, finalScore, status: payload?.played === false ? 'Scheduled' : 'Final' }),
     winnerSide,
+    winner: winnerSide ? (winnerSide === 'home' ? homeTeam : awayTeam) : null,
+    tie: Boolean(hasScore && homeScore === awayScore),
     margin: hasScore ? Math.abs(homeScore - awayScore) : null,
     quarterScores,
     isCanonicalLedger,
@@ -597,8 +610,10 @@ export function buildBoxScoreViewModel({ league, game, gameId, context = {}, sch
     notablePerformanceRows,
     injuryRows,
     playerTables,
-    playerStatSections: buildPlayerStatSections(playerTables),
-    statLeaderCards: buildStatLeaderCards(playerTables),
+    playerStatSections,
+    statLeaderCards,
+    keyPerformers: statLeaderCards.filter((card) => card.available),
+    decisiveMoments,
     availableData: {
       finalScore: hasScore,
       quarterScores: hasQuarter,
@@ -610,6 +625,11 @@ export function buildBoxScoreViewModel({ league, game, gameId, context = {}, sch
       turningPoints: hasTurningPoints,
       notablePerformances: hasNotablePerformances,
       injuries: hasInjuries,
+      specialTeams: Boolean(specialTeams?.hasData),
+    },
+    legacyData: {
+      archive: !isCanonicalLedger,
+      quarterScores: hasQuarter && !isCanonicalLedger,
     },
     gameFlowSummary: buildGameFlowSummary(payload),
     gameReasoningFlags: Array.isArray(payload?.gameReasoningFlags) ? payload.gameReasoningFlags : [],
@@ -620,3 +640,8 @@ export function buildBoxScoreViewModel({ league, game, gameId, context = {}, sch
     hasDetailedStats: archiveQuality === QUALITY.full || archiveQuality === QUALITY.partial,
   };
 }
+
+// Backward-compatible name for callers outside the Game Book. New postgame
+// presentation surfaces should use buildGameBookPresentation so the ownership
+// boundary is explicit.
+export const buildBoxScoreViewModel = buildGameBookPresentation;
