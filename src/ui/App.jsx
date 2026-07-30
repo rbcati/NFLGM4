@@ -258,6 +258,26 @@ function AppContent() {
   const [postGameResultStash, setPostGameResultStash] = useState(null);
   // Skip-mode summary shown after advanceWeek({ skipUserGame: true }) completes
   const [skipGameSummary, setSkipGameSummary] = useState(null);
+  // Only Game Book navigation may retain a briefing. Preparation actions route
+  // honestly to their existing screens and must never leave restorable state.
+  const [gameBookBriefingStash, setGameBookBriefingStash] = useState(null);
+  const [externalDashboardDestination, setExternalDashboardDestination] = useState(null);
+  const nextWeekBriefingContext = useMemo(() => {
+    const week = league?.week;
+    const userTeamId = league?.userTeamId;
+    const weekRow = (league?.schedule?.weeks ?? []).find((row) => Number(row?.week) === Number(week));
+    const matchup = (weekRow?.games ?? []).find((game) => {
+      const homeId = game?.home?.id ?? game?.homeId ?? game?.home;
+      const awayId = game?.away?.id ?? game?.awayId ?? game?.away;
+      return Number(homeId) === Number(userTeamId) || Number(awayId) === Number(userTeamId);
+    });
+    if (!matchup) return { week };
+    const homeId = matchup?.home?.id ?? matchup?.homeId ?? matchup?.home;
+    const awayId = matchup?.away?.id ?? matchup?.awayId ?? matchup?.away;
+    const opponentId = Number(homeId) === Number(userTeamId) ? awayId : homeId;
+    const opponent = (league?.teams ?? []).find((team) => Number(team?.id) === Number(opponentId));
+    return { week, opponentAbbr: opponent?.abbr ?? null };
+  }, [league?.schedule?.weeks, league?.teams, league?.userTeamId, league?.week]);
   const lastShownSkipWeekRef = useRef(null);
   const [initFlow, setInitFlow] = useState(null);
   const [bootRequestId, setBootRequestId] = useState(null);
@@ -1557,11 +1577,17 @@ function AppContent() {
           notifications={notifications}
           onDismissNotification={actions.dismissNotification}
           externalBoxScoreId={externalBoxScoreId}
+          externalDestination={externalDashboardDestination}
+          onConsumeExternalDestination={() => setExternalDashboardDestination(null)}
           onConsumeExternalBoxScore={() => setExternalBoxScoreId(null)}
           onGameDetailBack={() => {
             if (postGameResultStash) {
               setPostGameResult(postGameResultStash);
               setPostGameResultStash(null);
+            }
+            if (gameBookBriefingStash) {
+              setSkipGameSummary(gameBookBriefingStash);
+              setGameBookBriefingStash(null);
             }
           }}
           advanceLabel={getAdvanceLabel()}
@@ -1948,7 +1974,19 @@ function AppContent() {
           injuries={skipGameSummary.injuries}
           momentumChange={skipGameSummary.momentumChange}
           onClose={() => setSkipGameSummary(null)}
+          nextWeek={nextWeekBriefingContext}
+          onPreparationAction={(destination) => {
+            setGameBookBriefingStash(null);
+            setSkipGameSummary(null);
+            setExternalDashboardDestination(destination);
+          }}
+          onContinue={() => {
+            setGameBookBriefingStash(null);
+            setSkipGameSummary(null);
+            setExternalDashboardDestination('HQ');
+          }}
           onViewGameBook={skipGameSummary.gameId ? () => {
+            setGameBookBriefingStash(skipGameSummary);
             setSkipGameSummary(null);
             setExternalBoxScoreId(skipGameSummary.gameId);
           } : undefined}

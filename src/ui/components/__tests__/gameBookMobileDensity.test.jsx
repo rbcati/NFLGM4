@@ -10,7 +10,7 @@ import { readFileSync, globSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render } from '@testing-library/react';
+import { cleanup, fireEvent, render } from '@testing-library/react';
 import BoxScore from '../BoxScore.jsx';
 import GameDetailScreen from '../GameDetailScreen.jsx';
 
@@ -106,9 +106,18 @@ describe('Game Book mobile density — section hierarchy', () => {
     return Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
   }
 
+  function openTab(label) {
+    const tab = [...document.querySelectorAll('[role="tab"]')].find((node) => node.textContent === label);
+    expect(tab, `${label} tab should be available`).toBeTruthy();
+    fireEvent.click(tab);
+  }
+
   it('renders the final score before any dense stat table', () => {
-    const { getByTestId } = renderRichBoxScore();
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
     const hero = getByTestId('game-book-score-hero');
+    expect(getByTestId('game-book-view-summary')).toBeTruthy();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
+    openTab('Players');
     const playerStats = getByTestId('game-book-player-stats');
     expect(isBefore(hero, playerStats)).toBe(true);
   });
@@ -150,48 +159,51 @@ describe('Game Book mobile density — section hierarchy', () => {
   });
 
   it('renders key leaders above the full player stat tables', () => {
-    const { getByTestId } = renderRichBoxScore();
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
     const leaders = getByTestId('game-book-leaders');
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
+    openTab('Players');
     const playerStats = getByTestId('game-book-player-stats');
-    expect(isBefore(leaders, playerStats)).toBe(true);
+    expect(playerStats).toBeTruthy();
     // Sanity: leaders actually surface top performers, not just a label.
     expect(leaders.textContent).toMatch(/Home QB|Home RB|Home WR|Away QB/);
   });
 
   it('renders decisive moments above the full player stat tables and full play-by-play', () => {
-    const { getByTestId } = renderRichBoxScore();
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
     const moments = getByTestId('game-book-moments');
-    const playerStats = getByTestId('game-book-player-stats');
-    const playByPlay = getByTestId('game-book-play-by-play');
-    expect(isBefore(moments, playerStats)).toBe(true);
-    expect(isBefore(moments, playByPlay)).toBe(true);
+    expect(moments).toBeTruthy();
+    expect(queryByTestId('game-book-play-by-play')).toBeNull();
+    openTab('Plays');
+    expect(getByTestId('game-book-play-by-play')).toBeTruthy();
+    expect(queryByTestId('game-book-moments')).toBeNull();
   });
 
   it('renders team stat comparison above the full player stat tables', () => {
-    const { getByTestId } = renderRichBoxScore();
-    const teamStats = getByTestId('game-book-team-stats');
-    const playerStats = getByTestId('game-book-player-stats');
-    expect(isBefore(teamStats, playerStats)).toBe(true);
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
+    expect(queryByTestId('game-book-team-stats')).toBeNull();
+    openTab('Team Stats');
+    expect(getByTestId('game-book-team-stats')).toBeTruthy();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
   });
 
-  it('collapses dense sections behind native <details> closed by default', () => {
-    const { getByTestId } = renderRichBoxScore();
-    for (const testId of ['game-book-scoring-summary', 'game-book-team-stats', 'game-book-player-stats', 'game-book-play-by-play']) {
-      const el = getByTestId(testId);
-      expect(el.tagName).toBe('DETAILS');
-      expect(el.hasAttribute('open')).toBe(false);
-      // A summary teaser must still be visible without expansion.
-      expect(el.querySelector('summary')).toBeTruthy();
-    }
+  it('does not render inactive dense sections', () => {
+    const { getByTestId, queryByTestId } = renderRichBoxScore();
+    expect(getByTestId('game-book-scoring-summary').tagName).toBe('DETAILS');
+    expect(queryByTestId('game-book-team-stats')).toBeNull();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
+    expect(queryByTestId('game-book-play-by-play')).toBeNull();
   });
 
   it('places the full play-by-play log lower in DOM order than the score hero and leaders', () => {
     const { getByTestId } = renderRichBoxScore();
     const hero = getByTestId('game-book-score-hero');
     const leaders = getByTestId('game-book-leaders');
+    openTab('Plays');
     const playByPlay = getByTestId('game-book-play-by-play');
-    expect(isBefore(hero, playByPlay)).toBe(true);
-    expect(isBefore(leaders, playByPlay)).toBe(true);
+    expect(hero).toBeTruthy();
+    expect(playByPlay).toBeTruthy();
+    expect(leaders.isConnected).toBe(false);
   });
 
   it('does not mutate the game/archive data it renders', () => {
@@ -211,7 +223,8 @@ describe('Game Book mobile density — section hierarchy', () => {
   it('still renders when stat leader source data is missing', () => {
     const { getByTestId, queryByTestId } = renderSparseBoxScore({ playerStats: undefined });
     expect(getByTestId('game-book-score-hero')).toBeTruthy();
-    expect(getByTestId('game-book-player-stats')).toBeTruthy();
+    expect(queryByTestId('game-book-player-stats')).toBeNull();
+    expect([...document.querySelectorAll('[role="tab"]')].some((node) => node.textContent === 'Players')).toBe(false);
     expect(queryByTestId('game-book-leaders')).toBeNull();
   });
 

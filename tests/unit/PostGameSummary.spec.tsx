@@ -155,6 +155,21 @@ describe('PostGameSummary', () => {
     expect(screen.getByText('OUT')).toBeTruthy();
   });
 
+  it('opens existing preparation workflows and continues to the next week', () => {
+    const onPreparationAction = vi.fn();
+    const onContinue = vi.fn();
+    render(<PostGameSummary gameResult={BASE_RESULT} nextWeek={{ week: 4, opponentAbbr: 'LV' }} onPreparationAction={onPreparationAction} onContinue={onContinue} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Game Plan' }));
+    expect(onPreparationAction).toHaveBeenCalledWith('Game Plan');
+    fireEvent.click(screen.getByRole('button', { name: 'Continue to Week 4' }));
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
+  it('does not render a performer with an empty metric', () => {
+    render(<PostGameSummary gameResult={BASE_RESULT} leaders={[{ name: 'Blank Metric', statLine: '' }]} onClose={() => {}} />);
+    expect(screen.queryByText('Blank Metric')).toBeNull();
+  });
+
   it('shows positive momentum label', () => {
     render(
       <PostGameSummary
