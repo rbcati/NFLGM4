@@ -30,7 +30,7 @@ export function PlayerButton({ player, onSelect, context }) {
   );
 }
 
-const TAB_KEYS = ['passing', 'rushing', 'defense'];
+const TAB_KEYS = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'returns'];
 const MAX_STAT_ROWS = 6;
 
 function BoxScore({
@@ -47,6 +47,7 @@ function BoxScore({
   backLabel = "Back to flow",
 }) {
   const [activeTab, setActiveTab] = useState('passing');
+  const [activeView, setActiveView] = useState('summary');
 
   const canLoadArchive = Boolean(gameId && typeof actions?.getBoxScore === "function");
   const { data: archiveGame } = useStableRouteRequest({
@@ -214,8 +215,21 @@ function BoxScore({
         <div className="bs-sheet-meta">Week {vm.week ?? mdash} · Season {vm.season ?? mdash}</div>
       </div>
 
+      <div className="bs-sheet-view-tabs" role="tablist" aria-label="Game Book sections">
+        {[
+          ['summary', 'Summary'],
+          ...(teamComparisonRows.length ? [['team-stats', 'Team Stats']] : []),
+          ...(tableSections.length ? [['players', 'Players']] : []),
+          ...(playByPlayRows.length ? [['plays', 'Plays']] : []),
+        ].map(([key, label]) => (
+          <button key={key} type="button" role="tab" aria-selected={activeView === key} className={`bs-sheet-view-tab${activeView === key ? ' is-active' : ''}`} onClick={() => setActiveView(key)}>{label}</button>
+        ))}
+      </div>
+
+      <div role="tabpanel" data-testid={`game-book-view-${activeView}`}>
+
       {/* ── KEY LEADERS — priority 2: top performers above dense tables ─── */}
-      {keyLeaders.length > 0 && (
+      {activeView === 'summary' && keyLeaders.length > 0 && (
         <div className="bs-sheet-leaders" data-testid="game-book-leaders">
           <div className="bs-sheet-section-title">Key Leaders</div>
           {keyLeaders.map((leader) => (
@@ -228,13 +242,13 @@ function BoxScore({
       )}
 
       {/* ── EXECUTIVE SUMMARY — inline bullets or hidden debug div ──────── */}
-      {reasoningBullets.length > 0 ? (
+      {activeView === 'summary' && reasoningBullets.length > 0 ? (
         <div className="bs-sheet-exec" data-testid="game-book-executive-summary">
           {reasoningBullets.slice(0, 3).map((bullet) => (
             <span key={bullet} className="bs-sheet-exec-bullet">• {bullet}</span>
           ))}
         </div>
-      ) : (
+      ) : activeView === 'summary' ? (
         /* Debug div: hidden from UI but inspectable during development to verify
            that the gameReasoningFlags array is arriving correctly. The data-flags-count
            attribute surfaces the raw array length so you can confirm the prop plumbing
@@ -245,10 +259,10 @@ function BoxScore({
           data-testid="game-book-exec-debug"
           data-flags-count={String(rawFlags.length)}
         />
-      )}
+      ) : null}
 
       {/* ── DECISIVE MOMENTS — priority 3: short teaser, always visible ─── */}
-      {decisiveMoments.length > 0 && (
+      {activeView === 'summary' && decisiveMoments.length > 0 && (
         <div className="bs-sheet-moments" data-testid="game-book-moments">
           <div className="bs-sheet-section-title">Decisive Moments</div>
           {decisiveMoments.map((m, i) => (
@@ -267,14 +281,14 @@ function BoxScore({
           table is shown; a compact honest note appears instead. Legacy archives
           with genuine stored quarter data still render their linescore. The
           final score + scoring summary below remain fully canonical either way. */}
-      {vm.isCanonicalLedger && !vm.availableData?.quarterScores && (
+      {activeView === 'summary' && vm.isCanonicalLedger && !vm.availableData?.quarterScores && (
         <div className="bs-sheet-quarter-unavailable" data-testid="game-book-quarter-unavailable">
           Quarter breakdown unavailable for this game.
         </div>
       )}
 
       {/* ── FULL SCORING SUMMARY — collapsed, exhaustive list ────────────── */}
-      {scoringSummaryRows.length > 0 && (
+      {activeView === 'summary' && scoringSummaryRows.length > 0 && (
         <details className="bs-sheet-details" data-testid="game-book-scoring-summary">
           <summary>Full Scoring Summary ({scoringSummaryRows.length})</summary>
           <div className="bs-sheet-details-body">
@@ -291,9 +305,9 @@ function BoxScore({
       )}
 
       {/* ── TEAM STAT COMPARISON — priority 4, collapsed ─────────────────── */}
-      {teamComparisonRows.length > 0 && (
-        <details className="bs-sheet-details" data-testid="game-book-team-stats">
-          <summary>Team Stat Comparison</summary>
+      {activeView === 'team-stats' && teamComparisonRows.length > 0 && (
+        <section className="bs-sheet-details" data-testid="game-book-team-stats" aria-label="Team Stat Comparison">
+          <h3 className="bs-sheet-view-heading">Team Stat Comparison</h3>
           <div className="bs-sheet-details-body">
             <div className="bs-sheet-compare-head">
               <span>{awayAbbr}</span>
@@ -308,11 +322,11 @@ function BoxScore({
               </div>
             ))}
           </div>
-        </details>
+        </section>
       )}
 
       {/* ── SPECIAL TEAMS — compact kicking & field-position summary ─────── */}
-      {specialTeams?.hasData && (
+      {activeView === 'summary' && specialTeams?.hasData && (
         <div className="bs-sheet-leaders" data-testid="game-book-special-teams">
           <div className="bs-sheet-section-title">Special Teams</div>
           <div className="bs-sheet-compare-head">
@@ -338,11 +352,11 @@ function BoxScore({
       )}
 
       {/* ── FULL PLAYER STATS — priority 5, collapsed dense tables ───────── */}
-      <details className="bs-sheet-details" data-testid="game-book-player-stats">
-        <summary>Full Player Stats</summary>
+      {activeView === 'players' && <section className="bs-sheet-details" data-testid="game-book-player-stats" aria-label="Player Stats">
+        <h3 className="bs-sheet-view-heading">Player Stats</h3>
         <div className="bs-sheet-details-body">
           <div className="bs-sheet-tab-row" data-testid="game-book-stat-tabs" role="tablist" aria-label="Stat category">
-            {TAB_KEYS.map((tab) => (
+            {TAB_KEYS.filter((tab) => tableSections.some((section) => section.key === tab)).map((tab) => (
               <button
                 key={tab}
                 type="button"
@@ -360,12 +374,12 @@ function BoxScore({
             {renderStatRows(activeSection)}
           </div>
         </div>
-      </details>
+      </section>}
 
       {/* ── FULL PLAY-BY-PLAY — priority 6, collapsed drive/play log ─────── */}
-      {playByPlayRows.length > 0 && (
-        <details className="bs-sheet-details" data-testid="game-book-play-by-play">
-          <summary>Full Play-by-Play ({playByPlayRows.length})</summary>
+      {activeView === 'plays' && playByPlayRows.length > 0 && (
+        <section className="bs-sheet-details" data-testid="game-book-play-by-play" aria-label="Play-by-Play">
+          <h3 className="bs-sheet-view-heading">Play-by-Play ({playByPlayRows.length})</h3>
           <div className="bs-sheet-details-body">
             {playByPlayRows.map((row) => (
               <div key={row.id} className={`bs-sheet-row${row.isKey ? " bs-sheet-row--key" : ""}`}>
@@ -376,8 +390,9 @@ function BoxScore({
               </div>
             ))}
           </div>
-        </details>
+        </section>
       )}
+      </div>
     </div>
   );
 }

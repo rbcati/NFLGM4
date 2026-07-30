@@ -258,6 +258,8 @@ function AppContent() {
   const [postGameResultStash, setPostGameResultStash] = useState(null);
   // Skip-mode summary shown after advanceWeek({ skipUserGame: true }) completes
   const [skipGameSummary, setSkipGameSummary] = useState(null);
+  const [skipGameSummaryStash, setSkipGameSummaryStash] = useState(null);
+  const [externalDashboardDestination, setExternalDashboardDestination] = useState(null);
   const lastShownSkipWeekRef = useRef(null);
   const [initFlow, setInitFlow] = useState(null);
   const [bootRequestId, setBootRequestId] = useState(null);
@@ -1557,11 +1559,17 @@ function AppContent() {
           notifications={notifications}
           onDismissNotification={actions.dismissNotification}
           externalBoxScoreId={externalBoxScoreId}
+          externalDestination={externalDashboardDestination}
+          onConsumeExternalDestination={() => setExternalDashboardDestination(null)}
           onConsumeExternalBoxScore={() => setExternalBoxScoreId(null)}
           onGameDetailBack={() => {
             if (postGameResultStash) {
               setPostGameResult(postGameResultStash);
               setPostGameResultStash(null);
+            }
+            if (skipGameSummaryStash) {
+              setSkipGameSummary(skipGameSummaryStash);
+              setSkipGameSummaryStash(null);
             }
           }}
           advanceLabel={getAdvanceLabel()}
@@ -1948,7 +1956,18 @@ function AppContent() {
           injuries={skipGameSummary.injuries}
           momentumChange={skipGameSummary.momentumChange}
           onClose={() => setSkipGameSummary(null)}
+          nextWeek={{ week: league?.week }}
+          onPreparationAction={(destination) => {
+            setSkipGameSummaryStash(skipGameSummary);
+            setSkipGameSummary(null);
+            setExternalDashboardDestination(destination);
+          }}
+          onContinue={() => {
+            setSkipGameSummary(null);
+            setExternalDashboardDestination('HQ');
+          }}
           onViewGameBook={skipGameSummary.gameId ? () => {
+            setSkipGameSummaryStash(skipGameSummary);
             setSkipGameSummary(null);
             setExternalBoxScoreId(skipGameSummary.gameId);
           } : undefined}

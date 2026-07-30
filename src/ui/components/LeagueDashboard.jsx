@@ -632,6 +632,8 @@ export default function LeagueDashboard({
   onDismissNotification,
   externalBoxScoreId,
   onConsumeExternalBoxScore,
+  externalDestination,
+  onConsumeExternalDestination,
   onGameDetailBack,
   advanceLabel = "Advance",
   advanceDisabled = false,
@@ -747,6 +749,12 @@ export default function LeagueDashboard({
     setGameDetailModal({ open: true, gameId: externalBoxScoreId, source: "postgame" });
     onConsumeExternalBoxScore?.();
   }, [externalBoxScoreId, onConsumeExternalBoxScore, activeTab]);
+
+  useEffect(() => {
+    if (!externalDestination) return;
+    setActiveTab(externalDestination);
+    onConsumeExternalDestination?.();
+  }, [externalDestination, onConsumeExternalDestination]);
 
   if (!league) {
     return (
@@ -1639,7 +1647,7 @@ export default function LeagueDashboard({
               onNavigate={setActiveTab}
               onPlayerSelect={handlePlayerSelect}
               onTeamSelect={handleTeamSelect}
-              backLabel={gameDetailModal.source === 'weekly-results' ? 'Back to Weekly Results' : 'Return to HQ'}
+              backLabel={gameDetailModal.source === 'weekly-results' ? 'Back to Weekly Results' : gameDetailModal.source === 'postgame' ? 'Back to Weekly Briefing' : 'Return to HQ'}
             />
           </div>
         </div>
