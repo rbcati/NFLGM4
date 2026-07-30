@@ -177,6 +177,38 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
     expect(h.state.txLog.some((tx) => tx.details?.source === 'minimum_roster_reconciliation')).toBe(true);
   });
 
+  it('recomputes positional needs after each signing and preserves deterministic signing order', async () => {
+    const makeStore = () => ({
+      meta: { userTeamId: 0, economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's5', currentWeek: 1, year: 2030 },
+      teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: LIVE_CAP, deadCap: 0, capRoom: 90 }]]),
+      players: new Map([
+        ['roster-rb', { id: 'roster-rb', teamId: 31, pos: 'RB', ovr: 60, age: 24, status: 'active', contract: contract(1) }],
+        ['fa-qb-a', { id: 'fa-qb-a', teamId: null, pos: 'QB', ovr: 70, age: 25, status: 'free_agent', contract: contract(1) }],
+        ['fa-qb-b', { id: 'fa-qb-b', teamId: null, pos: 'QB', ovr: 69, age: 25, status: 'free_agent', contract: contract(1) }],
+        ['fa-cb', { id: 'fa-cb', teamId: null, pos: 'CB', ovr: 68, age: 25, status: 'free_agent', contract: contract(1) }],
+      ]),
+    });
+    const needsSpy = vi.spyOn(AiLogic, 'calculateTeamNeeds').mockImplementation((teamId) => {
+      const roster = h.mockCache.getPlayersByTeam(teamId);
+      return {
+        QB: roster.some((player) => player.pos === 'QB') ? 1 : 2.2,
+        CB: roster.some((player) => player.pos === 'CB') ? 1 : 2.1,
+      };
+    });
+    const run = async () => {
+      h.state.store = makeStore();
+      h.state.txLog.length = 0;
+      await AiLogic.ensureMinimumRosters({ includeUserTeam: true, minimum: 3 });
+      return h.state.txLog.map((tx) => tx.playerId ?? tx.details?.playerId);
+    };
+    const first = await run();
+    const second = await run();
+    expect(first).toEqual(['fa-qb-a', 'fa-cb']);
+    expect(second).toEqual(first);
+    expect(h.mockCache.getPlayersByTeam(31).map((player) => player.pos).sort()).toEqual(['CB', 'QB', 'RB']);
+    needsSpy.mockRestore();
+  });
+
   it('creates a fresh contract for a released free agent instead of inheriting former-club money or restructure metadata', async () => {
     h.state.store = {
       meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },

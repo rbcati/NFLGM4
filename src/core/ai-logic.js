@@ -348,13 +348,13 @@ class AiLogic {
             let roster = cache.getPlayersByTeam(team.id);
             if (roster.length >= minimum) continue;
 
-            const needs = AiLogic.calculateTeamNeeds(team.id);
-            const neededPositions = Object.keys(needs)
-                .filter((pos) => Number(needs[pos] ?? 0) > 1)
-                .sort((a, b) => (Number(needs[b] ?? 0) - Number(needs[a] ?? 0)) || a.localeCompare(b));
-            const positionOrder = [...neededPositions, ...Constants.POSITIONS.filter((pos) => !neededPositions.includes(pos))];
-
             while (roster.length < minimum) {
+                // Recompute from the updated roster after every successful signing.
+                const needs = AiLogic.calculateTeamNeeds(team.id);
+                const neededPositions = Object.keys(needs)
+                    .filter((pos) => Number(needs[pos] ?? 0) > 1)
+                    .sort((a, b) => (Number(needs[b] ?? 0) - Number(needs[a] ?? 0)) || a.localeCompare(b));
+                const positionOrder = [...neededPositions, ...Constants.POSITIONS.filter((pos) => !neededPositions.includes(pos))];
                 const freshTeam = cache.getTeam(team.id);
                 const liveSalaryCap = resolveLiveCapForMinimumRoster(freshTeam, meta);
                 const freeAgents = cache.getAllPlayers()

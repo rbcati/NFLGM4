@@ -275,6 +275,7 @@ import {
   findAvailableJerseyNumber,
   buildRetiredNumberDisplay,
   derivePreferredJerseyNumber,
+  resolveRetiredPlayerForJersey,
 } from '../core/history/teamIdentityEngine.js';
 import { ensurePersonalityProfile, mentorshipBonusForPlayer, contractPersonalityModifier } from '../core/development/personalitySystem.js';
 import { applyTeamCultureWeek, classifyTeamCulture, buildTeamCultureNarrative, TEAM_CULTURE_DEFAULT } from '../core/teamCulture.js';
@@ -7035,16 +7036,17 @@ async function handleRetireJerseyNumber({ teamId, playerId }, id) {
     return;
   }
 
-  // Find the player in the Ring of Honor or retired pool
-  let player = cache.getPlayer(playerId);
-  if (!player) {
-    // Check retiredPlayers in meta
-    const retired = Array.isArray(meta?.retiredPlayers) ? meta.retiredPlayers : [];
-    player = retired.find((p) => String(p?.id) === String(playerId)) ?? null;
-  }
-  if (!player) {
-    try { player = await Players.load(playerId); } catch (_) { player = null; }
-  }
+  // Legacy compact ledger rows may omit jerseyNumber. Load the durable player
+  // in that case without restoring the full record to the hot cache.
+  let player = null;
+  try {
+    player = await resolveRetiredPlayerForJersey({
+      playerId,
+      cachedPlayer: cache.getPlayer(playerId),
+      retiredPlayers: meta?.retiredPlayers,
+      loadPlayer: (idToLoad) => Players.load(idToLoad),
+    });
+  } catch (_) { player = null; }
   if (!player) {
     post(toUI.ERROR, { message: 'Player not found for jersey retirement.' }, id);
     return;
@@ -12011,6 +12013,7 @@ async function handleAdvanceOffseason(payload, id) {
         pos: row.pos ?? null,
         age: row.age ?? null,
         teamId: row.teamId ?? null,
+        jerseyNumber: row.jerseyNumber ?? cache.getPlayer(row.id)?.jerseyNumber ?? null,
         retirementYear: Number(meta?.year ?? 2025),
         reason: row.reason ?? null,
       }));
