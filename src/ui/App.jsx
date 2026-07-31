@@ -69,6 +69,7 @@ import { applyEventDecision } from './utils/franchiseEvents.js';
 import { logChronicleEvent } from './utils/franchiseChronicle.js';
 import { getBootViewStateValidation, getPlayableLeagueValidation } from '../state/leagueInit.ts';
 import { setLegacyState } from '../state/legacyStateBridge.js';
+import { buildNextWeekStoryContext, loadWeeklyStoryArchivedGame } from './utils/weeklyStoryPresentation.js';
 
 // Increment this when shipping notable UX/bugfix updates so users
 // see the in-app changelog popup once per version.
@@ -262,40 +263,9 @@ function AppContent() {
   // honestly to their existing screens and must never leave restorable state.
   const [gameBookBriefingStash, setGameBookBriefingStash] = useState(null);
   const [externalDashboardDestination, setExternalDashboardDestination] = useState(null);
-  const nextWeekBriefingContext = useMemo(() => {
-    const week = league?.week;
-    const userTeamId = league?.userTeamId;
-    const weekRow = (league?.schedule?.weeks ?? []).find((row) => Number(row?.week) === Number(week));
-    const matchup = (weekRow?.games ?? []).find((game) => {
-      const homeId = game?.home?.id ?? game?.homeId ?? game?.home;
-      const awayId = game?.away?.id ?? game?.awayId ?? game?.away;
-      return Number(homeId) === Number(userTeamId) || Number(awayId) === Number(userTeamId);
-    });
-    if (!matchup) return { week };
-    const homeId = matchup?.home?.id ?? matchup?.homeId ?? matchup?.home;
-    const awayId = matchup?.away?.id ?? matchup?.awayId ?? matchup?.away;
-    const opponentId = Number(homeId) === Number(userTeamId) ? awayId : homeId;
-    const opponent = (league?.teams ?? []).find((team) => Number(team?.id) === Number(opponentId));
-    const userTeam = (league?.teams ?? []).find((team) => Number(team?.id) === Number(userTeamId));
-    const priorMeeting = (league?.schedule?.weeks ?? [])
-      .filter((row) => Number(row?.week) < Number(week))
-      .flatMap((row) => (row?.games ?? []).map((game) => ({ row, game })))
-      .find(({ game }) => {
-        const priorHome = game?.home?.id ?? game?.homeId ?? game?.home;
-        const priorAway = game?.away?.id ?? game?.awayId ?? game?.away;
-        return [Number(priorHome), Number(priorAway)].includes(Number(userTeamId)) && [Number(priorHome), Number(priorAway)].includes(Number(opponentId));
-      });
-    const wins = Number(opponent?.wins); const losses = Number(opponent?.losses); const ties = Number(opponent?.ties ?? 0);
-    return {
-      week,
-      opponentAbbr: opponent?.abbr ?? null,
-      opponentRecord: Number.isFinite(wins) && Number.isFinite(losses) ? `${wins}-${losses}${ties ? `-${ties}` : ''}` : null,
-      isDivisional: userTeam?.conf != null && userTeam?.division != null && String(userTeam.conf) === String(opponent?.conf) && String(userTeam.division) === String(opponent?.division),
-      isRematch: Boolean(priorMeeting),
-      previousMeetingWeek: priorMeeting?.row?.week ?? null,
-    };
-  }, [league?.schedule?.weeks, league?.teams, league?.userTeamId, league?.week]);
+  const nextWeekBriefingContext = useMemo(() => buildNextWeekStoryContext(league), [league]);
   const lastShownSkipWeekRef = useRef(null);
+  const skipStoryRequestRef = useRef(0);
   const [initFlow, setInitFlow] = useState(null);
   const [bootRequestId, setBootRequestId] = useState(null);
   const [safeStarterWarning, setSafeStarterWarning] = useState('');
@@ -619,29 +589,12 @@ function AppContent() {
     const resolvedHomeAbbr = homeTeam?.abbr ?? userResult.homeName?.slice(0, 3) ?? 'HOME';
     const resolvedAwayAbbr = awayTeam?.abbr ?? userResult.awayName?.slice(0, 3) ?? 'AWAY';
 
-    lastShownSkipWeekRef.current = simWeek;
-    setSkipGameSummary({
-      homeScore,
-      awayScore,
-      homeTeam: homeTeam ?? { id: userResult.homeId, abbr: resolvedHomeAbbr },
-      awayTeam: awayTeam ?? { id: userResult.awayId, abbr: resolvedAwayAbbr },
-      homeAbbr: resolvedHomeAbbr,
-      awayAbbr: resolvedAwayAbbr,
-      userTeamId: league.userTeamId,
-      week: simWeek,
-      phase: league.phase,
-      momentumChange,
-      injuries,
-      gameId,
-      recordedGame: userResult,
-      completedGames: lastResults,
-    });
-
     // Archive the user's completed game immediately so Franchise HQ's
     // "Last Result" card always reflects the real score — not a stale
     // placeholder or a different team's result from the migration batch.
+    let localArchive = null;
     try {
-      saveGame(gameId, {
+      localArchive = saveGame(gameId, {
         season: league?.seasonId,
         week: simWeek,
         homeId: userResult.homeId,
@@ -660,7 +613,39 @@ function AppContent() {
     } catch {
       // archive save is best-effort; game result is still correct in league state
     }
-  }, [simulating, lastResults, lastSimWeek, userGameLogs, postGameResult, league]);
+
+    // WEEK_COMPLETE intentionally carries only a reduced score result. Wait for
+    // the worker's canonical Game Book archive (flushed before WEEK_COMPLETE)
+    // so weekly takeaways receive the same detailed evidence as Game Book.
+    const storyRequestId = ++skipStoryRequestRef.current;
+    lastShownSkipWeekRef.current = simWeek;
+    const showBriefing = async () => {
+      let recordedGame = localArchive;
+      try {
+        recordedGame = await loadWeeklyStoryArchivedGame({ getBoxScore: actions.getBoxScore, gameId }) ?? localArchive;
+      } catch (error) {
+        console.warn('[WeeklyStory] Canonical game archive unavailable; using score-only archive.', error);
+      }
+      if (storyRequestId !== skipStoryRequestRef.current) return;
+      setSkipGameSummary({
+        homeScore,
+        awayScore,
+        homeTeam: homeTeam ?? { id: userResult.homeId, abbr: resolvedHomeAbbr },
+        awayTeam: awayTeam ?? { id: userResult.awayId, abbr: resolvedAwayAbbr },
+        homeAbbr: resolvedHomeAbbr,
+        awayAbbr: resolvedAwayAbbr,
+        userTeamId: league.userTeamId,
+        week: simWeek,
+        phase: league.phase,
+        momentumChange,
+        injuries,
+        gameId,
+        recordedGame,
+        completedGames: lastResults,
+      });
+    };
+    showBriefing();
+  }, [simulating, lastResults, lastSimWeek, userGameLogs, postGameResult, league, actions.getBoxScore]);
 
   // ── Auto-dismiss routine info notices ─────────────────────────────────────
   // Post-sim info notices ("Weekly simulation ran…", "development updated…")

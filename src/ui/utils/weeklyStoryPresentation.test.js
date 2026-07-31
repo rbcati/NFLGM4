@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildWeeklyStoryPresentation } from './weeklyStoryPresentation.js';
+import { buildNextWeekStoryContext, buildWeeklyStoryPresentation, loadWeeklyStoryArchivedGame } from './weeklyStoryPresentation.js';
 
 const teams = [
   { id: 1, abbr: 'BUF', conf: 0, division: 0 },
@@ -26,6 +26,26 @@ function build(overrides = {}) {
 }
 
 describe('buildWeeklyStoryPresentation', () => {
+  it('loads canonical Game Book evidence for the reduced WEEK_COMPLETE result path', async () => {
+    const weekCompleteResult = { gameId: '2030_w4_1_2', seasonId: 2030, week: 4, homeId: 1, awayId: 2, homeScore: 24, awayScore: 17 };
+    const canonicalArchive = {
+      id: weekCompleteResult.gameId,
+      season: 2030,
+      week: 4,
+      homeId: 1,
+      awayId: 2,
+      score: { home: 24, away: 17 },
+      teamStats: { home: { turnovers: 0, rushYards: 184 }, away: { turnovers: 3, rushYards: 91 } },
+    };
+    const recordedGame = await loadWeeklyStoryArchivedGame({
+      gameId: weekCompleteResult.gameId,
+      getBoxScore: async () => ({ type: 'BOX_SCORE', payload: { game: canonicalArchive } }),
+    });
+    const vm = build({ userGame: recordedGame, completedGames: [weekCompleteResult] });
+    expect(vm.userGameStory.takeaways).toContain('BUF protected the ball and finished plus-3 in turnover differential.');
+    expect(vm.userGameStory.takeaways.join(' ')).not.toContain('detailed game evidence was not recorded');
+  });
+
   it('explains home and away wins from meaningful recorded evidence', () => {
     const home = build({ userGame: { homeId: 1, awayId: 2, homeScore: 24, awayScore: 10, teamStats: { home: { turnovers: 0, rushYards: 184 }, away: { turnovers: 3, rushYards: 90 } } } });
     expect(home.userGameStory.takeaways.join(' ')).toContain('turnover differential');
@@ -83,6 +103,29 @@ describe('buildWeeklyStoryPresentation', () => {
     expect(build({ nextWeek: { week: 5, opponentAbbr: 'MIA', isDivisional: true, opponentRecord: '3-1' } }).nextMatchupHook).toBe('Next: a divisional game against MIA (3-1).');
     expect(build({ nextWeek: { week: 5, opponentAbbr: 'KC', isRematch: true, previousMeetingWeek: 2 } }).nextMatchupHook).toContain('rematch');
     expect(build({ nextWeek: { week: 5, opponentAbbr: 'LV', opponentStreak: { type: 'W', length: 4 } } }).nextMatchupHook).toContain('4-game winning streak');
+  });
+
+  it('uses canonical conf/div fields for a divisional next matchup', () => {
+    const context = buildNextWeekStoryContext({
+      week: 5,
+      userTeamId: 1,
+      teams: [{ id: 1, abbr: 'BUF', conf: 0, div: 2 }, { id: 2, abbr: 'MIA', conf: 0, div: 2, wins: 3, losses: 1 }],
+      schedule: { weeks: [{ week: 5, games: [{ home: 1, away: 2 }] }] },
+    });
+    expect(build({ nextWeek: context }).nextMatchupHook).toBe('Next: a divisional game against MIA (3-1).');
+  });
+
+  it('selects the most recent prior meeting without mutating schedule order', () => {
+    const weeks = [
+      { week: 2, games: [{ home: 1, away: 3 }] },
+      { week: 6, games: [{ home: 3, away: 1 }] },
+      { week: 9, games: [{ home: 1, away: 3 }] },
+    ];
+    const before = JSON.stringify(weeks);
+    const context = buildNextWeekStoryContext({ week: 9, userTeamId: 1, teams: [{ id: 1, abbr: 'BUF', conf: 0, div: 0 }, { id: 3, abbr: 'KC', conf: 0, div: 1 }], schedule: { weeks } });
+    expect(context.previousMeetingWeek).toBe(6);
+    expect(build({ nextWeek: context }).nextMatchupHook).toBe('Next: a rematch with KC from Week 6.');
+    expect(JSON.stringify(weeks)).toBe(before);
   });
 
   it('degrades for bye weeks, old saves, and missing identities', () => {

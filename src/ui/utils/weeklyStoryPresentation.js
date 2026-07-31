@@ -1,4 +1,46 @@
-import { buildGameBookPresentation } from './boxScoreViewModel.js';
+import { buildGameBookPresentation, unwrapBoxScoreResponse } from './boxScoreViewModel.js';
+
+/** Loads the same canonical archive used by Game Book before story presentation. */
+export async function loadWeeklyStoryArchivedGame({ getBoxScore, gameId } = {}) {
+  if (!gameId || typeof getBoxScore !== 'function') return null;
+  return unwrapBoxScoreResponse(await getBoxScore(gameId));
+}
+
+/** Resolves factual next-game context from the saved schedule without mutation. */
+export function buildNextWeekStoryContext(league = {}) {
+  const week = league?.week;
+  const userTeamId = league?.userTeamId;
+  const weeks = Array.isArray(league?.schedule?.weeks) ? league.schedule.weeks : [];
+  const teamId = (side) => side?.id ?? side;
+  const involves = (game, first, second = null) => {
+    const ids = [Number(teamId(game?.homeId ?? game?.home)), Number(teamId(game?.awayId ?? game?.away))];
+    return ids.includes(Number(first)) && (second == null || ids.includes(Number(second)));
+  };
+  const weekRow = weeks.find((row) => Number(row?.week) === Number(week));
+  const matchup = (weekRow?.games ?? []).find((game) => involves(game, userTeamId));
+  if (!matchup) return { week };
+  const homeId = teamId(matchup?.homeId ?? matchup?.home);
+  const awayId = teamId(matchup?.awayId ?? matchup?.away);
+  const opponentId = Number(homeId) === Number(userTeamId) ? awayId : homeId;
+  const teams = Array.isArray(league?.teams) ? league.teams : [];
+  const opponent = teams.find((team) => Number(team?.id) === Number(opponentId));
+  const userTeam = teams.find((team) => Number(team?.id) === Number(userTeamId));
+  const priorMeeting = weeks
+    .filter((row) => Number(row?.week) < Number(week))
+    .flatMap((row) => (row?.games ?? []).filter((game) => involves(game, userTeamId, opponentId)).map((game) => ({ row, game })))
+    .sort((a, b) => Number(b.row?.week) - Number(a.row?.week))[0];
+  const wins = number(opponent?.wins); const losses = number(opponent?.losses); const ties = number(opponent?.ties) ?? 0;
+  const userDivision = userTeam?.div ?? userTeam?.division;
+  const opponentDivision = opponent?.div ?? opponent?.division;
+  return {
+    week,
+    opponentAbbr: opponent?.abbr ?? null,
+    opponentRecord: wins != null && losses != null ? `${wins}-${losses}${ties ? `-${ties}` : ''}` : null,
+    isDivisional: userTeam?.conf != null && userDivision != null && String(userTeam.conf) === String(opponent?.conf) && String(userDivision) === String(opponentDivision),
+    isRematch: Boolean(priorMeeting),
+    previousMeetingWeek: priorMeeting?.row?.week ?? null,
+  };
+}
 
 const number = (value) => {
   if (value == null || value === '') return null;
