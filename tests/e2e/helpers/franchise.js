@@ -256,22 +256,14 @@ export async function simulateSingleWeek(page, options = {}) {
   // week-advance assertion below guarantees the transition actually happened.
   if (advanceAnyway) {
     const advanceAnywayBtn = page.getByRole('button', { name: /Advance anyway/i });
-    try {
-      await advanceAnywayBtn.waitFor({ state: 'visible', timeout: 2000 });
-      await expect(advanceAnywayBtn).toBeEnabled({ timeout: 5000 });
-      await advanceAnywayBtn.click();
-    } catch (err) {
-      if (err.name !== 'TimeoutError') throw err;
-    }
+    await advanceAnywayBtn.waitFor({ state: 'visible', timeout: 2000 });
+    await expect(advanceAnywayBtn).toBeEnabled({ timeout: 5000 });
+    await advanceAnywayBtn.click();
   }
   const skipPromptBtn = page.getByRole('button', { name: /Simulate \(Skip\)/i });
-  try {
-    await skipPromptBtn.waitFor({ state: 'visible', timeout: 10000 });
-    await expect(skipPromptBtn).toBeEnabled({ timeout: 5000 });
-    await skipPromptBtn.click();
-  } catch (err) {
-    if (err.name !== 'TimeoutError') throw err;
-  }
+  await skipPromptBtn.waitFor({ state: 'visible', timeout: 10000 });
+  await expect(skipPromptBtn).toBeEnabled({ timeout: 5000 });
+  await skipPromptBtn.click();
   await page.waitForFunction(
     (baseline) => {
       const week = window?.state?.league?.week ?? baseline;
