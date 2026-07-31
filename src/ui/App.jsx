@@ -276,7 +276,24 @@ function AppContent() {
     const awayId = matchup?.away?.id ?? matchup?.awayId ?? matchup?.away;
     const opponentId = Number(homeId) === Number(userTeamId) ? awayId : homeId;
     const opponent = (league?.teams ?? []).find((team) => Number(team?.id) === Number(opponentId));
-    return { week, opponentAbbr: opponent?.abbr ?? null };
+    const userTeam = (league?.teams ?? []).find((team) => Number(team?.id) === Number(userTeamId));
+    const priorMeeting = (league?.schedule?.weeks ?? [])
+      .filter((row) => Number(row?.week) < Number(week))
+      .flatMap((row) => (row?.games ?? []).map((game) => ({ row, game })))
+      .find(({ game }) => {
+        const priorHome = game?.home?.id ?? game?.homeId ?? game?.home;
+        const priorAway = game?.away?.id ?? game?.awayId ?? game?.away;
+        return [Number(priorHome), Number(priorAway)].includes(Number(userTeamId)) && [Number(priorHome), Number(priorAway)].includes(Number(opponentId));
+      });
+    const wins = Number(opponent?.wins); const losses = Number(opponent?.losses); const ties = Number(opponent?.ties ?? 0);
+    return {
+      week,
+      opponentAbbr: opponent?.abbr ?? null,
+      opponentRecord: Number.isFinite(wins) && Number.isFinite(losses) ? `${wins}-${losses}${ties ? `-${ties}` : ''}` : null,
+      isDivisional: userTeam?.conf != null && userTeam?.division != null && String(userTeam.conf) === String(opponent?.conf) && String(userTeam.division) === String(opponent?.division),
+      isRematch: Boolean(priorMeeting),
+      previousMeetingWeek: priorMeeting?.row?.week ?? null,
+    };
   }, [league?.schedule?.weeks, league?.teams, league?.userTeamId, league?.week]);
   const lastShownSkipWeekRef = useRef(null);
   const [initFlow, setInitFlow] = useState(null);
@@ -616,6 +633,8 @@ function AppContent() {
       momentumChange,
       injuries,
       gameId,
+      recordedGame: userResult,
+      completedGames: lastResults,
     });
 
     // Archive the user's completed game immediately so Franchise HQ's
@@ -1971,6 +1990,7 @@ function AppContent() {
       {skipGameSummary && !postGameResult && !postGameRecovery && (
         <PostGameSummary
           gameResult={skipGameSummary}
+          league={league}
           injuries={skipGameSummary.injuries}
           momentumChange={skipGameSummary.momentumChange}
           onClose={() => setSkipGameSummary(null)}
