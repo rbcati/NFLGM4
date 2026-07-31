@@ -10,6 +10,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { buildPostgameEmotionalFrame } from '../utils/postgameEmotionalFrame.js';
 import GameResultSummaryCard from './GameResultSummaryCard.jsx';
 import { buildPostgameBriefing } from '../utils/postgameBriefing.js';
+import { buildWeeklyStoryPresentation } from '../utils/weeklyStoryPresentation.js';
 
 function safeNum(value, fallback = 0) {
   const n = Number(value);
@@ -69,6 +70,7 @@ export default function PostGameSummary({
   onPreparationAction,
   onContinue,
   nextWeek,
+  league,
 }) {
   const overlayRef = useRef(null);
   const closeButtonRef = useRef(null);
@@ -112,6 +114,15 @@ export default function PostGameSummary({
     () => buildPostgameEmotionalFrame(gameResult, leaders, injuries, momentumChange, recentResults),
     [gameResult, leaders, injuries, momentumChange, recentResults],
   );
+  const weeklyStory = useMemo(() => buildWeeklyStoryPresentation({
+    league,
+    week: gameResult?.week,
+    userTeamId: gameResult?.userTeamId,
+    userGame: gameResult?.recordedGame ?? gameResult,
+    completedGames: gameResult?.completedGames ?? [],
+    injuries,
+    nextWeek,
+  }), [league, gameResult, injuries, nextWeek]);
 
   if (!gameResult) return null;
 
@@ -188,6 +199,15 @@ export default function PostGameSummary({
         <p style={{ margin: '-4px 0 14px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
           {briefing.userIsHome ? 'Home' : 'Away'} · {briefing.headline}
         </p>
+
+        {weeklyStory.userGameStory?.takeaways?.length > 0 && (
+          <section data-testid="weekly-story-takeaways" style={{ background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 12, padding: '12px 14px', marginBottom: 12 }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Why the game turned</div>
+            <div style={{ display: 'grid', gap: 7 }}>
+              {weeklyStory.userGameStory.takeaways.map((takeaway) => <div key={takeaway} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>• {takeaway}</div>)}
+            </div>
+          </section>
+        )}
 
         {/* Game leaders */}
         {briefing.leaders.length > 0 && (
@@ -295,6 +315,21 @@ export default function PostGameSummary({
                 <InjuryItem key={player?.id ?? i} player={player} />
               ))}
             </div>
+          </div>
+        )}
+
+        {weeklyStory.leagueHeadlines.length > 0 && (
+          <section data-testid="weekly-story-headlines" style={{ background: 'var(--surface)', border: '1px solid var(--hairline)', borderRadius: 12, padding: '12px 14px', marginBottom: 12, overflowWrap: 'anywhere' }}>
+            <div style={{ fontSize: '0.65rem', fontWeight: 800, color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>Around the League</div>
+            <div style={{ display: 'grid', gap: 9 }}>
+              {weeklyStory.leagueHeadlines.map((headline) => <div key={headline.key} style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{headline.text}</div>)}
+            </div>
+          </section>
+        )}
+
+        {weeklyStory.nextMatchupHook && (
+          <div data-testid="weekly-story-next-hook" style={{ margin: '0 0 12px', padding: '10px 14px', borderLeft: '3px solid var(--accent)', background: 'var(--surface)', fontSize: '0.8rem', fontWeight: 750, lineHeight: 1.4 }}>
+            {weeklyStory.nextMatchupHook}
           </div>
         )}
 
