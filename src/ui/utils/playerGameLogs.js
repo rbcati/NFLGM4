@@ -62,7 +62,8 @@ export function getPlayerGameLogs(league, player) {
           rushAtt: stats.rushAtt, rushYd: stats.rushYd, rushTD: stats.rushTD, receptions: stats.receptions, targets: stats.targets, recYd: stats.recYd, recTD: stats.recTD,
           tackles: stats.tackles, sacks: stats.sacks, passDeflections: stats.passDeflections, forcedFumbles: stats.forcedFumbles,
           fieldGoalsMade: stats.fieldGoalsMade, fieldGoalsAttempted: stats.fieldGoalsAttempted, extraPointsMade: stats.extraPointsMade, extraPointsAttempted: stats.extraPointsAttempted,
-          punts: stats.punts, puntYards: stats.puntYards,
+          longestFieldGoal: stats.longestFieldGoal ?? stats.longestFG ?? stats.fieldGoalLong,
+          punts: stats.punts, puntYards: stats.puntYards, longestPunt: stats.longestPunt ?? stats.puntLong,
         },
       });
     }

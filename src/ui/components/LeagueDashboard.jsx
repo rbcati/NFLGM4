@@ -652,6 +652,14 @@ export default function LeagueDashboard({
     setSelectedPlayerId(hasValidPlayerProfileId(playerId) ? playerId : '__missing_player__');
     setSelectedPlayerContext(profileContext ?? { source: 'unknown', missingEntity: true });
   };
+  const closePlayerProfile = React.useCallback(() => {
+    setSelectedPlayerId(null);
+    setSelectedPlayerContext(null);
+  }, []);
+  const handlePlayerProfileNavigate = React.useCallback((destination) => {
+    closePlayerProfile();
+    setActiveTab(destination);
+  }, [closePlayerProfile]);
   const [selectedTeamId, setSelectedTeamId] = useState(null);
   const handleTeamSelect = (teamOrId) => {
     const teamId = typeof teamOrId === 'object' ? teamOrId?.id ?? teamOrId?.teamId : teamOrId;
@@ -1659,14 +1667,14 @@ export default function LeagueDashboard({
       {/* ── Player Profile modal ── */}
       {selectedPlayerId && (
         <TabErrorBoundary label="Player Profile">
-          <PlayerProfileModalBoundary playerId={selectedPlayerId} onClose={() => { setSelectedPlayerId(null); setSelectedPlayerContext(null); }}>
+          <PlayerProfileModalBoundary playerId={selectedPlayerId} onClose={closePlayerProfile}>
             <PlayerProfile
               playerId={selectedPlayerId}
-              onClose={() => { setSelectedPlayerId(null); setSelectedPlayerContext(null); }}
+              onClose={closePlayerProfile}
               actions={actions}
               teams={league.teams}
               league={league}
-              onNavigate={setActiveTab}
+              onNavigate={handlePlayerProfileNavigate}
               profileContext={selectedPlayerContext}
               onOpenBoxScore={(gameId) => openGameDetail(gameId, selectedPlayerContext?.source === 'weekly-results' ? 'Weekly Results' : 'Game Detail')}
               onFocusLeagueHistorySeason={(seasonId) => {

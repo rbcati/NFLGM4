@@ -41,6 +41,29 @@ describe('buildPlayerDecisionPresentation', () => {
   });
 
   it.each([
+    ['recorded IR status', { status: 'injured_reserve' }],
+    ['legacy onIR flag', { status: 'active', onIR: true }],
+  ])('keeps depth and roster evaluation for %s', (_label, irFields) => {
+    const injured = { ...starter, ...irFields, injury: { name: 'Knee', weeksRemaining: 4 } };
+    const irLeague = { ...league, players: [injured, ...league.players.slice(1)] };
+    const result = buildPlayerDecisionPresentation({ player: injured, team, league: irLeague });
+    expect(result.identity).toMatchObject({ statusKey: 'injured_reserve', status: 'Injured reserve' });
+    expect(result.role.label).toBe('Starter');
+    expect(result.availability.available).toBe(false);
+    expect(result.rosterValue).not.toBeNull();
+    expect(result.replacement).not.toBeNull();
+    expect(result.recommendation.action).toBe('Monitor injury recovery');
+  });
+
+  it('uses only recorded or sufficiently evidenced archetypes', () => {
+    expect(buildPlayerDecisionPresentation({ player: { ...starter, archetype: 'Recorded Field General', ratings: {} } }).role.archetype).toBe('Recorded Field General');
+    expect(buildPlayerDecisionPresentation({ player: starter }).role.archetype).toBeTruthy();
+    expect(buildPlayerDecisionPresentation({ player: { ...starter, ratings: {} } }).role.archetype).toBeNull();
+    expect(buildPlayerDecisionPresentation({ player: { ...starter, ratings: { ovr: 84, potential: 88 } } }).role.archetype).toBeNull();
+    expect(buildPlayerDecisionPresentation({ player: { ...starter, ratings: { throwPower: 90 } } }).role.archetype).toBeNull();
+  });
+
+  it.each([
     ['RB', { rushAtt: 20, rushYd: 100, rushTD: 0, recYd: 12 }, 'Yards / carry'],
     ['WR', { receptions: 0, recYd: 0, recTD: 0, targets: 1 }, 'Receptions'],
     ['LB', { tackles: 10, sacks: 0, interceptions: 0 }, 'Tackles'],
@@ -55,6 +78,13 @@ describe('buildPlayerDecisionPresentation', () => {
     expect(buildPlayerDecisionPresentation({ player: starter }).performance).toMatchObject({ available: false, metrics: [] });
     const zero = buildPlayerDecisionPresentation({ player: starter, seasonStats: { passAtt: 1, passYd: 0, passTD: 0 } });
     expect(zero.performance.metrics.find((metric) => metric.label === 'Passing yards').value).toBe(0);
+  });
+
+  it('omits special-teams performance without a recorded attempt sample', () => {
+    expect(buildPlayerDecisionPresentation({ player: { ...starter, pos: 'K' }, seasonStats: { gamesPlayed: 1, fgMade: 0, fgAttempts: 0 } }).performance.available).toBe(false);
+    expect(buildPlayerDecisionPresentation({ player: { ...starter, pos: 'P' }, seasonStats: { gamesPlayed: 1, punts: 0, puntYards: 0 } }).performance.available).toBe(false);
+    const puntsWithoutYards = buildPlayerDecisionPresentation({ player: { ...starter, pos: 'P' }, seasonStats: { punts: 2 } });
+    expect(puntsWithoutYards.performance.metrics.map((metric) => metric.label)).toEqual(['Punts']);
   });
 
   it.each([

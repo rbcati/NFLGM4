@@ -22,7 +22,7 @@ import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
 import { PERSONALITY_TOOLTIPS } from '../../core/development/personalitySystem.js';
 import { buildPlayerProfileAnalysis } from "../../core/playerProfileAnalysis.js";
-import { buildPlayerDecisionPresentation } from "../../core/playerDecisionPresentation.js";
+import { buildPlayerDecisionPresentation, normalizePlayerDecisionSeasonStats } from "../../core/playerDecisionPresentation.js";
 import PlayerDecisionCard from "./PlayerDecisionCard.jsx";
 import { resolvePlayerForProfile } from "../utils/playerProfileResolver.js";
 import { buildDevelopmentNotes, classifyDevelopmentTrend, getPlayerReadiness, getSchemeFitSignal, getAgeCurveContext, getDevelopmentSnapshot, getDevelopmentDrivers } from '../utils/playerDevelopmentSignals.js';
@@ -1020,6 +1020,12 @@ export default function PlayerProfile({
       recTD: 0,
       tackles: 0,
       sacks: 0,
+      fieldGoalsMade: 0,
+      fieldGoalsAttempted: 0,
+      punts: 0,
+      puntYards: 0,
+      longestFieldGoal: null,
+      longestPunt: null,
     };
     for (const row of playerGameLogs) {
       const gameKey = row.gameId ? String(row.gameId) : `w${row.week}`;
@@ -1041,6 +1047,14 @@ export default function PlayerProfile({
       totals.recTD += Number(s.recTD ?? 0);
       totals.tackles += Number(s.tackles ?? 0);
       totals.sacks += Number(s.sacks ?? 0);
+      totals.fieldGoalsMade += Number(s.fieldGoalsMade ?? 0);
+      totals.fieldGoalsAttempted += Number(s.fieldGoalsAttempted ?? 0);
+      totals.punts += Number(s.punts ?? 0);
+      totals.puntYards += Number(s.puntYards ?? 0);
+      const longestFieldGoal = Number(s.longestFieldGoal);
+      if (Number.isFinite(longestFieldGoal)) totals.longestFieldGoal = Math.max(totals.longestFieldGoal ?? 0, longestFieldGoal);
+      const longestPunt = Number(s.longestPunt);
+      if (Number.isFinite(longestPunt)) totals.longestPunt = Math.max(totals.longestPunt ?? 0, longestPunt);
     }
     return totals;
   }, [league, playerGameLogs]);
@@ -1055,7 +1069,7 @@ export default function PlayerProfile({
     player: effectivePlayer,
     team: resolvedProfile.team,
     league,
-    seasonStats: seasonStatsRecorded ? primarySeasonTotals : null,
+    seasonStats: seasonStatsRecorded ? normalizePlayerDecisionSeasonStats(primarySeasonTotals) : null,
   }), [effectivePlayer, resolvedProfile.team, league, seasonStatsRecorded, primarySeasonTotals]);
   const gmContext = profileAnalysis?.recommendationContext ?? {};
   const hasGmContext = Boolean(
