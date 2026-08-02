@@ -22,6 +22,8 @@ import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend } from 'chart.js';
 import { PERSONALITY_TOOLTIPS } from '../../core/development/personalitySystem.js';
 import { buildPlayerProfileAnalysis } from "../../core/playerProfileAnalysis.js";
+import { buildPlayerDecisionPresentation } from "../../core/playerDecisionPresentation.js";
+import PlayerDecisionCard from "./PlayerDecisionCard.jsx";
 import { resolvePlayerForProfile } from "../utils/playerProfileResolver.js";
 import { buildDevelopmentNotes, classifyDevelopmentTrend, getPlayerReadiness, getSchemeFitSignal, getAgeCurveContext, getDevelopmentSnapshot, getDevelopmentDrivers } from '../utils/playerDevelopmentSignals.js';
 import { ToneChip, DevelopmentSignalRow, DevelopmentStatCard } from './PlayerDevelopmentUI.jsx';
@@ -1049,6 +1051,12 @@ export default function PlayerProfile({
   const quickTags = getQuickTags(player);
   const primarySeasonTotals = (currentSeasonTotals && hasRecordedStats(currentSeasonTotals)) ? currentSeasonTotals : latestTotals;
   const seasonStatsRecorded = hasRecordedStats(primarySeasonTotals);
+  const playerDecisionPresentation = useMemo(() => buildPlayerDecisionPresentation({
+    player: effectivePlayer,
+    team: resolvedProfile.team,
+    league,
+    seasonStats: seasonStatsRecorded ? primarySeasonTotals : null,
+  }), [effectivePlayer, resolvedProfile.team, league, seasonStatsRecorded, primarySeasonTotals]);
   const gmContext = profileAnalysis?.recommendationContext ?? {};
   const hasGmContext = Boolean(
     gmContext?.sourceLabel || gmContext?.reason || gmContext?.comparisonReceipt || gmContext?.recommendation || gmContext?.fitScore != null || gmContext?.capImpactLabel || gmContext?.valueLabel
@@ -1796,6 +1804,9 @@ export default function PlayerProfile({
           </div>
           {activeProfileTab === "Overview" && (
             <>
+          {!loading && playerView && (
+            <PlayerDecisionCard presentation={playerDecisionPresentation} onNavigate={onNavigate} />
+          )}
           {hasThisWeekContext && (
             <section className="card-enter" data-testid="player-profile-game-impact">
               <h3 style={sectionLabelStyle}>This Week / Game Impact</h3>

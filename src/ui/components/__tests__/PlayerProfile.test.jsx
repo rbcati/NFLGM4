@@ -14,6 +14,7 @@ const player = {
   potential: 90,
   teamId: 1,
   status: 'active',
+  depthChart: { rowKey: 'QB', order: 1, role: 'starter' },
   contract: { years: 2, baseAnnual: 12 },
   traits: [],
   accolades: [],
@@ -62,6 +63,8 @@ describe('PlayerProfile', () => {
 
     expect(screen.getByTestId('player-profile')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('player-profile-summary').textContent).toContain('Avery Fields'));
+    expect(screen.getByTestId('player-decision-card').textContent).toContain('Starter');
+    expect(screen.getByTestId('player-decision-recommendation').textContent).toMatch(/Build around|Explore extension|Start/);
     expect(screen.getByTestId('player-profile-season-stats').textContent).toContain('Season stats will appear after this player records tracked stats.');
     expect(screen.getByTestId('player-profile-career-timeline').textContent).toContain('No career timeline recorded yet.');
     await waitFor(() => expect(screen.getByText('Contract Read')).toBeTruthy());
