@@ -14,6 +14,7 @@ const player = {
   potential: 90,
   teamId: 1,
   status: 'active',
+  depthChart: { rowKey: 'QB', order: 1, role: 'starter' },
   contract: { years: 2, baseAnnual: 12 },
   traits: [],
   accolades: [],
@@ -62,6 +63,8 @@ describe('PlayerProfile', () => {
 
     expect(screen.getByTestId('player-profile')).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId('player-profile-summary').textContent).toContain('Avery Fields'));
+    expect(screen.getByTestId('player-decision-card').textContent).toContain('Starter');
+    expect(screen.getByTestId('player-decision-recommendation').textContent).toMatch(/Build around|Explore extension|Start/);
     expect(screen.getByTestId('player-profile-season-stats').textContent).toContain('Season stats will appear after this player records tracked stats.');
     expect(screen.getByTestId('player-profile-career-timeline').textContent).toContain('No career timeline recorded yet.');
     await waitFor(() => expect(screen.getByText('Contract Read')).toBeTruthy());
@@ -207,6 +210,34 @@ describe('PlayerProfile', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Game Log' }));
     expect(screen.getByTestId('player-profile-game-logs').textContent).toContain('W1');
     expect(screen.getByTestId('player-profile-game-logs').textContent).toContain('NYG');
+  });
+
+  it.each([
+    ['kicker', { ...player, id: 21, name: 'Casey Kick', pos: 'K' }, { fieldGoalsMade: 0, fieldGoalsAttempted: 1 }, ['Field goals', '0/1', '0.0%']],
+    ['punter', { ...player, id: 22, name: 'Pat Punt', pos: 'P' }, { punts: 2, puntYards: 92, longestPunt: 51 }, ['Punts', '2', '46.0', '51']],
+  ])('shows current-season %s production from canonical profile game-log totals', async (_label, specialist, specialistStats, expected) => {
+    const specialistLeague = {
+      ...league,
+      teams: [{ ...league.teams[0], roster: [specialist] }],
+      schedule: {
+        weeks: [{
+          week: 1,
+          games: [{
+            id: `special-${specialist.id}`,
+            played: true,
+            home: 1,
+            away: 2,
+            homeScore: 10,
+            awayScore: 7,
+            playerStats: { home: { [specialist.id]: { stats: specialistStats } }, away: {} },
+          }],
+        }],
+      },
+      teamById: { 1: { id: 1, abbr: 'DAL' }, 2: { id: 2, abbr: 'NYG' } },
+    };
+    render(<PlayerProfile playerId={specialist.id} onClose={vi.fn()} actions={actions} teams={specialistLeague.teams} league={specialistLeague} />);
+    const performance = await screen.findByTestId('player-decision-performance');
+    for (const value of expected) expect(performance.textContent).toContain(value);
   });
 
   it('return buttons navigate to Game Book and HQ', () => {
