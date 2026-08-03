@@ -19,6 +19,12 @@ describe('buildPlayerDecisionPresentation', () => {
     expect(first.performance.metrics.map((metric) => metric.value)).toContain(1050);
     expect(first.development.label).toBe('Rising');
     expect(first.replacement.label).toBe('High');
+    expect(first.retention).toMatchObject({
+      recommendation: expect.any(String),
+      roleImportance: expect.any(String),
+      replacementDifficulty: expect.any(String),
+      expectedMarketDifficulty: expect.any(String),
+    });
     expect(first.recommendation.reasons.length).toBeGreaterThanOrEqual(2);
     expect(new Set(first.recommendation.reasons).size).toBe(first.recommendation.reasons.length);
   });
@@ -155,6 +161,7 @@ describe('buildPlayerDecisionPresentation', () => {
   it('does not evaluate replacement or recommend actions without team inputs', () => {
     const result = buildPlayerDecisionPresentation({ player: starter, league });
     expect(result.replacement).toBeNull();
+    expect(result.retention).toBeNull();
     expect(result.recommendation).toBeNull();
     expect(result.omittedReasons).toContain('Replacement evaluation unavailable');
   });

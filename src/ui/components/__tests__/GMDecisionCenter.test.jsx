@@ -7,7 +7,7 @@ import GMDecisionCenter from '../GMDecisionCenter.jsx';
 const { buildQueue } = vi.hoisted(() => ({ buildQueue: vi.fn() }));
 
 vi.mock('../../../core/gmDecisionQueue.js', () => ({
-  buildAvailabilityDecisionQueue: buildQueue,
+  buildGMDecisionQueue: buildQueue,
 }));
 
 const league = Object.freeze({
@@ -21,6 +21,7 @@ function item(id, severity, view = 'Injuries') {
     severity,
     title: `${id} depth requires review`,
     reasons: Object.freeze([`${severity} reason`]),
+    primaryReason: `${severity} primary reason`,
     destination: Object.freeze({ view }),
   });
 }
@@ -75,15 +76,45 @@ describe('GMDecisionCenter', () => {
   it('uses destination-specific labels and fires the existing navigation callback', () => {
     const onNavigate = vi.fn();
     buildQueue.mockReturnValue({
-      items: [item('LT', 'critical', 'Depth Chart'), item('CB', 'medium', 'Injuries')],
+      items: [item('LT', 'critical', 'Depth Chart'), item('CB', 'medium', 'Injuries'), item('QB', 'high', 'Contract Center')],
       diagnostics: [],
     });
     render(<GMDecisionCenter league={league} onNavigate={onNavigate} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Review Depth Chart' }));
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review Re-Sign' }));
     expect(onNavigate).toHaveBeenNthCalledWith(1, 'Team:Roster / Depth');
     expect(onNavigate).toHaveBeenNthCalledWith(2, 'Team:Injuries');
+    expect(onNavigate).toHaveBeenNthCalledWith(3, 'Contract Center');
+  });
+
+  it('renders primaryReason rather than relying on the final reasons element', () => {
+    buildQueue.mockReturnValue({
+      items: [Object.freeze({
+        ...item('QB', 'high', 'Contract Center'),
+        reasons: Object.freeze(['first reason', 'stale final reason']),
+        primaryReason: 'Contract expires after this season',
+      })],
+      diagnostics: [],
+    });
+    render(<GMDecisionCenter league={league} />);
+    expect(screen.getByText('• Contract expires after this season')).toBeTruthy();
+    expect(screen.queryByText('• stale final reason')).toBeNull();
+  });
+
+  it('keeps long mixed-category content structurally constrained', () => {
+    buildQueue.mockReturnValue({
+      items: [Object.freeze({
+        ...item('very-long-contract-player', 'high', 'Contract Center'),
+        title: 'Expiring quarterback contract with a deliberately long narrow-mobile title that must remain inside the card',
+        primaryReason: 'Contract expires after this season with a deliberately long factual explanation for a narrow mobile viewport',
+      })],
+      diagnostics: [],
+    });
+    const { container } = render(<GMDecisionCenter league={league} />);
+    expect(container.querySelector('[data-testid="gm-decision-item"]')).toBeTruthy();
+    expect(screen.getByText(/Contract expires after this season/).style.overflowWrap).toBe('anywhere');
   });
 
   it('builds the queue once when rerendered with unchanged inputs', () => {
