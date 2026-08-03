@@ -1,5 +1,5 @@
 import { derivePlayerArchetype, getPositionGroup } from './playerEvaluation.js';
-import { evaluateReSigningPriority } from './retention/reSigning.js';
+import { evaluateReSigningPriority, summarizeContractRisk } from './retention/reSigning.js';
 
 const numberOrNull = (value) => {
   if (value == null) return null;
@@ -166,6 +166,7 @@ export function buildPlayerDecisionPresentation({ player, team = null, league = 
   const canEvaluateRetention = Boolean(team && (leaguePlayers || teamRoster) && ['active_roster', 'injured_reserve'].includes(statusKey));
   const retentionLeague = leaguePlayers ? league : { ...league, players: teamRoster };
   const priority = canEvaluateRetention ? evaluateReSigningPriority(player, team, retentionLeague) : null;
+  const contractRisk = priority ? summarizeContractRisk(player, team, retentionLeague, priority) : null;
   const perf = performance(player, normalizePlayerDecisionSeasonStats(seasonStats ?? player?.seasonStats ?? player?.stats ?? null));
   const dev = development(player);
   const contract = contractSummary(player, priority);
@@ -178,7 +179,15 @@ export function buildPlayerDecisionPresentation({ player, team = null, league = 
     availability: health,
     performance: perf,
     development: dev,
-    contract,
+    contract: priority ? {
+      ...contract,
+      recommendation: priority.recommendation,
+      roleImportance: priority.roleImportance,
+      replacementDifficulty: priority.replacementDifficulty,
+      negotiationRisk: contractRisk?.riskBand ?? null,
+      extensionReadiness: priority.extensionReadiness,
+      expiring: priority.expiring,
+    } : contract,
     rosterValue,
     replacement,
     recommendation: recommendation(priority, roleLabel, statusKey, player, health),

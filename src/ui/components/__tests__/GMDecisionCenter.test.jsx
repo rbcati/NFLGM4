@@ -7,7 +7,7 @@ import GMDecisionCenter from '../GMDecisionCenter.jsx';
 const { buildQueue } = vi.hoisted(() => ({ buildQueue: vi.fn() }));
 
 vi.mock('../../../core/gmDecisionQueue.js', () => ({
-  buildAvailabilityDecisionQueue: buildQueue,
+  buildGMDecisionQueue: buildQueue,
 }));
 
 const league = Object.freeze({
@@ -21,6 +21,8 @@ function item(id, severity, view = 'Injuries') {
     severity,
     title: `${id} depth requires review`,
     reasons: Object.freeze([`${severity} reason`]),
+    primaryReason: `${severity} primary reason`,
+    category: view === 'Contract Center' ? 'contract' : 'availability',
     destination: Object.freeze({ view }),
   });
 }
@@ -75,15 +77,24 @@ describe('GMDecisionCenter', () => {
   it('uses destination-specific labels and fires the existing navigation callback', () => {
     const onNavigate = vi.fn();
     buildQueue.mockReturnValue({
-      items: [item('LT', 'critical', 'Depth Chart'), item('CB', 'medium', 'Injuries')],
+      items: [item('LT', 'critical', 'Depth Chart'), item('CB', 'medium', 'Injuries'), item('QB', 'high', 'Contract Center')],
       diagnostics: [],
     });
     render(<GMDecisionCenter league={league} onNavigate={onNavigate} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Review Depth Chart' }));
     fireEvent.click(screen.getByRole('button', { name: 'Review' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Review Contract' }));
     expect(onNavigate).toHaveBeenNthCalledWith(1, 'Team:Roster / Depth');
     expect(onNavigate).toHaveBeenNthCalledWith(2, 'Team:Injuries');
+    expect(onNavigate).toHaveBeenNthCalledWith(3, 'Contract Center');
+  });
+
+  it('renders primaryReason rather than relying on the last reason', () => {
+    buildQueue.mockReturnValue({ items: [{ ...item('QB', 'high', 'Contract Center'), reasons: ['first', 'fragile last'], primaryReason: 'Actionable contract reason' }], diagnostics: [] });
+    render(<GMDecisionCenter league={league} />);
+    expect(screen.getByText(/Actionable contract reason/)).toBeTruthy();
+    expect(screen.queryByText(/fragile last/)).toBeNull();
   });
 
   it('builds the queue once when rerendered with unchanged inputs', () => {

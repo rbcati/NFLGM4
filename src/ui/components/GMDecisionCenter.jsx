@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { buildAvailabilityDecisionQueue } from '../../core/gmDecisionQueue.js';
+import { buildGMDecisionQueue } from '../../core/gmDecisionQueue.js';
 
 const SEVERITY_STYLES = {
   critical: { label: 'Critical', color: 'var(--danger, #FF453A)', background: 'rgba(255,69,58,.12)' },
@@ -12,6 +12,7 @@ function isDepthChartDestination(destination) {
 }
 
 function routeFor(destination) {
+  if (destination?.view === 'Contract Center') return 'Contract Center';
   return isDepthChartDestination(destination) ? 'Team:Roster / Depth' : 'Team:Injuries';
 }
 
@@ -20,7 +21,7 @@ export default function GMDecisionCenter({ league, onNavigate }) {
     () => (league?.teams ?? []).find((entry) => String(entry?.id) === String(league?.userTeamId)),
     [league?.teams, league?.userTeamId],
   );
-  const queue = useMemo(() => buildAvailabilityDecisionQueue({
+  const queue = useMemo(() => buildGMDecisionQueue({
     roster: team?.roster,
     team,
     league,
@@ -45,13 +46,14 @@ export default function GMDecisionCenter({ league, onNavigate }) {
         {items.map((item, index) => {
           const severity = SEVERITY_STYLES[item.severity] ?? SEVERITY_STYLES.medium;
           const depthChart = isDepthChartDestination(item.destination);
+          const contract = item.category === 'contract';
           return (
             <article
               key={item.id}
               data-testid="gm-decision-item"
               style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: index < items.length - 1 ? '1px solid var(--hairline)' : 0 }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                   <span
                     aria-label={`${severity.label} severity`}
@@ -60,7 +62,7 @@ export default function GMDecisionCenter({ league, onNavigate }) {
                     {item.severity === 'critical' ? '⚠ ' : ''}{severity.label}
                   </span>
                   <div style={{ marginTop: 5, fontSize: 'var(--text-sm)', fontWeight: 800 }}>{item.title}</div>
-                  {item.reasons?.length ? <div style={{ marginTop: 3, color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>• {item.reasons[item.reasons.length - 1]}</div> : null}
+                  {item.primaryReason ? <div style={{ marginTop: 3, color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>• {item.primaryReason}</div> : null}
                 </div>
                 <button
                   type="button"
@@ -68,7 +70,7 @@ export default function GMDecisionCenter({ league, onNavigate }) {
                   onClick={() => onNavigate?.(routeFor(item.destination))}
                   style={{ flex: '0 0 auto' }}
                 >
-                  {depthChart ? 'Review Depth Chart' : 'Review'}
+                  {contract ? 'Review Contract' : depthChart ? 'Review Depth Chart' : 'Review'}
                 </button>
               </div>
             </article>
