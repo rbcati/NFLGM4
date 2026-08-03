@@ -7,6 +7,7 @@ import {
   createContractDecisionQueueBuilder,
   createGMDecisionQueueBuilder,
 } from '../gmDecisionQueue.js';
+import { buildPlayerDecisionPresentation } from '../playerDecisionPresentation.js';
 
 const player = (id, overrides = {}) => ({
   id, name: `Player ${id}`, pos: 'QB', teamId: 10, status: 'active', age: 26, ovr: 76,
@@ -164,6 +165,20 @@ describe('buildContractDecisionQueue', () => {
     expect(contractBuild([contractPlayer('excluded', fields)]).items).toEqual([]);
   });
 
+  it.each([
+    ['missing decision', undefined],
+    ['pending decision', 'pending'],
+    ['deferred decision', 'deferred'],
+  ])('keeps %s eligible', (_label, extensionDecision) => {
+    expect(contractBuild([contractPlayer('unresolved', { extensionDecision })]).items).toHaveLength(1);
+  });
+
+  it.each(['extended', 'let_walk', 'tagged'])('excludes resolved %s decisions', (extensionDecision) => {
+    const result = contractBuild([contractPlayer('resolved', { extensionDecision })]);
+    expect(result.items).toEqual([]);
+    expect(result.diagnostics).toContainEqual({ playerId: 'resolved', reason: 'Resolved extension decision' });
+  });
+
   it('requires the supported re-signing phase and resolves primitive references only through league players', () => {
     const player = contractPlayer(1);
     expect(contractBuild([player], { league: { phase: 'regular', players: [player] } }).items).toEqual([]);
@@ -202,6 +217,56 @@ describe('buildContractDecisionQueue', () => {
   it('does not increase severity when authority data is missing', () => {
     const builder = createContractDecisionQueueBuilder({ buildPresentation: () => ({ identity: { position: 'QB' }, retention: null }) });
     expect(builder({ roster: [contractPlayer(1)], team: { id: 10 }, league: { phase: 'offseason_resign', players: [] } }).items).toEqual([]);
+  });
+
+  it('does not consume false market scarcity in the live FranchiseHQ league shape', () => {
+    const roster = [
+      contractPlayer('ordinary', { ovr: 65, depthChart: { rowKey: 'QB', order: 5, role: 'depth' } }),
+      contractPlayer('qb-1', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+      contractPlayer('qb-2', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+      contractPlayer('qb-3', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+      contractPlayer('qb-4', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+    ];
+    const team = { id: 10, roster };
+    const liveSpaLeague = { phase: 'offseason_resign', userTeamId: 10, teams: [team] };
+    const result = buildContractDecisionQueue({ roster, team, league: liveSpaLeague });
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      severity: 'medium',
+      contract: {
+        recommendation: null,
+        expectedMarketDifficulty: null,
+        replacementDifficulty: 'low',
+        marketContextAvailable: false,
+      },
+    });
+    expect(result.items[0].reasons).not.toContain('High expected market difficulty');
+    expect(buildContractDecisionQueue({ roster: [...roster].reverse(), team, league: liveSpaLeague })).toEqual(result);
+  });
+
+  it('uses the authoritative market context when a complete league player pool is supplied', () => {
+    const target = contractPlayer('target', { ovr: 65, depthChart: { rowKey: 'QB', order: 5, role: 'depth' } });
+    const roster = [
+      target,
+      contractPlayer('qb-1', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+      contractPlayer('qb-2', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+      contractPlayer('qb-3', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+      contractPlayer('qb-4', { contract: { yearsRemaining: 3 }, ovr: 70 }),
+    ];
+    const freeAgents = Array.from({ length: 8 }, (_, index) => ({
+      id: `fa-${index}`, pos: 'QB', teamId: null, status: 'free_agent', ovr: 76,
+    }));
+    const league = { phase: 'offseason_resign', players: [...roster, ...freeAgents] };
+    const presentation = buildPlayerDecisionPresentation({ player: target, team: { id: 10, roster }, league });
+    const result = buildContractDecisionQueue({ roster, team: { id: 10, roster }, league });
+
+    expect(result.items[0].contract).toMatchObject({
+      recommendation: presentation.retention.recommendation,
+      expectedMarketDifficulty: presentation.retention.expectedMarketDifficulty,
+      marketContextAvailable: true,
+    });
+    expect(result.items[0].contract.expectedMarketDifficulty).not.toBeNull();
   });
 
   it('sorts deterministically and deduplicates canonical IDs before presentation', () => {
@@ -297,5 +362,36 @@ describe('buildGMDecisionQueue', () => {
     expect(builder(input)).toEqual(builder(input));
     expect(input).toEqual(snapshot);
     expect(presentation).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves duplicate and availability-overlap behavior when a resolved contract is removed', () => {
+    const player = contractPlayer(1, {
+      extensionDecision: 'let_walk',
+      injury: { type: 'Knee', weeksRemaining: 2 },
+      depthChart: { rowKey: 'QB', order: 1, role: 'starter' },
+    });
+    const builder = createGMDecisionQueueBuilder({
+      buildPresentation: () => ({
+        identity: { statusKey: 'active_roster', position: 'QB' },
+        role: { label: 'Starter' },
+        availability: { available: false, detail: 'Knee' },
+        replacement: { label: 'Low' },
+        retention: {
+          recommendation: 'replaceable_depth',
+          roleImportance: 'depth',
+          expectedMarketDifficulty: 'low',
+          replacementDifficulty: 'low',
+        },
+      }),
+    });
+    const result = builder({
+      roster: [player, { ...player }],
+      team: { id: 10, depthChart: { QB: [1] } },
+      league: { phase: 'offseason_resign', players: [player] },
+    });
+    expect(result.items.map((item) => item.id)).toEqual(['availability:1']);
+    expect(result.diagnostics).toContainEqual({ playerId: 1, reason: 'Duplicate roster reference' });
+    expect(result.diagnostics).toContainEqual({ playerId: 1, reason: 'Resolved extension decision' });
+    expect(result.diagnostics).not.toContainEqual({ playerId: 1, reason: 'Contract decision deferred behind availability item' });
   });
 });

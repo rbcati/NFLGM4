@@ -17,6 +17,7 @@ const RETENTION_RECOMMENDATION_RANK = {
 };
 const RETENTION_ROLE_RANK = { core_starter: 0, starter: 1, rotation: 2, depth: 3 };
 const MARKET_RANK = { high: 0, medium: 1, low: 2 };
+const RESOLVED_EXTENSION_DECISIONS = new Set(['extended', 'let_walk', 'tagged']);
 
 const canonicalId = (value) => value == null ? null : String(value);
 const playerId = (player) => player?.id ?? player?.prospectId ?? null;
@@ -226,6 +227,25 @@ function isContractCandidateStatus(player, league) {
   return ['active', 'injured_reserve'].includes(player?.status ?? 'active') || player?.onIR === true;
 }
 
+function contractRetentionForQueue(retention, hasAuthoritativeMarketPool) {
+  if (!retention) return null;
+  if (hasAuthoritativeMarketPool) return retention;
+  // The SPA view state contains team rosters but not the complete league player
+  // pool. evaluateReSigningPriority() needs that pool for free-agent scarcity,
+  // so never let a roster-only fallback affect contract queue severity or rank.
+  return {
+    ...retention,
+    recommendation: null,
+    expectedMarketDifficulty: null,
+  };
+}
+
+function hasUsableContractContext(retention) {
+  return Object.hasOwn(RETENTION_ROLE_RANK, retention?.roleImportance)
+    || Object.hasOwn(MARKET_RANK, retention?.replacementDifficulty)
+    || Object.hasOwn(RETENTION_RECOMMENDATION_RANK, retention?.recommendation);
+}
+
 function contractSeverity(retention) {
   const recommendation = retention?.recommendation;
   const role = retention?.roleImportance;
@@ -280,6 +300,7 @@ export function createContractDecisionQueueBuilder({ buildPresentation = buildPl
     }
 
     const leaguePlayers = Array.isArray(league?.players) ? league.players : [];
+    const hasAuthoritativeMarketPool = Array.isArray(league?.players);
     const leagueById = new Map(leaguePlayers.map((player) => [canonicalId(playerId(player)), player]));
     const seen = new Set();
 
@@ -304,6 +325,10 @@ export function createContractDecisionQueueBuilder({ buildPresentation = buildPl
         addDiagnostic(playerId(player), 'Excluded player status');
         continue;
       }
+      if (RESOLVED_EXTENSION_DECISIONS.has(String(player?.extensionDecision ?? ''))) {
+        addDiagnostic(playerId(player), 'Resolved extension decision');
+        continue;
+      }
       if (!player.contract) {
         addDiagnostic(playerId(player), 'Contract unavailable');
         continue;
@@ -319,9 +344,9 @@ export function createContractDecisionQueueBuilder({ buildPresentation = buildPl
       }
 
       const presentation = buildPresentation({ player, team, league: league ?? {} });
-      const retention = presentation?.retention;
-      if (!retention || !Object.hasOwn(RETENTION_RECOMMENDATION_RANK, retention.recommendation)) {
-        addDiagnostic(playerId(player), 'Retention recommendation unavailable');
+      const retention = contractRetentionForQueue(presentation?.retention, hasAuthoritativeMarketPool);
+      if (!hasUsableContractContext(retention)) {
+        addDiagnostic(playerId(player), 'Retention context unavailable');
         continue;
       }
 
@@ -354,6 +379,7 @@ export function createContractDecisionQueueBuilder({ buildPresentation = buildPl
           expectedMarketDifficulty: retention.expectedMarketDifficulty,
           replacementDifficulty: retention.replacementDifficulty,
           extensionReadiness: retention.extensionReadiness,
+          marketContextAvailable: hasAuthoritativeMarketPool,
         },
       });
     }
