@@ -47,7 +47,7 @@ export default function PlayerDecisionCard({ presentation, onNavigate }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 16 }} aria-label="Player decision actions">
           <button className="btn" onClick={() => onNavigate('Depth Chart')}>Open depth chart</button>
           <button className="btn" onClick={() => onNavigate('Trade Center')}>Trade workspace</button>
-          <button className="btn" onClick={() => onNavigate('Contract Center')}>Contract center</button>
+          <button className="btn" onClick={() => onNavigate('Contract Center')}>Open contracts</button>
         </div>
       )}
     </section>

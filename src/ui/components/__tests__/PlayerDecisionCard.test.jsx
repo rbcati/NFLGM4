@@ -25,7 +25,7 @@ describe('PlayerDecisionCard', () => {
     expect(screen.getByTestId('player-decision-performance').textContent).toContain('1,234'.replace(',', ''));
     fireEvent.click(screen.getByRole('button', { name: 'Open depth chart' }));
     fireEvent.click(screen.getByRole('button', { name: 'Trade workspace' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Contract center' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Open contracts' }));
     expect(onNavigate.mock.calls).toEqual([['Depth Chart'], ['Trade Center'], ['Contract Center']]);
   });
 

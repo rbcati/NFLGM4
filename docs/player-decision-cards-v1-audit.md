@@ -54,6 +54,10 @@ It is pure, performs no persistence or worker calls, mutates no inputs, uses no 
 
 The model recognizes legacy `depthOrder`, contract `years`/`salary`, injury-week aliases, potential aliases, free agents, prospects, retirees, practice squad, and injured reserve. Missing player records return an unavailable model; missing sections are omitted or explicitly labeled unavailable; missing metrics never become invented zeroes. Legitimate recorded zeroes remain visible when another usage field establishes a real sample. No save migration or persisted schema change is required.
 
+Review hardening keeps a machine-readable `injured_reserve` key separate from its display label, so IR players retain recorded depth roles and roster evaluation. Special-teams totals are normalized once from canonical `fieldGoalsMade` / `fieldGoalsAttempted` names (plus recorded long-kick and punting aliases) before presentation. Archetype derivation now requires meaningful position-specific rating evidence; explicit recorded archetypes remain authoritative, while empty, overall-only, and partial legacy rating objects omit the label.
+
 ## Performance and follow-up
 
 The model is memoized once in Player Profile. It consumes already-resolved player/team/league context and already-assembled season totals, causing no IndexedDB load and no additional render-time league scan beyond the existing retention helper. Dense career and game-log details remain behind existing profile tabs. A future iteration can migrate other player surfaces only after their action handlers and trade/release authorities can be passed without duplicating legality checks.
+
+Player Profile workflow links are routed through the League Dashboard boundary: the selected-player ID and context are cleared before the existing destination tab is activated. This prevents the modal from covering Depth Chart or Contract Center without duplicating either workflow's action rules.

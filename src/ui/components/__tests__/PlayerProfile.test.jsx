@@ -212,6 +212,34 @@ describe('PlayerProfile', () => {
     expect(screen.getByTestId('player-profile-game-logs').textContent).toContain('NYG');
   });
 
+  it.each([
+    ['kicker', { ...player, id: 21, name: 'Casey Kick', pos: 'K' }, { fieldGoalsMade: 0, fieldGoalsAttempted: 1 }, ['Field goals', '0/1', '0.0%']],
+    ['punter', { ...player, id: 22, name: 'Pat Punt', pos: 'P' }, { punts: 2, puntYards: 92, longestPunt: 51 }, ['Punts', '2', '46.0', '51']],
+  ])('shows current-season %s production from canonical profile game-log totals', async (_label, specialist, specialistStats, expected) => {
+    const specialistLeague = {
+      ...league,
+      teams: [{ ...league.teams[0], roster: [specialist] }],
+      schedule: {
+        weeks: [{
+          week: 1,
+          games: [{
+            id: `special-${specialist.id}`,
+            played: true,
+            home: 1,
+            away: 2,
+            homeScore: 10,
+            awayScore: 7,
+            playerStats: { home: { [specialist.id]: { stats: specialistStats } }, away: {} },
+          }],
+        }],
+      },
+      teamById: { 1: { id: 1, abbr: 'DAL' }, 2: { id: 2, abbr: 'NYG' } },
+    };
+    render(<PlayerProfile playerId={specialist.id} onClose={vi.fn()} actions={actions} teams={specialistLeague.teams} league={specialistLeague} />);
+    const performance = await screen.findByTestId('player-decision-performance');
+    for (const value of expected) expect(performance.textContent).toContain(value);
+  });
+
   it('return buttons navigate to Game Book and HQ', () => {
     const onClose = vi.fn();
     const onOpenBoxScore = vi.fn();
