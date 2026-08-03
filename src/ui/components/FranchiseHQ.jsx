@@ -1256,15 +1256,15 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
           className="app-command-advance app-command-advance-gold"
           data-testid="advance-week-cta"
           onClick={handleAdvanceOrGate}
-          disabled={busy || simulating || commandSummary.criticalCount > 0}
+          disabled={busy || simulating || commandSummary.hasDanger}
           aria-label={
             busy || simulating
               ? 'Advancing week…'
-              : commandSummary.criticalCount > 0
+              : commandSummary.hasDanger
                 ? `Advance Week — ${commandSummary.criticalCount} item${commandSummary.criticalCount !== 1 ? 's' : ''} must be resolved first`
                 : `Advance Week — move from ${command.weekLabel} to next week`
           }
-          title={commandSummary.criticalCount > 0 ? `Resolve ${commandSummary.criticalCount} open item${commandSummary.criticalCount !== 1 ? 's' : ''} to unlock` : 'Advance Week'}
+          title={commandSummary.hasDanger ? `Resolve blockers to unlock` : 'Advance Week'}
         >
           {busy || simulating ? 'Advancing…' : 'Advance Week'}
           <HQIcon name="arrowRight" size={16} />
