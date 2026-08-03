@@ -1,0 +1,200 @@
+import { buildPlayerDecisionPresentation } from './playerDecisionPresentation.js';
+
+const SEVERITY_RANK = { critical: 0, high: 1, medium: 2 };
+const ROLE_RANK = { Starter: 0, Backup: 1, Reserve: 2 };
+const REPLACEMENT_RANK = { High: 0, Medium: 1, Low: 2 };
+const EXCLUDED_STATUSES = new Set(['free_agent', 'draft_eligible', 'retired']);
+
+const canonicalId = (value) => value == null ? null : String(value);
+const playerId = (player) => player?.id ?? player?.prospectId ?? null;
+const sameId = (left, right) => left != null && right != null && String(left) === String(right);
+const finiteNumber = (value) => {
+  if (value == null || (typeof value === 'string' && value.trim() === '')) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+function recordedUnavailable(player) {
+  const weeks = finiteNumber(player?.injuryWeeksRemaining ?? player?.injury?.weeksRemaining ?? player?.injury?.gamesRemaining);
+  const injuryStatus = String(player?.injury?.status ?? '').trim();
+  const injuryLabel = player?.injury?.name ?? player?.injury?.type ?? null;
+  return (weeks != null && weeks > 0)
+    || Boolean(injuryLabel)
+    || Boolean(injuryStatus && injuryStatus.toLowerCase() !== 'healthy')
+    || player?.onIR === true
+    || player?.status === 'injured_reserve';
+}
+
+function excludedPlayer(player, league) {
+  if (player?.retired || player?.isRetired || EXCLUDED_STATUSES.has(player?.status)) return true;
+  if (player?.isProspect || player?.draftEligible) return true;
+  return Array.isArray(league?.draftClass) && league.draftClass.some((prospect) =>
+    sameId(playerId(prospect), playerId(player)));
+}
+
+function statsFor(stats, id) {
+  if (!stats || id == null) return null;
+  if (stats instanceof Map) return stats.get(id) ?? stats.get(String(id)) ?? null;
+  return stats[id] ?? stats[String(id)] ?? null;
+}
+
+function depthResult(player, roster, team) {
+  const id = playerId(player);
+  const rowKey = player?.depthChart?.rowKey ?? null;
+  if (!rowKey) return { confirmed: false, healthyBackup: false };
+
+  const assignedIds = team?.depthChart?.[rowKey];
+  if (Array.isArray(assignedIds) && assignedIds.some((assignedId) => sameId(assignedId, id))) {
+    const laterIds = assignedIds.slice(assignedIds.findIndex((assignedId) => sameId(assignedId, id)) + 1);
+    const healthyBackup = laterIds.some((assignedId) => {
+      const candidate = roster.find((entry) => sameId(playerId(entry), assignedId));
+      return candidate && sameId(candidate.teamId, team?.id) && !excludedPlayer(candidate, null) && !recordedUnavailable(candidate);
+    });
+    return { confirmed: true, healthyBackup };
+  }
+
+  const assigned = roster.filter((candidate) => candidate?.depthChart?.rowKey === rowKey
+    && finiteNumber(candidate?.depthChart?.order ?? candidate?.depthOrder ?? candidate?.depthRank) != null);
+  if (!assigned.some((candidate) => sameId(playerId(candidate), id))) return { confirmed: false, healthyBackup: false };
+  const healthyBackup = assigned.some((candidate) => !sameId(playerId(candidate), id)
+      && sameId(candidate.teamId, team?.id)
+      && finiteNumber(candidate?.depthChart?.order ?? candidate?.depthOrder ?? candidate?.depthRank) > 1
+      && !excludedPlayer(candidate, null)
+      && !recordedUnavailable(candidate));
+  // Per-player placement can prove a replacement exists, but cannot prove that
+  // an otherwise absent row assignment does not exist elsewhere in partial data.
+  return { confirmed: healthyBackup, healthyBackup };
+}
+
+function compareIds(left, right) {
+  const a = canonicalId(left) ?? '';
+  const b = canonicalId(right) ?? '';
+  const an = finiteNumber(a);
+  const bn = finiteNumber(b);
+  if (an != null && bn != null && an !== bn) return an - bn;
+  return a.localeCompare(b, 'en', { numeric: true });
+}
+
+export function createAvailabilityDecisionQueueBuilder({ buildPresentation = buildPlayerDecisionPresentation } = {}) {
+  return function buildAvailabilityDecisionQueue({ roster, team, league, seasonStatsByPlayerId = null } = {}) {
+    const items = [];
+    const diagnostics = [];
+    const diagnosticKeys = new Set();
+    const addDiagnostic = (id, reason) => {
+      const key = `${canonicalId(id) ?? 'unresolved'}:${reason}`;
+      if (!diagnosticKeys.has(key)) {
+        diagnosticKeys.add(key);
+        diagnostics.push({ playerId: id ?? null, reason });
+      }
+    };
+
+    if (!Array.isArray(roster)) {
+      addDiagnostic(null, 'Roster unavailable');
+      return { items, diagnostics };
+    }
+    if (!team || team.id == null) {
+      addDiagnostic(null, 'Supplied team unavailable');
+      return { items, diagnostics };
+    }
+
+    const leaguePlayers = Array.isArray(league?.players) ? league.players : [];
+    const leagueById = new Map(leaguePlayers.map((player) => [canonicalId(playerId(player)), player]));
+    const resolvedRoster = roster.map((entry) => {
+      if (entry && typeof entry === 'object') return entry;
+      return leagueById.get(canonicalId(entry)) ?? null;
+    }).filter(Boolean);
+    const seen = new Set();
+
+    for (const entry of roster) {
+      const player = entry && typeof entry === 'object' ? entry : leagueById.get(canonicalId(entry));
+      const id = playerId(player) ?? (entry && typeof entry !== 'object' ? entry : null);
+      if (!player || playerId(player) == null) {
+        addDiagnostic(id, 'Unresolved player ID');
+        continue;
+      }
+      const key = canonicalId(playerId(player));
+      if (seen.has(key)) {
+        addDiagnostic(playerId(player), 'Duplicate roster reference');
+        continue;
+      }
+      seen.add(key);
+      if (!sameId(player.teamId, team.id)) {
+        addDiagnostic(playerId(player), 'Player not owned by supplied team');
+        continue;
+      }
+      if (excludedPlayer(player, league)) {
+        addDiagnostic(playerId(player), 'Excluded player status');
+        continue;
+      }
+      if (!recordedUnavailable(player)) {
+        addDiagnostic(playerId(player), 'Healthy player');
+        continue;
+      }
+
+      const presentation = buildPresentation({
+        player,
+        team,
+        league: league ?? {},
+        seasonStats: statsFor(seasonStatsByPlayerId, playerId(player)),
+      });
+      const presentationUnavailable = presentation?.availability?.available === false;
+      const recordedIr = presentation?.identity?.statusKey === 'injured_reserve';
+      if (!presentationUnavailable && !recordedIr) {
+        addDiagnostic(playerId(player), 'Missing actionable injury context');
+        continue;
+      }
+
+      const role = presentation?.role?.label;
+      const starter = role === 'Starter';
+      const supportedRole = starter || role === 'Backup' || role === 'Reserve';
+      const replacement = presentation?.replacement?.label ?? null;
+      const depth = starter ? depthResult(player, resolvedRoster, team) : { confirmed: false, healthyBackup: false };
+      let severity = starter && depth.confirmed && !depth.healthyBackup
+        ? 'critical'
+        : (starter || replacement === 'High' ? 'high' : supportedRole ? 'medium' : null);
+      if (!severity) {
+        addDiagnostic(playerId(player), 'Insufficient role/context for medium severity');
+        continue;
+      }
+      if (starter && !depth.confirmed) addDiagnostic(playerId(player), 'Unsupported depth data for critical classification');
+
+      const duration = finiteNumber(player?.injuryWeeksRemaining ?? player?.injury?.weeksRemaining ?? player?.injury?.gamesRemaining);
+      const reasons = [];
+      if (starter) reasons.push('Recorded starter role');
+      else if (supportedRole) reasons.push(`Recorded ${role.toLowerCase()} role`);
+      if (player?.status === 'injured_reserve' || player?.onIR === true) reasons.push('Injured-reserve status');
+      else if (duration != null) reasons.push(`Recorded absence: ${duration} week${duration === 1 ? '' : 's'}`);
+      else if (presentation?.availability?.detail) reasons.push(String(presentation.availability.detail));
+      if (severity === 'critical') reasons.push('No healthy assigned backup');
+      else if (starter && depth.confirmed && depth.healthyBackup) reasons.push('Healthy assigned backup exists');
+      else if (replacement) reasons.push(`${replacement} replacement difficulty`);
+
+      const position = presentation?.identity?.position ?? player?.pos ?? player?.position ?? '—';
+      const stableSortKey = [SEVERITY_RANK[severity], ROLE_RANK[role] ?? 3,
+        REPLACEMENT_RANK[replacement] ?? 3, canonicalId(playerId(player))].join(':');
+      items.push({
+        id: `availability:${canonicalId(playerId(player))}`,
+        category: 'availability',
+        severity,
+        subject: { type: 'player', playerId: playerId(player), position },
+        title: starter ? `Starting ${position} unavailable` : `${position} depth requires review`,
+        reasons: [...new Set(reasons)].slice(0, 3),
+        destination: { view: starter ? 'Depth Chart' : 'Injuries', playerId: playerId(player) },
+        stableSortKey,
+        availableData: {
+          role: supportedRole,
+          replacementDifficulty: replacement != null,
+          injuryDuration: duration != null,
+          depthChart: depth.confirmed,
+        },
+      });
+    }
+
+    items.sort((a, b) => a.stableSortKey.localeCompare(b.stableSortKey, 'en', { numeric: true })
+      || compareIds(a.subject.playerId, b.subject.playerId));
+    diagnostics.sort((a, b) => compareIds(a.playerId, b.playerId) || a.reason.localeCompare(b.reason));
+    return { items, diagnostics };
+  };
+}
+
+export const buildAvailabilityDecisionQueue = createAvailabilityDecisionQueueBuilder();
