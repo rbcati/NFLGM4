@@ -21,6 +21,7 @@ import FranchiseBrandHQ from './FranchiseBrandHQ.jsx';
 import JobSecurityCard from './JobSecurityCard.jsx';
 import ActivityToastStack from './ActivityToastStack.jsx';
 import GameResultSummaryCard from './GameResultSummaryCard.jsx';
+import GMDecisionCenter from './GMDecisionCenter.jsx';
 import { readStrictFinalScore } from '../../core/gameArchive.js';
 
 const BOTTOM_NAV_ITEMS = [
@@ -625,6 +626,8 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
           <span>No blockers — ready to advance</span>
         </div>
       )}
+
+      <GMDecisionCenter league={league} onNavigate={onNavigate} />
 
       {/* ── QUICK ACTION GRID 2×2 ────────────────────────────────────────── */}
       <div
