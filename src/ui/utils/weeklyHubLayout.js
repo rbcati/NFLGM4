@@ -166,6 +166,8 @@ export function buildCommandCenterSummary({ gate, weeklyContext } = {}) {
     readinessLabel,
     readinessTone,
     criticalCount: primaryActions.length,
+    hasDanger,
+    hasWarning,
     canAdvanceSafely: readinessTone === 'ok',
   };
 }
