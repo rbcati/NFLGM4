@@ -172,6 +172,13 @@ export function buildPlayerDecisionPresentation({ player, team = null, league = 
   const archetype = player?.archetype ?? (hasArchetypeEvidence(player) ? derivePlayerArchetype(player).archetype : null);
   const replacement = priority ? { label: titleCase(priority.replacementDifficulty), source: 'Re-signing priority' } : null;
   const rosterValue = priority ? { label: ({ core_starter: 'Core', starter: 'High', rotation: 'Moderate', depth: 'Depth' })[priority.roleImportance] ?? 'Moderate', source: 'Re-signing role importance' } : null;
+  const retention = priority ? {
+    recommendation: priority.recommendation,
+    roleImportance: priority.roleImportance,
+    replacementDifficulty: priority.replacementDifficulty,
+    expectedMarketDifficulty: priority.expectedMarketDifficulty,
+    extensionReadiness: priority.extensionReadiness,
+  } : null;
   const result = {
     identity: { id: player.id ?? player.prospectId ?? null, name: player.name ?? 'Unknown Player', position: player.pos ?? player.position ?? '—', age: numberOrNull(player.age), team: team?.abbr ?? team?.name ?? null, jerseyNumber: player.jerseyNumber ?? player.number ?? null, overall: numberOrNull(player.ovr ?? player.ratings?.ovr), potential: numberOrNull(player.potential ?? player.pot ?? player.ratings?.potential), experience: numberOrNull(player.experience ?? player.yearsPro), statusKey, status },
     role: { label: roleLabel, depthOrder: numberOrNull(player?.depthChart?.order ?? player?.depthOrder ?? player?.depthRank), archetype },
@@ -181,6 +188,7 @@ export function buildPlayerDecisionPresentation({ player, team = null, league = 
     contract,
     rosterValue,
     replacement,
+    retention,
     recommendation: recommendation(priority, roleLabel, statusKey, player, health),
     context: { morale: player?.morale ?? null, awards: Array.isArray(player?.awards) ? player.awards.length : null },
   };

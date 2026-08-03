@@ -4,6 +4,19 @@ const SEVERITY_RANK = { critical: 0, high: 1, medium: 2 };
 const ROLE_RANK = { Starter: 0, Backup: 1, Reserve: 2 };
 const REPLACEMENT_RANK = { High: 0, Medium: 1, Low: 2 };
 const EXCLUDED_STATUSES = new Set(['free_agent', 'draft_eligible', 'retired']);
+const CONTRACT_PHASE = 'offseason_resign';
+const RETENTION_RECOMMENDATION_RANK = {
+  cornerstone_priority: 0,
+  strong_keep: 1,
+  extension_candidate: 2,
+  franchise_tag_candidate: 3,
+  keep_if_price_is_right: 4,
+  replaceable_depth: 5,
+  likely_to_walk: 6,
+  move_on: 7,
+};
+const RETENTION_ROLE_RANK = { core_starter: 0, starter: 1, rotation: 2, depth: 3 };
+const MARKET_RANK = { high: 0, medium: 1, low: 2 };
 
 const canonicalId = (value) => value == null ? null : String(value);
 const playerId = (player) => player?.id ?? player?.prospectId ?? null;
@@ -179,6 +192,11 @@ export function createAvailabilityDecisionQueueBuilder({ buildPresentation = bui
         subject: { type: 'player', playerId: playerId(player), position },
         title: starter ? `Starting ${position} unavailable` : `${position} depth requires review`,
         reasons: [...new Set(reasons)].slice(0, 3),
+        primaryReason: player?.status === 'injured_reserve' || player?.onIR === true
+          ? 'Injured-reserve status'
+          : duration != null
+            ? `Recorded absence: ${duration} week${duration === 1 ? '' : 's'}`
+            : presentation?.availability?.detail ?? reasons[0] ?? null,
         destination: { view: starter ? 'Depth Chart' : 'Injuries', playerId: playerId(player) },
         stableSortKey,
         availableData: {
@@ -198,3 +216,217 @@ export function createAvailabilityDecisionQueueBuilder({ buildPresentation = bui
 }
 
 export const buildAvailabilityDecisionQueue = createAvailabilityDecisionQueueBuilder();
+
+function contractYearsRemaining(player) {
+  return finiteNumber(player?.contract?.yearsRemaining ?? player?.contract?.yearsLeft ?? player?.contract?.years);
+}
+
+function isContractCandidateStatus(player, league) {
+  if (excludedPlayer(player, league)) return false;
+  return ['active', 'injured_reserve'].includes(player?.status ?? 'active') || player?.onIR === true;
+}
+
+function contractSeverity(retention) {
+  const recommendation = retention?.recommendation;
+  const role = retention?.roleImportance;
+  const market = retention?.expectedMarketDifficulty;
+  const replacement = retention?.replacementDifficulty;
+  if (recommendation === 'cornerstone_priority' && role === 'core_starter'
+    && market === 'high' && replacement === 'high') return 'critical';
+  if (role === 'core_starter' || role === 'starter' || market === 'high'
+    || replacement === 'high'
+    || ['cornerstone_priority', 'strong_keep', 'extension_candidate'].includes(recommendation)) return 'high';
+  return 'medium';
+}
+
+function contractTitle(position, recommendation) {
+  if (recommendation === 'franchise_tag_candidate') return `Expiring ${position} tag or extension decision`;
+  return `Expiring ${position} contract`;
+}
+
+function contractReasons(retention) {
+  const reasons = ['Contract expires after this season'];
+  if (retention?.expectedMarketDifficulty === 'high') reasons.push('High expected market difficulty');
+  if (retention?.replacementDifficulty === 'high') reasons.push('High replacement difficulty');
+  if (retention?.recommendation) reasons.push(`Retention recommendation: ${retention.recommendation.replaceAll('_', ' ')}`);
+  if (retention?.roleImportance) reasons.push(`Recorded ${retention.roleImportance.replaceAll('_', ' ')} role`);
+  return [...new Set(reasons)].slice(0, 3);
+}
+
+export function createContractDecisionQueueBuilder({ buildPresentation = buildPlayerDecisionPresentation } = {}) {
+  return function buildContractDecisionQueue({ roster, team, league } = {}) {
+    const items = [];
+    const diagnostics = [];
+    const diagnosticKeys = new Set();
+    const addDiagnostic = (id, reason) => {
+      const key = `${canonicalId(id) ?? 'unresolved'}:${reason}`;
+      if (!diagnosticKeys.has(key)) {
+        diagnosticKeys.add(key);
+        diagnostics.push({ playerId: id ?? null, reason });
+      }
+    };
+
+    if (!Array.isArray(roster)) {
+      addDiagnostic(null, 'Roster unavailable');
+      return { items, diagnostics };
+    }
+    if (!team || team.id == null) {
+      addDiagnostic(null, 'Supplied team unavailable');
+      return { items, diagnostics };
+    }
+    if (league?.phase !== CONTRACT_PHASE) {
+      addDiagnostic(null, 'Contract review unavailable outside re-signing phase');
+      return { items, diagnostics };
+    }
+
+    const leaguePlayers = Array.isArray(league?.players) ? league.players : [];
+    const leagueById = new Map(leaguePlayers.map((player) => [canonicalId(playerId(player)), player]));
+    const seen = new Set();
+
+    for (const entry of roster) {
+      const player = entry && typeof entry === 'object' ? entry : leagueById.get(canonicalId(entry));
+      const id = playerId(player) ?? (entry && typeof entry !== 'object' ? entry : null);
+      if (!player || playerId(player) == null) {
+        addDiagnostic(id, 'Unresolved player ID');
+        continue;
+      }
+      const key = canonicalId(playerId(player));
+      if (seen.has(key)) {
+        addDiagnostic(playerId(player), 'Duplicate roster reference');
+        continue;
+      }
+      seen.add(key);
+      if (!sameId(player.teamId, team.id)) {
+        addDiagnostic(playerId(player), 'Player not owned by supplied team');
+        continue;
+      }
+      if (!isContractCandidateStatus(player, league)) {
+        addDiagnostic(playerId(player), 'Excluded player status');
+        continue;
+      }
+      if (!player.contract) {
+        addDiagnostic(playerId(player), 'Contract unavailable');
+        continue;
+      }
+      const yearsRemaining = contractYearsRemaining(player);
+      if (yearsRemaining == null) {
+        addDiagnostic(playerId(player), 'Contract term unavailable');
+        continue;
+      }
+      if (yearsRemaining !== 1) {
+        addDiagnostic(playerId(player), yearsRemaining > 1 ? 'Multi-year contract' : 'Contract is not expiring after this season');
+        continue;
+      }
+
+      const presentation = buildPresentation({ player, team, league: league ?? {} });
+      const retention = presentation?.retention;
+      if (!retention || !Object.hasOwn(RETENTION_RECOMMENDATION_RANK, retention.recommendation)) {
+        addDiagnostic(playerId(player), 'Retention recommendation unavailable');
+        continue;
+      }
+
+      const position = presentation?.identity?.position ?? player?.pos ?? player?.position ?? '—';
+      const severity = contractSeverity(retention);
+      const reasons = contractReasons(retention);
+      const stableSortKey = [
+        SEVERITY_RANK[severity],
+        RETENTION_RECOMMENDATION_RANK[retention.recommendation],
+        RETENTION_ROLE_RANK[retention.roleImportance] ?? 4,
+        MARKET_RANK[retention.expectedMarketDifficulty] ?? 3,
+        MARKET_RANK[retention.replacementDifficulty] ?? 3,
+        yearsRemaining,
+        canonicalId(playerId(player)),
+      ].join(':');
+      items.push({
+        id: `contract:${canonicalId(playerId(player))}`,
+        category: 'contract',
+        severity,
+        subject: { type: 'player', playerId: playerId(player), position },
+        title: contractTitle(position, retention.recommendation),
+        reasons,
+        primaryReason: reasons[0] ?? null,
+        destination: { view: 'Contract Center', playerId: playerId(player) },
+        stableSortKey,
+        contract: {
+          yearsRemaining,
+          recommendation: retention.recommendation,
+          roleImportance: retention.roleImportance,
+          expectedMarketDifficulty: retention.expectedMarketDifficulty,
+          replacementDifficulty: retention.replacementDifficulty,
+          extensionReadiness: retention.extensionReadiness,
+        },
+      });
+    }
+
+    items.sort((a, b) => a.stableSortKey.localeCompare(b.stableSortKey, 'en', { numeric: true })
+      || compareIds(a.subject.playerId, b.subject.playerId));
+    diagnostics.sort((a, b) => compareIds(a.playerId, b.playerId) || a.reason.localeCompare(b.reason));
+    return { items, diagnostics };
+  };
+}
+
+export const buildContractDecisionQueue = createContractDecisionQueueBuilder();
+
+function compareCombinedItems(left, right) {
+  const severity = (SEVERITY_RANK[left.severity] ?? 3) - (SEVERITY_RANK[right.severity] ?? 3);
+  if (severity) return severity;
+  const category = (left.category === 'availability' ? 0 : 1) - (right.category === 'availability' ? 0 : 1);
+  if (category) return category;
+  return String(left.stableSortKey ?? '').localeCompare(String(right.stableSortKey ?? ''), 'en', { numeric: true })
+    || compareIds(left.subject?.playerId, right.subject?.playerId);
+}
+
+export function createGMDecisionQueueBuilder({ buildPresentation = buildPlayerDecisionPresentation } = {}) {
+  return function buildGMDecisionQueue(input = {}) {
+    const cachedPresentation = new Map();
+    const presentOnce = (context) => {
+      const key = canonicalId(playerId(context?.player));
+      if (!cachedPresentation.has(key)) cachedPresentation.set(key, buildPresentation(context));
+      return cachedPresentation.get(key);
+    };
+    const availability = createAvailabilityDecisionQueueBuilder({ buildPresentation: presentOnce })(input);
+    const contracts = createContractDecisionQueueBuilder({ buildPresentation: presentOnce })(input);
+    const diagnostics = [...availability.diagnostics, ...contracts.diagnostics];
+    const diagnosticKeys = new Set(diagnostics.map((entry) => `${canonicalId(entry.playerId) ?? 'unresolved'}:${entry.reason}`));
+    const addDiagnostic = (id, reason) => {
+      const key = `${canonicalId(id) ?? 'unresolved'}:${reason}`;
+      if (!diagnosticKeys.has(key)) {
+        diagnosticKeys.add(key);
+        diagnostics.push({ playerId: id ?? null, reason });
+      }
+    };
+    const exactIds = new Set();
+    const candidates = [...availability.items, ...contracts.items].filter((item) => {
+      if (exactIds.has(item.id)) {
+        addDiagnostic(item.subject?.playerId, 'Duplicate decision item ID');
+        return false;
+      }
+      exactIds.add(item.id);
+      return true;
+    });
+    const byPlayer = new Map();
+    candidates.forEach((item) => {
+      const key = canonicalId(item.subject?.playerId);
+      const bucket = byPlayer.get(key) ?? [];
+      bucket.push(item);
+      byPlayer.set(key, bucket);
+    });
+    const items = [];
+    for (const [id, bucket] of byPlayer) {
+      const availabilityItem = bucket.find((item) => item.category === 'availability');
+      const contractItem = bucket.find((item) => item.category === 'contract');
+      if (availabilityItem && contractItem
+        && (SEVERITY_RANK[availabilityItem.severity] ?? 3) <= (SEVERITY_RANK[contractItem.severity] ?? 3)) {
+        items.push(availabilityItem);
+        addDiagnostic(contractItem.subject?.playerId ?? id, 'Contract decision deferred behind availability item');
+      } else {
+        items.push(...bucket);
+      }
+    }
+    items.sort(compareCombinedItems);
+    diagnostics.sort((a, b) => compareIds(a.playerId, b.playerId) || a.reason.localeCompare(b.reason));
+    return { items, diagnostics };
+  };
+}
+
+export const buildGMDecisionQueue = createGMDecisionQueueBuilder();

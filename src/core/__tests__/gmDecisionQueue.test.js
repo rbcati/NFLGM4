@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildAvailabilityDecisionQueue, createAvailabilityDecisionQueueBuilder } from '../gmDecisionQueue.js';
+import {
+  buildAvailabilityDecisionQueue,
+  buildContractDecisionQueue,
+  buildGMDecisionQueue,
+  createAvailabilityDecisionQueueBuilder,
+  createContractDecisionQueueBuilder,
+  createGMDecisionQueueBuilder,
+} from '../gmDecisionQueue.js';
 
 const player = (id, overrides = {}) => ({
   id, name: `Player ${id}`, pos: 'QB', teamId: 10, status: 'active', age: 26, ovr: 76,
@@ -116,5 +123,179 @@ describe('buildAvailabilityDecisionQueue', () => {
     expect(buildAvailabilityDecisionQueue({ roster: [999], team, league })).toMatchObject({ items: [] });
     expect(buildAvailabilityDecisionQueue({ roster: [], team, league }).items).toEqual([]);
     expect(buildAvailabilityDecisionQueue({ roster: null, team: null, league: null }).diagnostics).not.toEqual([]);
+  });
+});
+
+const contractPlayer = (id, overrides = {}) => ({
+  id, name: `Contract ${id}`, pos: 'QB', teamId: 10, status: 'active', age: 26, ovr: 76,
+  contract: { yearsRemaining: 1, baseAnnual: 8 }, depthChart: { rowKey: 'QB', order: 1, role: 'starter' }, ...overrides,
+});
+const contractBuild = (roster, overrides = {}) => buildContractDecisionQueue({
+  roster,
+  team: { id: 10, roster },
+  league: { phase: 'offseason_resign', players: roster.filter((p) => p && typeof p === 'object'), draftClass: [] },
+  ...overrides,
+});
+
+describe('buildContractDecisionQueue', () => {
+  it('uses the shared presentation retention fields for current-season expiration only', () => {
+    const expiring = contractPlayer('expiring');
+    const oneYear = contractBuild([expiring]).items;
+    expect(oneYear).toHaveLength(1);
+    expect(oneYear[0]).toMatchObject({
+      id: 'contract:expiring',
+      category: 'contract',
+      primaryReason: 'Contract expires after this season',
+      contract: { yearsRemaining: 1 },
+    });
+    expect(contractBuild([contractPlayer('multi', { contract: { yearsRemaining: 2 } })]).items).toEqual([]);
+    expect(contractBuild([contractPlayer('zero', { contract: { yearsRemaining: 0 } })]).items).toEqual([]);
+  });
+
+  it.each([
+    ['null years', { contract: { yearsRemaining: null } }],
+    ['blank years', { contract: { yearsRemaining: '  ' } }],
+    ['missing contract', { contract: null }],
+    ['foreign team', { teamId: 11 }],
+    ['free agent', { teamId: null, status: 'free_agent' }],
+    ['prospect', { status: 'draft_eligible', draftEligible: true }],
+    ['retired', { status: 'retired', retired: true }],
+  ])('excludes %s safely', (_label, fields) => {
+    expect(contractBuild([contractPlayer('excluded', fields)]).items).toEqual([]);
+  });
+
+  it('requires the supported re-signing phase and resolves primitive references only through league players', () => {
+    const player = contractPlayer(1);
+    expect(contractBuild([player], { league: { phase: 'regular', players: [player] } }).items).toEqual([]);
+    expect(contractBuild([1], { team: { id: 10, roster: [1] }, league: { phase: 'offseason_resign', players: [player] } }).items).toHaveLength(1);
+    expect(contractBuild([999], { team: { id: 10, roster: [999] }, league: { phase: 'offseason_resign', players: [player] } }).items).toEqual([]);
+  });
+
+  it('uses exact lowercase shared recommendation, market, and replacement fields without player metadata', () => {
+    const presentation = vi.fn(() => ({
+      identity: { position: 'QB' },
+      retention: {
+        recommendation: 'cornerstone_priority',
+        roleImportance: 'core_starter',
+        expectedMarketDifficulty: 'high',
+        replacementDifficulty: 'high',
+        extensionReadiness: 'open_to_extension_now',
+      },
+    }));
+    const builder = createContractDecisionQueueBuilder({ buildPresentation: presentation });
+    const input = { roster: [contractPlayer(1)], team: { id: 10 }, league: { phase: 'offseason_resign', players: [contractPlayer(1)] } };
+    const result = builder(input);
+    expect(result.items[0]).toMatchObject({ severity: 'critical', contract: { recommendation: 'cornerstone_priority', expectedMarketDifficulty: 'high', replacementDifficulty: 'high' } });
+    expect(presentation).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ['expiring starter', { recommendation: 'keep_if_price_is_right', roleImportance: 'starter', expectedMarketDifficulty: 'low', replacementDifficulty: 'low' }, 'high'],
+    ['high market difficulty', { recommendation: 'keep_if_price_is_right', roleImportance: 'depth', expectedMarketDifficulty: 'high', replacementDifficulty: 'low' }, 'high'],
+    ['high replacement difficulty', { recommendation: 'replaceable_depth', roleImportance: 'depth', expectedMarketDifficulty: 'low', replacementDifficulty: 'high' }, 'high'],
+    ['lower-priority depth', { recommendation: 'replaceable_depth', roleImportance: 'depth', expectedMarketDifficulty: 'low', replacementDifficulty: 'low' }, 'medium'],
+  ])('maps only verified authority to %s severity', (_label, retention, severity) => {
+    const builder = createContractDecisionQueueBuilder({ buildPresentation: () => ({ identity: { position: 'QB' }, retention }) });
+    expect(builder({ roster: [contractPlayer(1)], team: { id: 10 }, league: { phase: 'offseason_resign', players: [] } }).items[0].severity).toBe(severity);
+  });
+
+  it('does not increase severity when authority data is missing', () => {
+    const builder = createContractDecisionQueueBuilder({ buildPresentation: () => ({ identity: { position: 'QB' }, retention: null }) });
+    expect(builder({ roster: [contractPlayer(1)], team: { id: 10 }, league: { phase: 'offseason_resign', players: [] } }).items).toEqual([]);
+  });
+
+  it('sorts deterministically and deduplicates canonical IDs before presentation', () => {
+    const presentation = vi.fn(({ player: input }) => ({
+      identity: { position: input.pos },
+      retention: {
+        recommendation: input.recommendation,
+        roleImportance: input.roleImportance,
+        expectedMarketDifficulty: input.market,
+        replacementDifficulty: input.replacement,
+      },
+    }));
+    const builder = createContractDecisionQueueBuilder({ buildPresentation: presentation });
+    const rows = [
+      contractPlayer('20', { recommendation: 'replaceable_depth', roleImportance: 'depth', market: 'low', replacement: 'low' }),
+      contractPlayer(3, { recommendation: 'strong_keep', roleImportance: 'starter', market: 'medium', replacement: 'medium' }),
+      contractPlayer('11', { recommendation: 'extension_candidate', roleImportance: 'starter', market: 'low', replacement: 'medium' }),
+    ];
+    const input = { roster: [...rows, { ...rows[0] }], team: { id: 10 }, league: { phase: 'offseason_resign', players: rows } };
+    const first = builder(input).items.map((item) => item.subject.playerId);
+    const second = builder({ ...input, roster: [...input.roster].reverse() }).items.map((item) => item.subject.playerId);
+    expect(first).toEqual([3, '11', '20']);
+    expect(second).toEqual(first);
+    expect(presentation).toHaveBeenCalledTimes(6);
+  });
+});
+
+describe('buildGMDecisionQueue', () => {
+  it('preserves urgent availability over a same-player lower-severity contract reminder', () => {
+    const player = contractPlayer(1, {
+      injury: { type: 'Knee', weeksRemaining: 2 },
+      depthChart: { rowKey: 'QB', order: 1, role: 'starter' },
+      recommendation: 'replaceable_depth', roleImportance: 'depth', market: 'low', replacement: 'low',
+    });
+    const presentation = ({ player: input }) => ({
+      identity: { statusKey: 'active_roster', position: input.pos },
+      role: { label: 'Starter' },
+      availability: { available: false, detail: 'Knee' },
+      replacement: { label: 'Low' },
+      retention: {
+        recommendation: input.recommendation,
+        roleImportance: input.roleImportance,
+        expectedMarketDifficulty: input.market,
+        replacementDifficulty: input.replacement,
+      },
+    });
+    const builder = createGMDecisionQueueBuilder({ buildPresentation: presentation });
+    const result = builder({
+      roster: [player],
+      team: { id: 10, depthChart: { QB: [1] } },
+      league: { phase: 'offseason_resign', players: [player], draftClass: [] },
+    });
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].id).toBe('availability:1');
+    expect(result.diagnostics).toContainEqual({ playerId: 1, reason: 'Contract decision deferred behind availability item' });
+  });
+
+  it('permits distinct same-player decisions only when the contract item is strictly more severe', () => {
+    const player = contractPlayer(1, {
+      injury: { type: 'Knee', weeksRemaining: 2 },
+      depthChart: { rowKey: 'QB', order: 2, role: 'backup' },
+    });
+    const builder = createGMDecisionQueueBuilder({
+      buildPresentation: () => ({
+        identity: { statusKey: 'active_roster', position: 'QB' },
+        role: { label: 'Backup' },
+        availability: { available: false, detail: 'Knee' },
+        replacement: { label: 'Low' },
+        retention: {
+          recommendation: 'cornerstone_priority',
+          roleImportance: 'core_starter',
+          expectedMarketDifficulty: 'high',
+          replacementDifficulty: 'high',
+        },
+      }),
+    });
+    const result = builder({ roster: [player], team: { id: 10 }, league: { phase: 'offseason_resign', players: [player] } });
+    expect(result.items.map((item) => item.id)).toEqual(['contract:1', 'availability:1']);
+  });
+
+  it('is pure, deeply deterministic, and shares presentation evaluation across categories', () => {
+    const player = contractPlayer(1, { injury: { type: 'Knee', weeksRemaining: 2 } });
+    const presentation = vi.fn(() => ({
+      identity: { statusKey: 'active_roster', position: 'QB' },
+      role: { label: 'Starter' },
+      availability: { available: false, detail: 'Knee' },
+      replacement: { label: 'High' },
+      retention: { recommendation: 'strong_keep', roleImportance: 'starter', expectedMarketDifficulty: 'medium', replacementDifficulty: 'high' },
+    }));
+    const builder = createGMDecisionQueueBuilder({ buildPresentation: presentation });
+    const input = { roster: [player], team: { id: 10, depthChart: { QB: [1] } }, league: { phase: 'offseason_resign', players: [player] } };
+    const snapshot = structuredClone(input);
+    expect(builder(input)).toEqual(builder(input));
+    expect(input).toEqual(snapshot);
+    expect(presentation).toHaveBeenCalledTimes(2);
   });
 });
