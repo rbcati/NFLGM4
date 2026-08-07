@@ -39,13 +39,13 @@ describe('LeagueHub', () => {
       />,
     );
 
-    expect(html).toContain('League Command Center');
+    expect(html).toContain('League Season Pulse');
     expect(html).toContain('Overview');
     expect(html).toContain('Results');
     expect(html).toContain('Standings');
     expect(html).toContain('News');
     expect(html).toContain('Leaders');
-    expect(html).toContain('League pulse');
+    expect(html).toContain('Around the League');
     expect(html).not.toContain('Weekly Results Stub');
   });
 
@@ -78,5 +78,19 @@ describe('LeagueHub', () => {
         renderStandings={() => <div>Standings unavailable</div>}
       />,
     )).not.toThrow();
+  });
+
+  it('hides unsupported sections instead of rendering empty containers', () => {
+    const html = renderToString(<LeagueHub league={{ year: 2026, week: 1, seasonId: 'empty' }} />);
+    expect(html).toContain('No league pulse is available yet');
+    expect(html).not.toContain('Award Watch');
+    expect(html).not.toContain('League Health');
+    expect(html).not.toContain('Trending Teams');
+  });
+
+  it('renders long player names in the mobile-safe stacked row layout', () => {
+    const html = renderToString(<LeagueHub league={{ ...league, teams: league.teams.map((team, index) => index ? team : { ...team, roster: [{ id: 'long', name: 'A Very Long Player Name That Must Wrap Cleanly', pos: 'QB', injuryWeeksRemaining: 6 }] }) }} />);
+    expect(html).toContain('A Very Long Player Name That Must Wrap Cleanly');
+    expect(html).toContain('app-row-stack');
   });
 });
