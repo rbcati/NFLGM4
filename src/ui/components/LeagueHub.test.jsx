@@ -1,6 +1,8 @@
+/** @vitest-environment jsdom */
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import LeagueHub from './LeagueHub.jsx';
 
 const league = {
@@ -27,6 +29,7 @@ const league = {
 };
 
 describe('LeagueHub', () => {
+  afterEach(cleanup);
   it('renders command-center sections with overview as default', () => {
     const html = renderToString(
       <LeagueHub
@@ -39,13 +42,13 @@ describe('LeagueHub', () => {
       />,
     );
 
-    expect(html).toContain('League Command Center');
+    expect(html).toContain('League Season Pulse');
     expect(html).toContain('Overview');
     expect(html).toContain('Results');
     expect(html).toContain('Standings');
     expect(html).toContain('News');
     expect(html).toContain('Leaders');
-    expect(html).toContain('League pulse');
+    expect(html).toContain('Around the League');
     expect(html).not.toContain('Weekly Results Stub');
   });
 
@@ -78,5 +81,27 @@ describe('LeagueHub', () => {
         renderStandings={() => <div>Standings unavailable</div>}
       />,
     )).not.toThrow();
+  });
+
+  it('hides unsupported sections instead of rendering empty containers', () => {
+    const html = renderToString(<LeagueHub league={{ year: 2026, week: 1, seasonId: 'empty' }} />);
+    expect(html).toContain('No league pulse is available yet');
+    expect(html).not.toContain('Award Watch');
+    expect(html).not.toContain('League Health');
+    expect(html).not.toContain('Trending Teams');
+  });
+
+  it('renders long player names in the mobile-safe stacked row layout', () => {
+    const html = renderToString(<LeagueHub league={{ ...league, teams: league.teams.map((team, index) => index ? team : { ...team, roster: [{ id: 'long', name: 'A Very Long Player Name That Must Wrap Cleanly', pos: 'QB', injuryWeeksRemaining: 6 }] }) }} />);
+    expect(html).toContain('A Very Long Player Name That Must Wrap Cleanly');
+    expect(html).toContain('app-row-stack');
+  });
+
+  it('opens a recorded spotlight through the existing Game Book callback', () => {
+    const onOpenGameDetail = vi.fn();
+    render(<LeagueHub league={league} onOpenGameDetail={onOpenGameDetail} />);
+    const spotlights = screen.getByText('Spotlight Games').closest('section');
+    fireEvent.click(within(spotlights).getByRole('button', { name: 'Open Game' }));
+    expect(onOpenGameDetail).toHaveBeenCalledWith('g1');
   });
 });
