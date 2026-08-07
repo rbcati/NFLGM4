@@ -4,7 +4,9 @@ import SocialFeed from './SocialFeed.jsx';
 import LeagueLeaders from './LeagueLeaders.jsx';
 import { buildNewsDeskModel } from '../utils/newsDesk.js';
 import { buildLeagueSeasonPulse } from '../utils/leagueSeasonPulse.js';
+import { buildWeeklyLeagueRecap } from '../utils/weeklyLeagueRecap.js';
 import { CompactListRow, StatusChip, HeroCard, SectionCard, StatStrip, CompactInsightCard } from './ScreenSystem.jsx';
+import { openResolvedBoxScore } from '../utils/boxScoreAccess.js';
 
 const LEAGUE_SECTIONS = ['Overview', 'Results', 'Standings', 'News', 'Leaders', 'Coaching'];
 
@@ -30,6 +32,7 @@ export default function LeagueHub({
 
   const week = Number(league?.week ?? 1);
   const seasonPulse = useMemo(() => buildLeagueSeasonPulse({ league, week }), [league, week]);
+  const recap = useMemo(() => buildWeeklyLeagueRecap(league, { week }), [league, week]);
   const newsDesk = useMemo(() => buildNewsDeskModel(league, { segment: 'league', limit: 80 }), [league]);
   const transactionRows = useMemo(() => {
     return (newsDesk.transactions ?? []).slice(0, 8).map((item) => {
@@ -44,6 +47,7 @@ export default function LeagueHub({
       return { ...item, _txType: type };
     });
   }, [newsDesk.transactions]);
+  const spotlightRows = recap?.spotlights ?? [];
 
   return (
     <div className="app-screen-stack">
@@ -91,6 +95,23 @@ export default function LeagueHub({
 
           {seasonPulse.nextWeekHighlight && <SectionCard title="Next Week" subtitle="One matchup selected by stable, factual rules." variant="compact">
             <CompactListRow title={`${seasonPulse.nextWeekHighlight.awayTeam} at ${seasonPulse.nextWeekHighlight.homeTeam}`} subtitle={seasonPulse.nextWeekHighlight.reason} meta={<StatusChip label={`Week ${seasonPulse.nextWeekHighlight.week}`} tone="info" />} />
+          </SectionCard>}
+
+          {spotlightRows.length > 0 && <SectionCard title="Spotlight Games" subtitle="Open a recorded weekly result in Game Book." variant="compact">
+            <div className="app-row-stack">{spotlightRows.slice(0, 2).map((spotlight, index) => <CompactListRow
+              key={spotlight.key ?? `spotlight-${index}`}
+              title={spotlight.score ?? 'Spotlight game'}
+              subtitle={spotlight.reason ?? 'Weekly spotlight game'}
+              meta={<StatusChip label={`Week ${spotlight.week ?? seasonPulse.week ?? week}`} tone="league" />}
+            >
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={() => openResolvedBoxScore(spotlight.game, { seasonId: league?.seasonId, week: spotlight.week ?? seasonPulse.week ?? week, source: 'league_overview_spotlight' }, onOpenGameDetail)}
+              >
+                Open Game
+              </button>
+            </CompactListRow>)}</div>
           </SectionCard>}
 
           {!Object.values(seasonPulse.availableData).some(Boolean) && <SectionCard title="Season Pulse" variant="compact"><CompactInsightCard title="No league pulse is available yet" subtitle="Complete games to unlock factual weekly context." tone="info" /></SectionCard>}

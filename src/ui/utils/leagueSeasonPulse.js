@@ -7,6 +7,8 @@ const n = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 const id = (value) => String(value?.id ?? value?.teamId ?? value ?? '');
+const playerId = (value) => value?.playerId ?? value?.id ?? value?.player?.id ?? null;
+const playerKey = (value) => String(playerId(value) ?? '');
 const teamName = (team) => team?.abbr ?? team?.name ?? 'Team';
 const sideId = (game, side) => id(game?.[`${side}Id`] ?? game?.[side]);
 const gameKey = (game) => String(game?.gameId ?? game?.id ?? `${sideId(game, 'away')}-${sideId(game, 'home')}`);
@@ -85,11 +87,11 @@ function buildInjuries(league, teams) {
   const roster = teams.flatMap((team) => (team?.roster ?? []).map((player) => ({ ...player, teamId: player?.teamId ?? team.id })));
   return [...supplied, ...roster]
     .map((player) => ({ player, weeks: n(player?.injuryWeeksRemaining ?? player?.injury?.gamesRemaining ?? player?.weeksOut) }))
-    .filter(({ player, weeks }) => id(player) && String(player?.name ?? '').trim() && weeks > 0)
-    .sort((a, b) => b.weeks - a.weeks || id(a.player).localeCompare(id(b.player)))
-    .filter((row, index, all) => all.findIndex((other) => id(other.player) === id(row.player)) === index)
+    .filter(({ player, weeks }) => playerKey(player) && String(player?.name ?? '').trim() && weeks > 0)
+    .sort((a, b) => b.weeks - a.weeks || playerKey(a.player).localeCompare(playerKey(b.player)))
+    .filter((row, index, all) => all.findIndex((other) => playerKey(other.player) === playerKey(row.player)) === index)
     .slice(0, 3)
-    .map(({ player, weeks }) => ({ playerId: player.id, playerName: player.name, teamId: player.teamId ?? null, position: player.pos ?? player.position ?? null, injury: player?.injury?.name ?? player?.injuryName ?? null, weeksRemaining: weeks }));
+    .map(({ player, weeks }) => ({ playerId: playerId(player), playerName: player.name, teamId: player.teamId ?? null, position: player.pos ?? player.position ?? null, injury: player?.injury?.name ?? player?.injuryName ?? null, weeksRemaining: weeks }));
 }
 
 function currentStandings(league) {

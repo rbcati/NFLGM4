@@ -39,6 +39,18 @@ describe('buildLeagueSeasonPulse', () => {
     expect(new Set(pulse.awardWatch.map((row) => row.playerId)).size).toBe(pulse.awardWatch.length);
   });
 
+  it('keeps distinct league-level playerId injuries on the same team in deterministic order', () => {
+    const pulse = buildLeagueSeasonPulse({ league: { ...league, injuries: [
+      { playerId: 202, teamId: 1, name: 'Second Player', injuryWeeksRemaining: 4 },
+      { playerId: 101, teamId: 1, name: 'First Player', injuryWeeksRemaining: 4 },
+    ] } });
+    expect(pulse.majorInjuries).toEqual([
+      expect.objectContaining({ playerId: 11, playerName: 'Starting Quarterback With A Long Name' }),
+      expect.objectContaining({ playerId: 101, teamId: 1, playerName: 'First Player' }),
+      expect.objectContaining({ playerId: 202, teamId: 1, playerName: 'Second Player' }),
+    ]);
+  });
+
   it('omits unsupported upset, award, movement, and single-game trends', () => {
     const oneWeek = { ...league, teams: teams.map((team) => ({ ...team, wins: 0, losses: 0, roster: [] })), schedule: { weeks: [weeks[0]] } };
     const pulse = buildLeagueSeasonPulse({ league: oneWeek });
