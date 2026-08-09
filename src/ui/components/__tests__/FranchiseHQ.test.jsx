@@ -80,6 +80,60 @@ describe('FranchiseHQ', () => {
     expect(within(linkRow).getByRole('button', { name: /^ops$/i })).toBeTruthy();
   });
 
+  it('renders factual upcoming matchup history and opens the last meeting through the existing Game Book route', () => {
+    const onNavigate = vi.fn();
+    render(<FranchiseHQ league={baseLeague} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByText('Division matchup')).toBeTruthy();
+    expect(within(context).getByText('Second meeting this season')).toBeTruthy();
+    expect(within(context).getByTestId('hq-matchup-recent-series').textContent).toBe('CHI leads last 1 meeting 1-0');
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).toContain('CHI 23–20 DET');
+    expect(within(context).queryByTestId('hq-matchup-series-streak')).toBeNull();
+
+    fireEvent.click(within(context).getByRole('button', { name: /open last meeting/i }));
+    expect(onNavigate).toHaveBeenCalledWith('Game Book:g-9');
+  });
+
+  it('shows a real head-to-head streak and keeps the compact markup mobile-safe', () => {
+    const streakLeague = {
+      ...baseLeague,
+      schedule: {
+        weeks: [
+          { week: 7, games: [{ id: 'g-7', home: 10, away: 11, homeScore: 24, awayScore: 17, played: true }] },
+          { week: 8, games: [{ id: 'g-8', home: 11, away: 10, homeScore: 20, awayScore: 27, played: true }] },
+          { week: 9, games: [{ id: 'g-9', home: 10, away: 11, homeScore: 30, awayScore: 21, played: true }] },
+          { week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] },
+        ],
+      },
+    };
+    render(<FranchiseHQ league={streakLeague} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByTestId('hq-matchup-series-streak').textContent).toBe('CHI has won 3 straight meetings');
+    expect(context.querySelector('table')).toBeNull();
+    expect(context.querySelector('[role="region"]')).toBeNull();
+    expect(context.classList.contains('hq-matchup-history')).toBe(true);
+  });
+
+  it('degrades to recorded-history empty copy and hides unsupported division, streak, playoff, and drill-down lines', () => {
+    const noHistoryLeague = {
+      ...baseLeague,
+      teams: [
+        { ...baseLeague.teams[0], name: 'A Very Long Franchise Name That Must Wrap' },
+        { id: 12, name: 'Another Extremely Long Expansion Franchise Name', abbr: 'EXP', conf: 0, div: 3, wins: 0, losses: 0, ties: 0, roster: [] },
+      ],
+      schedule: { weeks: [{ week: 10, games: [{ id: 'future', home: 10, away: 12, played: false }] }] },
+      gameById: {},
+    };
+    render(<FranchiseHQ league={noHistoryLeague} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByText('No prior meeting found in recorded franchise history.')).toBeTruthy();
+    expect(context.textContent).not.toMatch(/division matchup|rival|all-time|revenge|playoff meeting|straight meetings/i);
+    expect(within(context).queryByRole('button', { name: /open last meeting/i })).toBeNull();
+  });
+
   it('does not render pruned Weekly Command Hub or Game Plan Impact sections', () => {
     const onNavigate = vi.fn();
     render(<FranchiseHQ league={baseLeague} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
