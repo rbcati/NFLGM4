@@ -14,6 +14,10 @@ const finiteNumber = (value) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+const hasRecordedValuationEvidence = (player) => {
+  const overall = finiteNumber(player?.ovr);
+  return overall != null && overall > 0 && overall <= 99;
+};
 
 function teamContextFor(league, team) {
   if (!team) return null;
@@ -99,6 +103,7 @@ export function buildTradeDeadlineContext({ league = {}, team = null, roster = t
       const age = presentation?.identity?.age ?? null;
       const role = presentation?.role?.label === 'Role unavailable' ? null : presentation?.role?.label ?? null;
       const resolved = RESOLVED_DECISIONS.has(String(player?.extensionDecision ?? '').toLowerCase());
+      if (!hasRecordedValuationEvidence(player)) continue;
       const tradeValue = finiteNumber(calculatePlayerValue(player));
       const finalYearVeteran = years === 1 && age != null && age >= 27 && !resolved && meaningfulTradeValue(tradeValue);
       const veteranDepth = age != null && age >= 27 && DEPTH_ROLES.has(role) && meaningfulTradeValue(tradeValue);

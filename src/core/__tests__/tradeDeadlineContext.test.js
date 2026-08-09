@@ -103,6 +103,44 @@ describe('buildTradeDeadlineContext', () => {
     expect(JSON.stringify(result)).not.toMatch(/expir|backup|depth|trade value: 0/i);
   });
 
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['blank', '   '],
+    ['zero', 0],
+    ['NaN-style', 'not-a-rating'],
+  ])('rejects an otherwise eligible veteran depth player with %s recorded OVR', (_label, ovr) => {
+    const candidate = player(1, {
+      ovr,
+      potential: 88,
+      contract: { yearsRemaining: 3, baseAnnual: 8 },
+      depthChart: { order: 2, role: 'backup' },
+    });
+    const result = build([candidate]);
+    expect(result.reviewCandidates).toEqual([]);
+    expect(JSON.stringify(result)).not.toMatch(/recorded trade value|tradeValue/i);
+  });
+
+  it('accepts the fully recorded equivalent and permits schema-optional potential to use canonical OVR fallback', () => {
+    const fullyRecorded = player(1, {
+      ovr: 82,
+      potential: 84,
+      contract: { yearsRemaining: 3, baseAnnual: 8 },
+      depthChart: { order: 2, role: 'backup' },
+    });
+    const optionalPotential = player(2, {
+      ovr: 82,
+      potential: undefined,
+      contract: { yearsRemaining: 3, baseAnnual: 8 },
+      depthChart: { order: 2, role: 'reserve' },
+    });
+    const first = build([optionalPotential, fullyRecorded]);
+    const second = build([fullyRecorded, optionalPotential]);
+    expect(first.reviewCandidates.map((row) => row.playerId)).toEqual([1, 2]);
+    expect(second.reviewCandidates).toEqual(first.reviewCandidates);
+    expect(first.reviewCandidates.every((row) => Number.isFinite(row.tradeValue))).toBe(true);
+  });
+
   it('does not invent demand or destinations from records or another team injury', () => {
     const result = build([player(1)], { injuries: [{ id: 99, teamId: 2, injuryWeeksRemaining: 8 }] });
     expect(JSON.stringify(result)).not.toMatch(/market demand|interest|contender|buyer|seller|plausible destination/i);
