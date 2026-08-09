@@ -104,4 +104,39 @@ describe('LeagueHub', () => {
     fireEvent.click(within(spotlights).getByRole('button', { name: 'Open Game' }));
     expect(onOpenGameDetail).toHaveBeenCalledWith('g1');
   });
+
+  it('renders factual deadline candidates and opens the existing Trade Center destination', () => {
+    const onNavigateTrade = vi.fn();
+    const roster = [{ id: 7, teamId: 1, name: 'A Very Long Veteran Receiver Name', pos: 'WR', age: 30, ovr: 82, potential: 82, status: 'active', depthChart: { order: 1, role: 'starter' }, contract: { yearsRemaining: 1, baseAnnual: 8 } }];
+    render(<LeagueHub league={{ ...league, phase: 'regular', week: 7, userTeamId: 1, settings: { tradeDeadlineWeek: 9 }, players: roster, teams: [{ ...league.teams[0], roster }, league.teams[1]] }} onNavigateTrade={onNavigateTrade} />);
+    expect(screen.getByText(/2 weeks remaining/)).toBeTruthy();
+    expect(screen.getByText('A Very Long Veteran Receiver Name')).toBeTruthy();
+    expect(screen.queryByText(/buyer|seller|market demand|interest/i)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Review Trade' }));
+    expect(onNavigateTrade).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides deadline context outside supported phases and renders no candidate filler when empty', () => {
+    const offseason = renderToString(<LeagueHub league={{ ...league, phase: 'offseason', userTeamId: 1, settings: { tradeDeadlineWeek: 9 } }} />);
+    expect(offseason).not.toContain('Trade Deadline');
+    const regular = renderToString(<LeagueHub league={{ ...league, phase: 'regular', userTeamId: 1, settings: { tradeDeadlineWeek: 9 } }} />);
+    expect(regular).toContain('No roster decisions currently require trade review.');
+  });
+
+  it('does not label archived preseason standings as the current division position', () => {
+    const html = renderToString(<LeagueHub league={{
+      ...league,
+      phase: 'preseason',
+      week: 1,
+      userTeamId: 1,
+      settings: { tradeDeadlineWeek: 9 },
+      standings: [
+        { id: 2, wins: 12, losses: 5, conf: 'A', div: 'East' },
+        { id: 1, wins: 9, losses: 8, conf: 'A', div: 'East' },
+      ],
+      teams: league.teams.map((team) => ({ ...team, wins: 0, losses: 0 })),
+    }} />);
+    expect(html).toContain('Trade Deadline');
+    expect(html).not.toMatch(/\d+(?:st|nd|rd|th) in division/);
+  });
 });
