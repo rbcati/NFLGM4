@@ -122,4 +122,21 @@ describe('LeagueHub', () => {
     const regular = renderToString(<LeagueHub league={{ ...league, phase: 'regular', userTeamId: 1, settings: { tradeDeadlineWeek: 9 } }} />);
     expect(regular).toContain('No roster decisions currently require trade review.');
   });
+
+  it('does not label archived preseason standings as the current division position', () => {
+    const html = renderToString(<LeagueHub league={{
+      ...league,
+      phase: 'preseason',
+      week: 1,
+      userTeamId: 1,
+      settings: { tradeDeadlineWeek: 9 },
+      standings: [
+        { id: 2, wins: 12, losses: 5, conf: 'A', div: 'East' },
+        { id: 1, wins: 9, losses: 8, conf: 'A', div: 'East' },
+      ],
+      teams: league.teams.map((team) => ({ ...team, wins: 0, losses: 0 })),
+    }} />);
+    expect(html).toContain('Trade Deadline');
+    expect(html).not.toMatch(/\d+(?:st|nd|rd|th) in division/);
+  });
 });

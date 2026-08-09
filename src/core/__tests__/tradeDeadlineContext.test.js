@@ -42,6 +42,33 @@ describe('buildTradeDeadlineContext', () => {
     expect(JSON.stringify(result)).not.toMatch(/buyer|seller|movement/i);
   });
 
+  it('does not present archived preseason standings as a current division position', () => {
+    const archivedStandings = [
+      { id: 2, wins: 12, losses: 5, conf: 'A', div: 'East' },
+      { id: 1, wins: 9, losses: 8, conf: 'A', div: 'East' },
+    ];
+    const roster = [];
+    const teams = [
+      { id: 1, wins: 0, losses: 0, conf: 'A', div: 'East', roster },
+      { id: 2, wins: 0, losses: 0, conf: 'A', div: 'East', roster: [] },
+    ];
+    const league = leagueFor(roster, { phase: 'preseason', standings: archivedStandings, teams });
+    const result = buildTradeDeadlineContext({ league, team: teams[0], roster });
+    expect(result.teamContext.divisionPosition).toBeNull();
+  });
+
+  it('keeps missing standings safe and deterministic', () => {
+    const roster = [];
+    const league = leagueFor(roster, { standings: undefined, teams: [{ id: 1, wins: 1, losses: 0, roster }] });
+    const first = buildTradeDeadlineContext({ league, team: league.teams[0], roster });
+    const second = buildTradeDeadlineContext({ league, team: league.teams[0], roster });
+    expect(first.teamContext.divisionPosition).toBe(1);
+    expect(first).toEqual(second);
+
+    const missingTeams = { ...league, teams: [], standings: [] };
+    expect(buildTradeDeadlineContext({ league: missingTeams, team: null, roster }).teamContext).toBeNull();
+  });
+
   it('includes a final-year veteran only with meaningful canonical value and unresolved context', () => {
     const result = build([player(1)]);
     expect(result.reviewCandidates[0]).toMatchObject({ playerId: 1, contractYearsRemaining: 1, role: 'Starter', finalYearContext: true });

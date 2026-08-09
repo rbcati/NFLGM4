@@ -21,13 +21,17 @@ function teamContextFor(league, team) {
   const losses = finiteNumber(team.losses);
   const ties = finiteNumber(team.ties);
   let divisionPosition = null;
-  try {
-    const division = prepareStandingsView(league).divisions.find((row) =>
-      row.teams.some((entry) => canonicalId(entry.id) === canonicalId(team.id)));
-    const index = division?.teams.findIndex((entry) => canonicalId(entry.id) === canonicalId(team.id)) ?? -1;
-    if (index >= 0) divisionPosition = index + 1;
-  } catch {
-    // Partial legacy standings are optional context, not a reason to fail the model.
+  // Preseason can intentionally retain the prior season's archived standings.
+  // Only phases with live current-season standings may claim a current position.
+  if (['regular', 'playoffs'].includes(String(league?.phase))) {
+    try {
+      const division = prepareStandingsView(league).divisions.find((row) =>
+        row.teams.some((entry) => canonicalId(entry.id) === canonicalId(team.id)));
+      const index = division?.teams.findIndex((entry) => canonicalId(entry.id) === canonicalId(team.id)) ?? -1;
+      if (index >= 0) divisionPosition = index + 1;
+    } catch {
+      // Partial legacy standings are optional context, not a reason to fail the model.
+    }
   }
   const streakRows = Array.isArray(team.streak) ? team.streak : [];
   const last = streakRows.at(-1);
