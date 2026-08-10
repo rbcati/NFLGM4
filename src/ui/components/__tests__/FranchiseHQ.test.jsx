@@ -52,6 +52,7 @@ const baseLeague = {
 describe('FranchiseHQ', () => {
   afterEach(() => {
     cleanup();
+    localStorage.removeItem('footballgm_game_archive_v1');
   });
 
   it('renders visible weekly command center essentials and one primary advance CTA', () => {
@@ -168,6 +169,16 @@ describe('FranchiseHQ', () => {
     const first = render(<FranchiseHQ league={leagueForSave('save-a')} actions={firstActions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
     await within(screen.getByTestId('hq-matchup-history')).findByRole('button', { name: /open last meeting/i });
     first.unmount();
+
+    localStorage.setItem('footballgm_game_archive_v1', JSON.stringify({
+      version: 1,
+      games: {
+        'shared-archive-id': {
+          id: 'shared-archive-id', season: 's9', week: 7, homeId: 11, awayId: 10,
+          homeAbbr: 'DET', awayAbbr: 'CHI', score: { home: 20, away: 27 }, timestamp: 1,
+        },
+      },
+    }));
 
     const secondActions = {
       getBoxScore: vi.fn().mockResolvedValue({ gameId: 'shared-archive-id', game: null, error: 'Game not found' }),

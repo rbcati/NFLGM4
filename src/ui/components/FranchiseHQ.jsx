@@ -26,7 +26,6 @@ import ActivityToastStack from './ActivityToastStack.jsx';
 import GameResultSummaryCard from './GameResultSummaryCard.jsx';
 import GMDecisionCenter from './GMDecisionCenter.jsx';
 import { readStrictFinalScore, recoverArchivedGameFromSchedule } from '../../core/gameArchive.js';
-import { getGame as getLocalArchivedGame } from '../../core/archive/gameArchive.ts';
 
 const BOTTOM_NAV_ITEMS = [
   { label: 'Home', route: 'HQ', icon: 'home', active: true },
@@ -121,13 +120,7 @@ function findSynchronousGameBookRecord(league, gameId) {
 
   const indexedGame = league?.gameById?.[gameKey] ?? null;
   if (readStrictFinalScore(indexedGame)) return indexedGame;
-
-  try {
-    const localArchivedGame = getLocalArchivedGame(gameKey);
-    return readStrictFinalScore(localArchivedGame) ? localArchivedGame : null;
-  } catch {
-    return null;
-  }
+  return null;
 }
 
 function getLatestUserResultFromRecentResults(lastResults, { league, lastSimWeek } = {}) {
