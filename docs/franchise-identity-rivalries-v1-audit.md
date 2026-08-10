@@ -129,7 +129,7 @@ Existing history destinations remain unchanged: `History`, `Team History`, `Sche
 
 ## Performance and legacy behavior
 
-The model is memoized once in Franchise HQ for the single upcoming opponent. It scans the current schedule and compact archived indexes once, filters once for the supplied team pair, sorts once, and returns at most five recent meetings. The model itself performs no persistence reads or worker calls. Franchise HQ performs at most one cached lookup through the existing Game Book action for the single last meeting, and only when the schedule, `gameById`, and synchronous postgame archive cannot already prove resolution. This is an eligibility check, not a new archive loader or per-opponent fan-out.
+The model is memoized once in Franchise HQ for the single upcoming opponent. It scans the current schedule and compact archived indexes once, filters once for the supplied team pair, sorts once, and returns at most five recent meetings. The model itself performs no persistence reads or worker calls. Franchise HQ performs at most one cached lookup through the existing Game Book action for the single last meeting, and only when the schedule, `gameById`, and synchronous postgame archive cannot already prove resolution. That request cache is scoped by the live `activeLeagueId`, so identical generated game IDs cannot reuse resolver evidence across saves. This is an eligibility check, not a new archive loader or per-opponent fan-out.
 
 Legacy/partial data degrades by omission:
 

@@ -223,7 +223,7 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
   const { data: lastMeetingArchiveResponse } = useStableRouteRequest({
     requestKey: shouldCheckLastMeetingArchive ? `boxscore:${lastMeetingGameId}` : null,
     enabled: shouldCheckLastMeetingArchive,
-    cacheScopeKey: league?.id ?? league?.leagueId ?? 'global',
+    cacheScopeKey: league?.activeLeagueId ?? league?.id ?? league?.leagueId ?? 'global',
     fetcher: () => actions.getBoxScore(lastMeetingGameId),
     warnLabel: 'FranchiseHQLastMeeting',
   });

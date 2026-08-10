@@ -146,6 +146,39 @@ describe('FranchiseHQ', () => {
     expect(onNavigate).toHaveBeenCalledWith('Game Book:archived-detailed');
   });
 
+  it('does not reuse a last-meeting archive result across saves with the same game ID', async () => {
+    const sharedHistory = [{
+      id: 's9',
+      year: 2025,
+      gameIndex: [{ id: 'shared-archive-id', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+    }];
+    const leagueForSave = (activeLeagueId) => ({
+      ...baseLeague,
+      activeLeagueId,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: sharedHistory,
+    });
+    const firstActions = {
+      getBoxScore: vi.fn().mockResolvedValue({
+        gameId: 'shared-archive-id',
+        game: { id: 'shared-archive-id', seasonId: 's9', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 },
+      }),
+    };
+    const first = render(<FranchiseHQ league={leagueForSave('save-a')} actions={firstActions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+    await within(screen.getByTestId('hq-matchup-history')).findByRole('button', { name: /open last meeting/i });
+    first.unmount();
+
+    const secondActions = {
+      getBoxScore: vi.fn().mockResolvedValue({ gameId: 'shared-archive-id', game: null, error: 'Game not found' }),
+    };
+    render(<FranchiseHQ league={leagueForSave('save-b')} actions={secondActions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const secondContext = screen.getByTestId('hq-matchup-history');
+    await waitFor(() => expect(secondActions.getBoxScore).toHaveBeenCalledWith('shared-archive-id'));
+    expect(within(secondContext).queryByRole('button', { name: /open last meeting/i })).toBeNull();
+  });
+
   it('shows a real head-to-head streak and keeps the compact markup mobile-safe', () => {
     const streakLeague = {
       ...baseLeague,
