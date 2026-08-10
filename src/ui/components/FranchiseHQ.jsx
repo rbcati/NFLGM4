@@ -14,6 +14,8 @@ import { getLastGameDisplay, getLatestUserCompletedGame, getNextOpponentDisplay 
 import { HQIcon, TeamIdentityBadge } from './HQVisuals.jsx';
 import { buildGameBookDestination } from '../utils/managementScreenRouting.js';
 import { buildMatchupHistoryContext } from '../utils/matchupHistoryContext.js';
+import { unwrapBoxScoreResponse } from '../utils/boxScoreViewModel.js';
+import useStableRouteRequest from '../hooks/useStableRouteRequest.js';
 import ChronicleHeadlineBanner from './ChronicleHeadlineBanner.tsx';
 import MediaDesk from './MediaDesk.jsx';
 import CombineDashboard from './CombineDashboard.jsx';
@@ -23,7 +25,8 @@ import JobSecurityCard from './JobSecurityCard.jsx';
 import ActivityToastStack from './ActivityToastStack.jsx';
 import GameResultSummaryCard from './GameResultSummaryCard.jsx';
 import GMDecisionCenter from './GMDecisionCenter.jsx';
-import { readStrictFinalScore } from '../../core/gameArchive.js';
+import { readStrictFinalScore, recoverArchivedGameFromSchedule } from '../../core/gameArchive.js';
+import { getGame as getLocalArchivedGame } from '../../core/archive/gameArchive.ts';
 
 const BOTTOM_NAV_ITEMS = [
   { label: 'Home', route: 'HQ', icon: 'home', active: true },
@@ -100,6 +103,31 @@ function formatMeetingScore(meeting, league) {
     return `${awayAbbr} ${meeting.awayScore}–${meeting.homeScore} ${homeAbbr}`;
   }
   return `${homeAbbr} ${meeting.homeScore}–${meeting.awayScore} ${awayAbbr}`;
+}
+
+function findSynchronousGameBookRecord(league, gameId) {
+  if (!gameId) return null;
+  const gameKey = String(gameId);
+
+  for (const weekRow of league?.schedule?.weeks ?? []) {
+    for (const game of weekRow?.games ?? []) {
+      const candidateId = game?.gameId ?? game?.id;
+      if (String(candidateId ?? '') === gameKey && readStrictFinalScore(game)) return game;
+    }
+  }
+
+  const recoveredScheduleGame = recoverArchivedGameFromSchedule(gameKey, league);
+  if (readStrictFinalScore(recoveredScheduleGame)) return recoveredScheduleGame;
+
+  const indexedGame = league?.gameById?.[gameKey] ?? null;
+  if (readStrictFinalScore(indexedGame)) return indexedGame;
+
+  try {
+    const localArchivedGame = getLocalArchivedGame(gameKey);
+    return readStrictFinalScore(localArchivedGame) ? localArchivedGame : null;
+  } catch {
+    return null;
+  }
 }
 
 function getLatestUserResultFromRecentResults(lastResults, { league, lastSimWeek } = {}) {
@@ -181,6 +209,28 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
   const lastMeetingScore = useMemo(
     () => formatMeetingScore(matchupHistory?.lastMeeting, league),
     [league, matchupHistory?.lastMeeting],
+  );
+  const lastMeetingGameId = matchupHistory?.lastMeeting?.gameId ?? null;
+  const synchronousLastMeetingGame = useMemo(
+    () => findSynchronousGameBookRecord(league, lastMeetingGameId),
+    [league, lastMeetingGameId],
+  );
+  const shouldCheckLastMeetingArchive = Boolean(
+    lastMeetingGameId
+    && !synchronousLastMeetingGame
+    && typeof actions?.getBoxScore === 'function',
+  );
+  const { data: lastMeetingArchiveResponse } = useStableRouteRequest({
+    requestKey: shouldCheckLastMeetingArchive ? `boxscore:${lastMeetingGameId}` : null,
+    enabled: shouldCheckLastMeetingArchive,
+    cacheScopeKey: league?.id ?? league?.leagueId ?? 'global',
+    fetcher: () => actions.getBoxScore(lastMeetingGameId),
+    warnLabel: 'FranchiseHQLastMeeting',
+  });
+  const resolvedLastMeetingArchive = unwrapBoxScoreResponse(lastMeetingArchiveResponse);
+  const canOpenLastMeeting = Boolean(
+    lastMeetingGameId
+    && (readStrictFinalScore(synchronousLastMeetingGame) || readStrictFinalScore(resolvedLastMeetingArchive)),
   );
 
   const handleAdvanceOrGate = () => {
@@ -638,11 +688,11 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
                   ? ` · ${matchupHistory.lastMeeting.stage}`
                   : ''}
               </p>
-              {matchupHistory.lastMeeting.gameId && (
+              {canOpenLastMeeting && (
                 <button
                   type="button"
                   className="hq-matchup-history__open"
-                  onClick={() => onNavigate?.(buildGameBookDestination(matchupHistory.lastMeeting.gameId))}
+                  onClick={() => onNavigate?.(buildGameBookDestination(lastMeetingGameId))}
                 >
                   Open Last Meeting
                 </button>

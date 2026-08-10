@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import FranchiseHQ from '../FranchiseHQ.jsx';
 import LeagueDashboard from '../LeagueDashboard.jsx';
 import { normalizeManagementDestination, parseGameBookDestination } from '../../utils/managementScreenRouting.js';
@@ -82,7 +82,8 @@ describe('FranchiseHQ', () => {
 
   it('renders factual upcoming matchup history and opens the last meeting through the existing Game Book route', () => {
     const onNavigate = vi.fn();
-    render(<FranchiseHQ league={baseLeague} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+    const actions = { getBoxScore: vi.fn() };
+    render(<FranchiseHQ league={baseLeague} actions={actions} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
 
     const context = screen.getByTestId('hq-matchup-history');
     expect(within(context).getByText('Division matchup')).toBeTruthy();
@@ -93,6 +94,56 @@ describe('FranchiseHQ', () => {
 
     fireEvent.click(within(context).getByRole('button', { name: /open last meeting/i }));
     expect(onNavigate).toHaveBeenCalledWith('Game Book:g-9');
+    expect(actions.getBoxScore).not.toHaveBeenCalled();
+  });
+
+  it('keeps a compact archived last score but hides Game Book when the detailed archive is missing', async () => {
+    const archivedLeague = {
+      ...baseLeague,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: [{
+        id: 's9',
+        year: 2025,
+        gameIndex: [{ id: 'archived-compact', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+      }],
+    };
+    const actions = { getBoxScore: vi.fn().mockResolvedValue({ gameId: 'archived-compact', game: null, error: 'Game not found' }) };
+
+    render(<FranchiseHQ league={archivedLeague} actions={actions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).toContain('CHI 27–20 DET');
+    await waitFor(() => expect(actions.getBoxScore).toHaveBeenCalledWith('archived-compact'));
+    expect(within(context).queryByRole('button', { name: /open last meeting/i })).toBeNull();
+  });
+
+  it('keeps Open Last Meeting for an archived game confirmed by the existing Game Book resolver', async () => {
+    const archivedLeague = {
+      ...baseLeague,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: [{
+        id: 's9',
+        year: 2025,
+        gameIndex: [{ id: 'archived-detailed', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+      }],
+    };
+    const onNavigate = vi.fn();
+    const actions = {
+      getBoxScore: vi.fn().mockResolvedValue({
+        gameId: 'archived-detailed',
+        game: { id: 'archived-detailed', seasonId: 's9', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 },
+      }),
+    };
+
+    render(<FranchiseHQ league={archivedLeague} actions={actions} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    const button = await within(context).findByRole('button', { name: /open last meeting/i });
+    fireEvent.click(button);
+    expect(actions.getBoxScore).toHaveBeenCalledWith('archived-detailed');
+    expect(onNavigate).toHaveBeenCalledWith('Game Book:archived-detailed');
   });
 
   it('shows a real head-to-head streak and keeps the compact markup mobile-safe', () => {

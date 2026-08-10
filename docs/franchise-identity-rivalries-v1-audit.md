@@ -123,13 +123,13 @@ The only V1 product integration is the Franchise HQ next-matchup surface. It sho
 
 The block uses wrapping chips and stacked lines, has no table or nested scroll area, and switches the action below the score at widths up to 430px. The action target is at least 44px high on small screens.
 
-`Open Last Meeting` reuses `buildGameBookDestination(gameId)`, producing the existing `Game Book:<gameId>` destination. `LeagueDashboard` owns that navigation and the existing Game Detail / Game Book resolver loads the canonical archived game or its existing score-only fallback. No new modal, route family, or duplicate box-score implementation was added.
+`Open Last Meeting` reuses `buildGameBookDestination(gameId)`, producing the existing `Game Book:<gameId>` destination. The action is exposed only after an existing supported resolver source proves the final is available: a completed current-schedule row, `league.gameById`, the existing synchronous postgame archive, or a successful lookup through the existing `actions.getBoxScore(gameId)` path. A compact `leagueHistory[].gameIndex[]` score alone is not resolver evidence; its factual score remains visible while the action stays hidden. `LeagueDashboard` still owns navigation and the existing Game Detail / Game Book resolver remains unchanged. No new modal, route family, persistence path, or duplicate box-score implementation was added.
 
 Existing history destinations remain unchanged: `History`, `Team History`, `Schedule`, and `Standings`. V1 does not add a second opponent-history block to those screens.
 
 ## Performance and legacy behavior
 
-The model is memoized once in Franchise HQ for the single upcoming opponent. It scans the current schedule and compact archived indexes once, filters once for the supplied team pair, sorts once, and returns at most five recent meetings. It performs no persistence reads, worker calls, per-opponent fan-out, or Game Book fetches during render.
+The model is memoized once in Franchise HQ for the single upcoming opponent. It scans the current schedule and compact archived indexes once, filters once for the supplied team pair, sorts once, and returns at most five recent meetings. The model itself performs no persistence reads or worker calls. Franchise HQ performs at most one cached lookup through the existing Game Book action for the single last meeting, and only when the schedule, `gameById`, and synchronous postgame archive cannot already prove resolution. This is an eligibility check, not a new archive loader or per-opponent fan-out.
 
 Legacy/partial data degrades by omission:
 
