@@ -12,6 +12,7 @@ import './styles/mobile.css';
 import './styles/app-mobile.css';
 import './styles/screen-system.css';
 import './styles/stadium-theme.css';
+import './styles/mobile-shell-density.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

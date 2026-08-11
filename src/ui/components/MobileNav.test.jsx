@@ -61,7 +61,7 @@ describe('MobileNav', () => {
     );
 
     expect(html).toContain('premium-bottom-nav');
-    expect(html).toContain('premium-bottom-tab active" aria-label="Team"');
+    expect(html).toContain('premium-bottom-tab active" aria-label="Team" aria-current="page"');
     expect(html).toContain('Team');
     expect(html).toContain('mobile-bottom-tab__badge');
   });
