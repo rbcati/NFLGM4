@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import FranchiseHQ from '../FranchiseHQ.jsx';
 import LeagueDashboard from '../LeagueDashboard.jsx';
 import { normalizeManagementDestination, parseGameBookDestination } from '../../utils/managementScreenRouting.js';
@@ -52,6 +52,7 @@ const baseLeague = {
 describe('FranchiseHQ', () => {
   afterEach(() => {
     cleanup();
+    localStorage.removeItem('footballgm_game_archive_v1');
   });
 
   it('renders visible weekly command center essentials and one primary advance CTA', () => {
@@ -78,6 +79,199 @@ describe('FranchiseHQ', () => {
     expect(within(linkRow).getByRole('button', { name: /^standings$/i })).toBeTruthy();
     expect(within(linkRow).getByRole('button', { name: /^news$/i })).toBeTruthy();
     expect(within(linkRow).getByRole('button', { name: /^ops$/i })).toBeTruthy();
+  });
+
+  it('renders factual upcoming matchup history and opens the last meeting through the existing Game Book route', () => {
+    const onNavigate = vi.fn();
+    const actions = { getBoxScore: vi.fn() };
+    render(<FranchiseHQ league={baseLeague} actions={actions} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByText('Division matchup')).toBeTruthy();
+    expect(within(context).getByText('Second meeting this season')).toBeTruthy();
+    expect(within(context).getByTestId('hq-matchup-recent-series').textContent).toBe('CHI leads last 1 meeting 1-0');
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).toContain('CHI 23–20 DET');
+    expect(within(context).queryByTestId('hq-matchup-series-streak')).toBeNull();
+
+    fireEvent.click(within(context).getByRole('button', { name: /open last meeting/i }));
+    expect(onNavigate).toHaveBeenCalledWith('Game Book:g-9');
+    expect(actions.getBoxScore).not.toHaveBeenCalled();
+  });
+
+  it('updates matchup context immediately from WEEK_COMPLETE results before the schedule refreshes', () => {
+    const staleLeague = {
+      ...baseLeague,
+      week: 10,
+      schedule: {
+        weeks: [
+          { week: 4, games: [{ id: 'first', home: 10, away: 11, homeScore: 21, awayScore: 17, played: true }] },
+          { week: 9, games: [{ id: 's10_w9_11_10', home: 11, away: 10, played: false }] },
+          { week: 10, games: [{ id: 'next', home: 10, away: 11, played: false }] },
+        ],
+      },
+      gameById: {},
+    };
+    const lastResults = [{
+      gameId: 's10_w9_11_10', seasonId: 's10', week: 9,
+      homeId: 11, awayId: 10, homeScore: 20, awayScore: 27,
+    }];
+    render(<FranchiseHQ league={staleLeague} lastResults={lastResults} lastSimWeek={9} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByText('Second meeting this season')).toBeTruthy();
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).toContain('CHI 27–20 DET');
+    expect(within(context).getByTestId('hq-matchup-recent-series').textContent).toBe('CHI leads last 2 meetings 2-0');
+    expect(within(context).getByTestId('hq-matchup-series-streak').textContent).toBe('CHI has won 2 straight meetings');
+  });
+
+  it('renders a flat archived playoff meeting without the fallback bracket heading as a round suffix', () => {
+    const league = {
+      ...baseLeague,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'next', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: [{
+        id: 's9', year: 2025,
+        gameIndex: [{ id: 'flat-playoff', week: 20, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+        playoffBracketSnapshot: { mode: 'flat', rounds: [{ label: 'Postseason games', games: [{ gameId: 'flat-playoff' }] }] },
+      }],
+    };
+    render(<FranchiseHQ league={league} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByText('1 recorded playoff meeting')).toBeTruthy();
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).toContain('CHI 27–20 DET');
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).not.toContain('Postseason games');
+  });
+
+  it('keeps a compact archived last score but hides Game Book when the detailed archive is missing', async () => {
+    const archivedLeague = {
+      ...baseLeague,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: [{
+        id: 's9',
+        year: 2025,
+        gameIndex: [{ id: 'archived-compact', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+      }],
+    };
+    const actions = { getBoxScore: vi.fn().mockResolvedValue({ gameId: 'archived-compact', game: null, error: 'Game not found' }) };
+
+    render(<FranchiseHQ league={archivedLeague} actions={actions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByTestId('hq-matchup-last-meeting').textContent).toContain('CHI 27–20 DET');
+    await waitFor(() => expect(actions.getBoxScore).toHaveBeenCalledWith('archived-compact'));
+    expect(within(context).queryByRole('button', { name: /open last meeting/i })).toBeNull();
+  });
+
+  it('keeps Open Last Meeting for an archived game confirmed by the existing Game Book resolver', async () => {
+    const archivedLeague = {
+      ...baseLeague,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: [{
+        id: 's9',
+        year: 2025,
+        gameIndex: [{ id: 'archived-detailed', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+      }],
+    };
+    const onNavigate = vi.fn();
+    const actions = {
+      getBoxScore: vi.fn().mockResolvedValue({
+        gameId: 'archived-detailed',
+        game: { id: 'archived-detailed', seasonId: 's9', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 },
+      }),
+    };
+
+    render(<FranchiseHQ league={archivedLeague} actions={actions} onNavigate={onNavigate} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    const button = await within(context).findByRole('button', { name: /open last meeting/i });
+    fireEvent.click(button);
+    expect(actions.getBoxScore).toHaveBeenCalledWith('archived-detailed');
+    expect(onNavigate).toHaveBeenCalledWith('Game Book:archived-detailed');
+  });
+
+  it('does not reuse a last-meeting archive result across saves with the same game ID', async () => {
+    const sharedHistory = [{
+      id: 's9',
+      year: 2025,
+      gameIndex: [{ id: 'shared-archive-id', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 }],
+    }];
+    const leagueForSave = (activeLeagueId) => ({
+      ...baseLeague,
+      activeLeagueId,
+      schedule: { weeks: [{ week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] }] },
+      gameById: {},
+      leagueHistory: sharedHistory,
+    });
+    const firstActions = {
+      getBoxScore: vi.fn().mockResolvedValue({
+        gameId: 'shared-archive-id',
+        game: { id: 'shared-archive-id', seasonId: 's9', week: 7, homeId: 11, awayId: 10, homeScore: 20, awayScore: 27 },
+      }),
+    };
+    const first = render(<FranchiseHQ league={leagueForSave('save-a')} actions={firstActions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+    await within(screen.getByTestId('hq-matchup-history')).findByRole('button', { name: /open last meeting/i });
+    first.unmount();
+
+    localStorage.setItem('footballgm_game_archive_v1', JSON.stringify({
+      version: 1,
+      games: {
+        'shared-archive-id': {
+          id: 'shared-archive-id', season: 's9', week: 7, homeId: 11, awayId: 10,
+          homeAbbr: 'DET', awayAbbr: 'CHI', score: { home: 20, away: 27 }, timestamp: 1,
+        },
+      },
+    }));
+
+    const secondActions = {
+      getBoxScore: vi.fn().mockResolvedValue({ gameId: 'shared-archive-id', game: null, error: 'Game not found' }),
+    };
+    render(<FranchiseHQ league={leagueForSave('save-b')} actions={secondActions} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const secondContext = screen.getByTestId('hq-matchup-history');
+    await waitFor(() => expect(secondActions.getBoxScore).toHaveBeenCalledWith('shared-archive-id'));
+    expect(within(secondContext).queryByRole('button', { name: /open last meeting/i })).toBeNull();
+  });
+
+  it('shows a real head-to-head streak and keeps the compact markup mobile-safe', () => {
+    const streakLeague = {
+      ...baseLeague,
+      schedule: {
+        weeks: [
+          { week: 7, games: [{ id: 'g-7', home: 10, away: 11, homeScore: 24, awayScore: 17, played: true }] },
+          { week: 8, games: [{ id: 'g-8', home: 11, away: 10, homeScore: 20, awayScore: 27, played: true }] },
+          { week: 9, games: [{ id: 'g-9', home: 10, away: 11, homeScore: 30, awayScore: 21, played: true }] },
+          { week: 10, games: [{ id: 'g-10', home: 10, away: 11, played: false }] },
+        ],
+      },
+    };
+    render(<FranchiseHQ league={streakLeague} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByTestId('hq-matchup-series-streak').textContent).toBe('CHI has won 3 straight meetings');
+    expect(context.querySelector('table')).toBeNull();
+    expect(context.querySelector('[role="region"]')).toBeNull();
+    expect(context.classList.contains('hq-matchup-history')).toBe(true);
+  });
+
+  it('degrades to recorded-history empty copy and hides unsupported division, streak, playoff, and drill-down lines', () => {
+    const noHistoryLeague = {
+      ...baseLeague,
+      teams: [
+        { ...baseLeague.teams[0], name: 'A Very Long Franchise Name That Must Wrap' },
+        { id: 12, name: 'Another Extremely Long Expansion Franchise Name', abbr: 'EXP', conf: 0, div: 3, wins: 0, losses: 0, ties: 0, roster: [] },
+      ],
+      schedule: { weeks: [{ week: 10, games: [{ id: 'future', home: 10, away: 12, played: false }] }] },
+      gameById: {},
+    };
+    render(<FranchiseHQ league={noHistoryLeague} onNavigate={vi.fn()} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
+
+    const context = screen.getByTestId('hq-matchup-history');
+    expect(within(context).getByText('No prior meeting found in recorded franchise history.')).toBeTruthy();
+    expect(context.textContent).not.toMatch(/division matchup|rival|all-time|revenge|playoff meeting|straight meetings/i);
+    expect(within(context).queryByRole('button', { name: /open last meeting/i })).toBeNull();
   });
 
   it('does not render pruned Weekly Command Hub or Game Plan Impact sections', () => {
