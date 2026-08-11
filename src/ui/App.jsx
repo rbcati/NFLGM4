@@ -1594,6 +1594,7 @@ function AppContent() {
               setGameBookBriefingStash(null);
             }
           }}
+          onOpenSaves={() => setActiveSlot(null)}
           advanceLabel={getAdvanceLabel()}
           advanceDisabled={busy || simulating || isCutdownRequired || isBatchSimBlocking || !!promptUserGame}
         />

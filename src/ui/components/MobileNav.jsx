@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { SHELL_SECTIONS } from '../utils/shellNavigation.js';
 
-// More-drawer destinations. Ids are canonical dashboard tab ids that match the
-// LeagueDashboard content switch directly, so every entry routes to a real page.
+// More-drawer destinations. Entries are canonical dashboard tab ids unless
+// explicitly marked as an App-owned action (currently Saves).
 // Ordered weekly-loop first so the core game flow is reachable in one tap.
-const MORE_GROUPS = [
+export const MORE_GROUPS = [
   {
     title: 'Weekly Loop',
     items: [
@@ -40,13 +40,13 @@ const MORE_GROUPS = [
     items: [
       { id: '🤖 GM Advisor', label: 'GM Advisor', icon: AdvisorIcon },
       { id: 'Analytics', label: 'Analytics', icon: AnalyticsIcon },
-      { id: 'Saves', label: 'Saves', icon: SaveIcon },
+      { id: 'Saves', label: 'Saves', icon: SaveIcon, action: 'app', value: 'saves' },
       { id: 'God Mode', label: 'God Mode', icon: GodModeIcon },
     ],
   },
 ];
 
-const BOTTOM_TABS = [
+export const BOTTOM_TABS = [
   { id: 'HQ', label: 'HQ', icon: HomeIcon, action: 'section', value: SHELL_SECTIONS.hq },
   { id: 'Team', label: 'Team', icon: RosterIcon, action: 'section', value: SHELL_SECTIONS.team },
   { id: 'League', label: 'League', icon: StandingsIcon, action: 'section', value: SHELL_SECTIONS.league },
@@ -54,7 +54,7 @@ const BOTTOM_TABS = [
   { id: 'More', label: 'More', icon: MoreIcon, action: 'menu', value: 'more' },
 ];
 
-export default function MobileNav({ activeSection, activeTab, onSectionChange, onDestinationChange, league, collapsed = false }) {
+export default function MobileNav({ activeSection, activeTab, onSectionChange, onDestinationChange, onAppAction, league, collapsed = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // Route-change cleanup: any navigation — section OR tab — closes the More
@@ -92,6 +92,16 @@ export default function MobileNav({ activeSection, activeTab, onSectionChange, o
     window.scrollTo(0, 0);
   };
 
+  const handleMenuItemClick = (item) => {
+    if (item.action === 'app') {
+      onAppAction?.(item.value);
+      setMenuOpen(false);
+      window.scrollTo(0, 0);
+      return;
+    }
+    handleDestinationClick(item.id);
+  };
+
   const hasTeamAlerts = Boolean((league?.incomingTradeOffers ?? []).length) || Boolean((league?.teams ?? []).find((team) => Number(team?.id) === Number(league?.userTeamId))?.roster?.some((player) => Number(player?.injuryWeeksRemaining ?? player?.injuredWeeks ?? player?.injury?.gamesRemaining ?? 0) > 0));
   const hasLeagueAlerts = Boolean((league?.newsItems ?? []).length);
 
@@ -118,7 +128,7 @@ export default function MobileNav({ activeSection, activeTab, onSectionChange, o
               {group.items.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <button key={item.id} className="mobile-nav-item mobile-nav-item-premium" onClick={() => handleDestinationClick(item.id)}>
+                  <button key={item.id} className="mobile-nav-item mobile-nav-item-premium" onClick={() => handleMenuItemClick(item)}>
                     <Icon size={20} />
                     <span>{item.label}</span>
                   </button>

@@ -1,10 +1,54 @@
+/** @vitest-environment jsdom */
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderToString } from 'react-dom/server';
-import MobileNav from './MobileNav.jsx';
-import { SHELL_SECTIONS } from '../utils/shellNavigation.js';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import MobileNav, { BOTTOM_TABS, MORE_GROUPS } from './MobileNav.jsx';
+import { isKnownDashboardTab, SHELL_SECTIONS } from '../utils/shellNavigation.js';
 
 describe('MobileNav', () => {
+  beforeEach(() => { window.scrollTo = vi.fn(); });
+  afterEach(() => cleanup());
+
+  it('gives every rendered entry one valid owner without duplicate ids', () => {
+    const items = MORE_GROUPS.flatMap((group) => group.items);
+    expect(new Set(items.map((item) => item.id)).size).toBe(items.length);
+    for (const item of items) {
+      if (item.action === 'app') {
+        expect(item).toMatchObject({ id: 'Saves', value: 'saves' });
+      } else {
+        expect(isKnownDashboardTab(item.id), item.id).toBe(true);
+      }
+    }
+    expect(BOTTOM_TABS.map((tab) => tab.action)).toEqual(['section', 'section', 'section', 'destination', 'menu']);
+    expect(BOTTOM_TABS.filter((tab) => tab.action === 'section').every((tab) => Object.values(SHELL_SECTIONS).includes(tab.value))).toBe(true);
+    expect(isKnownDashboardTab(BOTTOM_TABS.find((tab) => tab.action === 'destination').value)).toBe(true);
+  });
+
+  it('routes Saves to its App owner and closes the drawer', () => {
+    const onAppAction = vi.fn();
+    const onDestinationChange = vi.fn();
+    render(<MobileNav activeSection={SHELL_SECTIONS.hq} onSectionChange={vi.fn()} onDestinationChange={onDestinationChange} onAppAction={onAppAction} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open navigation menu' }));
+    expect(screen.getByRole('button', { name: 'Open navigation menu' }).getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Saves' }));
+
+    expect(onAppAction).toHaveBeenCalledWith('saves');
+    expect(onDestinationChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Open navigation menu' }).getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes the drawer on Escape and when collapsed', () => {
+    const { container, rerender } = render(<MobileNav activeSection={SHELL_SECTIONS.hq} onSectionChange={vi.fn()} onDestinationChange={vi.fn()} />);
+    const toggle = () => container.querySelector('button[aria-label="Open navigation menu"]');
+    fireEvent.click(toggle());
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(toggle());
+    rerender(<MobileNav activeSection={SHELL_SECTIONS.hq} onSectionChange={vi.fn()} onDestinationChange={vi.fn()} collapsed />);
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+  });
   it('renders premium bottom nav and marks the active shell tab', () => {
     const html = renderToString(
       <MobileNav
