@@ -54,7 +54,7 @@ export default function LeagueHub({
   const tradeDeadline = useMemo(() => buildTradeDeadlineContext({ league, team: userTeam, roster: userTeam?.roster }), [league, userTeam]);
 
   return (
-    <div className="app-screen-stack">
+    <div className="app-screen-stack league-hub-mobile-surface pfgm-density-surface">
       <HeroCard
         eyebrow={`${league?.year ?? 'Season'} · Week ${league?.week ?? 1}`}
         title="League Season Pulse"

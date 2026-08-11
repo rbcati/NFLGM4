@@ -61,9 +61,29 @@ describe('MobileNav', () => {
     );
 
     expect(html).toContain('premium-bottom-nav');
-    expect(html).toContain('premium-bottom-tab active" aria-label="Team"');
+    expect(html).toContain('premium-bottom-tab active" aria-label="Team" aria-current="page"');
     expect(html).toContain('Team');
     expect(html).toContain('mobile-bottom-tab__badge');
+  });
+
+  it.each([
+    [SHELL_SECTIONS.team, undefined, 'Team'],
+    [SHELL_SECTIONS.hq, undefined, 'HQ'],
+    [SHELL_SECTIONS.league, undefined, 'League'],
+    [SHELL_SECTIONS.hq, 'News', 'News'],
+  ])('marks the active %s destination as the current page', (activeSection, activeTab, label) => {
+    render(<MobileNav activeSection={activeSection} activeTab={activeTab} onSectionChange={vi.fn()} onDestinationChange={vi.fn()} />);
+    expect(screen.getByRole('button', { name: label }).getAttribute('aria-current')).toBe('page');
+  });
+
+  it('exposes More as an expanded menu toggle, never as the current page', () => {
+    render(<MobileNav activeSection={SHELL_SECTIONS.hq} onSectionChange={vi.fn()} onDestinationChange={vi.fn()} />);
+    const more = screen.getByRole('button', { name: 'More' });
+    expect(more.getAttribute('aria-expanded')).toBe('false');
+    fireEvent.click(more);
+    expect(more.getAttribute('aria-expanded')).toBe('true');
+    expect(more.hasAttribute('aria-current')).toBe(false);
+    expect(screen.getByRole('button', { name: 'HQ' }).getAttribute('aria-current')).toBe('page');
   });
 
   it('keeps command menu destinations wired for more drawer entries', () => {

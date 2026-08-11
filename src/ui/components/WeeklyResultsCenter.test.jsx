@@ -46,6 +46,7 @@ describe('WeeklyResultsCenter', () => {
     render(<WeeklyResultsCenter league={league} onGameSelect={() => {}} onNavigate={() => {}} />);
 
     expect(screen.getByText('Your Game Result')).toBeTruthy();
+    expect(screen.getByTestId('user-game-result-card').classList.contains('app-game-center-user')).toBe(true);
     expect(screen.getByText(/loss.*vs wsh/i)).toBeTruthy();
     expect(screen.getByText('Weekly League Recap')).toBeTruthy();
     expect(screen.getByText('Weekly Spotlight')).toBeTruthy();
