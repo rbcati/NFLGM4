@@ -315,7 +315,7 @@ export default function WeeklyResultsCenter({ league, initialWeek = null, lastRe
   }
 
   return (
-    <div className="app-screen-stack app-weekly-results-screen" data-testid="weekly-results">
+    <div className="app-screen-stack app-weekly-results-screen pfgm-density-surface" data-testid="weekly-results">
       <HeroCard
         eyebrow="Franchise HQ • Results"
         title="Weekly Results"

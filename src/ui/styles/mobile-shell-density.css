@@ -15,11 +15,12 @@
   html,
   body {
     max-width: 100%;
-    overflow-x: clip;
     background: var(--mobile-content-black);
   }
 
   .app-shell {
+    box-sizing: border-box;
+    width: 100%;
     max-width: 100%;
     padding: 0 0 calc(76px + env(safe-area-inset-bottom, 0px));
     background: var(--mobile-content-black);
@@ -57,25 +58,36 @@
 
   .app-header-actions { gap: 6px; }
   .app-header-actions .btn { min-height: 44px; border-radius: 3px; }
-  .app-action-primary,
-  .btn-primary {
+  .app-header .app-action-primary,
+  .pfgm-density-surface .app-action-primary,
+  .pfgm-density-surface .btn-primary {
     border-color: color-mix(in srgb, var(--mobile-action-green) 78%, white 22%);
     background: var(--mobile-action-green);
     color: #04130a;
     box-shadow: none;
   }
-  .app-action-primary:hover,
-  .btn-primary:hover { background: var(--mobile-action-green-hover); }
-  .app-action-secondary,
-  .btn-secondary {
+  .app-header .app-action-primary:hover,
+  .pfgm-density-surface .app-action-primary:hover,
+  .pfgm-density-surface .btn-primary:hover { background: var(--mobile-action-green-hover); }
+  .pfgm-density-surface .app-action-secondary,
+  .pfgm-density-surface .btn-secondary {
     border-color: var(--mobile-divider);
     background: var(--mobile-row-charcoal);
     color: var(--text);
     box-shadow: none;
   }
 
-  .app-screen-stack { gap: 8px; min-width: 0; }
-  .app-screen-header {
+  .pfgm-density-surface,
+  .pfgm-density-surface .app-screen-stack,
+  .pfgm-density-surface.app-screen-stack {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .pfgm-density-surface .app-screen-stack,
+  .pfgm-density-surface.app-screen-stack { gap: 8px; }
+  .pfgm-density-surface .app-screen-header {
     gap: 5px;
     padding: 11px 12px 10px;
     border: 0;
@@ -84,25 +96,25 @@
     background: var(--mobile-shell-navy);
     box-shadow: none;
   }
-  .app-screen-header__title {
+  .pfgm-density-surface .app-screen-header__title {
     font-size: 1.25rem;
     font-weight: 900;
     letter-spacing: .025em;
     line-height: 1.1;
     text-transform: uppercase;
   }
-  .app-screen-header__eyebrow,
-  .app-section-header__eyebrow { color: var(--mobile-action-green); }
-  .app-screen-meta-pill { padding: 3px 8px; border-radius: 2px; }
+  .pfgm-density-surface .app-screen-header__eyebrow,
+  .pfgm-density-surface .app-section-header__eyebrow { color: var(--mobile-action-green); }
+  .pfgm-density-surface .app-screen-meta-pill { padding: 3px 8px; border-radius: 2px; }
 
-  .app-section-header {
+  .pfgm-density-surface .app-section-header {
     align-items: center;
     padding: 7px 10px;
     border-left: 3px solid var(--mobile-action-green);
     border-bottom: 1px solid var(--mobile-divider);
     background: var(--mobile-shell-navy);
   }
-  .app-section-header__title {
+  .pfgm-density-surface .app-section-header__title {
     margin: 0;
     font-size: .9rem;
     font-weight: 850;
@@ -110,42 +122,42 @@
     text-transform: uppercase;
   }
 
-  .card,
-  .app-section-card,
-  .app-hero-card,
-  .app-game-center-card,
-  .app-compact-list-row,
-  .app-compact-insight,
-  .team-hub-lineup-frame {
+  .pfgm-density-surface .app-section-card,
+  .pfgm-density-surface .app-hero-card,
+  .pfgm-density-surface .app-game-center-card,
+  .pfgm-density-surface .app-compact-list-row,
+  .pfgm-density-surface .app-compact-insight,
+  .pfgm-density-surface .team-hub-lineup-frame {
     border-color: var(--mobile-divider);
     border-radius: 2px;
     background: var(--mobile-row-charcoal-alt);
     box-shadow: none;
   }
-  .card::before { display: none; }
-  .app-section-card { gap: 7px; padding: 10px 12px; }
-  .app-section-card__header { padding-bottom: 6px; border-bottom: 1px solid var(--mobile-divider); }
-  .app-section-card__title { font-size: .9rem; letter-spacing: .035em; text-transform: uppercase; }
-  .app-row-stack { gap: 1px; }
-  .app-row-stack > :nth-child(odd),
-  .app-news-compact-list > :nth-child(odd),
-  .app-weekly-results-grid > :nth-child(odd) { background-color: var(--mobile-row-charcoal); }
-  .app-compact-list-row { min-height: 48px; padding: 7px 10px; }
-  .app-game-center-card { gap: 6px; padding: 9px 10px; }
+  .pfgm-density-surface .app-section-card { gap: 7px; padding: 10px 12px; }
+  .pfgm-density-surface .app-section-card__header { padding-bottom: 6px; border-bottom: 1px solid var(--mobile-divider); }
+  .pfgm-density-surface .app-section-card__title { font-size: .9rem; letter-spacing: .035em; text-transform: uppercase; }
+  .pfgm-density-surface .app-row-stack { gap: 1px; min-width: 0; max-width: 100%; }
+  .pfgm-density-surface .app-row-stack > :nth-child(odd),
+  .pfgm-density-surface .app-news-compact-list > :nth-child(odd),
+  .pfgm-density-surface .app-weekly-results-grid > :nth-child(odd) { background-color: var(--mobile-row-charcoal); }
+  .pfgm-density-surface .app-compact-list-row { min-width: 0; max-width: 100%; min-height: 48px; padding: 7px 10px; }
+  .pfgm-density-surface .app-game-center-card { min-width: 0; max-width: 100%; gap: 6px; padding: 9px 10px; }
 
-  .standings-tabs,
-  .app-section-subnav,
-  .dashboard-main-tabs {
+  .pfgm-density-surface .standings-tabs,
+  .pfgm-density-surface .app-section-subnav,
+  .pfgm-density-surface .dashboard-main-tabs {
     gap: 0;
     padding: 0;
     border: 0;
     border-bottom: 1px solid var(--mobile-divider);
     border-radius: 0;
     background: #090c11;
+    max-width: 100%;
+    overflow-x: auto;
     scrollbar-width: none;
   }
-  .standings-tab,
-  .app-section-subnav__tab {
+  .pfgm-density-surface .standings-tab,
+  .pfgm-density-surface .app-section-subnav__tab {
     position: relative;
     min-height: 44px;
     padding: 9px 12px 8px;
@@ -156,8 +168,8 @@
     box-shadow: none;
     white-space: nowrap;
   }
-  .standings-tab.active,
-  .app-section-subnav__tab.active {
+  .pfgm-density-surface .standings-tab.active,
+  .pfgm-density-surface .app-section-subnav__tab.active {
     border: 0;
     background: transparent;
     color: var(--text);
@@ -165,39 +177,40 @@
     font-weight: 800;
   }
 
-  .hq-compact-layout { background: var(--mobile-content-black); }
-  .hq-compact-topbar {
+  .pfgm-density-surface.hq-compact-layout,
+  .pfgm-density-surface .hq-compact-layout { background: var(--mobile-content-black); }
+  .pfgm-density-surface .hq-compact-topbar {
     height: 44px;
     margin-bottom: 4px;
     border-bottom: 1px solid var(--mobile-divider);
     border-radius: 0;
     background: var(--mobile-shell-navy);
   }
-  .hq-topbar-seg { min-height: 44px; border-color: var(--mobile-divider); }
-  .hq-standings-mini { border-radius: 2px; }
-  .hq-standings-mini__row:nth-child(odd) { background: var(--mobile-row-charcoal); }
-  .hq-standings-mini__row.is-user {
+  .pfgm-density-surface .hq-topbar-seg { min-height: 44px; border-color: var(--mobile-divider); }
+  .pfgm-density-surface .hq-standings-mini { border-radius: 2px; }
+  .pfgm-density-surface .hq-standings-mini__row:nth-child(odd) { background: var(--mobile-row-charcoal); }
+  .pfgm-density-surface .hq-standings-mini__row.is-user {
     border-left: 3px solid var(--mobile-action-green);
     background: color-mix(in srgb, var(--mobile-action-green) 12%, var(--mobile-row-charcoal));
   }
-  .hq-standings-mini__row.is-user .hq-standings-mini__abbr { color: var(--text); }
-  .team-hub-alert-list { gap: 1px; }
-  .team-hub-alert { border-radius: 2px; }
+  .pfgm-density-surface .hq-standings-mini__row.is-user .hq-standings-mini__abbr { color: var(--text); }
+  .pfgm-density-surface .team-hub-alert-list { gap: 1px; }
+  .pfgm-density-surface .team-hub-alert { border-radius: 2px; }
 
-  .app-news-filter-row {
+  .pfgm-density-surface .app-news-filter-row {
     gap: 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     border-bottom: 1px solid var(--mobile-divider);
     scrollbar-width: none;
   }
-  .app-news-filter-row .btn {
+  .pfgm-density-surface .app-news-filter-row .btn {
     flex: 0 0 auto;
     border: 0;
     border-radius: 0;
     background: transparent;
   }
-  .app-news-filter-row .btn.is-active {
+  .pfgm-density-surface .app-news-filter-row .btn.is-active {
     color: var(--text);
     border: 0;
     box-shadow: inset 0 -3px 0 var(--mobile-action-green);
@@ -237,7 +250,8 @@
     background: var(--mobile-row-charcoal-alt);
   }
 
-  :is(.standings-tab, .app-section-subnav__tab, .premium-bottom-tab, .mobile-nav-item-premium):focus-visible {
+  .pfgm-density-surface :is(.standings-tab, .app-section-subnav__tab):focus-visible,
+  :is(.premium-bottom-tab, .mobile-nav-item-premium):focus-visible {
     outline: 2px solid var(--mobile-action-green);
     outline-offset: -2px;
   }
