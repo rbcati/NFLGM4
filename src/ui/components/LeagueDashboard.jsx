@@ -54,7 +54,6 @@ import ContractCenter from "./ContractCenter.jsx";
 import PostseasonHub from "./PostseasonHub.jsx";
 import TrainingCamp from "./TrainingCamp.jsx";
 import StaffManagement from "./StaffManagement.jsx";
-import ModdingHub from "./ModdingHub.jsx";
 import MockDraft from "./MockDraft.jsx";
 import InjuryReport from "./InjuryReport.jsx";
 import GodMode from "./GodMode.jsx";
@@ -218,7 +217,6 @@ const BASE_TABS = [
   "Awards & Records",
   "All-Time Records",
   "Season Recap",
-  "Saves",
   "God Mode",
   "🤖 GM Advisor",
   "Game Detail",
@@ -635,6 +633,7 @@ export default function LeagueDashboard({
   externalDestination,
   onConsumeExternalDestination,
   onGameDetailBack,
+  onOpenSaves,
   advanceLabel = "Advance",
   advanceDisabled = false,
 }) {
@@ -1551,11 +1550,6 @@ export default function LeagueDashboard({
             <StaffManagement league={league} actions={actions} />
           </TabErrorBoundary>
         )}
-        {activeTab === "Saves" && (
-          <TabErrorBoundary label="Saves">
-            <ModdingHub league={league} actions={actions} />
-          </TabErrorBoundary>
-        )}
         {activeTab === "Mock Draft" && (
           <TabErrorBoundary label="Mock Draft">
             <MockDraft
@@ -1627,6 +1621,9 @@ export default function LeagueDashboard({
         activeTab={activeTab}
         onSectionChange={handleSectionChange}
         onDestinationChange={(tab) => setActiveTab(canonicalizeMobileTab(tab))}
+        onAppAction={(action) => {
+          if (action === "saves") onOpenSaves?.();
+        }}
         onAdvance={onAdvanceWeek}
         advanceLabel={advanceLabel}
         advanceDisabled={advanceDisabled}

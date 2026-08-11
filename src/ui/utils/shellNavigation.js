@@ -64,10 +64,14 @@ const TAB_TO_SECTION = Object.freeze({
   'Hall of Fame': SHELL_SECTIONS.league,
   'Awards & Records': SHELL_SECTIONS.league,
   'Season Recap': SHELL_SECTIONS.league,
-  Saves: SHELL_SECTIONS.league,
   'God Mode': SHELL_SECTIONS.league,
   '🤖 GM Advisor': SHELL_SECTIONS.league,
 });
+
+export function isKnownDashboardTab(tab) {
+  const normalized = normalizeDashboardTab(tab);
+  return Object.prototype.hasOwnProperty.call(TAB_TO_SECTION, normalized);
+}
 
 const LEGACY_MOBILE_ID_TO_SECTION = Object.freeze({
   weekly: SHELL_SECTIONS.hq,
