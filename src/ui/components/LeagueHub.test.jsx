@@ -18,7 +18,7 @@ const league = {
       {
         week: 4,
         games: [
-          { id: 'g1', home: 1, away: 2, played: true, homeScore: 24, awayScore: 21 },
+          { id: 'g1', home: 1, away: 2, played: true, homeScore: 24, awayScore: 21, driveSummary: [{ teamId: 1, result: 'TD', points: 7 }] },
         ],
       },
     ],
@@ -101,8 +101,19 @@ describe('LeagueHub', () => {
     const onOpenGameDetail = vi.fn();
     render(<LeagueHub league={league} onOpenGameDetail={onOpenGameDetail} />);
     const spotlights = screen.getByText('Spotlight Games').closest('section');
-    fireEvent.click(within(spotlights).getByRole('button', { name: 'Open Game' }));
+    fireEvent.click(within(spotlights).getByRole('button', { name: /Open Game Book:/ }));
     expect(onOpenGameDetail).toHaveBeenCalledWith('g1');
+  });
+
+  it('does not advertise Game Book for a score-only spotlight', () => {
+    const scoreOnlyLeague = {
+      ...league,
+      schedule: { weeks: [{ week: 4, games: [{ id: 'legacy-score', home: 1, away: 2, played: true, homeScore: 24, awayScore: 21 }] }] },
+    };
+    render(<LeagueHub league={scoreOnlyLeague} onOpenGameDetail={vi.fn()} />);
+    const spotlights = screen.getByText('Spotlight Games').closest('section');
+    expect(within(spotlights).queryByRole('button', { name: 'Open Game' })).toBeNull();
+    expect(within(spotlights).getByText('Game Book unavailable').tagName).toBe('SPAN');
   });
 
   it('renders factual deadline candidates and opens the existing Trade Center destination', () => {

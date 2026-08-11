@@ -6,8 +6,8 @@ import { buildNewsDeskModel } from '../utils/newsDesk.js';
 import { buildLeagueSeasonPulse } from '../utils/leagueSeasonPulse.js';
 import { buildWeeklyLeagueRecap } from '../utils/weeklyLeagueRecap.js';
 import { CompactListRow, StatusChip, HeroCard, SectionCard, StatStrip, CompactInsightCard } from './ScreenSystem.jsx';
-import { openResolvedBoxScore } from '../utils/boxScoreAccess.js';
 import { buildTradeDeadlineContext } from '../../core/tradeDeadlineContext.js';
+import { GameEntityLink, PlayerEntityLink, TeamEntityLink } from './EntityLink.jsx';
 
 const LEAGUE_SECTIONS = ['Overview', 'Results', 'Standings', 'News', 'Leaders', 'Coaching'];
 
@@ -22,6 +22,7 @@ export default function LeagueHub({
   initialSection = 'Overview',
   onOpenGameDetail,
   onPlayerSelect,
+  onTeamSelect,
   renderStandings,
   renderResults,
   onNavigateTrade,
@@ -83,15 +84,15 @@ export default function LeagueHub({
           </SectionCard>}
 
           {seasonPulse.availableData.trends && <SectionCard title="Trending Teams" subtitle="Only established multi-game runs are shown." variant="compact">
-            <div className="app-row-stack">{seasonPulse.trendingTeams.map((trend) => <CompactListRow key={`${trend.label}-${trend.teamId}`} title={trend.reason} subtitle={trend.label} meta={<StatusChip label={trend.value} tone={trend.label === 'Losing streak' ? 'warning' : 'ok'} />} />)}</div>
+            <div className="app-row-stack">{seasonPulse.trendingTeams.map((trend) => <CompactListRow key={`${trend.label}-${trend.teamId}`} title={<TeamEntityLink teamId={trend.teamId} onTeamSelect={onTeamSelect} ariaLabel={`Open team profile: ${trend.reason}`}>{trend.reason}</TeamEntityLink>} subtitle={trend.label} meta={<StatusChip label={trend.value} tone={trend.label === 'Losing streak' ? 'warning' : 'ok'} />} />)}</div>
           </SectionCard>}
 
           {seasonPulse.availableData.awards && <SectionCard title="Award Watch" subtitle="Leaders from the league's recorded award boards." variant="compact">
-            <div className="app-row-stack">{seasonPulse.awardWatch.map((award) => <CompactListRow key={award.award} title={award.playerName} subtitle={[award.position, award.team].filter(Boolean).join(' · ')} meta={<StatusChip label={award.award} tone="league" />} />)}</div>
+            <div className="app-row-stack">{seasonPulse.awardWatch.map((award) => <CompactListRow key={award.award} title={<PlayerEntityLink playerId={award.playerId} onPlayerSelect={onPlayerSelect} context={{ source: 'league_award_watch' }}>{award.playerName}</PlayerEntityLink>} subtitle={[award.position, award.team].filter(Boolean).join(' · ')} meta={<StatusChip label={award.award} tone="league" />} />)}</div>
           </SectionCard>}
 
           {seasonPulse.availableData.injuries && <SectionCard title="League Health" subtitle="Longest active recorded absences." variant="compact">
-            <div className="app-row-stack">{seasonPulse.majorInjuries.map((injury) => <CompactListRow key={injury.playerId} title={injury.playerName} subtitle={[injury.position, injury.injury].filter(Boolean).join(' · ')} meta={<StatusChip label={`${injury.weeksRemaining} wk${injury.weeksRemaining === 1 ? '' : 's'}`} tone="warning" />} />)}</div>
+            <div className="app-row-stack">{seasonPulse.majorInjuries.map((injury) => <CompactListRow key={injury.playerId} title={<PlayerEntityLink playerId={injury.playerId} onPlayerSelect={onPlayerSelect} context={{ source: 'league_health' }}>{injury.playerName}</PlayerEntityLink>} subtitle={[injury.position, injury.injury].filter(Boolean).join(' · ')} meta={<StatusChip label={`${injury.weeksRemaining} wk${injury.weeksRemaining === 1 ? '' : 's'}`} tone="warning" />} />)}</div>
           </SectionCard>}
 
           {seasonPulse.availableData.standings && <SectionCard title="Standings Context" subtitle={seasonPulse.omittedReasons.standingsMovement ?? 'Recorded movement this week.'} variant="compact">
@@ -99,7 +100,7 @@ export default function LeagueHub({
           </SectionCard>}
 
           {seasonPulse.nextWeekHighlight && <SectionCard title="Next Week" subtitle="One matchup selected by stable, factual rules." variant="compact">
-            <CompactListRow title={`${seasonPulse.nextWeekHighlight.awayTeam} at ${seasonPulse.nextWeekHighlight.homeTeam}`} subtitle={seasonPulse.nextWeekHighlight.reason} meta={<StatusChip label={`Week ${seasonPulse.nextWeekHighlight.week}`} tone="info" />} />
+            <CompactListRow title={<><TeamEntityLink teamId={seasonPulse.nextWeekHighlight.awayTeamId} onTeamSelect={onTeamSelect}>{seasonPulse.nextWeekHighlight.awayTeam}</TeamEntityLink>{' at '}<TeamEntityLink teamId={seasonPulse.nextWeekHighlight.homeTeamId} onTeamSelect={onTeamSelect}>{seasonPulse.nextWeekHighlight.homeTeam}</TeamEntityLink></>} subtitle={seasonPulse.nextWeekHighlight.reason} meta={<StatusChip label={`Week ${seasonPulse.nextWeekHighlight.week}`} tone="info" />} />
           </SectionCard>}
 
           {spotlightRows.length > 0 && <SectionCard title="Spotlight Games" subtitle="Open a recorded weekly result in Game Book." variant="compact">
@@ -109,13 +110,9 @@ export default function LeagueHub({
               subtitle={spotlight.reason ?? 'Weekly spotlight game'}
               meta={<StatusChip label={`Week ${spotlight.week ?? seasonPulse.week ?? week}`} tone="league" />}
             >
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => openResolvedBoxScore(spotlight.game, { seasonId: league?.seasonId, week: spotlight.week ?? seasonPulse.week ?? week, source: 'league_overview_spotlight' }, onOpenGameDetail)}
-              >
+              <GameEntityLink className="btn btn-sm" unavailableChildren="Game Book unavailable" game={spotlight.game} context={{ seasonId: league?.seasonId, week: spotlight.week ?? seasonPulse.week ?? week, source: 'league_overview_spotlight' }} onGameSelect={onOpenGameDetail} ariaLabel={`Open Game Book: ${spotlight.score ?? 'spotlight game'}`}>
                 Open Game
-              </button>
+              </GameEntityLink>
             </CompactListRow>)}</div>
           </SectionCard>}
 

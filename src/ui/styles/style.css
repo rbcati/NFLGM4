@@ -8503,3 +8503,25 @@ details[open] .nav-summary::after {
   letter-spacing: 0.04em;
   color: var(--text-subtle, #666);
 }
+.app-entity-link {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.app-entity-link:hover,
+.app-entity-link:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.app-entity-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
