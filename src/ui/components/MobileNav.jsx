@@ -155,7 +155,14 @@ export default function MobileNav({ activeSection, activeTab, onSectionChange, o
             return setMenuOpen((prev) => !prev);
           };
           return (
-            <button key={tab.id} className={`mobile-bottom-tab premium-bottom-tab ${isActive ? 'active' : ''}`} onClick={onClick} aria-label={tab.label}>
+            <button
+              key={tab.id}
+              className={`mobile-bottom-tab premium-bottom-tab ${isActive ? 'active' : ''}`}
+              onClick={onClick}
+              aria-label={tab.label}
+              aria-current={tab.action !== 'menu' && isActive ? 'page' : undefined}
+              aria-expanded={tab.action === 'menu' ? menuOpen : undefined}
+            >
               <Icon size={20} />
               <span className="mobile-bottom-label">{tab.label}</span>
               {(tab.id === 'Team' && hasTeamAlerts) || (tab.id === 'League' && hasLeagueAlerts) ? <span className="mobile-bottom-tab__badge" aria-hidden /> : null}

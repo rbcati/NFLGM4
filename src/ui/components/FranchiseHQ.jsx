@@ -547,7 +547,7 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
 
   return (
     <div
-      className="app-screen-stack franchise-hq franchise-command-center hq-compact-layout"
+      className="app-screen-stack franchise-hq franchise-command-center hq-compact-layout pfgm-density-surface"
       data-testid="franchise-hq"
       role="main"
       aria-label="Franchise HQ weekly command center"

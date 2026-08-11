@@ -230,7 +230,7 @@ export default function NewsFeed({ league, actions, mode = 'full', segment = 'al
   }
 
   return (
-    <div className="app-screen-stack">
+    <div className="app-screen-stack news-feed-mobile-surface pfgm-density-surface">
       {newsError ? (
         <div
           role="alert"

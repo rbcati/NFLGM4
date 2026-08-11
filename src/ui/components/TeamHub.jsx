@@ -110,7 +110,7 @@ export default function TeamHub({ league, actions, onOpenGameDetail, onPlayerSel
     : 'No critical lineup blockers detected';
 
   return (
-    <div className="app-screen-stack">
+    <div className="app-screen-stack team-hub-mobile-surface pfgm-density-surface">
       <HeroCard
         eyebrow={`${league?.year ?? 'Season'} · Week ${league?.week ?? '—'} · ${league?.phase ?? 'regular'}`}
         title="Lineup Check Before Kickoff"
