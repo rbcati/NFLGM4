@@ -13,6 +13,9 @@ import { EmptyState, StatusChip, ActionTile, SectionCard } from './ScreenSystem.
 import { getLastGameDisplay, getLatestUserCompletedGame, getNextOpponentDisplay } from '../utils/hqGameDisplay.js';
 import { HQIcon, TeamIdentityBadge } from './HQVisuals.jsx';
 import { buildGameBookDestination } from '../utils/managementScreenRouting.js';
+import { buildMatchupHistoryContext } from '../utils/matchupHistoryContext.js';
+import { unwrapBoxScoreResponse } from '../utils/boxScoreViewModel.js';
+import useStableRouteRequest from '../hooks/useStableRouteRequest.js';
 import ChronicleHeadlineBanner from './ChronicleHeadlineBanner.tsx';
 import MediaDesk from './MediaDesk.jsx';
 import CombineDashboard from './CombineDashboard.jsx';
@@ -22,7 +25,7 @@ import JobSecurityCard from './JobSecurityCard.jsx';
 import ActivityToastStack from './ActivityToastStack.jsx';
 import GameResultSummaryCard from './GameResultSummaryCard.jsx';
 import GMDecisionCenter from './GMDecisionCenter.jsx';
-import { readStrictFinalScore } from '../../core/gameArchive.js';
+import { readStrictFinalScore, recoverArchivedGameFromSchedule } from '../../core/gameArchive.js';
 
 const BOTTOM_NAV_ITEMS = [
   { label: 'Home', route: 'HQ', icon: 'home', active: true },
@@ -85,6 +88,39 @@ function HQDeadlineBanner({ week }) {
 function formatRecordInline(record) {
   if (!record || record === '—') return '0-0';
   return record;
+}
+
+function getTeamAbbr(league, teamId) {
+  return (league?.teams ?? []).find((team) => String(team?.id) === String(teamId))?.abbr ?? String(teamId ?? 'TEAM');
+}
+
+function formatMeetingScore(meeting, league) {
+  if (!meeting) return null;
+  const homeAbbr = getTeamAbbr(league, meeting.homeTeamId);
+  const awayAbbr = getTeamAbbr(league, meeting.awayTeamId);
+  if (String(meeting.winnerTeamId) === String(meeting.awayTeamId)) {
+    return `${awayAbbr} ${meeting.awayScore}–${meeting.homeScore} ${homeAbbr}`;
+  }
+  return `${homeAbbr} ${meeting.homeScore}–${meeting.awayScore} ${awayAbbr}`;
+}
+
+function findSynchronousGameBookRecord(league, gameId) {
+  if (!gameId) return null;
+  const gameKey = String(gameId);
+
+  for (const weekRow of league?.schedule?.weeks ?? []) {
+    for (const game of weekRow?.games ?? []) {
+      const candidateId = game?.gameId ?? game?.id;
+      if (String(candidateId ?? '') === gameKey && readStrictFinalScore(game)) return game;
+    }
+  }
+
+  const recoveredScheduleGame = recoverArchivedGameFromSchedule(gameKey, league);
+  if (readStrictFinalScore(recoveredScheduleGame)) return recoveredScheduleGame;
+
+  const indexedGame = league?.gameById?.[gameKey] ?? null;
+  if (readStrictFinalScore(indexedGame)) return indexedGame;
+  return null;
 }
 
 function getLatestUserResultFromRecentResults(lastResults, { league, lastSimWeek } = {}) {
@@ -152,6 +188,44 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
   const userTeam = (league?.teams ?? []).find((t) => Number(t?.id) === Number(league?.userTeamId));
   const opponent = command.nextGame?.opp ?? null;
   const nextOpponentDisplay = useMemo(() => getNextOpponentDisplay(command.nextGame), [command.nextGame]);
+  const matchupHistory = useMemo(() => {
+    if (command.nextGame?.oppId == null) return null;
+    return buildMatchupHistoryContext({
+      league,
+      completedResults: lastResults,
+      teamAId: league?.userTeamId,
+      teamBId: command.nextGame.oppId,
+      currentSeason: league?.seasonId ?? league?.year ?? null,
+      currentWeek: command.nextGame.week ?? league?.week ?? null,
+      maxRecentMeetings: 5,
+    });
+  }, [command.nextGame?.oppId, command.nextGame?.week, lastResults, league]);
+  const lastMeetingScore = useMemo(
+    () => formatMeetingScore(matchupHistory?.lastMeeting, league),
+    [league, matchupHistory?.lastMeeting],
+  );
+  const lastMeetingGameId = matchupHistory?.lastMeeting?.gameId ?? null;
+  const synchronousLastMeetingGame = useMemo(
+    () => findSynchronousGameBookRecord(league, lastMeetingGameId),
+    [league, lastMeetingGameId],
+  );
+  const shouldCheckLastMeetingArchive = Boolean(
+    lastMeetingGameId
+    && !synchronousLastMeetingGame
+    && typeof actions?.getBoxScore === 'function',
+  );
+  const { data: lastMeetingArchiveResponse } = useStableRouteRequest({
+    requestKey: shouldCheckLastMeetingArchive ? `boxscore:${lastMeetingGameId}` : null,
+    enabled: shouldCheckLastMeetingArchive,
+    cacheScopeKey: league?.activeLeagueId ?? league?.id ?? league?.leagueId ?? 'global',
+    fetcher: () => actions.getBoxScore(lastMeetingGameId),
+    warnLabel: 'FranchiseHQLastMeeting',
+  });
+  const resolvedLastMeetingArchive = unwrapBoxScoreResponse(lastMeetingArchiveResponse);
+  const canOpenLastMeeting = Boolean(
+    lastMeetingGameId
+    && (readStrictFinalScore(synchronousLastMeetingGame) || readStrictFinalScore(resolvedLastMeetingArchive)),
+  );
 
   const handleAdvanceOrGate = () => {
     if (gate.shouldWarn) {
@@ -578,6 +652,51 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
         <span className="hq-status-row__muted">{formatRecordInline(command.nextOpponentRecord)}</span>
         <span className="hq-status-row__chevron" aria-hidden="true">›</span>
       </button>
+
+      {matchupHistory && (
+        <section className="hq-matchup-history" data-testid="hq-matchup-history" aria-label="Recorded opponent history">
+          <div className="hq-matchup-history__tags" aria-label="Matchup context">
+            {matchupHistory.isDivisionMatchup === true && <span>Division matchup</span>}
+            {matchupHistory.isRematchThisSeason && <span>Second meeting this season</span>}
+            {(matchupHistory.playoffHistory?.totalMeetings ?? 0) > 0 && (
+              <span>{matchupHistory.playoffHistory.totalMeetings} recorded playoff meeting{matchupHistory.playoffHistory.totalMeetings === 1 ? '' : 's'}</span>
+            )}
+          </div>
+
+          {matchupHistory.recentSeries && (
+            <p className="hq-matchup-history__line" data-testid="hq-matchup-recent-series">
+              {matchupHistory.recentSeries.label}
+            </p>
+          )}
+          {matchupHistory.currentSeriesStreak && (
+            <p className="hq-matchup-history__line" data-testid="hq-matchup-series-streak">
+              {matchupHistory.currentSeriesStreak.label}
+            </p>
+          )}
+
+          {matchupHistory.lastMeeting ? (
+            <div className="hq-matchup-history__last">
+              <p className="hq-matchup-history__line" data-testid="hq-matchup-last-meeting">
+                <strong>Last meeting:</strong> {lastMeetingScore}
+                {matchupHistory.lastMeeting.stage && matchupHistory.lastMeeting.stage !== 'Regular season'
+                  ? ` · ${matchupHistory.lastMeeting.stage}`
+                  : ''}
+              </p>
+              {canOpenLastMeeting && (
+                <button
+                  type="button"
+                  className="hq-matchup-history__open"
+                  onClick={() => onNavigate?.(buildGameBookDestination(lastMeetingGameId))}
+                >
+                  Open Last Meeting
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="hq-matchup-history__empty">No prior meeting found in recorded franchise history.</p>
+          )}
+        </section>
+      )}
 
       {/* ── STANDINGS MINI-TABLE — division only, 4 rows max ────────────── */}
       {divisionRows.length > 0 && (
