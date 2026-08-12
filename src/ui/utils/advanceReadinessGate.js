@@ -130,7 +130,15 @@ export function buildAdvanceReadinessGate({ league, prep, weeklyContext } = {}) 
     ? "You can still advance, but this week's setup is not clean."
     : 'No prep blockers detected. Ready to advance.';
 
-  if (!shouldWarn && hasPlayoffStakes) summary += ' Playoff stakes are high—every decision counts.';
+  let advanceAnywayLabel = 'Advance anyway';
+  if (shouldWarn && hasPlayoffStakes) {
+    summary += ' Playoff stakes are high—ignoring these warnings could cost you your season.';
+    advanceAnywayLabel = 'Risk it and advance';
+  } else if (!shouldWarn && hasPlayoffStakes) {
+    summary += ' Playoff stakes are high—every decision counts.';
+  } else if (shouldWarn && (league?.week ?? 0) < 4) {
+    summary += ' Early season games set the tone. Are you sure you want to risk it?';
+  }
 
   // primaryFixDestination: most critical item first
   const primaryItem =
@@ -146,6 +154,6 @@ export function buildAdvanceReadinessGate({ league, prep, weeklyContext } = {}) 
     summary,
     riskItems,
     primaryFixDestination,
-    advanceAnywayLabel: 'Advance anyway',
+    advanceAnywayLabel,
   };
 }
