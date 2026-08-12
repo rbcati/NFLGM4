@@ -155,6 +155,7 @@ export default function PostGameSummary({
       aria-modal="true"
       aria-label="Weekly GM briefing"
       data-testid="post-game-summary"
+      className="post-game-summary-overlay"
       ref={overlayRef}
       style={{
         position: 'fixed', inset: 0, zIndex: 9600,

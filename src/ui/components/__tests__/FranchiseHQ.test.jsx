@@ -376,7 +376,7 @@ describe('FranchiseHQ', () => {
     expect(screen.getByTestId('hq-last-result').textContent).toMatch(/W.*23-20.*DET/i);
   });
 
-  it('shows the compact Last Result card before the status strip and any engine/development notices', () => {
+  it('shows one compact Last Result card before engine/development notices', () => {
     // Force an engine/development notice (injury) into the activity stack so we
     // can prove the Last Result card lands ahead of it on the post-advance HQ.
     const leagueWithInjury = {
@@ -389,14 +389,13 @@ describe('FranchiseHQ', () => {
     render(<FranchiseHQ league={leagueWithInjury} onNavigate={() => {}} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
 
     const lastResultCard = screen.getByTestId('hq-last-result-card');
-    const statusStrip = screen.getByTestId('hq-postsim-status-strip');
     const noticeStack = screen.getByTestId('activity-toast-stack');
 
     const FOLLOWING = Node.DOCUMENT_POSITION_FOLLOWING;
-    // Card → strip → notices, in that document order.
-    expect(lastResultCard.compareDocumentPosition(statusStrip) & FOLLOWING).toBeTruthy();
+    // The canonical result is the only postgame presentation before notices.
+    expect(screen.getAllByTestId('hq-last-result-card')).toHaveLength(1);
+    expect(screen.queryByTestId('hq-postsim-status-strip')).toBeNull();
     expect(lastResultCard.compareDocumentPosition(noticeStack) & FOLLOWING).toBeTruthy();
-    expect(statusStrip.compareDocumentPosition(noticeStack) & FOLLOWING).toBeTruthy();
 
     // The canonical review CTA on the HQ surface reads exactly "View Game Book".
     expect(screen.getByTestId('hq-last-result-cta').textContent).toContain('View Game Book');
@@ -547,12 +546,12 @@ describe('FranchiseHQ V4 compact home screen', () => {
   });
 });
 
-describe('LeagueDashboard Game Book focus mode collapses the mobile bottom nav', () => {
+describe('LeagueDashboard Game Book navigation integrity', () => {
   afterEach(() => {
     cleanup();
   });
 
-  it('collapses the bottom nav while the Game Book is open and restores it on return to HQ', async () => {
+  it('keeps the bottom nav visible while the Game Book is open and after return to HQ', async () => {
     window.matchMedia = window.matchMedia ?? (() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     render(
       <LeagueDashboard
@@ -573,51 +572,71 @@ describe('LeagueDashboard Game Book focus mode collapses the mobile bottom nav',
     const seasonPulse = screen.getByTestId('season-pulse');
     fireEvent.click(within(seasonPulse).getByRole('button', { name: /view game book/i }));
     expect(await screen.findByTestId('game-book')).toBeTruthy();
+    expect(screen.getAllByTestId('game-book')).toHaveLength(1);
+    expect(screen.getAllByTestId('return-to-hq')).toHaveLength(1);
 
-    // Bottom nav collapsed during focused review.
-    expect(bottomBar().classList.contains('is-collapsed')).toBe(true);
+    // Navigation stays available so Game Book cannot trap the weekly loop.
+    expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
 
     // Return to HQ restores the nav.
     fireEvent.click(screen.getByTestId('return-to-hq'));
     expect(await screen.findByTestId('franchise-hq')).toBeTruthy();
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
   });
+
+  it('closes the Game Book when mobile navigation changes route', async () => {
+    const onDashboardNavigation = vi.fn();
+    window.matchMedia = window.matchMedia ?? (() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    render(
+      <LeagueDashboard
+        league={baseLeague}
+        actions={{ getDashboardLeaders: vi.fn(() => Promise.resolve({ league: {}, team: {} })) }}
+        busy={false}
+        simulating={false}
+        onAdvanceWeek={() => {}}
+        onDashboardNavigation={onDashboardNavigation}
+      />,
+    );
+
+    fireEvent.click(within(screen.getByTestId('season-pulse')).getByRole('button', { name: /view game book/i }));
+    expect(await screen.findByTestId('game-book')).toBeTruthy();
+    fireEvent.click(document.querySelector('.mobile-bottom-tab[aria-label="Team"]'));
+
+    expect(screen.queryByTestId('game-book')).toBeNull();
+    expect(screen.getByTestId('nav-team').getAttribute('aria-current')).toBe('page');
+    expect(onDashboardNavigation).toHaveBeenCalledWith('Team');
+    expect(document.querySelector('.mobile-bottom-bar')).not.toBeNull();
+    expect(screen.getByRole('button', { name: 'Open navigation menu' })).toBeTruthy();
+  });
 });
 
-describe('FranchiseHQ post-sim compact status strip', () => {
+describe('FranchiseHQ post-sim result consolidation', () => {
   afterEach(() => {
     cleanup();
   });
 
-  it('renders one compact dismissible status strip with the completed week label', () => {
+  it('does not repeat the completed result in a status strip', () => {
     render(
       <FranchiseHQ league={baseLeague} onNavigate={vi.fn()} onAdvanceWeek={vi.fn()} busy={false} simulating={false} />,
     );
-    const strip = screen.getByTestId('hq-postsim-status-strip');
-    expect(strip).toBeTruthy();
-    // Last completed user game is week 9 (g-9).
-    expect(strip.textContent).toMatch(/week 9 complete/i);
-    // Dismiss control is present and labelled.
-    expect(within(strip).getByRole('button', { name: /dismiss week complete notice/i })).toBeTruthy();
+    expect(screen.getAllByTestId('hq-last-result-card')).toHaveLength(1);
+    expect(screen.queryByTestId('hq-postsim-status-strip')).toBeNull();
   });
 
-  it('routes the status strip tap to Weekly Results without auto-expanding it on HQ', () => {
+  it('routes the canonical result to Game Book', () => {
     const onNavigate = vi.fn();
     render(
       <FranchiseHQ league={baseLeague} onNavigate={onNavigate} onAdvanceWeek={vi.fn()} busy={false} simulating={false} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /week 9 complete\. tap to review results/i }));
-    expect(onNavigate).toHaveBeenCalledWith('Weekly Results');
-    // The HQ itself does not render a full Weekly Results center.
-    expect(screen.queryByTestId('weekly-results')).toBeNull();
+    fireEvent.click(screen.getByTestId('hq-last-result-card'));
+    expect(onNavigate).toHaveBeenCalledWith('Game Book:g-9');
   });
 
-  it('removes the strip after dismiss while keeping Weekly Results reachable elsewhere', () => {
+  it('keeps league navigation reachable without a duplicate post-sim strip', () => {
     const onNavigate = vi.fn();
     render(
       <FranchiseHQ league={baseLeague} onNavigate={onNavigate} onAdvanceWeek={vi.fn()} busy={false} simulating={false} />,
     );
-    fireEvent.click(screen.getByTestId('hq-postsim-status-strip-dismiss'));
     expect(screen.queryByTestId('hq-postsim-status-strip')).toBeNull();
     // Weekly Results remains reachable via the league destination nav.
     fireEvent.click(within(screen.getByTestId('hq-league-destination-links')).getByRole('button', { name: /^standings$/i }));

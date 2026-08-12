@@ -1528,9 +1528,15 @@ function AppContent() {
       )}
 
       {/* ── Last results ticker ────────────────────────────────────────── */}
-      {authoritativeResults.length > 0 && (
+      {authoritativeResults.some((result) => (
+        Number(result?.homeId) !== Number(league.userTeamId)
+        && Number(result?.awayId) !== Number(league.userTeamId)
+      )) && (
         <div className="app-results-ticker">
-          {authoritativeResults.map((r, i) => {
+          {authoritativeResults.filter((result) => (
+            Number(result?.homeId) !== Number(league.userTeamId)
+            && Number(result?.awayId) !== Number(league.userTeamId)
+          )).map((r, i) => {
             const homeWin = r.homeScore > r.awayScore;
             const isUserGame = r.homeId === league.userTeamId || r.awayId === league.userTeamId;
             const gamePresentation = buildCompletedGamePresentation(r, {
@@ -1584,6 +1590,10 @@ function AppContent() {
           externalDestination={externalDashboardDestination}
           onConsumeExternalDestination={() => setExternalDashboardDestination(null)}
           onConsumeExternalBoxScore={() => setExternalBoxScoreId(null)}
+          onDashboardNavigation={() => {
+            setSkipGameSummary(null);
+            setGameBookBriefingStash(null);
+          }}
           onGameDetailBack={() => {
             if (postGameResultStash) {
               setPostGameResult(postGameResultStash);

@@ -75,9 +75,10 @@ describe('mobile Match Review flow — viewport assertions', () => {
 
     const bottomBar = () => document.querySelector('.mobile-bottom-bar');
 
-    // HQ is not dominated by stacked notices: a single compact post-sim strip,
-    // and no full Weekly Results center embedded on HQ.
-    expect(screen.getByTestId('hq-postsim-status-strip')).toBeTruthy();
+    // HQ is not dominated by stacked notices: one canonical result entry,
+    // no duplicate post-sim strip, and no embedded Weekly Results center.
+    expect(screen.getAllByTestId('hq-last-result-card')).toHaveLength(1);
+    expect(screen.queryByTestId('hq-postsim-status-strip')).toBeNull();
     expect(screen.queryByTestId('weekly-results')).toBeNull();
     // Bottom nav present and not overlapping (not collapsed) on HQ.
     expect(bottomBar()).not.toBeNull();
@@ -93,8 +94,8 @@ describe('mobile Match Review flow — viewport assertions', () => {
     expect(screen.getByTestId('game-book-sticky-back')).toBeTruthy();
     expect(screen.getByTestId('game-book-sticky-score').textContent).toMatch(/\d/);
 
-    // Bottom nav collapses so it cannot overlap Game Book review content.
-    expect(bottomBar().classList.contains('is-collapsed')).toBe(true);
+    // Bottom nav remains available so Game Book cannot trap route navigation.
+    expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
 
     // Return to HQ is reachable from the sticky header and restores the nav.
     fireEvent.click(screen.getByTestId('game-book-sticky-back'));

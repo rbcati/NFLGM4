@@ -632,6 +632,7 @@ export default function LeagueDashboard({
   onConsumeExternalBoxScore,
   externalDestination,
   onConsumeExternalDestination,
+  onDashboardNavigation,
   onGameDetailBack,
   onOpenSaves,
   advanceLabel = "Advance",
@@ -755,7 +756,7 @@ export default function LeagueDashboard({
     if (!externalBoxScoreId) return;
     setGameDetailModal({ open: true, gameId: externalBoxScoreId, source: "postgame" });
     onConsumeExternalBoxScore?.();
-  }, [externalBoxScoreId, onConsumeExternalBoxScore, activeTab]);
+  }, [externalBoxScoreId, onConsumeExternalBoxScore]);
 
   useEffect(() => {
     if (!externalDestination) return;
@@ -827,17 +828,21 @@ export default function LeagueDashboard({
     setActiveTab("Game Detail");
   };
   const activeSection = getShellSectionForDashboardTab(activeTab);
-  // Focused Game Book review mode: when a completed game / Game Book is open
-  // (either the mobile modal overlay or the dedicated Game Detail tab) the
-  // fixed bottom nav and hamburger are collapsed so the result screen is not
-  // boxed in. Returning to any other surface restores the nav automatically.
-  const isGameBookFocus = gameDetailModal.open || activeTab === "Game Detail";
   const WEEKLY_OPERATIONS_TABS = new Set(["Game Plan", "Depth Chart", "Training", "Weekly Prep"]);
   const isWeeklyOperationsTab = WEEKLY_OPERATIONS_TABS.has(activeTab);
   const handleSectionChange = (sectionId) => {
     const normalizedSection = normalizeShellSectionId(sectionId);
     const group = NAV_GROUPS.find((entry) => entry.id === normalizedSection);
     const targetTab = group?.tabs?.find((tab) => TABS.includes(tab)) ?? "HQ";
+    setGameDetailModal({ open: false, gameId: null, source: null });
+    onDashboardNavigation?.(targetTab);
+    setActiveTab(targetTab);
+  };
+
+  const handleMobileDestinationChange = (tab) => {
+    const targetTab = canonicalizeMobileTab(tab);
+    setGameDetailModal({ open: false, gameId: null, source: null });
+    onDashboardNavigation?.(targetTab);
     setActiveTab(targetTab);
   };
 
@@ -1450,7 +1455,7 @@ export default function LeagueDashboard({
           </TabErrorBoundary>
         )}
 
-        {activeTab === "Game Detail" && (
+        {activeTab === "Game Detail" && !gameDetailModal.open && (
           <TabErrorBoundary label="Game Detail">
             <GameDetailScreen
               gameId={selectedGameId}
@@ -1622,15 +1627,18 @@ export default function LeagueDashboard({
         activeSection={activeSection}
         activeTab={activeTab}
         onSectionChange={handleSectionChange}
-        onDestinationChange={(tab) => setActiveTab(canonicalizeMobileTab(tab))}
+        onDestinationChange={handleMobileDestinationChange}
         onAppAction={(action) => {
-          if (action === "saves") onOpenSaves?.();
+          if (action === "saves") {
+            onDashboardNavigation?.('Saves');
+            onOpenSaves?.();
+          }
         }}
         onAdvance={onAdvanceWeek}
         advanceLabel={advanceLabel}
         advanceDisabled={advanceDisabled}
         league={league}
-        collapsed={isGameBookFocus}
+        collapsed={false}
       />
 
 

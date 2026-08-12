@@ -166,9 +166,6 @@ function loadHQStoredPlan() {
 export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = null, onNavigate, onAdvanceWeek, busy, simulating, actions }) {
   const [lineupToast, setLineupToast] = useState(null);
   const [showGate, setShowGate] = useState(false);
-  // Tracks the week whose post-sim "week complete" status strip the user has
-  // dismissed, so the compact strip stays gone until the next week is played.
-  const [dismissedStripWeek, setDismissedStripWeek] = useState(null);
   const command = useMemo(() => selectFranchiseHQViewModel(league), [league]);
   const hqPrep = useMemo(() => deriveWeeklyPrepState(league), [league]);
   const hqWeeklyContext = useMemo(() => evaluateWeeklyContext(league), [league]);
@@ -363,13 +360,6 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
       gameId,
     };
   }, [lastGame, league?.userTeamId]);
-
-  // Compact, dismissible post-sim acknowledgement strip. Low visual weight,
-  // single line. Shows once per completed week so the HQ answers "what just
-  // happened?" without auto-expanding full Weekly Results on return.
-  const showPostSimStrip = Boolean(
-    lastResultRow && lastResultRow.week != null && dismissedStripWeek !== lastResultRow.week,
-  );
 
   // Division standings for mini-table (max 4 rows)
   const divisionRows = useMemo(() => {
@@ -611,30 +601,6 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
               : undefined
           }
         />
-      )}
-
-      {/* ── POST-SIM STATUS STRIP — compact, dismissible, single line ────── */}
-      {showPostSimStrip && (
-        <div className="hq-postsim-strip" data-testid="hq-postsim-status-strip" data-week={lastResultRow.week}>
-          <button
-            type="button"
-            className="hq-postsim-strip__main"
-            onClick={() => onNavigate?.('Weekly Results')}
-            aria-label={`Week ${lastResultRow.week} complete. Tap to review results.`}
-          >
-            <span className="hq-postsim-strip__dot" aria-hidden="true" />
-            <span className="hq-postsim-strip__text">Week {lastResultRow.week} complete · Tap to review results</span>
-          </button>
-          <button
-            type="button"
-            className="hq-postsim-strip__dismiss"
-            data-testid="hq-postsim-status-strip-dismiss"
-            onClick={() => setDismissedStripWeek(lastResultRow.week)}
-            aria-label="Dismiss week complete notice"
-          >
-            ×
-          </button>
-        </div>
       )}
 
       {/* ── NEXT GAME ROW — single line, tappable → Game Plan ───────────── */}
