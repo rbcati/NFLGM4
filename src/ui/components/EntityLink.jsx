@@ -2,11 +2,19 @@ import React from 'react';
 import { buildCompletedGamePresentation, openResolvedBoxScore } from '../utils/boxScoreAccess.js';
 import { hasValidPlayerProfileId, openPlayerProfile } from '../utils/playerProfileNavigation.js';
 
-function hasValidEntityId(value) {
-  if (value == null) return false;
-  const normalized = String(value).trim();
-  return normalized !== '' && normalized !== 'NaN' && normalized !== 'undefined'
-    && normalized !== '__missing_player__' && normalized !== '__missing_team__';
+export function hasValidTeamId(value) {
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim();
+  if (normalized === '') return false;
+  if ([
+    'NaN',
+    'undefined',
+    'null',
+    '__missing_player__',
+    '__missing_team__',
+  ].includes(normalized)) return false;
+  return /^\d+$/.test(normalized);
 }
 
 function EntityButton({ actionable, children, ariaLabel, onClick, className = '' }) {
@@ -29,7 +37,7 @@ export function PlayerEntityLink({ playerId, children, onPlayerSelect, context =
 }
 
 export function TeamEntityLink({ teamId, children, onTeamSelect, ariaLabel, className }) {
-  const actionable = hasValidEntityId(teamId) && typeof onTeamSelect === 'function';
+  const actionable = hasValidTeamId(teamId) && typeof onTeamSelect === 'function';
   return <EntityButton actionable={actionable} ariaLabel={ariaLabel} className={className} onClick={() => onTeamSelect(teamId)}>{children}</EntityButton>;
 }
 

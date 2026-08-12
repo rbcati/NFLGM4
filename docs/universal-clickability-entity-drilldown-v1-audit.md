@@ -21,15 +21,15 @@ The League Hub overview was the clearest weekly inconsistency: trending teams, A
 
 ## Updated surfaces
 
-- Added shared player, team, and game entity controls with honest plain-text fallback.
-- Connected League Hub Trending Teams, Award Watch, League Health, and Next Week entities to existing profile callbacks.
+- Added shared player, team, and game entity controls with honest plain-text fallback. The reusable primitive is intentionally rolled out only in League Hub for this PR.
+- Connected League Hub Trending Teams, Award Watch, League Health, and Next Week entities to existing profile callbacks. Team links now only activate for finite numeric IDs or numeric-string IDs supported by existing team identity lookups; booleans, arrays, objects, `NaN`, blank strings, and sentinel strings remain inert.
 - Routed Spotlight Games through the same Game Book availability gate used elsewhere.
 - Tightened Game Book availability so imported/legacy score-only records do not advertise detail that is not present.
-- Added minimal hover, keyboard-focus, and cursor affordances without changing shell density or semantic tones.
+- Added minimal hover, keyboard-focus, and cursor affordances without changing shell density or semantic tones. Inline reset styling is scoped away from `.btn` variants so the League Hub `Open Game` CTA keeps its small-button border, padding, background, color, and font styling.
 
 ## Deferred deliberately
 
-Franchise HQ, News, Weekly Results, Team Hub, League Stats/Leaders, standings, and schedule already contain substantial working entity/profile or Game Book pathways. Converting every legacy row in one change would increase nested-interactive and regression risk. A later increment can migrate those existing one-off controls onto the shared component after their surface-specific row semantics are audited.
+Franchise HQ, News, Weekly Results, Team Hub, League Stats/Leaders, Award Races, standings, and schedule remain deferred. Several already contain substantial working entity/profile or Game Book pathways, but this PR intentionally keeps the first rollout League-Hub-only. Converting every legacy row in one change would increase nested-interactive and regression risk. A later increment can migrate those existing one-off controls onto the shared component after their surface-specific row semantics are audited.
 
 ## Accessibility and mobile
 
@@ -37,4 +37,4 @@ Actionable entities use native buttons, inherit row typography, expose optional 
 
 ## Validation
 
-Focused entity-link and Game Book resolver tests cover valid and invalid player/team identity, detailed versus score-only games, callback dispatch, and accessible naming. The focused tests (18 tests), full unit suite (474 files / 5,882 tests), sim type check, production build, and deploy parity passed locally. The existing mobile League Hub Playwright source was invoked, but browser execution was blocked because Chromium was absent; installation retries were rejected by the download host with HTTP 403.
+Focused entity-link, CSS-scope, and Game Book resolver tests cover valid and invalid player/team identity, detailed versus score-only games, callback dispatch, accessible naming, and preservation of explicit `.btn` styling. The focused tests (28 tests across EntityLink, LeagueHub, and CSS-scope coverage), full unit suite (475 files / 5,896 tests), sim type check, production build, and deploy parity passed locally. The existing mobile League Hub Playwright source was invoked, but browser execution was blocked because Chromium was absent; installation retries were rejected by the download host with HTTP 403.

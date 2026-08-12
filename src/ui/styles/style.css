@@ -8504,6 +8504,10 @@ details[open] .nav-summary::after {
   color: var(--text-subtle, #666);
 }
 .app-entity-link {
+  cursor: pointer;
+}
+
+.app-entity-link:not(.btn) {
   appearance: none;
   border: 0;
   padding: 0;
@@ -8512,7 +8516,6 @@ details[open] .nav-summary::after {
   font: inherit;
   font-weight: inherit;
   text-align: inherit;
-  cursor: pointer;
 }
 
 .app-entity-link:hover,

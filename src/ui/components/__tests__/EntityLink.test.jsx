@@ -19,13 +19,38 @@ describe('entity drill-down links', () => {
     expect(screen.getByText('Unknown player')).toBeTruthy();
   });
 
-  it('opens a valid team and leaves invalid team identity inert', () => {
+  it('opens a valid numeric team id', () => {
     const onTeamSelect = vi.fn();
-    const { rerender } = render(<TeamEntityLink teamId="7" onTeamSelect={onTeamSelect}>SEA</TeamEntityLink>);
-    fireEvent.click(screen.getByRole('button', { name: 'SEA' }));
+    render(<TeamEntityLink teamId={7} onTeamSelect={onTeamSelect}>PIT</TeamEntityLink>);
+    fireEvent.click(screen.getByRole('button', { name: 'PIT' }));
+    expect(onTeamSelect).toHaveBeenCalledWith(7);
+  });
+
+  it('opens a valid numeric-string team id supported by team identity lookups', () => {
+    const onTeamSelect = vi.fn();
+    render(<TeamEntityLink teamId="7" onTeamSelect={onTeamSelect}>PIT</TeamEntityLink>);
+    fireEvent.click(screen.getByRole('button', { name: 'PIT' }));
     expect(onTeamSelect).toHaveBeenCalledWith('7');
-    rerender(<TeamEntityLink teamId="__missing_team__" onTeamSelect={onTeamSelect}>TBD</TeamEntityLink>);
+  });
+
+  it.each([
+    ['false boolean', false],
+    ['true boolean', true],
+    ['plain object', {}],
+    ['array', []],
+    ['NaN number', Number.NaN],
+    ['blank string', '   '],
+    ['NaN string', 'NaN'],
+    ['undefined string', 'undefined'],
+    ['null string', 'null'],
+    ['missing team sentinel', '__missing_team__'],
+    ['missing player sentinel', '__missing_player__'],
+  ])('renders %s team identity as inert text', (_label, teamId) => {
+    const onTeamSelect = vi.fn();
+    render(<TeamEntityLink teamId={teamId} onTeamSelect={onTeamSelect}>TBD</TeamEntityLink>);
     expect(screen.queryByRole('button')).toBeNull();
+    fireEvent.click(screen.getByText('TBD'));
+    expect(onTeamSelect).not.toHaveBeenCalled();
   });
 
   it('opens a resolvable detailed game but not a score-only archive', () => {
