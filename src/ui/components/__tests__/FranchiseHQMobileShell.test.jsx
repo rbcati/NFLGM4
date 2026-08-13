@@ -62,6 +62,23 @@ describe('FranchiseHQ — mobile shell & safe-area layout', () => {
     expect(screen.getAllByRole('button', { name: /advance week/i })).toHaveLength(1);
   });
 
+  it('presents the completed user game once before standings', () => {
+    render(
+      <FranchiseHQ
+        league={baseLeague}
+        lastSimWeek={9}
+        lastResults={[{ gameId: 'g-9', week: 9, homeId: 11, awayId: 10, homeScore: 20, awayScore: 23, homeAbbr: 'DET', awayAbbr: 'CHI' }]}
+        onNavigate={() => {}}
+        onAdvanceWeek={() => {}}
+        busy={false}
+        simulating={false}
+      />,
+    );
+
+    expect(screen.getAllByTestId('hq-last-result-card')).toHaveLength(1);
+    expect(screen.queryByTestId('hq-postsim-status-strip')).toBeNull();
+  });
+
   it('collapses roster/simulation notices into the compact activity strip while simulating', () => {
     render(<FranchiseHQ league={baseLeague} onNavigate={() => {}} onAdvanceWeek={() => {}} busy={false} simulating={true} />);
     const strip = screen.getByTestId('activity-toast-stack');

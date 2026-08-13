@@ -10,9 +10,10 @@
  * jsdom does not compute real layout, so these assert the structural
  * invariants that keep the result, score, and return action reachable without
  * scrolling and prevent the bottom nav from overlapping Game Book content:
- *   - HQ shows the compact post-sim strip, not a full Weekly Results center.
+ *   - HQ shows one canonical result, not a full Weekly Results center.
  *   - The Game Book exposes a sticky header (final score + return action).
- *   - The mobile bottom nav collapses during Game Book review and restores.
+ *   - The mobile bottom nav intentionally remains available during review.
+ *   - The desktop quick-jump FAB is never mounted at mobile widths.
  */
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -48,6 +49,7 @@ function setViewport(width, height) {
     const matches = match ? width <= Number(match[1]) : false;
     return { matches, media: query, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), onchange: null, dispatchEvent: vi.fn() };
   };
+  window.scrollTo = vi.fn();
 }
 
 const VIEWPORTS = [
@@ -75,13 +77,16 @@ describe('mobile Match Review flow — viewport assertions', () => {
 
     const bottomBar = () => document.querySelector('.mobile-bottom-bar');
 
-    // HQ is not dominated by stacked notices: a single compact post-sim strip,
-    // and no full Weekly Results center embedded on HQ.
-    expect(screen.getByTestId('hq-postsim-status-strip')).toBeTruthy();
+    // HQ is not dominated by stacked notices: one canonical result entry,
+    // no duplicate post-sim strip, and no embedded Weekly Results center.
+    expect(screen.getAllByTestId('hq-last-result-card')).toHaveLength(1);
+    expect(screen.queryByTestId('hq-postsim-status-strip')).toBeNull();
     expect(screen.queryByTestId('weekly-results')).toBeNull();
+    expect(document.querySelector('.quick-jump-fab')).toBeNull();
     // Bottom nav present and not overlapping (not collapsed) on HQ.
     expect(bottomBar()).not.toBeNull();
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
+    expect(document.querySelector('.quick-jump-fab')).toBeNull();
 
     // Open the Game Book from the last result affordance / film room.
     const seasonPulse = screen.getByTestId('season-pulse');
@@ -93,12 +98,21 @@ describe('mobile Match Review flow — viewport assertions', () => {
     expect(screen.getByTestId('game-book-sticky-back')).toBeTruthy();
     expect(screen.getByTestId('game-book-sticky-score').textContent).toMatch(/\d/);
 
-    // Bottom nav collapses so it cannot overlap Game Book review content.
-    expect(bottomBar().classList.contains('is-collapsed')).toBe(true);
+    // Bottom nav remains available so Game Book cannot trap route navigation.
+    expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
 
     // Return to HQ is reachable from the sticky header and restores the nav.
     fireEvent.click(screen.getByTestId('game-book-sticky-back'));
     expect(await screen.findByTestId('franchise-hq')).toBeTruthy();
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
+
+    fireEvent.click(document.querySelector('.mobile-bottom-tab[aria-label="League"]'));
+    expect(document.querySelector('.league-hub-mobile-surface')).toBeTruthy();
+    expect(document.querySelector('.quick-jump-fab')).toBeNull();
+
+    fireEvent.click(document.querySelector('.mobile-bottom-tab[aria-label="More"]'));
+    expect(screen.getByRole('navigation', { name: 'More navigation' }).classList.contains('open')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Saves' })).toBeTruthy();
+    expect(document.querySelector('.quick-jump-fab')).toBeNull();
   });
 });

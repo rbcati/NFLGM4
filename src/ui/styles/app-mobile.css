@@ -538,6 +538,15 @@
 
 /* ── Modals ──────────────────────────────────────────────────────────────────── */
 
+/* Weekly briefing is App-owned, but mobile navigation remains the route owner.
+   Keep the navigation chrome above this one transient surface so selecting a
+   destination can synchronously unmount it instead of stranding it cross-route. */
+@media (max-width: 767px) {
+  .post-game-summary-overlay {
+    z-index: 900 !important;
+  }
+}
+
 .app-modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
