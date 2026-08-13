@@ -1121,6 +1121,7 @@ export default function PlayerProfile({
   return (
     <div
       data-testid="player-profile"
+      className="player-profile-backdrop"
       onClick={onClose}
       style={{
         position: "fixed",
@@ -1137,6 +1138,7 @@ export default function PlayerProfile({
       }}
     >
       <div
+        className="player-profile-shell pfgm-density-surface"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "linear-gradient(180deg, var(--surface-elevated), var(--surface))",

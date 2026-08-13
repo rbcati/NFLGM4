@@ -5,6 +5,33 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import LeagueLeaders from '../LeagueLeaders.jsx';
 
 describe('LeagueLeaders', () => {
+  it('resolves API leader team identity from a real team id and exposes a working team filter', async () => {
+    const actions = {
+      getLeagueLeaders: () => Promise.resolve({
+        payload: {
+          categories: { passing: { passYards: [{ playerId: 42, name: 'Resolved QB', teamId: 2, value: 301 }] } },
+          source: 'current_regular_season',
+        },
+      }),
+    };
+    render(<LeagueLeaders league={{ userTeamId: 1, teams: [{ id: 1, abbr: 'AAA' }, { id: 2, abbr: 'BBB' }] }} actions={actions} onPlayerSelect={() => {}} />);
+
+    expect(await screen.findByText('Resolved QB')).toBeTruthy();
+    expect(screen.getAllByText('BBB')).toHaveLength(2);
+    const teamFilter = screen.getByRole('combobox', { name: 'Filter leaders by team' });
+    expect(screen.getByRole('option', { name: 'BBB' })).toBeTruthy();
+    fireEvent.change(teamFilter, { target: { value: 'BBB' } });
+    expect(screen.getByText('Resolved QB')).toBeTruthy();
+    fireEvent.change(teamFilter, { target: { value: 'ALL' } });
+  });
+
+  it('renders player names as compact entity-style links', () => {
+    renderLeagueLeaders({
+      schedule: { weeks: [{ week: 1, games: [{ played: true, homeId: 1, awayId: 2, playerStats: { home: { 10: { name: 'Row Link QB', pos: 'QB', stats: { passYd: 100 } } }, away: {} } }] }] },
+    });
+    expect(screen.getByRole('button', { name: 'Open player profile for Row Link QB' }).classList.contains('league-leaders-player-link')).toBe(true);
+  });
+
   it('renders non-zero leaders from completed-game stats when API categories are missing', () => {
     const league = {
       userTeamId: 1,
@@ -231,4 +258,3 @@ describe('LeagueLeaders — Advanced tab', () => {
     expect(screen.getByRole('table', { name: /Targets leaders/i })).toBeTruthy();
   });
 });
-

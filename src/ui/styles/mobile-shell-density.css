@@ -282,4 +282,46 @@
     outline: 2px solid var(--mobile-action-green);
     outline-offset: -2px;
   }
+
+  .league-leaders-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+    align-items: center;
+  }
+  .league-leaders-filters input { grid-column: 1 / -1; width: 100%; min-width: 0; }
+  .league-leaders-filters select { max-width: 130px; min-width: 0; }
+  .league-leaders-table-wrap { max-width: 100%; border-radius: 2px !important; }
+  .league-leaders-table tbody tr:nth-child(odd) { background: var(--mobile-row-charcoal); }
+  .league-leaders-table tbody tr:nth-child(even) { background: var(--mobile-row-charcoal-alt); }
+  .league-leaders-player-link {
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #8fc4ff;
+    font-weight: 800;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: rgba(143, 196, 255, .45);
+    text-underline-offset: 3px;
+  }
+  .league-leaders-player-link:focus-visible { outline: 2px solid var(--mobile-action-green); outline-offset: 2px; }
+
+  .team-hub-mobile-surface .app-hero-summary-grid strong { color: #f4f7fb; }
+
+  .player-profile-backdrop { padding: 0; }
+  .player-profile-shell {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border-color: var(--mobile-divider) !important;
+    background: var(--mobile-content-black) !important;
+    color: #f4f7fb;
+  }
+  .player-profile-shell [data-testid="player-profile-summary"] { background: var(--mobile-shell-navy) !important; }
+  .player-profile-shell .card-enter,
+  .player-profile-shell .stat-box { background: var(--mobile-row-charcoal-alt); border-color: var(--mobile-divider); }
 }

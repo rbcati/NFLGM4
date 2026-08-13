@@ -21,7 +21,7 @@ export default class PlayerProfileModalBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{
+        <div className="player-profile-backdrop" style={{
           position: "fixed",
           inset: 0,
           background: "rgba(0,0,0,0.6)",
@@ -31,7 +31,7 @@ export default class PlayerProfileModalBoundary extends Component {
           justifyContent: "center",
           padding: 16,
         }}>
-          <div style={{
+          <div className="player-profile-shell" style={{
             width: "min(560px, 100%)",
             borderRadius: 12,
             border: "1px solid var(--hairline)",
