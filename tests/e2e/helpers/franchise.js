@@ -7,11 +7,11 @@ const START_DYNASTY = '[data-testid="start-dynasty-button"]';
 const TEAM_SELECT = '[data-testid="team-selection-flow"]';
 
 async function detectBootstrapState(page) {
-  if (await page.locator(APP_READY).first().isVisible().catch(() => false)) return 'app_ready';
-  if (await page.locator(SAVE_HUB_CTA).first().isVisible().catch(() => false)) return 'save_hub';
-  if (await page.locator(START_DYNASTY).first().isVisible().catch(() => false)) return 'start_dynasty';
-  if (await page.locator(TEAM_SELECT).first().isVisible().catch(() => false)) return 'team_select';
-  if (await page.locator(ONBOARDING_CONTINUE).first().isVisible().catch(() => false)) return 'onboarding_continue';
+  if (await page.locator(APP_READY).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) return 'app_ready';
+  if (await page.locator(SAVE_HUB_CTA).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) return 'save_hub';
+  if (await page.locator(START_DYNASTY).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) return 'start_dynasty';
+  if (await page.locator(TEAM_SELECT).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) return 'team_select';
+  if (await page.locator(ONBOARDING_CONTINUE).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) return 'onboarding_continue';
   return 'unknown';
 }
 
@@ -43,11 +43,11 @@ export async function ensureLeagueLoaded(page) {
     await page.locator(`${TEAM_SELECT} .team-card`).first().click();
   }
 
-  while (await page.locator(ONBOARDING_CONTINUE).first().isVisible().catch(() => false)) {
+  while (await page.locator(ONBOARDING_CONTINUE).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
     await page.locator(ONBOARDING_CONTINUE).first().click();
   }
 
-  if (await page.locator(START_DYNASTY).first().isVisible().catch(() => false)) {
+  if (await page.locator(START_DYNASTY).first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
     await page.locator(START_DYNASTY).first().click();
   }
 
@@ -70,7 +70,7 @@ export async function goToTab(page, name) {
   // HQ primary nav shows quick links (Roster Hub, Schedule, …), not `section-tab-hq`.
   if (tab === 'hq') {
     const desktop = page.locator('[data-testid="nav-hq"], [data-testid="primary-nav-hq"]').first();
-    if (await desktop.isVisible().catch(() => false)) {
+    if (await desktop.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
       await desktop.click({ force: true });
     } else {
       await page.getByRole('button', { name: /^HQ$/i }).first().click();
@@ -96,7 +96,7 @@ export async function goToTab(page, name) {
   const primary = sectionByTab[tab];
   if (primary) {
     const primaryLocator = page.locator(`[data-testid="nav-${primary}"], [data-testid="primary-nav-${primary}"]`).first();
-    if (await primaryLocator.isVisible().catch(() => false)) {
+    if (await primaryLocator.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
       await primaryLocator.click({ force: true });
     } else {
       const labels = { hq: /^HQ$/i, team: /^Team$/i, league: /^League$/i, news: /^News$/i };
@@ -105,23 +105,23 @@ export async function goToTab(page, name) {
     }
   }
   const sectionTab = page.locator(`[data-testid="section-tab-${tab}"]`).first();
-  if (await sectionTab.isVisible().catch(() => false)) {
+  if (await sectionTab.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
     await sectionTab.click({ force: true });
     return;
   }
 
-  if (tab === 'weekly-results' && (await page.getByTestId('completed-game-link').first().isVisible().catch(() => false) || await page.getByTestId('game-book-primary-cta').first().isVisible().catch(() => false))) {
+  if (tab === 'weekly-results' && (await page.getByTestId('completed-game-link').first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; }) || await page.getByTestId('game-book-primary-cta').first().isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; }))) {
     return;
   }
 
   if (tab === 'standings' || tab === 'stats' || tab === 'roster') {
         const textBtn = page.getByRole('tab', { name: new RegExp('^' + tab, 'i') }).first();
-        if (await textBtn.isVisible().catch(() => false)) {
+        if (await textBtn.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
             await textBtn.click({ force: true });
             return;
         }
         const backupTextBtn = page.locator('button', { hasText: new RegExp('^' + tab, 'i') }).first();
-        if (await backupTextBtn.isVisible().catch(() => false)) {
+        if (await backupTextBtn.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
             await backupTextBtn.click({ force: true });
             return;
         }
@@ -155,12 +155,12 @@ export async function goToTab(page, name) {
   } catch (e) {
     if (tab === 'standings' || tab === 'stats' || tab === 'roster') {
         const textBtn = page.getByRole('tab', { name: new RegExp('^' + tab, 'i') }).first();
-        if (await textBtn.isVisible().catch(() => false)) {
+        if (await textBtn.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
             await textBtn.click({ force: true });
             return;
         }
         const backupTextBtn = page.locator('button', { hasText: new RegExp('^' + tab, 'i') }).first();
-        if (await backupTextBtn.isVisible().catch(() => false)) {
+        if (await backupTextBtn.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
             await backupTextBtn.click({ force: true });
             return;
         }

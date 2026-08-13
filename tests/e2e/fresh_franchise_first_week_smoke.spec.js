@@ -52,10 +52,10 @@ async function revealLatestUserGameResult(page, fallbackWeek) {
 
   const maxWeeksToScan = Math.max(1, Number(latestCompletedWeek) + 2);
   for (let attempt = 0; attempt < maxWeeksToScan; attempt += 1) {
-    if (await resultCard.isVisible({ timeout: 1000 }).catch(() => false)) {
+    if (await resultCard.isVisible({ timeout: 1000 }).catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
       return latestCompletedWeek;
     }
-    if (!(await prevWeek.isEnabled().catch(() => false))) break;
+    if (!(await prevWeek.isEnabled().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; }))) break;
     await prevWeek.click();
   }
 
@@ -86,7 +86,7 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
   await expect(page.getByText(/\b[A-Z]{2,4}\s*\(\d+-\d+\)/).first()).toBeVisible();
 
   const closeChangelog = page.getByLabel('Close changelog');
-  if (await closeChangelog.isVisible().catch(() => false)) {
+  if (await closeChangelog.isVisible().catch((err) => { if (err.name !== 'TimeoutError') throw err; return false; })) {
     await closeChangelog.click();
   }
 
