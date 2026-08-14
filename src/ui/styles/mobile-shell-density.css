@@ -1,6 +1,15 @@
 /* PFGM-inspired mobile shell and density layer.
- * Intentionally loaded last: this small, mobile-only layer converts the shared
- * screen primitives without changing their component APIs or desktop layouts. */
+ * Intentionally loaded last: the base filter rule preserves the pre-conversion
+ * desktop layout; the media query converts only the mobile screen primitives. */
+.league-leaders-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.league-leaders-filters input { flex: 1 1 180px; min-width: 0; }
+.league-leaders-filters :is(select, button) { min-height: 32px; }
+
 @media (max-width: 767px) {
   :root {
     --mobile-shell-navy: #0d1522;

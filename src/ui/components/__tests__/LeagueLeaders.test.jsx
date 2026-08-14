@@ -26,9 +26,10 @@ describe('LeagueLeaders', () => {
   });
 
   it('renders player names as compact entity-style links', () => {
-    renderLeagueLeaders({
+    const { container } = renderLeagueLeaders({
       schedule: { weeks: [{ week: 1, games: [{ played: true, homeId: 1, awayId: 2, playerStats: { home: { 10: { name: 'Row Link QB', pos: 'QB', stats: { passYd: 100 } } }, away: {} } }] }] },
     });
+    expect(container.querySelector('.league-leaders-filters')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Open player profile for Row Link QB' }).classList.contains('league-leaders-player-link')).toBe(true);
   });
 
