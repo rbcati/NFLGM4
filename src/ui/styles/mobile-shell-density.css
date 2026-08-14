@@ -1,6 +1,15 @@
 /* PFGM-inspired mobile shell and density layer.
- * Intentionally loaded last: this small, mobile-only layer converts the shared
- * screen primitives without changing their component APIs or desktop layouts. */
+ * Intentionally loaded last: the base filter rule preserves the pre-conversion
+ * desktop layout; the media query converts only the mobile screen primitives. */
+.league-leaders-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.league-leaders-filters input { flex: 1 1 180px; min-width: 0; }
+.league-leaders-filters :is(select, button) { min-height: 32px; }
+
 @media (max-width: 767px) {
   :root {
     --mobile-shell-navy: #0d1522;
@@ -282,4 +291,67 @@
     outline: 2px solid var(--mobile-action-green);
     outline-offset: -2px;
   }
+
+  .league-leaders-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 6px;
+    align-items: center;
+  }
+  .league-leaders-filters input { grid-column: 1 / -1; width: 100%; min-width: 0; }
+  .league-leaders-filters select { max-width: 130px; min-width: 0; }
+  .league-leaders-surface {
+    --text: #f4f7fb;
+    --text-muted: rgba(244, 247, 251, .76);
+    --text-subtle: rgba(244, 247, 251, .66);
+    --surface: var(--mobile-content-black);
+    --surface-elevated: var(--mobile-row-charcoal-alt);
+    --surface-strong: var(--mobile-row-charcoal);
+    --hairline: var(--mobile-divider);
+    color: var(--text);
+  }
+  .league-leaders-table-wrap { max-width: 100%; border-radius: 2px !important; }
+  .league-leaders-table :is(th, td) { color: var(--text); }
+  .league-leaders-table th,
+  .league-leaders-table th button { color: var(--text-muted); }
+  .league-leaders-table tbody tr:nth-child(odd) { background: var(--mobile-row-charcoal); }
+  .league-leaders-table tbody tr:nth-child(even) { background: var(--mobile-row-charcoal-alt); }
+  .league-leaders-player-link {
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #8fc4ff;
+    font-weight: 800;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: rgba(143, 196, 255, .45);
+    text-underline-offset: 3px;
+  }
+  .league-leaders-player-link:focus-visible { outline: 2px solid var(--mobile-action-green); outline-offset: 2px; }
+
+  .team-hub-mobile-surface .app-hero-summary-grid strong { color: #f4f7fb; }
+
+  .player-profile-backdrop { padding: 0; }
+  .player-profile-shell {
+    --text: #f4f7fb;
+    --text-muted: rgba(244, 247, 251, .76);
+    --text-subtle: rgba(244, 247, 251, .66);
+    --surface: var(--mobile-content-black);
+    --surface-elevated: var(--mobile-row-charcoal-alt);
+    --surface-strong: var(--mobile-row-charcoal);
+    --hairline: var(--mobile-divider);
+    --hairline-strong: rgba(255, 255, 255, .24);
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border-color: var(--mobile-divider) !important;
+    background: var(--mobile-content-black) !important;
+    color: #f4f7fb;
+  }
+  .player-profile-shell [data-testid="player-profile-summary"] { background: var(--mobile-shell-navy) !important; }
+  .player-profile-shell .card-enter,
+  .player-profile-shell .stat-box { background: var(--mobile-row-charcoal-alt); border-color: var(--mobile-divider); }
 }

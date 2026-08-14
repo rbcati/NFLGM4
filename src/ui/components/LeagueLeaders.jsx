@@ -103,6 +103,17 @@ function normalizeLeaderRows(rawRows = []) {
   }));
 }
 
+function resolveTeamIdentity(row, teams) {
+  const rawTeam = row?.teamAbbr ?? row?.abbr ?? row?.team ?? row?.player?.team;
+  const rawTeamId = row?.teamId ?? row?.tid ?? row?.team?.id ?? row?.player?.teamId;
+  const matchedTeam = teams.find((team) => String(team?.id) === String(rawTeamId));
+  const label = typeof rawTeam === "string" ? rawTeam.trim() : rawTeam?.abbr ?? rawTeam?.name;
+  return {
+    teamId: rawTeamId ?? matchedTeam?.id ?? null,
+    teamLabel: label && label !== "—" ? label : matchedTeam?.abbr ?? matchedTeam?.name ?? null,
+  };
+}
+
 const API_TAB_MAP = Object.freeze({
   Passing: { category: "passing", primaryKey: "passYards", secondaryKey: "passTDs" },
   Rushing: { category: "rushing", primaryKey: "rushYards", secondaryKey: "rushTDs" },
@@ -233,7 +244,7 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
   const [teamFilter, setTeamFilter] = useState("ALL");
   const [sort, setSort] = useState({ key: "primary", dir: "desc" });
   const firstTabRef = useRef(null);
-  const teams = Array.isArray(league?.teams) ? league.teams : [];
+  const teams = useMemo(() => (Array.isArray(league?.teams) ? league.teams : []), [league?.teams]);
 
   useEffect(() => {
     firstTabRef.current?.focus?.();
@@ -270,19 +281,22 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
         normalizeLeaderRows(bucket?.[apiConfig.secondaryKey]).map((row) => [String(row.id), row.value]),
       );
       if (primaryRows.length > 0) {
-        return primaryRows.map((row) => ({
-          player: {
-            ...row.raw,
-            id: row.id,
-            name: row.name,
-            teamName: row.teamAbbr,
-            teamId: row.teamId,
-            pos: row.raw?.pos ?? row.raw?.position ?? row.raw?.player?.pos ?? row.raw?.player?.position ?? "",
-            isUserTeam: Number(row.teamId) === Number(league?.userTeamId),
-          },
-          primary: row.value,
-          secondary: displayNumber(secondaryMap.get(String(row.id))),
-        }));
+        return primaryRows.map((row) => {
+          const identity = resolveTeamIdentity(row.raw, teams);
+          return ({
+            player: {
+              ...row.raw,
+              id: row.id,
+              name: row.name,
+              teamName: identity.teamLabel,
+              teamId: identity.teamId,
+              pos: row.raw?.pos ?? row.raw?.position ?? row.raw?.player?.pos ?? row.raw?.player?.position ?? "",
+              isUserTeam: Number(identity.teamId) === Number(league?.userTeamId),
+            },
+            primary: row.value,
+            secondary: displayNumber(secondaryMap.get(String(row.id))),
+          });
+        });
       }
     }
 
@@ -315,7 +329,7 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
       }))
       .sort((a, b) => (b.primary ?? 0) - (a.primary ?? 0))
       .slice(0, 10);
-  }, [activeTab, league?.userTeamId, model.playerTables, remoteCategories]);
+  }, [activeTab, league?.userTeamId, model.playerTables, remoteCategories, teams]);
 
 
   const positionOptions = useMemo(() => uniqueFilterOptions(rows, (entry) => entry.player?.pos), [rows]);
@@ -346,7 +360,7 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
     : "Showing current regular-season leaders.";
 
   return (
-    <div style={{ display: "grid", gap: "var(--space-3)" }}>
+    <div className="league-leaders-surface pfgm-density-surface" style={{ display: "grid", gap: "var(--space-3)" }}>
       <div className="standings-tabs profile-tab-row" role="tablist" aria-label="League leader categories" style={{ flexWrap: "nowrap", gap: 6, alignItems: "center" }}>
         {TABS.map((tab, index) => (
           <button
@@ -367,7 +381,7 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
       ) : (
         <>
           <div style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>{sourceLabel}</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="league-leaders-filters">
             <input aria-label="Search league leaders" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search player/team" style={{ minHeight: 32, flex: "1 1 180px" }} />
             <select aria-label="Filter leaders by position" value={positionFilter} onChange={(e) => setPositionFilter(e.target.value)} style={{ minHeight: 32 }}>
               <option value="ALL">All positions</option>
@@ -380,8 +394,8 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
             {hasActiveFilters ? <button type="button" onClick={resetFilters} style={{ minHeight: 32 }}>Reset filters</button> : null}
           </div>
           <div style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>{buildShowingLabel(visibleRows.length, rows.length, "leader")}</div>
-          <div className="table-wrapper" style={{ overflowX: "auto", border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)" }}>
-            <table className="standings-table" style={{ width: "100%", minWidth: 680 }}>
+          <div className="table-wrapper league-leaders-table-wrap" style={{ overflowX: "auto", border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)" }}>
+            <table className="standings-table league-leaders-table" style={{ width: "100%", minWidth: 560 }}>
               <thead>
                 <tr>
                   <th style={{ width: 70 }}>Rank</th>
@@ -401,8 +415,8 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
                     <td>{index + 1}</td>
                     <td>
                       <button
-                        className="btn btn-link"
-                        style={{ padding: 0, minHeight: 0 }}
+                        className="app-entity-link league-leaders-player-link"
+                        aria-label={`Open player profile for ${entry.player?.name ?? "player"}`}
                         onClick={() => onPlayerSelect?.(entry.player)}
                       >
                         {entry.player?.name ?? "—"}
