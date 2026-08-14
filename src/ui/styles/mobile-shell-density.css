@@ -300,7 +300,20 @@
   }
   .league-leaders-filters input { grid-column: 1 / -1; width: 100%; min-width: 0; }
   .league-leaders-filters select { max-width: 130px; min-width: 0; }
+  .league-leaders-surface {
+    --text: #f4f7fb;
+    --text-muted: rgba(244, 247, 251, .76);
+    --text-subtle: rgba(244, 247, 251, .66);
+    --surface: var(--mobile-content-black);
+    --surface-elevated: var(--mobile-row-charcoal-alt);
+    --surface-strong: var(--mobile-row-charcoal);
+    --hairline: var(--mobile-divider);
+    color: var(--text);
+  }
   .league-leaders-table-wrap { max-width: 100%; border-radius: 2px !important; }
+  .league-leaders-table :is(th, td) { color: var(--text); }
+  .league-leaders-table th,
+  .league-leaders-table th button { color: var(--text-muted); }
   .league-leaders-table tbody tr:nth-child(odd) { background: var(--mobile-row-charcoal); }
   .league-leaders-table tbody tr:nth-child(even) { background: var(--mobile-row-charcoal-alt); }
   .league-leaders-player-link {
@@ -322,6 +335,14 @@
 
   .player-profile-backdrop { padding: 0; }
   .player-profile-shell {
+    --text: #f4f7fb;
+    --text-muted: rgba(244, 247, 251, .76);
+    --text-subtle: rgba(244, 247, 251, .66);
+    --surface: var(--mobile-content-black);
+    --surface-elevated: var(--mobile-row-charcoal-alt);
+    --surface-strong: var(--mobile-row-charcoal);
+    --hairline: var(--mobile-divider);
+    --hairline-strong: rgba(255, 255, 255, .24);
     width: 100% !important;
     max-width: 100% !important;
     max-height: 100dvh !important;

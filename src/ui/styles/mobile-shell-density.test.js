@@ -30,4 +30,18 @@ describe('mobile shell density scope', () => {
       expect(css.indexOf(selector), selector).toBeGreaterThan(resetIndex);
     }
   });
+
+  it('pins weekly dark surfaces to readable tokens independent of the app theme', () => {
+    const leadersRule = css.match(/\.league-leaders-surface\s*\{([^}]*)\}/)?.[1] ?? '';
+    const profileRule = css.match(/\.player-profile-shell\s*\{([^}]*)\}/)?.[1] ?? '';
+
+    for (const rule of [leadersRule, profileRule]) {
+      expect(rule).toContain('--text: #f4f7fb');
+      expect(rule).toContain('--text-muted: rgba(244, 247, 251, .76)');
+      expect(rule).toContain('--surface: var(--mobile-content-black)');
+      expect(rule).toContain('--surface-elevated: var(--mobile-row-charcoal-alt)');
+      expect(rule).toContain('--hairline: var(--mobile-divider)');
+    }
+    expect(css).toContain('.league-leaders-table :is(th, td) { color: var(--text); }');
+  });
 });
