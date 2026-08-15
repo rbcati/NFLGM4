@@ -1711,7 +1711,7 @@ export default function LeagueDashboard({
       )}
 
       {/* ── Global utilities (always mounted, visually minimal) ── */}
-      <GlossaryPopover />
+      {!isMobile && <GlossaryPopover />}
       <OnboardingTour league={league} />
 
     </div>
