@@ -1409,7 +1409,20 @@
 
 /* Reduce tile min-height on compact layout to save vertical space */
 .hq-compact-layout .app-action-tile {
-  min-height: 96px;
+  min-height: 64px;
+  padding: 8px 10px;
+  gap: 4px;
+}
+
+.hq-compact-layout .app-action-tile__icon {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 6px;
+}
+
+.hq-compact-layout .app-action-tile__title-row strong {
+  font-size: 13px;
 }
 
 /* ── Ensure more-drawer trigger is tappable and compact ─────────────────── */

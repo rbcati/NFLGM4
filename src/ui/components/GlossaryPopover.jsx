@@ -83,7 +83,7 @@ const categoryColor = (cat) => {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function GlossaryPopover() {
+export default function GlossaryPopover({ embedded = false }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("All");
@@ -125,16 +125,18 @@ export default function GlossaryPopover() {
     <>
       {/* Trigger button */}
       <button
+        type="button"
         onClick={() => setOpen(v => !v)}
         title="Rules & Glossary (? key)"
         aria-label="Open rules glossary"
+        className={embedded ? "mobile-nav-item mobile-nav-item-premium" : undefined}
         style={{
-          position: "fixed",
+          position: embedded ? "static" : "fixed",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)",
-          right: 12,
+          right: embedded ? "auto" : 12,
           zIndex: 3000,
-          width: 34, height: 34,
-          borderRadius: "50%",
+          width: embedded ? "100%" : 34, height: embedded ? "auto" : 34,
+          borderRadius: embedded ? undefined : "50%",
           background: open ? "var(--accent)" : "color-mix(in srgb, var(--surface-strong) 88%, transparent)",
           border: "1.5px solid var(--hairline)",
           color: open ? "#fff" : "var(--text-muted)",
@@ -147,7 +149,7 @@ export default function GlossaryPopover() {
           opacity: open ? 1 : 0.92,
         }}
       >
-        ?
+        {embedded ? <><span aria-hidden="true">?</span><span>Rules &amp; Glossary</span></> : "?"}
       </button>
 
       {/* Popover panel */}

@@ -17,6 +17,20 @@ function findScheduleGame(league, gameId) {
   return null;
 }
 
+function classifyPreparationBullet(text) {
+  if (typeof text !== 'string' || !text.trim()) return null;
+  if (/^(Game plan was saved before kickoff|No saved game-plan snapshot was found)/i.test(text)) {
+    return { category: 'Game plan', text, unavailable: text.startsWith('No ') };
+  }
+  if (/^(Practice effects were logged this week|A prior practice plan exists|No weekly practice log was matched)/i.test(text)) {
+    return { category: 'Practice', text, unavailable: text.startsWith('No ') };
+  }
+  if (/^(Injury\/availability risk was active entering the week|No pregame injury-risk marker was found)/i.test(text)) {
+    return { category: 'Injury risk', text, unavailable: text.startsWith('No ') };
+  }
+  return null;
+}
+
 // Compact, mobile-first sticky chrome for the Game Book. Keeps the final score,
 // W/L result, week, and a return action above the fold so the user never has to
 // scroll to see the outcome or get back to HQ. Presentational only — it reads
@@ -97,6 +111,9 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
   const canonicalGame = resolveCanonicalCompletedGame({ league, gameId, scheduleGame, archivedGame, localArchivedGame });
   const userTeam = (league?.teams ?? []).find((team) => Number(team?.id) === Number(league?.userTeamId));
   const prepContext = buildWeeklyDecisionImpact({ league, userTeam, lastGame: scheduleGame });
+  const preparationItems = (prepContext?.preparationBullets ?? []).map(classifyPreparationBullet);
+  const categorizedPreparation = preparationItems.filter(Boolean);
+  const genericPreparation = (prepContext?.preparationBullets ?? []).filter((_, index) => !preparationItems[index]);
   const detailVm = useMemo(
     () => buildGameBookPresentation({
       league,
@@ -230,12 +247,19 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
       />
       <div data-testid="game-book-decision-summary">
         <SectionCard variant="compact" title="Preparation Context" subtitle="Pregame context captured before kickoff. This strip does not assign direct causality.">
-          <div className="app-hq-intel-list" role="list" aria-label="Preparation context">
-            {(prepContext?.preparationBullets ?? []).slice(0, 3).map((bullet, idx) => (
-              <p key={`prep-context-${idx}`} role="listitem" className="app-hq-intel-item tone-info">{bullet}</p>
+          <dl className="game-book-prep-context" aria-label="Preparation context">
+            {categorizedPreparation.map((item) => (
+              <div key={item.category} className="game-book-prep-context__row">
+                <dt>{item.category}</dt>
+                <dd title={item.unavailable ? item.text : undefined}>{item.unavailable ? 'Not recorded' : item.text}</dd>
+                {item.unavailable ? <span className="sr-only">{item.text}</span> : null}
+              </div>
             ))}
-            {!(prepContext?.preparationBullets ?? []).length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
-          </div>
+          </dl>
+          {genericPreparation.map((message, index) => (
+            <p key={`prep-context-generic-${index}`} className="game-book-prep-context__fallback" data-testid="game-book-prep-context-fallback">{message}</p>
+          ))}
+          {!(prepContext?.preparationBullets ?? []).length ? <p className="game-book-prep-context__fallback">No pregame preparation markers were found for this game.</p> : null}
         </SectionCard>
       </div>
       <SectionCard variant="info" title="Game Book Detail" subtitle="Summary → Team stats → Player leaders → Drive/play recap.">
