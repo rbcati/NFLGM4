@@ -4,6 +4,7 @@
  * Modal: accolades/legacy badges + position-aware career stats table.
  */
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import TraitBadge from "./TraitBadge";
 import RadarChart from "./RadarChart";
 import ExtensionNegotiationModal from "./ExtensionNegotiationModal.jsx";
@@ -1118,7 +1119,7 @@ export default function PlayerProfile({
     );
   }
 
-  return (
+  return createPortal(
     <div
       data-testid="player-profile"
       className="player-profile-backdrop"
@@ -2928,7 +2929,8 @@ export default function PlayerProfile({
         .rating-color-avg   { background: var(--warning); }
         .rating-color-bad   { background: var(--danger); }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
