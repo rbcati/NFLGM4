@@ -6,7 +6,7 @@
 
 `DEPTH_NEEDS` is a positional construction template and is not consulted or summed. The limits come only from `ROSTER_LIMITS`, through the shared legality helper or the explicit preseason advance gate.
 
-League legality builds membership from players with a team ID and excludes recorded `free_agent` status. The decision context is deliberately more conservative: it counts only supplied-team players explicitly recorded as `active` or `injured_reserve` (including legacy `onIR: true`). Thus IR counts under the current legality model, while free agents, prospects, retired players, foreign ownership, unresolved references, duplicates, and unknown statuses do not increase queue urgency. Unknown and partial data produce deterministic diagnostics. A missing phase makes limit context unavailable rather than defaulting to 53.
+League legality and the worker roster gate derive membership from team ownership and exclude recorded `free_agent` status. The decision context now uses those same semantics: supplied-team legacy players with missing status, IR players, and team-owned players with nonstandard statuses all count because the gameplay gate counts them. Missing and nonstandard statuses produce deterministic diagnostics rather than a silent queue-only undercount. Recorded free agents, foreign ownership, unresolved references, and duplicate references are excluded; team-owned prospect or retired records count when the gameplay authority would count those inconsistent records. A missing phase makes limit context unavailable rather than defaulting to 53.
 
 ## Review context and omitted claims
 

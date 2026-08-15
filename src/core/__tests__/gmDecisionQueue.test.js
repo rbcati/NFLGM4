@@ -9,7 +9,7 @@ import {
   createContractDecisionQueueBuilder,
   createGMDecisionQueueBuilder,
 } from '../gmDecisionQueue.js';
-import { getRosterLimitForPhase } from '../teamValidation.js';
+import { getRosterLimitForPhase, validateLeagueTeamLegality } from '../teamValidation.js';
 import { buildPlayerDecisionPresentation } from '../playerDecisionPresentation.js';
 
 const player = (id, overrides = {}) => ({
@@ -48,17 +48,43 @@ describe('roster cutdown decisions', () => {
     expect(buildRosterCutdownDecisionQueue(input).items[0]).toMatchObject({ severity: 'critical', rosterConstraint: { limit: 53, requiredMoves: 1 } });
   });
 
-  it('deduplicates references and conservatively omits foreign, excluded, and status-unknown players', () => {
+  it('matches ownership-based gameplay membership while excluding free agents, foreign players, and duplicates', () => {
     const active = rosterPlayer(1);
     const ir = rosterPlayer(2, { status: 'injured_reserve', onIR: true });
     const result = buildRosterLimitContext({
       roster: [active, { ...active }, ir, rosterPlayer(3, { teamId: 11 }), rosterPlayer(4, { status: 'free_agent' }), rosterPlayer(5, { status: null })],
       team: { id: 10 }, league: { phase: 'regular', players: [] },
     });
-    expect(result.currentCount).toBe(2);
+    expect(result.currentCount).toBe(3);
     expect(result.diagnostics.map((entry) => entry.reason)).toEqual(expect.arrayContaining([
-      'Duplicate roster reference', 'Player not owned by supplied team', 'Status does not count toward constrained roster', 'Roster-counting status unavailable',
+      'Duplicate roster reference', 'Player not owned by supplied team', 'Status does not count toward constrained roster',
+      'Missing status counted by gameplay ownership authority',
     ]));
+  });
+
+  it('counts legacy missing statuses exactly as the gameplay legality authority does', () => {
+    const roster = Array.from({ length: 55 }, (_, index) => rosterPlayer(index + 1,
+      index < 4 ? { status: undefined } : {}));
+    const context = buildRosterLimitContext({ roster, team: { id: 10 }, league: { phase: 'regular', players: roster } });
+    const legality = validateLeagueTeamLegality({ teams: [{ id: 10, abbr: 'TST' }], players: roster, phase: 'regular', hardCap: Number.MAX_SAFE_INTEGER });
+
+    expect(context).toMatchObject({ currentCount: 55, requiredMoves: 2, overLimit: true });
+    expect(legality.rosterLimit).toBe(context.limit);
+    expect(legality.issues.find((issue) => issue.code === 'roster_limit')?.message).toContain('55/53');
+    expect(context.diagnostics.filter((entry) => entry.reason === 'Missing status counted by gameplay ownership authority')).toHaveLength(4);
+  });
+
+  it('counts IR, retired, and draft-class statuses when the ownership gate counts them', () => {
+    const roster = [
+      rosterPlayer(1, { status: 'injured_reserve', onIR: true }),
+      rosterPlayer(2, { status: 'retired', retired: true }),
+      rosterPlayer(3, { status: 'draft_eligible', draftEligible: true }),
+    ];
+    const context = buildRosterLimitContext({ roster, team: { id: 10 }, league: { phase: 'regular', players: roster, draftClass: [roster[2]] } });
+    const legality = validateLeagueTeamLegality({ teams: [{ id: 10 }], players: roster, phase: 'regular', hardCap: Number.MAX_SAFE_INTEGER });
+    expect(context.currentCount).toBe(3);
+    expect(legality.issues.find((issue) => issue.code === 'roster_limit')).toBeUndefined();
+    expect(context.diagnostics.filter((entry) => entry.reason === 'Nonstandard status counted by gameplay ownership authority')).toHaveLength(2);
   });
 
   it('never invents a limit for missing phase data and remains pure and deterministic', () => {

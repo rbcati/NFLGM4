@@ -20,7 +20,6 @@ const RETENTION_RECOMMENDATION_RANK = {
 const RETENTION_ROLE_RANK = { core_starter: 0, starter: 1, rotation: 2, depth: 3 };
 const MARKET_RANK = { high: 0, medium: 1, low: 2 };
 const RESOLVED_EXTENSION_DECISIONS = new Set(['extended', 'let_walk', 'tagged']);
-const ROSTER_COUNTING_STATUSES = new Set(['active', 'injured_reserve']);
 const ROSTER_LIMIT_PHASES = new Set([
   'offseason_resign', 'free_agency', 'draft', 'offseason', 'preseason', 'regular', 'playoffs',
 ]);
@@ -432,14 +431,18 @@ function resolveRoster(roster, league, team, diagnostics) {
       diagnostics.push({ playerId: playerId(resolved), reason: 'Player not owned by supplied team' });
       continue;
     }
-    if (!resolved.status && resolved.onIR !== true) {
-      diagnostics.push({ playerId: playerId(resolved), reason: 'Roster-counting status unavailable' });
-      continue;
-    }
-    const status = resolved.onIR === true ? 'injured_reserve' : resolved.status;
-    if (!ROSTER_COUNTING_STATUSES.has(status)) {
+    // Match teamValidation/buildTeamPlayerMap and the worker cache gate: team
+    // ownership establishes membership; only a recorded free-agent status is
+    // excluded. Legacy/other statuses still count because the gameplay gate
+    // counts them too, but retain a diagnostic for review.
+    if (resolved.status === 'free_agent') {
       diagnostics.push({ playerId: playerId(resolved), reason: 'Status does not count toward constrained roster' });
       continue;
+    }
+    if (!resolved.status && resolved.onIR !== true) {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Missing status counted by gameplay ownership authority' });
+    } else if (!['active', 'injured_reserve'].includes(resolved.status) && resolved.onIR !== true) {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Nonstandard status counted by gameplay ownership authority' });
     }
     players.push(resolved);
   }
