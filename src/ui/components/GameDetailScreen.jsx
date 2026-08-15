@@ -17,6 +17,19 @@ function findScheduleGame(league, gameId) {
   return null;
 }
 
+export function classifyPreparationBullet(bullet) {
+  if (typeof bullet !== 'string' || !bullet.trim()) return null;
+  const text = bullet.trim();
+  const knownShapes = [
+    { key: 'game-plan', label: 'Game plan', pattern: /^(Game plan was saved before kickoff|No saved game-plan snapshot was found)/i },
+    { key: 'practice', label: 'Practice', pattern: /^(Practice effects were logged|A prior practice plan exists|No weekly practice log was matched)/i },
+    { key: 'injury-risk', label: 'Injury risk', pattern: /^(Injury\/availability risk was active|No pregame injury-risk marker was found)/i },
+  ];
+  const match = knownShapes.find(({ pattern }) => pattern.test(text));
+  if (!match) return null;
+  return { ...match, text, unavailable: text.startsWith('No ') };
+}
+
 // Compact, mobile-first sticky chrome for the Game Book. Keeps the final score,
 // W/L result, week, and a return action above the fold so the user never has to
 // scroll to see the outcome or get back to HQ. Presentational only — it reads
@@ -97,6 +110,9 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
   const canonicalGame = resolveCanonicalCompletedGame({ league, gameId, scheduleGame, archivedGame, localArchivedGame });
   const userTeam = (league?.teams ?? []).find((team) => Number(team?.id) === Number(league?.userTeamId));
   const prepContext = buildWeeklyDecisionImpact({ league, userTeam, lastGame: scheduleGame });
+  const preparationBullets = (prepContext?.preparationBullets ?? []).filter((bullet) => typeof bullet === 'string' && bullet.trim());
+  const categorizedPreparation = preparationBullets.map(classifyPreparationBullet).filter(Boolean);
+  const genericPreparation = preparationBullets.filter((bullet) => !classifyPreparationBullet(bullet));
   const detailVm = useMemo(
     () => buildGameBookPresentation({
       league,
@@ -231,19 +247,18 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
       <div data-testid="game-book-decision-summary">
         <SectionCard variant="compact" title="Preparation Context" subtitle="Pregame context captured before kickoff. This strip does not assign direct causality.">
           <dl className="game-book-prep-context" aria-label="Preparation context">
-            {(prepContext?.preparationBullets ?? []).slice(0, 3).map((bullet, idx) => {
-              const labels = ['Game plan', 'Practice', 'Injury risk'];
-              const unavailable = /^No (saved game-plan snapshot|weekly practice log|pregame injury-risk marker)/i.test(bullet);
-              return (
-                <div key={`prep-context-${idx}`} className="game-book-prep-context__row">
-                  <dt>{labels[idx]}</dt>
-                  <dd title={unavailable ? bullet : undefined}>{unavailable ? 'Not recorded' : bullet}</dd>
-                  {unavailable ? <span className="sr-only">{bullet}</span> : null}
-                </div>
-              );
-            })}
-            {!(prepContext?.preparationBullets ?? []).length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
+            {categorizedPreparation.map((item) => (
+              <div key={item.key} className="game-book-prep-context__row">
+                <dt>{item.label}</dt>
+                <dd title={item.unavailable ? item.text : undefined}>{item.unavailable ? 'Not recorded' : item.text}</dd>
+                {item.unavailable ? <span className="sr-only">{item.text}</span> : null}
+              </div>
+            ))}
           </dl>
+          {genericPreparation.map((bullet, idx) => (
+            <p key={`prep-context-generic-${idx}`} data-testid="game-book-prep-context-generic" className="app-hq-intel-item tone-info">{bullet}</p>
+          ))}
+          {!preparationBullets.length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
         </SectionCard>
       </div>
       <SectionCard variant="info" title="Game Book Detail" subtitle="Summary → Team stats → Player leaders → Drive/play recap.">
