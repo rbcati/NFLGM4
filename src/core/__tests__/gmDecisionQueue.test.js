@@ -3,10 +3,13 @@ import {
   buildAvailabilityDecisionQueue,
   buildContractDecisionQueue,
   buildGMDecisionQueue,
+  buildRosterLimitContext,
+  buildRosterCutdownDecisionQueue,
   createAvailabilityDecisionQueueBuilder,
   createContractDecisionQueueBuilder,
   createGMDecisionQueueBuilder,
 } from '../gmDecisionQueue.js';
+import { getRosterLimitForPhase } from '../teamValidation.js';
 import { buildPlayerDecisionPresentation } from '../playerDecisionPresentation.js';
 
 const player = (id, overrides = {}) => ({
@@ -17,6 +20,67 @@ const player = (id, overrides = {}) => ({
 const build = (roster, overrides = {}) => buildAvailabilityDecisionQueue({
   roster, team: { id: 10, depthChart: { QB: roster.filter(Boolean).map((p) => p.id) } },
   league: { players: roster.filter((p) => p && typeof p === 'object'), draftClass: [] }, ...overrides,
+});
+
+describe('roster cutdown decisions', () => {
+  const rosterPlayer = (id, overrides = {}) => player(id, { injury: null, ...overrides });
+  const rosterInput = (count, overrides = {}) => {
+    const roster = Array.from({ length: count }, (_, index) => rosterPlayer(index + 1));
+    return { roster, team: { id: 10, roster }, league: { phase: 'regular', players: roster }, ...overrides };
+  };
+
+  it('uses the gameplay roster authority and only emits one team constraint when over limit', () => {
+    expect(buildRosterLimitContext(rosterInput(53))).toMatchObject({ currentCount: 53, limit: getRosterLimitForPhase('regular'), requiredMoves: 0, overLimit: false });
+    expect(buildRosterCutdownDecisionQueue(rosterInput(52)).items).toEqual([]);
+    const result = buildRosterCutdownDecisionQueue(rosterInput(55));
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toMatchObject({
+      id: 'roster_cutdown:10', subject: { type: 'team', teamId: 10 }, severity: 'high',
+      rosterConstraint: { currentCount: 55, limit: 53, requiredMoves: 2 },
+    });
+    expect(result.items[0].rosterConstraint.candidates).toHaveLength(55);
+    expect(result.items[0].rosterConstraint.candidates.every((candidate) => !('recommendation' in candidate))).toBe(true);
+  });
+
+  it('uses the proven preseason advance gate and marks that blocker critical', () => {
+    const input = rosterInput(54);
+    input.league.phase = 'preseason';
+    expect(buildRosterCutdownDecisionQueue(input).items[0]).toMatchObject({ severity: 'critical', rosterConstraint: { limit: 53, requiredMoves: 1 } });
+  });
+
+  it('deduplicates references and conservatively omits foreign, excluded, and status-unknown players', () => {
+    const active = rosterPlayer(1);
+    const ir = rosterPlayer(2, { status: 'injured_reserve', onIR: true });
+    const result = buildRosterLimitContext({
+      roster: [active, { ...active }, ir, rosterPlayer(3, { teamId: 11 }), rosterPlayer(4, { status: 'free_agent' }), rosterPlayer(5, { status: null })],
+      team: { id: 10 }, league: { phase: 'regular', players: [] },
+    });
+    expect(result.currentCount).toBe(2);
+    expect(result.diagnostics.map((entry) => entry.reason)).toEqual(expect.arrayContaining([
+      'Duplicate roster reference', 'Player not owned by supplied team', 'Status does not count toward constrained roster', 'Roster-counting status unavailable',
+    ]));
+  });
+
+  it('never invents a limit for missing phase data and remains pure and deterministic', () => {
+    const input = rosterInput(54);
+    const snapshot = structuredClone(input);
+    delete input.league.phase;
+    const first = buildRosterLimitContext(input);
+    expect(first).toMatchObject({ currentCount: null, limit: null, requiredMoves: 0, overLimit: false, availableData: false });
+    expect(buildRosterLimitContext(input)).toEqual(first);
+    expect(buildRosterLimitContext({ ...input, league: { ...input.league, phase: 'unknown_future_phase' } }).limit).toBeNull();
+    expect({ ...input, league: { ...input.league, phase: snapshot.league.phase } }).toEqual(snapshot);
+  });
+
+  it('keeps team subjects out of player overlap buckets and shares presentation cache', () => {
+    const input = rosterInput(54);
+    input.roster[0].injury = { type: 'Knee', weeksRemaining: 2 };
+    const presentation = vi.fn(({ player: row }) => buildPlayerDecisionPresentation({ player: row, team: input.team, league: input.league }));
+    const result = createGMDecisionQueueBuilder({ buildPresentation: presentation })(input);
+    expect(result.items.filter((item) => item.category === 'roster_cutdown')).toHaveLength(1);
+    expect(result.items.some((item) => item.category === 'availability')).toBe(true);
+    expect(presentation).toHaveBeenCalledTimes(54);
+  });
 });
 
 describe('buildAvailabilityDecisionQueue', () => {
