@@ -7,6 +7,7 @@
  */
 
 import React, { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 
 // ── Glossary data ─────────────────────────────────────────────────────────────
 
@@ -83,12 +84,18 @@ const categoryColor = (cat) => {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function GlossaryPopover() {
+export default function GlossaryPopover({ embedded = false }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeCat, setActiveCat] = useState("All");
   const inputRef = useRef(null);
   const panelRef = useRef(null);
+  const triggerRef = useRef(null);
+
+  const closeGlossary = () => {
+    setOpen(false);
+    if (embedded) requestAnimationFrame(() => triggerRef.current?.focus());
+  };
 
   // Focus search on open
   useEffect(() => {
@@ -97,7 +104,7 @@ export default function GlossaryPopover() {
 
   // Close on Escape
   useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") closeGlossary(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
@@ -106,7 +113,7 @@ export default function GlossaryPopover() {
   useEffect(() => {
     if (!open) return;
     const onClick = (e) => {
-      if (panelRef.current && !panelRef.current.contains(e.target)) setOpen(false);
+      if (panelRef.current && !panelRef.current.contains(e.target) && !triggerRef.current?.contains(e.target)) closeGlossary();
     };
     document.addEventListener("mousedown", onClick);
     return () => document.removeEventListener("mousedown", onClick);
@@ -125,16 +132,21 @@ export default function GlossaryPopover() {
     <>
       {/* Trigger button */}
       <button
+        ref={triggerRef}
+        type="button"
         onClick={() => setOpen(v => !v)}
         title="Rules & Glossary (? key)"
         aria-label="Open rules glossary"
+        aria-controls={open ? "rules-glossary-panel" : undefined}
+        aria-expanded={open}
+        className={embedded ? "mobile-nav-item mobile-nav-item-premium" : undefined}
         style={{
-          position: "fixed",
+          position: embedded ? "static" : "fixed",
           bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)",
-          right: 12,
+          right: embedded ? "auto" : 12,
           zIndex: 3000,
-          width: 34, height: 34,
-          borderRadius: "50%",
+          width: embedded ? "100%" : 34, height: embedded ? "auto" : 34,
+          borderRadius: embedded ? undefined : "50%",
           background: open ? "var(--accent)" : "color-mix(in srgb, var(--surface-strong) 88%, transparent)",
           border: "1.5px solid var(--hairline)",
           color: open ? "#fff" : "var(--text-muted)",
@@ -147,13 +159,16 @@ export default function GlossaryPopover() {
           opacity: open ? 1 : 0.92,
         }}
       >
-        ?
+        {embedded ? <><span aria-hidden="true">?</span><span>Rules &amp; Glossary</span></> : "?"}
       </button>
 
       {/* Popover panel */}
-      {open && (
+      {open && createPortal((
         <div
+          id="rules-glossary-panel"
           ref={panelRef}
+          role="dialog"
+          aria-label="Rules Glossary"
           style={{
             position: "fixed",
             bottom: "calc(env(safe-area-inset-bottom, 0px) + 130px)",
@@ -179,7 +194,7 @@ export default function GlossaryPopover() {
             <span style={{ fontSize: "1rem" }}>📖</span>
             <span style={{ fontWeight: 900, fontSize: "0.9rem", flex: 1 }}>Rules Glossary</span>
             <button
-              onClick={() => setOpen(false)}
+              onClick={closeGlossary}
               style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", fontSize: "1rem", lineHeight: 1 }}
               aria-label="Close glossary"
             >
@@ -268,7 +283,7 @@ export default function GlossaryPopover() {
             {filtered.length} term{filtered.length !== 1 ? "s" : ""} · Press <kbd style={{ background: "var(--surface)", border: "1px solid var(--hairline)", borderRadius: 3, padding: "0 4px" }}>Esc</kbd> to close
           </div>
         </div>
-      )}
+      ), document.body)}
     </>
   );
 }

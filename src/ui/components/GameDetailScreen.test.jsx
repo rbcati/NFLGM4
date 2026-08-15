@@ -103,6 +103,23 @@ describe('GameDetailScreen canonical title and prep context', () => {
     expect(html).toContain('Game plan was saved before kickoff');
   });
 
+  it('compacts distinct unavailable preparation markers without implying zero risk', () => {
+    const html = renderToString(
+      <GameDetailScreen
+        gameId="2031_w3_1_2"
+        league={{ ...league, gameById: { '2031_w3_1_2': archiveGame } }}
+        actions={{}}
+      />,
+    );
+
+    expect(html).toContain('game-book-prep-context__row');
+    expect(html).toContain('Game plan');
+    expect(html).toContain('Practice');
+    expect(html).toContain('Injury risk');
+    expect(html.match(/Not recorded/g)).toHaveLength(3);
+    expect(html).toContain('No pregame injury-risk marker was found');
+  });
+
   it('shows the recovery surface for an unplayed schedule row instead of a fake 0-0 tie', () => {
     // The requested id matches a serialized upcoming game: played=false with
     // Int32Array-default 0-0 scores. This must never render as a final.

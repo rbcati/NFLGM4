@@ -230,12 +230,20 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
       />
       <div data-testid="game-book-decision-summary">
         <SectionCard variant="compact" title="Preparation Context" subtitle="Pregame context captured before kickoff. This strip does not assign direct causality.">
-          <div className="app-hq-intel-list" role="list" aria-label="Preparation context">
-            {(prepContext?.preparationBullets ?? []).slice(0, 3).map((bullet, idx) => (
-              <p key={`prep-context-${idx}`} role="listitem" className="app-hq-intel-item tone-info">{bullet}</p>
-            ))}
+          <dl className="game-book-prep-context" aria-label="Preparation context">
+            {(prepContext?.preparationBullets ?? []).slice(0, 3).map((bullet, idx) => {
+              const labels = ['Game plan', 'Practice', 'Injury risk'];
+              const unavailable = /^No (saved game-plan snapshot|weekly practice log|pregame injury-risk marker)/i.test(bullet);
+              return (
+                <div key={`prep-context-${idx}`} className="game-book-prep-context__row">
+                  <dt>{labels[idx]}</dt>
+                  <dd title={unavailable ? bullet : undefined}>{unavailable ? 'Not recorded' : bullet}</dd>
+                  {unavailable ? <span className="sr-only">{bullet}</span> : null}
+                </div>
+              );
+            })}
             {!(prepContext?.preparationBullets ?? []).length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
-          </div>
+          </dl>
         </SectionCard>
       </div>
       <SectionCard variant="info" title="Game Book Detail" subtitle="Summary → Team stats → Player leaders → Drive/play recap.">
