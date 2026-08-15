@@ -86,6 +86,25 @@ describe('MobileNav', () => {
     expect(screen.getByRole('button', { name: 'HQ' }).getAttribute('aria-current')).toBe('page');
   });
 
+  it('owns mobile glossary access inside More instead of a floating trigger', () => {
+    render(<MobileNav activeSection={SHELL_SECTIONS.hq} onSectionChange={vi.fn()} onDestinationChange={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: 'More' }));
+
+    const glossary = screen.getByRole('button', { name: 'Open rules glossary' });
+    expect(glossary.className).toContain('mobile-nav-item');
+    expect(glossary.style.position).toBe('static');
+    fireEvent.click(glossary);
+    const panel = screen.getByRole('dialog', { name: 'Rules Glossary' });
+    expect(panel.closest('.mobile-nav-panel')).toBeNull();
+    expect(panel.parentElement).toBe(document.body);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close glossary' }));
+    expect(screen.queryByRole('dialog', { name: 'Rules Glossary' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'More' }).getAttribute('aria-expanded')).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Standings' }));
+    expect(screen.getByRole('button', { name: 'More' }).getAttribute('aria-expanded')).toBe('false');
+  });
+
   it('keeps command menu destinations wired for more drawer entries', () => {
     const html = renderToString(
       <MobileNav

@@ -59,9 +59,11 @@ describe('PlayerProfile', () => {
   });
 
   it('renders with minimum generated player data from league state', async () => {
-    render(<PlayerProfile playerId={11} onClose={vi.fn()} actions={actions} teams={league.teams} league={league} />);
+    const { container } = render(<PlayerProfile playerId={11} onClose={vi.fn()} actions={actions} teams={league.teams} league={league} />);
 
     expect(screen.getByTestId('player-profile')).toBeTruthy();
+    expect(screen.getByTestId('player-profile').parentElement).toBe(document.body);
+    expect(container.childElementCount).toBe(0);
     await waitFor(() => expect(screen.getByTestId('player-profile-summary').textContent).toContain('Avery Fields'));
     expect(screen.getByTestId('player-decision-card').textContent).toContain('Starter');
     expect(screen.getByTestId('player-decision-recommendation').textContent).toMatch(/Build around|Explore extension|Start/);
