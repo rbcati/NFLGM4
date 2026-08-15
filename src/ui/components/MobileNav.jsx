@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { SHELL_SECTIONS } from '../utils/shellNavigation.js';
+import GlossaryPopover from './GlossaryPopover.jsx';
 
 // More-drawer destinations. Entries are canonical dashboard tab ids unless
 // explicitly marked as an App-owned action (currently Saves).
@@ -136,6 +137,10 @@ export default function MobileNav({ activeSection, activeTab, onSectionChange, o
               })}
             </section>
           ))}
+          <section className="mobile-nav-group" aria-labelledby="mobile-help-heading">
+            <h3 id="mobile-help-heading" className="mobile-nav-group-title">Help</h3>
+            <GlossaryPopover embedded />
+          </section>
         </div>
       </nav>
 
