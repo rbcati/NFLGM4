@@ -89,6 +89,20 @@ describe('GMDecisionCenter', () => {
     expect(onNavigate).toHaveBeenNthCalledWith(3, 'Contract Center');
   });
 
+  it('renders one compact roster constraint and uses existing roster navigation', () => {
+    const onNavigate = vi.fn();
+    buildQueue.mockReturnValue({
+      items: [{ ...item('roster_cutdown:10', 'critical', 'Roster'), title: 'Roster cutdown required', primaryReason: '4 roster moves required', rosterConstraint: { currentCount: 57, limit: 53, requiredMoves: 4 } }],
+      diagnostics: [],
+    });
+    render(<GMDecisionCenter league={league} onNavigate={onNavigate} />);
+    expect(screen.getAllByTestId('gm-decision-item')).toHaveLength(1);
+    expect(screen.getByText('57 / 53')).toBeTruthy();
+    expect(screen.getByText('• 4 roster moves required')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review Roster' }));
+    expect(onNavigate).toHaveBeenCalledWith('Team:Roster');
+  });
+
   it('renders primaryReason rather than relying on the final reasons element', () => {
     buildQueue.mockReturnValue({
       items: [Object.freeze({
