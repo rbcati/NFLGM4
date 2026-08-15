@@ -100,6 +100,7 @@ describe('GameDetailScreen canonical title and prep context', () => {
 
     expect(html).toContain('Preparation Context');
     expect(html).toContain('does not assign direct causality');
+    expect(html).toMatch(/<dt>Game plan<\/dt><dd>Game plan was saved before kickoff/);
     expect(html).toContain('Game plan was saved before kickoff');
   });
 
@@ -118,6 +119,23 @@ describe('GameDetailScreen canonical title and prep context', () => {
     expect(html).toContain('Injury risk');
     expect(html.match(/Not recorded/g)).toHaveLength(3);
     expect(html).toContain('No pregame injury-risk marker was found');
+  });
+
+  it('renders an uncategorized archive fallback without inventing preparation rows', () => {
+    const archivedOnlyGame = { ...archiveGame, id: '2031_w2_archive', gameId: '2031_w2_archive', week: 2 };
+    const html = renderToString(
+      <GameDetailScreen
+        gameId="2031_w2_archive"
+        league={{ ...league, gameById: { '2031_w2_archive': archivedOnlyGame } }}
+        actions={{}}
+      />,
+    );
+
+    expect(html).toContain('data-testid="game-book-prep-context-fallback"');
+    expect(html).toContain('No completed user game available yet.');
+    expect(html).not.toContain('<dt>Game plan</dt>');
+    expect(html).not.toContain('<dt>Practice</dt>');
+    expect(html).not.toContain('<dt>Injury risk</dt>');
   });
 
   it('shows the recovery surface for an unplayed schedule row instead of a fake 0-0 tie', () => {
