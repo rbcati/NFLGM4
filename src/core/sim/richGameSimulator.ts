@@ -23,6 +23,11 @@ export interface SimPlayerRef {
   ovr?: number;
   /** Optional morale score (0–100). Absent on old saves; treated as 0 modifier. */
   morale?: number;
+  /**
+   * 1-based depth-chart order (1 = starter). Absent/invalid on old saves;
+   * those players keep payload insertion order and receive no starter boost.
+   */
+  depthOrder?: number | null;
 }
 
 export interface TeamStatLine {
@@ -163,6 +168,33 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/** 1-based depth order, or 9999 when the player has no chart assignment. */
+function resolveSimDepthOrder(player: { depthOrder?: number | null }): number {
+  const n = Number(player?.depthOrder);
+  return Number.isFinite(n) && n > 0 ? n : 9999;
+}
+
+/** Legacy starter weights from playExecution.pickStarterWeighted (x2.2 / x1.3). */
+function depthUsageMultiplier(player: SimPlayerRef): number {
+  const order = resolveSimDepthOrder(player);
+  if (order === 1) return 2.2;
+  if (order === 2) return 1.3;
+  return 1;
+}
+
+function compareSimPlayersByDepth(a: SimPlayerRef, b: SimPlayerRef): number {
+  const aOrder = resolveSimDepthOrder(a);
+  const bOrder = resolveSimDepthOrder(b);
+  const aHas = aOrder !== 9999;
+  const bHas = bOrder !== 9999;
+  // Old saves without depthOrder keep payload insertion order (no OVR-invented starter).
+  if (!aHas && !bHas) return 0;
+  if (aOrder !== bOrder) return aOrder - bOrder;
+  const ovrDelta = Number(b?.ovr ?? 70) - Number(a?.ovr ?? 70);
+  if (ovrDelta !== 0) return ovrDelta;
+  return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
+}
+
 // Rough offense-vs-defense edge (~[-50,50]) used to scale two-point success odds.
 function offenseScoreEdge(offense: AttributesV2, defense: AttributesV2): number {
   const off = ((offense.throwAccuracyShort ?? 50) + (offense.routeRunning ?? 50) + (offense.passBlockStrength ?? 50)) / 3;
@@ -271,7 +303,7 @@ function defaultPlayers(teamId: number, side: 'home' | 'away'): SimPlayerRef[] {
 
 function pickWeightedPlayer(players: SimPlayerRef[], rng: () => number, weight: (p: SimPlayerRef) => number): SimPlayerRef | null {
   if (!players.length) return null;
-  const idx = chooseWeightedIndex(players.map((player) => weight(player)), rng);
+  const idx = chooseWeightedIndex(players.map((player) => Math.max(1, weight(player) * depthUsageMultiplier(player))), rng);
   return players[idx] ?? players[0] ?? null;
 }
 
@@ -290,7 +322,7 @@ function chooseWeightedIndex(weights: number[], rng: () => number): number {
 function distributeTotal(total: number, contributors: SimPlayerRef[], rng: () => number, weightFn: (p: SimPlayerRef, idx: number) => number): number[] {
   const allocations = new Array(contributors.length).fill(0);
   if (contributors.length === 0 || total <= 0) return allocations;
-  const weights = contributors.map(weightFn);
+  const weights = contributors.map((player, idx) => Math.max(0, weightFn(player, idx) * depthUsageMultiplier(player)));
   for (let i = 0; i < total; i += 1) {
     const idx = chooseWeightedIndex(weights, rng);
     allocations[idx] += 1;
@@ -345,8 +377,12 @@ function pushDigest(
 
 export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
   const rng = makeRng(payload.seed ?? 1);
-  const homePlayers = (payload.homePlayers?.length ? payload.homePlayers : defaultPlayers(payload.homeTeamId, 'home')).map((p) => ({ ...p, id: String(p.id) }));
-  const awayPlayers = (payload.awayPlayers?.length ? payload.awayPlayers : defaultPlayers(payload.awayTeamId, 'away')).map((p) => ({ ...p, id: String(p.id) }));
+  const homePlayers = (payload.homePlayers?.length ? payload.homePlayers : defaultPlayers(payload.homeTeamId, 'home'))
+    .map((p) => ({ ...p, id: String(p.id) }))
+    .sort(compareSimPlayersByDepth);
+  const awayPlayers = (payload.awayPlayers?.length ? payload.awayPlayers : defaultPlayers(payload.awayTeamId, 'away'))
+    .map((p) => ({ ...p, id: String(p.id) }))
+    .sort(compareSimPlayersByDepth);
 
   // Per-game offensive "form" (hot/cold day). Sum of three rng draws approximates
   // a normal distribution; scaled to a meaningful success-input swing so favorites

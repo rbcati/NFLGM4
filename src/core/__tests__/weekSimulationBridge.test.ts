@@ -201,4 +201,31 @@ describe('weekSimulationBridge', () => {
 
     expect(mapped.shutoutFloorApplied).toEqual({ home: false, away: true });
   });
+
+  it('prefers the depth-1 QB over a higher-OVR backup when aggregating unit ratings', () => {
+    const wrs = Array.from({ length: 12 }, (_, i) => ({
+      id: 100 + i,
+      name: `WR${i}`,
+      pos: 'WR',
+      ovr: 50,
+      depthOrder: 1,
+    }));
+    const starterUnits = aggregateTeamUnitsFromRoster([
+      { id: 1, name: 'Starter', pos: 'QB', ovr: 70, depthOrder: 1 },
+      ...wrs,
+    ] as any);
+    const backupUnits = aggregateTeamUnitsFromRoster([
+      { id: 2, name: 'Backup', pos: 'QB', ovr: 95, depthOrder: 1 },
+      ...wrs,
+    ] as any);
+    const mixedUnits = aggregateTeamUnitsFromRoster([
+      { id: 2, name: 'Backup', pos: 'QB', ovr: 95, depthOrder: 2 },
+      { id: 1, name: 'Starter', pos: 'QB', ovr: 70, depthOrder: 1 },
+      ...wrs,
+    ] as any);
+
+    expect(mixedUnits.offense.throwAccuracyShort).toBe(starterUnits.offense.throwAccuracyShort);
+    expect(mixedUnits.offense.throwPower).toBe(starterUnits.offense.throwPower);
+    expect(mixedUnits.offense.throwAccuracyShort).not.toBe(backupUnits.offense.throwAccuracyShort);
+  });
 });

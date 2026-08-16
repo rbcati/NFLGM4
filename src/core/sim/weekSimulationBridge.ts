@@ -18,7 +18,14 @@ export interface AggregatedTeamUnits {
   migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }>;
 }
 
+function resolveRosterDepthOrder(player: Player): number {
+  const n = Number(player?.depthOrder ?? player?.depthChart?.order);
+  return Number.isFinite(n) && n > 0 ? n : 9999;
+}
+
 function stablePlayerSort(a: Player, b: Player): number {
+  const depthDelta = resolveRosterDepthOrder(a) - resolveRosterDepthOrder(b);
+  if (depthDelta !== 0) return depthDelta;
   const ovrDelta = Number(b?.ovr ?? b?.ratings?.overall ?? b?.ratings?.ovr ?? 0)
     - Number(a?.ovr ?? a?.ratings?.overall ?? a?.ratings?.ovr ?? 0);
   if (ovrDelta !== 0) return ovrDelta;
