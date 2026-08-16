@@ -243,4 +243,32 @@ describe('weekSimulationBridge', () => {
     expect(withReturnRow.offense).toEqual(withoutReturnRow.offense);
     expect(withReturnRow.defense).toEqual(withoutReturnRow.defense);
   });
+
+  it('retains an incompatible scrimmage-row penalty without granting starter authority', () => {
+    const roster = [
+      { id: 1, name: 'Natural QB', pos: 'QB', ovr: 72, depthChart: { rowKey: 'QB', order: 2 } },
+      { id: 2, name: 'Out-of-position WR', pos: 'WR', ovr: 90, depthChart: { rowKey: 'QB', order: 1 } },
+      { id: 3, name: 'Natural WR', pos: 'WR', ovr: 70 },
+    ] as any;
+    const starterOrder = aggregateTeamUnitsFromRoster(roster);
+    const depthOrderNine = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 2
+      ? { ...player, depthChart: { rowKey: 'QB', order: 9 } }
+      : player));
+    const unassigned = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 2
+      ? { ...player, depthChart: undefined }
+      : player));
+
+    expect(starterOrder.offense).toEqual(depthOrderNine.offense);
+    expect(starterOrder.offense.routeRunning).toBeLessThan(unassigned.offense.routeRunning);
+  });
+
+  it('preserves natural behavior and evaluates an eligible secondary-position row', () => {
+    const natural = { id: 1, name: 'Hybrid', pos: 'WR', secondaryPositions: ['RB'], ovr: 82 } as any;
+    const unassigned = aggregateTeamUnitsFromRoster([natural]);
+    const unknown = aggregateTeamUnitsFromRoster([{ ...natural, depthChart: { rowKey: 'UNKNOWN', order: 1 } }] as any);
+    const assignedRb = aggregateTeamUnitsFromRoster([{ ...natural, depthChart: { rowKey: 'RB', order: 1 } }] as any);
+
+    expect(unknown.offense).toEqual(unassigned.offense);
+    expect(assignedRb.offense.routeRunning).toBeLessThan(unassigned.offense.routeRunning);
+  });
 });

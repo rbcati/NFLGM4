@@ -159,6 +159,37 @@ describe('simulateRichGame', () => {
   });
 
   it.each([
+    ['RB rushing', 'WR', ['RB'], 'RB', 'rushAtt'],
+    ['S defense', 'CB', ['S'], 'S', 'tackles'],
+  ])('honors a legitimate secondary-position %s assignment', (_label, pos, secondaryPositions, rowKey, stat) => {
+    let assignedTotal = 0;
+    let invalidTotal = 0;
+    for (const seed of [1684, 1702, 1703, 1810, 1901, 2002, 2111, 2222]) {
+      const payload = buildPayload(seed);
+      const candidate = { id: 'secondary-starter', name: 'Secondary Starter', pos, secondaryPositions, ovr: 75, depthOrder: 1, depthRowKey: rowKey };
+      payload.homePlayers = [candidate, ...payload.homePlayers];
+      const assigned = simulateRichGame(payload);
+      const invalidPayload = structuredClone(payload);
+      invalidPayload.homePlayers[0].depthRowKey = 'UNKNOWN';
+      const invalid = simulateRichGame(invalidPayload);
+      assignedTotal += Number(assigned.boxScore.home['secondary-starter']?.stats[stat] ?? 0);
+      invalidTotal += Number(invalid.boxScore.home['secondary-starter']?.stats[stat] ?? 0);
+    }
+    expect(assignedTotal).toBeGreaterThan(invalidTotal);
+  });
+
+  it('does not turn a secondary-position player assigned RS1 into scrimmage starter authority', () => {
+    const payload = buildPayload(2111);
+    payload.homePlayers.unshift({
+      id: 'secondary-returner', name: 'Secondary Returner', pos: 'WR', secondaryPositions: ['RB'],
+      ovr: 90, depthOrder: 1, depthRowKey: 'RS',
+    });
+    const invalid = structuredClone(payload);
+    invalid.homePlayers[0].depthRowKey = 'UNKNOWN';
+    expect(simulateRichGame(payload)).toEqual(simulateRichGame(invalid));
+  });
+
+  it.each([
     ['WR receiving', 'WR', 'h-wr1', 'h-wr2', 'receptions'],
     ['RB rushing', 'RB', 'h-rb1', 'h-rb2', 'rushAtt'],
     ['CB defense', 'CB', 'h-cb1', 'h-cb2', 'tackles'],

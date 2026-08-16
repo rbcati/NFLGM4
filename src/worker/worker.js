@@ -4726,6 +4726,8 @@ function buildWeekMatchupsFromLeague(league, meta, week, opts = {}) {
         // old saves keeps insertion order and cannot invent a starter boost.
         depthOrder: Number(player.depthOrder ?? player?.depthChart?.order) || undefined,
         depthRowKey: player?.depthChart?.rowKey,
+        secondaryPositions: player?.secondaryPositions,
+        positions: player?.positions,
       })),
       awayPlayers: awayRoster.map((player) => ({
         id: player.id,
@@ -4735,6 +4737,8 @@ function buildWeekMatchupsFromLeague(league, meta, week, opts = {}) {
         morale: player.morale,
         depthOrder: Number(player.depthOrder ?? player?.depthChart?.order) || undefined,
         depthRowKey: player?.depthChart?.rowKey,
+        secondaryPositions: player?.secondaryPositions,
+        positions: player?.positions,
       })),
       seed: buildDeterministicSeed(`${meta?.currentSeasonId ?? 1}:${week}:${game?.home?.id}:${game?.away?.id}`),
       weather: 'clear',

@@ -22,17 +22,6 @@ export function getDepthRows() {
   return DEPTH_CHART_ROWS;
 }
 
-/** Return a usable scrimmage assignment without treating legacy/special rows as generic depth. */
-export function getScrimmageDepthAssignment(player, group = null) {
-  const rowKey = String(player?.depthChart?.rowKey ?? '');
-  const row = DEPTH_CHART_ROWS.find((entry) => entry.key === rowKey);
-  const order = Number(player?.depthChart?.order);
-  const pos = String(player?.pos ?? '').toUpperCase();
-  if (!row || row.group === 'SPECIAL' || (group && row.group !== group)) return null;
-  if (!row.match.includes(pos) || !Number.isFinite(order) || order <= 0) return null;
-  return { rowKey: row.key, order };
-}
-
 function rowForPosition(pos, preferredRowKey = null) {
   if (preferredRowKey) {
     const preferred = DEPTH_CHART_ROWS.find((r) => r.key === preferredRowKey);
@@ -41,10 +30,33 @@ function rowForPosition(pos, preferredRowKey = null) {
   return DEPTH_CHART_ROWS.find((r) => r.match.includes(pos));
 }
 
-function getPlayerFallbackPositions(player = {}) {
+export function getPlayerFallbackPositions(player = {}) {
   if (Array.isArray(player?.secondaryPositions)) return player.secondaryPositions;
   if (Array.isArray(player?.positions)) return player.positions.slice(1);
   return [];
+}
+
+export function isPlayerEligibleForDepthRow(player, row) {
+  if (!row) return false;
+  const positions = [player?.pos, ...getPlayerFallbackPositions(player)]
+    .map((pos) => String(pos ?? '').toUpperCase());
+  return positions.some((pos) => row.match.includes(pos));
+}
+
+/** Existing scrimmage row identity, regardless of eligibility for starter authority. */
+export function getScrimmageDepthRow(player, group = null) {
+  const rowKey = String(player?.depthChart?.rowKey ?? '');
+  const row = DEPTH_CHART_ROWS.find((entry) => entry.key === rowKey);
+  if (!row || row.group === 'SPECIAL' || (group && row.group !== group)) return null;
+  return row;
+}
+
+/** Return a position-compatible scrimmage assignment that may grant depth authority. */
+export function getScrimmageDepthAssignment(player, group = null) {
+  const row = getScrimmageDepthRow(player, group);
+  const order = Number(player?.depthChart?.order);
+  if (!row || !isPlayerEligibleForDepthRow(player, row) || !Number.isFinite(order) || order <= 0) return null;
+  return { rowKey: row.key, order };
 }
 
 function playerMatchTier(player, row) {

@@ -2,7 +2,7 @@ import type { AttributesV2, Player } from '../../types/player.ts';
 import { ensureAttributesV2 } from '../migration/attributeMigrator.ts';
 import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
-import { getScrimmageDepthAssignment } from '../depthChart.js';
+import { getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
 
 const OFFENSE_KEYS: Array<keyof AttributesV2> = [
   'throwAccuracyShort', 'throwAccuracyDeep', 'throwPower', 'release', 'routeRunning', 'separation',
@@ -57,7 +57,10 @@ function pickUnitPlayers(
 ): Array<Player & { attributesV2: AttributesV2 }> {
   const picked: Array<Player & { attributesV2: AttributesV2 }> = [];
   for (const pos of priority) {
-    const slice = roster.filter((player) => String(player.pos ?? '').toUpperCase() === pos).sort((a, b) => stablePlayerSort(a, b, group));
+    const slice = roster.filter((player) => {
+      const assignment = getScrimmageDepthAssignment(player, group);
+      return (assignment?.rowKey ?? String(player.pos ?? '').toUpperCase()) === pos;
+    }).sort((a, b) => stablePlayerSort(a, b, group));
     picked.push(...slice.slice(0, pos === 'QB' ? 1 : 3));
     if (picked.length >= targetSize) break;
   }
@@ -87,9 +90,17 @@ export function aggregateTeamUnitsFromRoster(roster: Player[] = []): AggregatedT
   });
 
   const forGroup = (group: 'OFFENSE' | 'DEFENSE') => upgradedRoster.map((player) => {
-    const assignment = getScrimmageDepthAssignment(player, group);
-    const effective = getEffectivePlayerForRole(player, assignment?.rowKey ?? String(player.pos ?? ''));
-    return { ...player, attributesV2: { ...player.attributesV2, ...(effective.attributesV2 ?? {}) } };
+    // Eligibility controls starter authority; row identity independently
+    // preserves canonical out-of-position effective-rating penalties.
+    const assignedRow = getScrimmageDepthRow(player, group);
+    const effective = getEffectivePlayerForRole(
+      { ...player, ...player.attributesV2 },
+      assignedRow?.key ?? String(player.pos ?? ''),
+    );
+    const attributesV2 = Object.fromEntries(
+      Object.keys(player.attributesV2).map((key) => [key, effective[key] ?? player.attributesV2[key]]),
+    ) as unknown as AttributesV2;
+    return { ...player, attributesV2 };
   });
 
   const offensePlayers = pickUnitPlayers(forGroup('OFFENSE'), OFFENSE_PRIORITY, 11, 'OFFENSE');

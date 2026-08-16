@@ -4,7 +4,7 @@ import type { DerivedGamePlanMultipliers } from './gamePlanMultipliers.ts';
 import { archiveGameStats } from '../playerSeasonStatsArchive.js';
 import { decideLateGameSequence } from '../simulation/clockManager.js';
 import { applyMoraleToEffectiveOvr } from './moraleSimModifier.js';
-import { DEPTH_CHART_ROWS } from '../depthChart.js';
+import { DEPTH_CHART_ROWS, isPlayerEligibleForDepthRow } from '../depthChart.js';
 
 export type DriveResult = 'TD' | 'FG' | 'Punt' | 'INT' | 'Fumble' | 'Downs';
 
@@ -31,6 +31,8 @@ export interface SimPlayerRef {
   depthOrder?: number | null;
   /** Authoritative row attached to depthOrder; absent legacy order is not promoted. */
   depthRowKey?: string | null;
+  secondaryPositions?: string[];
+  positions?: string[];
 }
 
 export interface TeamStatLine {
@@ -176,8 +178,7 @@ function resolveSimDepthOrder(player: SimPlayerRef, relevantRows: readonly strin
   const rowKey = String(player?.depthRowKey ?? '');
   const row = DEPTH_CHART_ROWS.find((entry) => entry.key === rowKey);
   const n = Number(player?.depthOrder);
-  const pos = String(player?.pos ?? '').toUpperCase();
-  return row && row.group !== 'SPECIAL' && relevantRows.includes(row.key) && row.match.includes(pos)
+  return row && row.group !== 'SPECIAL' && relevantRows.includes(row.key) && isPlayerEligibleForDepthRow(player, row)
     && Number.isFinite(n) && n > 0 ? n : 9999;
 }
 

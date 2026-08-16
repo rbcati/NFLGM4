@@ -4,6 +4,8 @@ import { autoBuildDepthChart, applyDepthChartToPlayers, depthWarnings, getScrimm
 describe('depth chart auto population', () => {
   it('accepts only eligible non-special row identity as scrimmage authority', () => {
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'WR', order: 1 } }, 'OFFENSE')).toEqual({ rowKey: 'WR', order: 1 });
+    expect(getScrimmageDepthAssignment({ pos: 'WR', secondaryPositions: ['RB'], depthChart: { rowKey: 'RB', order: 1 } }, 'OFFENSE')).toEqual({ rowKey: 'RB', order: 1 });
+    expect(getScrimmageDepthAssignment({ pos: 'CB', positions: ['CB', 'S'], depthChart: { rowKey: 'S', order: 1 } }, 'DEFENSE')).toEqual({ rowKey: 'S', order: 1 });
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'RS', order: 1 } }, 'OFFENSE')).toBeNull();
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'QB', order: 1 } }, 'OFFENSE')).toBeNull();
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthOrder: 1 }, 'OFFENSE')).toBeNull();
