@@ -1,4 +1,6 @@
 import { buildPlayerDecisionPresentation } from './playerDecisionPresentation.js';
+import { Constants } from './constants.js';
+import { getRosterLimitForPhase } from './teamValidation.js';
 
 const SEVERITY_RANK = { critical: 0, high: 1, medium: 2 };
 const ROLE_RANK = { Starter: 0, Backup: 1, Reserve: 2 };
@@ -18,6 +20,9 @@ const RETENTION_RECOMMENDATION_RANK = {
 const RETENTION_ROLE_RANK = { core_starter: 0, starter: 1, rotation: 2, depth: 3 };
 const MARKET_RANK = { high: 0, medium: 1, low: 2 };
 const RESOLVED_EXTENSION_DECISIONS = new Set(['extended', 'let_walk', 'tagged']);
+const ROSTER_LIMIT_PHASES = new Set([
+  'offseason_resign', 'free_agency', 'draft', 'offseason', 'preseason', 'regular', 'playoffs',
+]);
 
 const canonicalId = (value) => value == null ? null : String(value);
 const playerId = (player) => player?.id ?? player?.prospectId ?? null;
@@ -393,10 +398,119 @@ export function createContractDecisionQueueBuilder({ buildPresentation = buildPl
 
 export const buildContractDecisionQueue = createContractDecisionQueueBuilder();
 
+function rosterLimitForDecision(league) {
+  const phase = league?.phase;
+  if (!ROSTER_LIMIT_PHASES.has(phase)) return null;
+  // Starting the season has a distinct, authoritative 53-player gate in the
+  // advance handler even though preseason transactions retain the 90-player
+  // offseason limit.
+  return phase === 'preseason'
+    ? Constants.ROSTER_LIMITS.REGULAR_SEASON
+    : getRosterLimitForPhase(phase);
+}
+
+function resolveRoster(roster, league, team, diagnostics) {
+  const leaguePlayers = Array.isArray(league?.players) ? league.players : [];
+  const byId = new Map(leaguePlayers.map((entry) => [canonicalId(playerId(entry)), entry]));
+  const seen = new Set();
+  const players = [];
+  for (const entry of roster) {
+    const resolved = entry && typeof entry === 'object' ? entry : byId.get(canonicalId(entry));
+    const id = playerId(resolved) ?? (typeof entry !== 'object' ? entry : null);
+    if (!resolved || playerId(resolved) == null) {
+      diagnostics.push({ playerId: id ?? null, reason: 'Unresolved player ID' });
+      continue;
+    }
+    const key = canonicalId(playerId(resolved));
+    if (seen.has(key)) {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Duplicate roster reference' });
+      continue;
+    }
+    seen.add(key);
+    if (!sameId(resolved.teamId, team.id)) {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Player not owned by supplied team' });
+      continue;
+    }
+    if (resolved.status === 'free_agent') {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Recorded free agent excluded from roster count' });
+      continue;
+    }
+    if (resolved.status == null || String(resolved.status).trim() === '') {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Roster status unavailable; counted by team ownership' });
+    } else if (!['active', 'injured_reserve'].includes(resolved.status)) {
+      diagnostics.push({ playerId: playerId(resolved), reason: `Nonstandard roster status "${String(resolved.status)}"; counted by team ownership` });
+    }
+    players.push(resolved);
+  }
+  return players;
+}
+
+export function buildRosterLimitContext({ roster, team, league } = {}) {
+  const diagnostics = [];
+  const limit = rosterLimitForDecision(league);
+  if (!Array.isArray(roster)) diagnostics.push({ playerId: null, reason: 'Roster unavailable' });
+  if (!team || team.id == null) diagnostics.push({ playerId: null, reason: 'Supplied team unavailable' });
+  if (limit == null || !Number.isFinite(limit)) diagnostics.push({ playerId: null, reason: 'Roster limit authority unavailable' });
+  if (diagnostics.length || !Array.isArray(roster) || !team || team.id == null || limit == null) {
+    return { currentCount: null, limit: limit ?? null, requiredMoves: 0, overLimit: false, availableData: false, diagnostics };
+  }
+  const players = resolveRoster(roster, league, team, diagnostics);
+  const currentCount = players.length;
+  const requiredMoves = Math.max(0, currentCount - limit);
+  diagnostics.sort((a, b) => compareIds(a.playerId, b.playerId) || a.reason.localeCompare(b.reason));
+  return { currentCount, limit, requiredMoves, overLimit: requiredMoves > 0, availableData: true, diagnostics };
+}
+
+export function createRosterCutdownDecisionQueueBuilder({ buildPresentation = buildPlayerDecisionPresentation } = {}) {
+  return function buildRosterCutdownDecisionQueue(input = {}) {
+    const context = buildRosterLimitContext(input);
+    if (!context.overLimit) return { items: [], diagnostics: context.diagnostics };
+    const candidateDiagnostics = [];
+    const players = resolveRoster(input.roster, input.league, input.team, candidateDiagnostics);
+    const positionCounts = new Map();
+    const presented = players.map((player) => {
+      const presentation = buildPresentation({ player, team: input.team, league: input.league ?? {} });
+      const position = presentation?.identity?.position ?? player?.pos ?? player?.position ?? '—';
+      positionCounts.set(position, (positionCounts.get(position) ?? 0) + 1);
+      return { player, presentation, position };
+    });
+    const candidates = presented.map(({ player, presentation, position }) => {
+      const role = presentation?.role?.label ?? null;
+      const replacementDifficulty = presentation?.replacement?.label ?? null;
+      const reasons = [];
+      if (['Starter', 'Backup', 'Reserve'].includes(role)) reasons.push(`${role} role`);
+      reasons.push(`${positionCounts.get(position)} ${position}s currently rostered`);
+      if (replacementDifficulty) reasons.push(`${replacementDifficulty} replacement difficulty`);
+      return {
+        playerId: playerId(player), position, reasons,
+        availableData: { role: role != null, replacementDifficulty: replacementDifficulty != null },
+        role: role ?? null, replacementDifficulty,
+      };
+    }).sort((a, b) => String(a.position).localeCompare(String(b.position)) || compareIds(a.playerId, b.playerId));
+    const critical = input.league?.phase === 'preseason';
+    const teamId = input.team.id;
+    return {
+      items: [{
+        id: `roster_cutdown:${canonicalId(teamId)}`, category: 'roster_cutdown', severity: critical ? 'critical' : 'high',
+        subject: { type: 'team', teamId }, title: 'Roster cutdown required',
+        primaryReason: `${context.requiredMoves} roster move${context.requiredMoves === 1 ? '' : 's'} required`,
+        reasons: [`${context.currentCount} / ${context.limit} players`], destination: { view: 'Roster / Depth' },
+        stableSortKey: `${critical ? 0 : 1}:roster_cutdown:${canonicalId(teamId)}`,
+        rosterConstraint: { currentCount: context.currentCount, limit: context.limit, requiredMoves: context.requiredMoves, candidates },
+        availableData: context.availableData,
+      }],
+      diagnostics: context.diagnostics,
+    };
+  };
+}
+
+export const buildRosterCutdownDecisionQueue = createRosterCutdownDecisionQueueBuilder();
+
 function compareCombinedItems(left, right) {
   const severity = (SEVERITY_RANK[left.severity] ?? 3) - (SEVERITY_RANK[right.severity] ?? 3);
   if (severity) return severity;
-  const category = (left.category === 'availability' ? 0 : 1) - (right.category === 'availability' ? 0 : 1);
+  const categoryRank = { availability: 0, roster_cutdown: 1, contract: 2 };
+  const category = (categoryRank[left.category] ?? 3) - (categoryRank[right.category] ?? 3);
   if (category) return category;
   return String(left.stableSortKey ?? '').localeCompare(String(right.stableSortKey ?? ''), 'en', { numeric: true })
     || compareIds(left.subject?.playerId, right.subject?.playerId);
@@ -412,7 +526,8 @@ export function createGMDecisionQueueBuilder({ buildPresentation = buildPlayerDe
     };
     const availability = createAvailabilityDecisionQueueBuilder({ buildPresentation: presentOnce })(input);
     const contracts = createContractDecisionQueueBuilder({ buildPresentation: presentOnce })(input);
-    const diagnostics = [...availability.diagnostics, ...contracts.diagnostics];
+    const rosterCutdown = createRosterCutdownDecisionQueueBuilder({ buildPresentation: presentOnce })(input);
+    const diagnostics = [...availability.diagnostics, ...contracts.diagnostics, ...rosterCutdown.diagnostics];
     const diagnosticKeys = new Set(diagnostics.map((entry) => `${canonicalId(entry.playerId) ?? 'unresolved'}:${entry.reason}`));
     const addDiagnostic = (id, reason) => {
       const key = `${canonicalId(id) ?? 'unresolved'}:${reason}`;
@@ -422,7 +537,7 @@ export function createGMDecisionQueueBuilder({ buildPresentation = buildPlayerDe
       }
     };
     const exactIds = new Set();
-    const candidates = [...availability.items, ...contracts.items].filter((item) => {
+    const candidates = [...availability.items, ...contracts.items, ...rosterCutdown.items].filter((item) => {
       if (exactIds.has(item.id)) {
         addDiagnostic(item.subject?.playerId, 'Duplicate decision item ID');
         return false;
@@ -432,12 +547,13 @@ export function createGMDecisionQueueBuilder({ buildPresentation = buildPlayerDe
     });
     const byPlayer = new Map();
     candidates.forEach((item) => {
+      if (item.subject?.type !== 'player') return;
       const key = canonicalId(item.subject?.playerId);
       const bucket = byPlayer.get(key) ?? [];
       bucket.push(item);
       byPlayer.set(key, bucket);
     });
-    const items = [];
+    const items = candidates.filter((item) => item.subject?.type !== 'player');
     for (const [id, bucket] of byPlayer) {
       const availabilityItem = bucket.find((item) => item.category === 'availability');
       const contractItem = bucket.find((item) => item.category === 'contract');

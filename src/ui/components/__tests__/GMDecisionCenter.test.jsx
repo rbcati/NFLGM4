@@ -3,6 +3,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import GMDecisionCenter from '../GMDecisionCenter.jsx';
+import { normalizeManagementDestination } from '../../utils/managementScreenRouting.js';
 
 const { buildQueue } = vi.hoisted(() => ({ buildQueue: vi.fn() }));
 
@@ -87,6 +88,24 @@ describe('GMDecisionCenter', () => {
     expect(onNavigate).toHaveBeenNthCalledWith(1, 'Team:Roster / Depth');
     expect(onNavigate).toHaveBeenNthCalledWith(2, 'Team:Injuries');
     expect(onNavigate).toHaveBeenNthCalledWith(3, 'Contract Center');
+  });
+
+  it('renders one compact roster constraint and uses existing roster navigation', () => {
+    const onNavigate = vi.fn();
+    buildQueue.mockReturnValue({
+      items: [{ ...item('roster_cutdown:10', 'critical', 'Roster / Depth'), title: 'Roster cutdown required', primaryReason: '4 roster moves required', rosterConstraint: { currentCount: 57, limit: 53, requiredMoves: 4 } }],
+      diagnostics: [],
+    });
+    render(<GMDecisionCenter league={league} onNavigate={onNavigate} />);
+    expect(screen.getAllByTestId('gm-decision-item')).toHaveLength(1);
+    expect(screen.getByText('57 / 53')).toBeTruthy();
+    expect(screen.getByText('• 4 roster moves required')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Review Roster' }));
+    expect(onNavigate).toHaveBeenCalledWith('Team:Roster / Depth');
+    expect(normalizeManagementDestination(onNavigate.mock.calls[0][0])).toMatchObject({
+      tab: 'Team',
+      teamSection: 'Roster / Depth',
+    });
   });
 
   it('renders primaryReason rather than relying on the final reasons element', () => {
