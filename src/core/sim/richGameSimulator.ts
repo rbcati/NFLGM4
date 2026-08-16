@@ -4,6 +4,7 @@ import type { DerivedGamePlanMultipliers } from './gamePlanMultipliers.ts';
 import { archiveGameStats } from '../playerSeasonStatsArchive.js';
 import { decideLateGameSequence } from '../simulation/clockManager.js';
 import { applyMoraleToEffectiveOvr } from './moraleSimModifier.js';
+import { DEPTH_CHART_ROWS, isPlayerEligibleForDepthRow } from '../depthChart.js';
 
 export type DriveResult = 'TD' | 'FG' | 'Punt' | 'INT' | 'Fumble' | 'Downs';
 
@@ -23,6 +24,15 @@ export interface SimPlayerRef {
   ovr?: number;
   /** Optional morale score (0–100). Absent on old saves; treated as 0 modifier. */
   morale?: number;
+  /**
+   * 1-based depth-chart order (1 = starter). Absent/invalid on old saves;
+   * those players keep payload insertion order and receive no starter boost.
+   */
+  depthOrder?: number | null;
+  /** Authoritative row attached to depthOrder; absent legacy order is not promoted. */
+  depthRowKey?: string | null;
+  secondaryPositions?: string[];
+  positions?: string[];
 }
 
 export interface TeamStatLine {
@@ -163,6 +173,38 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/** 1-based depth order, or 9999 when the player has no chart assignment. */
+function resolveSimDepthOrder(player: SimPlayerRef, relevantRows: readonly string[]): number {
+  const rowKey = String(player?.depthRowKey ?? '');
+  const row = DEPTH_CHART_ROWS.find((entry) => entry.key === rowKey);
+  const n = Number(player?.depthOrder);
+  return row && row.group !== 'SPECIAL' && relevantRows.includes(row.key) && isPlayerEligibleForDepthRow(player, row)
+    && Number.isFinite(n) && n > 0 ? n : 9999;
+}
+
+/** Legacy starter weights from playExecution.pickStarterWeighted (x2.2 / x1.3). */
+function depthUsageMultiplier(player: SimPlayerRef, relevantRows: readonly string[]): number {
+  const order = resolveSimDepthOrder(player, relevantRows);
+  if (order === 1) return 2.2;
+  if (order === 2) return 1.3;
+  return 1;
+}
+
+function compareSimPlayersByDepth(relevantRows: readonly string[]) {
+  return (a: SimPlayerRef, b: SimPlayerRef): number => {
+    const aOrder = resolveSimDepthOrder(a, relevantRows);
+    const bOrder = resolveSimDepthOrder(b, relevantRows);
+    const aHas = aOrder !== 9999;
+    const bHas = bOrder !== 9999;
+    // Old saves without usable row identity keep payload insertion order.
+    if (!aHas && !bHas) return 0;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    const ovrDelta = Number(b?.ovr ?? 70) - Number(a?.ovr ?? 70);
+    if (ovrDelta !== 0) return ovrDelta;
+    return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
+  };
+}
+
 // Rough offense-vs-defense edge (~[-50,50]) used to scale two-point success odds.
 function offenseScoreEdge(offense: AttributesV2, defense: AttributesV2): number {
   const off = ((offense.throwAccuracyShort ?? 50) + (offense.routeRunning ?? 50) + (offense.passBlockStrength ?? 50)) / 3;
@@ -269,9 +311,9 @@ function defaultPlayers(teamId: number, side: 'home' | 'away'): SimPlayerRef[] {
 }
 
 
-function pickWeightedPlayer(players: SimPlayerRef[], rng: () => number, weight: (p: SimPlayerRef) => number): SimPlayerRef | null {
+function pickWeightedPlayer(players: SimPlayerRef[], rng: () => number, weight: (p: SimPlayerRef) => number, relevantRows: readonly string[]): SimPlayerRef | null {
   if (!players.length) return null;
-  const idx = chooseWeightedIndex(players.map((player) => weight(player)), rng);
+  const idx = chooseWeightedIndex(players.map((player) => Math.max(1, weight(player) * depthUsageMultiplier(player, relevantRows))), rng);
   return players[idx] ?? players[0] ?? null;
 }
 
@@ -287,10 +329,10 @@ function chooseWeightedIndex(weights: number[], rng: () => number): number {
   return weights.length - 1;
 }
 
-function distributeTotal(total: number, contributors: SimPlayerRef[], rng: () => number, weightFn: (p: SimPlayerRef, idx: number) => number): number[] {
+function distributeTotal(total: number, contributors: SimPlayerRef[], rng: () => number, weightFn: (p: SimPlayerRef, idx: number) => number, relevantRows: readonly string[]): number[] {
   const allocations = new Array(contributors.length).fill(0);
   if (contributors.length === 0 || total <= 0) return allocations;
-  const weights = contributors.map(weightFn);
+  const weights = contributors.map((player, idx) => Math.max(0, weightFn(player, idx) * depthUsageMultiplier(player, relevantRows)));
   for (let i = 0; i < total; i += 1) {
     const idx = chooseWeightedIndex(weights, rng);
     allocations[idx] += 1;
@@ -345,8 +387,10 @@ function pushDigest(
 
 export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
   const rng = makeRng(payload.seed ?? 1);
-  const homePlayers = (payload.homePlayers?.length ? payload.homePlayers : defaultPlayers(payload.homeTeamId, 'home')).map((p) => ({ ...p, id: String(p.id) }));
-  const awayPlayers = (payload.awayPlayers?.length ? payload.awayPlayers : defaultPlayers(payload.awayTeamId, 'away')).map((p) => ({ ...p, id: String(p.id) }));
+  const homePlayers = (payload.homePlayers?.length ? payload.homePlayers : defaultPlayers(payload.homeTeamId, 'home'))
+    .map((p) => ({ ...p, id: String(p.id) }));
+  const awayPlayers = (payload.awayPlayers?.length ? payload.awayPlayers : defaultPlayers(payload.awayTeamId, 'away'))
+    .map((p) => ({ ...p, id: String(p.id) }));
 
   // Per-game offensive "form" (hot/cold day). Sum of three rng draws approximates
   // a normal distribution; scaled to a meaningful success-input swing so favorites
@@ -529,10 +573,10 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
     const playType = getPlayType(state, rng, offensePrep);
     const offensePlayers = state.possession === 'home' ? homePlayers : awayPlayers;
     const defensePlayers = state.possession === 'home' ? awayPlayers : homePlayers;
-    const target = playType === 'pass' ? pickWeightedPlayer(offensePlayers.filter((player) => ['WR', 'TE', 'RB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'WR' ? 12 : player.pos === 'TE' ? 8 : 5)) : null;
-    const defender = playType === 'pass' ? pickWeightedPlayer(defensePlayers.filter((player) => ['CB', 'S', 'FS', 'SS', 'LB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'CB' ? 10 : 6)) : null;
-    const blocker = pickWeightedPlayer(offensePlayers.filter((player) => ['OT', 'OG', 'C', 'TE', 'RB', 'QB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'QB' ? -10 : 0));
-    const rusher = pickWeightedPlayer(defensePlayers.filter((player) => ['EDGE', 'DE', 'DT', 'LB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'EDGE' ? 12 : 6));
+    const target = playType === 'pass' ? pickWeightedPlayer(offensePlayers.filter((player) => ['WR', 'TE', 'RB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'WR' ? 12 : player.pos === 'TE' ? 8 : 5), ['WR', 'TE', 'RB']) : null;
+    const defender = playType === 'pass' ? pickWeightedPlayer(defensePlayers.filter((player) => ['CB', 'S', 'FS', 'SS', 'LB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'CB' ? 10 : 6), ['CB', 'S', 'LB']) : null;
+    const blocker = pickWeightedPlayer(offensePlayers.filter((player) => ['OT', 'OG', 'C', 'TE', 'RB', 'QB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'QB' ? -10 : 0), ['OL', 'TE', 'RB', 'QB']);
+    const rusher = pickWeightedPlayer(defensePlayers.filter((player) => ['EDGE', 'DE', 'DT', 'LB'].includes(player.pos)), rng, (player) => applyMoraleToEffectiveOvr(player.ovr ?? 70, player) + (player.pos === 'EDGE' ? 12 : 6), ['EDGE', 'IDL', 'LB']);
     const tunedOffense = applyPrepToOffenseAttributes(offense, offensePrep, playType, state.yardLine >= 80);
     const fatigueBaseline = (stats.home.plays + stats.away.plays) / 220;
     const result = resolveMatchup(tunedOffense, defense, {
@@ -800,11 +844,11 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
   const awayTeamLine = buildTeamLine(stats.away);
 
   const allocatePlayers = (players: SimPlayerRef[], offense: TeamStatLine, defense: TeamStatLine, rngFn: () => number) => {
-    const qb = players.filter((p) => p.pos === 'QB');
-    const rushers = players.filter((p) => ['RB', 'QB', 'WR'].includes(p.pos));
-    const targets = players.filter((p) => ['WR', 'TE', 'RB'].includes(p.pos));
-    const sackers = players.filter((p) => ['EDGE', 'DE', 'DT', 'LB'].includes(p.pos));
-    const ballhawks = players.filter((p) => ['CB', 'S', 'FS', 'SS', 'LB'].includes(p.pos));
+    const qb = players.filter((p) => p.pos === 'QB').sort(compareSimPlayersByDepth(['QB']));
+    const rushers = players.filter((p) => ['RB', 'QB', 'WR'].includes(p.pos)).sort(compareSimPlayersByDepth(['RB', 'QB', 'WR']));
+    const targets = players.filter((p) => ['WR', 'TE', 'RB'].includes(p.pos)).sort(compareSimPlayersByDepth(['WR', 'TE', 'RB']));
+    const sackers = players.filter((p) => ['EDGE', 'DE', 'DT', 'LB'].includes(p.pos)).sort(compareSimPlayersByDepth(['EDGE', 'IDL', 'LB']));
+    const ballhawks = players.filter((p) => ['CB', 'S', 'FS', 'SS', 'LB'].includes(p.pos)).sort(compareSimPlayersByDepth(['CB', 'S', 'LB']));
 
     const statsById: Record<string, Record<string, number>> = {};
     const put = (id: string, patch: Record<string, number>) => {
@@ -828,8 +872,8 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
     const rushAttemptRemainder = Math.max(0, offense.rushAtt - Math.round(offense.rushAtt * 0.09));
     const rushYardRemainder = Math.max(0, offense.rushYd - Math.round(offense.rushYd * 0.07));
     const rushersPool = rushers.length ? rushers : [primaryQb];
-    const rushAttemptParts = distributeTotal(rushAttemptRemainder, rushersPool, rngFn, (p, idx) => (p.pos === 'RB' ? 3 : (p.pos === 'WR' ? 1.2 : 0.8)) + (p.ovr ?? 70) / 60 - idx * 0.2);
-    const rushYardParts = distributeTotal(rushYardRemainder, rushersPool, rngFn, (p) => (p.pos === 'RB' ? 2.8 : 1.1) + (p.ovr ?? 70) / 65);
+    const rushAttemptParts = distributeTotal(rushAttemptRemainder, rushersPool, rngFn, (p, idx) => (p.pos === 'RB' ? 3 : (p.pos === 'WR' ? 1.2 : 0.8)) + (p.ovr ?? 70) / 60 - idx * 0.2, ['RB', 'QB', 'WR']);
+    const rushYardParts = distributeTotal(rushYardRemainder, rushersPool, rngFn, (p) => (p.pos === 'RB' ? 2.8 : 1.1) + (p.ovr ?? 70) / 65, ['RB', 'QB', 'WR']);
     for (let i = 0; i < rushersPool.length; i += 1) {
       const pid = String(rushersPool[i].id);
       put(pid, {
@@ -840,9 +884,9 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
     }
 
     const targetPool = targets.length ? targets : players.slice(0, 3);
-    const recParts = distributeTotal(offense.passComp, targetPool, rngFn, (p, idx) => (p.pos === 'WR' ? 2.5 : p.pos === 'TE' ? 1.8 : 1.3) + (p.ovr ?? 70) / 70 - idx * 0.08);
-    const recYardParts = distributeTotal(Math.max(0, offense.passYd), targetPool, rngFn, (p) => (p.pos === 'WR' ? 2.6 : p.pos === 'TE' ? 1.9 : 1.2) + (p.ovr ?? 70) / 75);
-    const recTdParts = distributeTotal(offense.passTD, targetPool, rngFn, (p) => (p.pos === 'TE' ? 1.4 : 1.8) + (p.ovr ?? 70) / 90);
+    const recParts = distributeTotal(offense.passComp, targetPool, rngFn, (p, idx) => (p.pos === 'WR' ? 2.5 : p.pos === 'TE' ? 1.8 : 1.3) + (p.ovr ?? 70) / 70 - idx * 0.08, ['WR', 'TE', 'RB']);
+    const recYardParts = distributeTotal(Math.max(0, offense.passYd), targetPool, rngFn, (p) => (p.pos === 'WR' ? 2.6 : p.pos === 'TE' ? 1.9 : 1.2) + (p.ovr ?? 70) / 75, ['WR', 'TE', 'RB']);
+    const recTdParts = distributeTotal(offense.passTD, targetPool, rngFn, (p) => (p.pos === 'TE' ? 1.4 : 1.8) + (p.ovr ?? 70) / 90, ['WR', 'TE', 'RB']);
     for (let i = 0; i < targetPool.length; i += 1) {
       const pid = String(targetPool[i].id);
       put(pid, {
@@ -855,14 +899,14 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
     }
 
     const sackPool = sackers.length ? sackers : players.slice(0, 4);
-    const sackParts = distributeTotal(defense.sacksMade, sackPool, rngFn, (p) => (p.pos === 'EDGE' ? 2.8 : p.pos === 'DE' ? 2.3 : 1.5) + (p.ovr ?? 70) / 70);
+    const sackParts = distributeTotal(defense.sacksMade, sackPool, rngFn, (p) => (p.pos === 'EDGE' ? 2.8 : p.pos === 'DE' ? 2.3 : 1.5) + (p.ovr ?? 70) / 70, ['EDGE', 'IDL', 'LB']);
     for (let i = 0; i < sackPool.length; i += 1) {
       const pid = String(sackPool[i].id);
       put(pid, { sacks: (statsById[pid]?.sacks ?? 0) + sackParts[i] });
     }
 
     const intPool = ballhawks.length ? ballhawks : players.slice(0, 4);
-    const intParts = distributeTotal(defense.interceptions, intPool, rngFn, (p) => (p.pos === 'CB' || p.pos === 'S' ? 2.3 : 1.2) + (p.ovr ?? 70) / 90);
+    const intParts = distributeTotal(defense.interceptions, intPool, rngFn, (p) => (p.pos === 'CB' || p.pos === 'S' ? 2.3 : 1.2) + (p.ovr ?? 70) / 90, ['CB', 'S', 'LB']);
     for (let i = 0; i < intPool.length; i += 1) {
       const pid = String(intPool[i].id);
       put(pid, { interceptions: (statsById[pid]?.interceptions ?? 0) + intParts[i] });
@@ -871,11 +915,12 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
     const tacklerPool = players.filter((p) => ['LB', 'S', 'FS', 'SS', 'CB', 'EDGE', 'DE', 'DT'].includes(p.pos));
     const defensePool = tacklerPool.length ? tacklerPool : players.slice(0, 6);
     const tackleTotal = Math.max(38, Math.round(defense.plays * 0.82));
-    const tackleParts = distributeTotal(tackleTotal, defensePool, rngFn, (p) => (p.pos === 'LB' ? 2.6 : p.pos === 'S' ? 2.1 : p.pos === 'CB' ? 1.5 : 1.2) + (p.ovr ?? 70) / 80);
-    const tflParts = distributeTotal(Math.max(0, Math.round(defense.rushAtt * 0.09)), defensePool, rngFn, (p) => (['EDGE', 'DE', 'DT', 'LB'].includes(p.pos) ? 2.2 : 0.7) + (p.ovr ?? 70) / 90);
-    const pdParts = distributeTotal(Math.max(0, Math.round(defense.passAtt * 0.16)), intPool, rngFn, (p) => (['CB', 'S', 'FS', 'SS'].includes(p.pos) ? 2.2 : 0.9) + (p.ovr ?? 70) / 90);
-    const ffParts = distributeTotal(defense.turnovers, defensePool, rngFn, (p) => (['EDGE', 'DE', 'DT', 'LB'].includes(p.pos) ? 1.9 : 1.1) + (p.ovr ?? 70) / 90);
-    const frParts = distributeTotal(Math.max(0, defense.turnovers - defense.interceptions), defensePool, rngFn, (p) => 1 + (p.ovr ?? 70) / 100);
+    const defensiveRows = ['EDGE', 'IDL', 'LB', 'CB', 'S'];
+    const tackleParts = distributeTotal(tackleTotal, defensePool, rngFn, (p) => (p.pos === 'LB' ? 2.6 : p.pos === 'S' ? 2.1 : p.pos === 'CB' ? 1.5 : 1.2) + (p.ovr ?? 70) / 80, defensiveRows);
+    const tflParts = distributeTotal(Math.max(0, Math.round(defense.rushAtt * 0.09)), defensePool, rngFn, (p) => (['EDGE', 'DE', 'DT', 'LB'].includes(p.pos) ? 2.2 : 0.7) + (p.ovr ?? 70) / 90, defensiveRows);
+    const pdParts = distributeTotal(Math.max(0, Math.round(defense.passAtt * 0.16)), intPool, rngFn, (p) => (['CB', 'S', 'FS', 'SS'].includes(p.pos) ? 2.2 : 0.9) + (p.ovr ?? 70) / 90, ['CB', 'S', 'LB']);
+    const ffParts = distributeTotal(defense.turnovers, defensePool, rngFn, (p) => (['EDGE', 'DE', 'DT', 'LB'].includes(p.pos) ? 1.9 : 1.1) + (p.ovr ?? 70) / 90, defensiveRows);
+    const frParts = distributeTotal(Math.max(0, defense.turnovers - defense.interceptions), defensePool, rngFn, (p) => 1 + (p.ovr ?? 70) / 100, defensiveRows);
     for (let i = 0; i < defensePool.length; i += 1) {
       const pid = String(defensePool[i].id);
       addStats(statsById[pid] ?? (statsById[pid] = {}), {
