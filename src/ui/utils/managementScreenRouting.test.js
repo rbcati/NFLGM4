@@ -51,6 +51,10 @@ describe("normalizeManagementDestination", () => {
   });
 
   it("supports team command center section deep links with default", () => {
+    expect(normalizeManagementDestination("Team:Roster / Depth")).toMatchObject({
+      tab: "Team",
+      teamSection: "Roster / Depth",
+    });
     expect(normalizeManagementDestination("Team:Contracts")).toMatchObject({
       tab: "Team",
       teamSection: "Contracts",

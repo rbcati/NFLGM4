@@ -13,6 +13,7 @@ function isDepthChartDestination(destination) {
 
 function routeFor(destination) {
   if (destination?.view === 'Contract Center') return 'Contract Center';
+  if (destination?.view === 'Roster / Depth') return 'Team:Roster / Depth';
   return isDepthChartDestination(destination) ? 'Team:Roster / Depth' : 'Team:Injuries';
 }
 
@@ -47,6 +48,7 @@ export default function GMDecisionCenter({ league, onNavigate }) {
           const severity = SEVERITY_STYLES[item.severity] ?? SEVERITY_STYLES.medium;
           const depthChart = isDepthChartDestination(item.destination);
           const contractReview = item.destination?.view === 'Contract Center';
+          const rosterReview = item.destination?.view === 'Roster / Depth';
           return (
             <article
               key={item.id}
@@ -62,6 +64,7 @@ export default function GMDecisionCenter({ league, onNavigate }) {
                     {item.severity === 'critical' ? '⚠ ' : ''}{severity.label}
                   </span>
                   <div style={{ marginTop: 5, fontSize: 'var(--text-sm)', fontWeight: 800 }}>{item.title}</div>
+                  {item.rosterConstraint ? <div style={{ marginTop: 3, fontSize: 'var(--text-sm)', fontWeight: 900 }}>{item.rosterConstraint.currentCount} / {item.rosterConstraint.limit}</div> : null}
                   {item.primaryReason ?? item.reasons?.[0] ? <div style={{ marginTop: 3, color: 'var(--text-muted)', fontSize: 'var(--text-xs)', overflowWrap: 'anywhere' }}>• {item.primaryReason ?? item.reasons?.[0]}</div> : null}
                 </div>
                 <button
@@ -70,7 +73,7 @@ export default function GMDecisionCenter({ league, onNavigate }) {
                   onClick={() => onNavigate?.(routeFor(item.destination))}
                   style={{ flex: '0 0 auto' }}
                 >
-                  {depthChart ? 'Review Depth Chart' : contractReview ? 'Review Re-Sign' : 'Review'}
+                  {rosterReview ? 'Review Roster' : depthChart ? 'Review Depth Chart' : contractReview ? 'Review Re-Sign' : 'Review'}
                 </button>
               </div>
             </article>
