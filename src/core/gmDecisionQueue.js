@@ -20,7 +20,6 @@ const RETENTION_RECOMMENDATION_RANK = {
 const RETENTION_ROLE_RANK = { core_starter: 0, starter: 1, rotation: 2, depth: 3 };
 const MARKET_RANK = { high: 0, medium: 1, low: 2 };
 const RESOLVED_EXTENSION_DECISIONS = new Set(['extended', 'let_walk', 'tagged']);
-const ROSTER_COUNTING_STATUSES = new Set(['active', 'injured_reserve']);
 const ROSTER_LIMIT_PHASES = new Set([
   'offseason_resign', 'free_agency', 'draft', 'offseason', 'preseason', 'regular', 'playoffs',
 ]);
@@ -432,14 +431,14 @@ function resolveRoster(roster, league, team, diagnostics) {
       diagnostics.push({ playerId: playerId(resolved), reason: 'Player not owned by supplied team' });
       continue;
     }
-    if (!resolved.status && resolved.onIR !== true) {
-      diagnostics.push({ playerId: playerId(resolved), reason: 'Roster-counting status unavailable' });
+    if (resolved.status === 'free_agent') {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Recorded free agent excluded from roster count' });
       continue;
     }
-    const status = resolved.onIR === true ? 'injured_reserve' : resolved.status;
-    if (!ROSTER_COUNTING_STATUSES.has(status)) {
-      diagnostics.push({ playerId: playerId(resolved), reason: 'Status does not count toward constrained roster' });
-      continue;
+    if (resolved.status == null || String(resolved.status).trim() === '') {
+      diagnostics.push({ playerId: playerId(resolved), reason: 'Roster status unavailable; counted by team ownership' });
+    } else if (!['active', 'injured_reserve'].includes(resolved.status)) {
+      diagnostics.push({ playerId: playerId(resolved), reason: `Nonstandard roster status "${String(resolved.status)}"; counted by team ownership` });
     }
     players.push(resolved);
   }

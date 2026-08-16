@@ -9,7 +9,7 @@ import {
   createContractDecisionQueueBuilder,
   createGMDecisionQueueBuilder,
 } from '../gmDecisionQueue.js';
-import { getRosterLimitForPhase } from '../teamValidation.js';
+import { getRosterLimitForPhase, validateLeagueTeamLegality } from '../teamValidation.js';
 import { buildPlayerDecisionPresentation } from '../playerDecisionPresentation.js';
 
 const player = (id, overrides = {}) => ({
@@ -48,17 +48,32 @@ describe('roster cutdown decisions', () => {
     expect(buildRosterCutdownDecisionQueue(input).items[0]).toMatchObject({ severity: 'critical', rosterConstraint: { limit: 53, requiredMoves: 1 } });
   });
 
-  it('deduplicates references and conservatively omits foreign, excluded, and status-unknown players', () => {
+  it('matches gameplay membership for missing statuses while excluding duplicates, foreign players, and recorded free agents', () => {
     const active = rosterPlayer(1);
     const ir = rosterPlayer(2, { status: 'injured_reserve', onIR: true });
+    const missing = rosterPlayer(5, { status: null });
+    const legacy = rosterPlayer(6, { status: 'legacy_roster' });
     const result = buildRosterLimitContext({
-      roster: [active, { ...active }, ir, rosterPlayer(3, { teamId: 11 }), rosterPlayer(4, { status: 'free_agent' }), rosterPlayer(5, { status: null })],
+      roster: [active, { ...active }, ir, rosterPlayer(3, { teamId: 11 }), rosterPlayer(4, { status: 'free_agent' }), missing, legacy],
       team: { id: 10 }, league: { phase: 'regular', players: [] },
     });
-    expect(result.currentCount).toBe(2);
+    expect(result.currentCount).toBe(4);
     expect(result.diagnostics.map((entry) => entry.reason)).toEqual(expect.arrayContaining([
-      'Duplicate roster reference', 'Player not owned by supplied team', 'Status does not count toward constrained roster', 'Roster-counting status unavailable',
+      'Duplicate roster reference', 'Player not owned by supplied team', 'Recorded free agent excluded from roster count',
+      'Roster status unavailable; counted by team ownership', 'Nonstandard roster status "legacy_roster"; counted by team ownership',
     ]));
+  });
+
+  it('matches legality at 55 owned players when four statuses are missing', () => {
+    const input = rosterInput(55);
+    input.roster.slice(0, 4).forEach((row) => { delete row.status; });
+    const context = buildRosterLimitContext(input);
+    const legality = validateLeagueTeamLegality({ teams: [input.team], players: input.roster, phase: 'regular' });
+
+    expect(context).toMatchObject({ currentCount: 55, limit: 53, requiredMoves: 2, overLimit: true });
+    expect(context.diagnostics.filter((entry) => entry.reason === 'Roster status unavailable; counted by team ownership')).toHaveLength(4);
+    expect(legality.rosterLimit).toBe(53);
+    expect(legality.issues).toContainEqual(expect.objectContaining({ code: 'roster_limit', message: expect.stringContaining('55/53') }));
   });
 
   it('never invents a limit for missing phase data and remains pure and deterministic', () => {
