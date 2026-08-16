@@ -1,7 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { autoBuildDepthChart, applyDepthChartToPlayers, depthWarnings } from '../depthChart.js';
+import { autoBuildDepthChart, applyDepthChartToPlayers, depthWarnings, getScrimmageDepthAssignment } from '../depthChart.js';
 
 describe('depth chart auto population', () => {
+  it('accepts only eligible non-special row identity as scrimmage authority', () => {
+    expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'WR', order: 1 } }, 'OFFENSE')).toEqual({ rowKey: 'WR', order: 1 });
+    expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'RS', order: 1 } }, 'OFFENSE')).toBeNull();
+    expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'QB', order: 1 } }, 'OFFENSE')).toBeNull();
+    expect(getScrimmageDepthAssignment({ pos: 'WR', depthOrder: 1 }, 'OFFENSE')).toBeNull();
+  });
   it('assigns eligible players into position rooms and preserves manual order', () => {
     const players = [
       { id: 1, pos: 'QB', ovr: 88, teamId: 1, status: 'active' },

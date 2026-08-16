@@ -201,4 +201,46 @@ describe('weekSimulationBridge', () => {
 
     expect(mapped.shutoutFloorApplied).toEqual({ home: false, away: true });
   });
+
+  it('prefers the depth-1 QB over a higher-OVR backup when aggregating unit ratings', () => {
+    const wrs = Array.from({ length: 12 }, (_, i) => ({
+      id: 100 + i,
+      name: `WR${i}`,
+      pos: 'WR',
+      ovr: 50,
+      depthOrder: 1,
+    }));
+    const starterUnits = aggregateTeamUnitsFromRoster([
+      { id: 1, name: 'Starter', pos: 'QB', ovr: 70, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      ...wrs,
+    ] as any);
+    const backupUnits = aggregateTeamUnitsFromRoster([
+      { id: 2, name: 'Backup', pos: 'QB', ovr: 95, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      ...wrs,
+    ] as any);
+    const mixedUnits = aggregateTeamUnitsFromRoster([
+      { id: 2, name: 'Backup', pos: 'QB', ovr: 95, depthOrder: 2, depthChart: { rowKey: 'QB', order: 2 } },
+      { id: 1, name: 'Starter', pos: 'QB', ovr: 70, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      ...wrs,
+    ] as any);
+
+    expect(mixedUnits.offense.throwAccuracyShort).toBe(starterUnits.offense.throwAccuracyShort);
+    expect(mixedUnits.offense.throwPower).toBe(starterUnits.offense.throwPower);
+    expect(mixedUnits.offense.throwAccuracyShort).not.toBe(backupUnits.offense.throwAccuracyShort);
+  });
+
+  it('does not let an RS assignment affect scrimmage unit aggregation', () => {
+    const roster = [
+      { id: 1, name: 'Returner', pos: 'WR', ovr: 92, depthOrder: 1, depthChart: { rowKey: 'RS', order: 1 } },
+      { id: 2, name: 'WR starter', pos: 'WR', ovr: 65, depthOrder: 1, depthChart: { rowKey: 'WR', order: 1 } },
+      { id: 3, name: 'QB', pos: 'QB', ovr: 75, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+    ] as any;
+    const withReturnRow = aggregateTeamUnitsFromRoster(roster);
+    const withoutReturnRow = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 1
+      ? { ...player, depthOrder: undefined, depthChart: undefined }
+      : player));
+
+    expect(withReturnRow.offense).toEqual(withoutReturnRow.offense);
+    expect(withReturnRow.defense).toEqual(withoutReturnRow.defense);
+  });
 });

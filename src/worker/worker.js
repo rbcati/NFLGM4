@@ -4722,6 +4722,10 @@ function buildWeekMatchupsFromLeague(league, meta, week, opts = {}) {
         // old saves → 0 modifier. Without this the morale sim modifier (#1591)
         // silently scored 0 for every player.
         morale: player.morale,
+        // Preserve authoritative row + order together. Missing row identity on
+        // old saves keeps insertion order and cannot invent a starter boost.
+        depthOrder: Number(player.depthOrder ?? player?.depthChart?.order) || undefined,
+        depthRowKey: player?.depthChart?.rowKey,
       })),
       awayPlayers: awayRoster.map((player) => ({
         id: player.id,
@@ -4729,6 +4733,8 @@ function buildWeekMatchupsFromLeague(league, meta, week, opts = {}) {
         pos: player.pos,
         ovr: player.ovr ?? player?.ratings?.overall ?? player?.ratings?.ovr ?? 70,
         morale: player.morale,
+        depthOrder: Number(player.depthOrder ?? player?.depthChart?.order) || undefined,
+        depthRowKey: player?.depthChart?.rowKey,
       })),
       seed: buildDeterministicSeed(`${meta?.currentSeasonId ?? 1}:${week}:${game?.home?.id}:${game?.away?.id}`),
       weather: 'clear',

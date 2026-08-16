@@ -22,6 +22,17 @@ export function getDepthRows() {
   return DEPTH_CHART_ROWS;
 }
 
+/** Return a usable scrimmage assignment without treating legacy/special rows as generic depth. */
+export function getScrimmageDepthAssignment(player, group = null) {
+  const rowKey = String(player?.depthChart?.rowKey ?? '');
+  const row = DEPTH_CHART_ROWS.find((entry) => entry.key === rowKey);
+  const order = Number(player?.depthChart?.order);
+  const pos = String(player?.pos ?? '').toUpperCase();
+  if (!row || row.group === 'SPECIAL' || (group && row.group !== group)) return null;
+  if (!row.match.includes(pos) || !Number.isFinite(order) || order <= 0) return null;
+  return { rowKey: row.key, order };
+}
+
 function rowForPosition(pos, preferredRowKey = null) {
   if (preferredRowKey) {
     const preferred = DEPTH_CHART_ROWS.find((r) => r.key === preferredRowKey);

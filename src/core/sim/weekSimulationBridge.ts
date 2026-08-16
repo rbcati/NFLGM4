@@ -2,6 +2,7 @@ import type { AttributesV2, Player } from '../../types/player.ts';
 import { ensureAttributesV2 } from '../migration/attributeMigrator.ts';
 import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
+import { getScrimmageDepthAssignment } from '../depthChart.js';
 
 const OFFENSE_KEYS: Array<keyof AttributesV2> = [
   'throwAccuracyShort', 'throwAccuracyDeep', 'throwPower', 'release', 'routeRunning', 'separation',
@@ -18,7 +19,13 @@ export interface AggregatedTeamUnits {
   migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }>;
 }
 
-function stablePlayerSort(a: Player, b: Player): number {
+function resolveRosterDepthOrder(player: Player, group: 'OFFENSE' | 'DEFENSE'): number {
+  return getScrimmageDepthAssignment(player, group)?.order ?? 9999;
+}
+
+function stablePlayerSort(a: Player, b: Player, group: 'OFFENSE' | 'DEFENSE'): number {
+  const depthDelta = resolveRosterDepthOrder(a, group) - resolveRosterDepthOrder(b, group);
+  if (depthDelta !== 0) return depthDelta;
   const ovrDelta = Number(b?.ovr ?? b?.ratings?.overall ?? b?.ratings?.ovr ?? 0)
     - Number(a?.ovr ?? a?.ratings?.overall ?? a?.ratings?.ovr ?? 0);
   if (ovrDelta !== 0) return ovrDelta;
@@ -46,19 +53,22 @@ function pickUnitPlayers(
   roster: Array<Player & { attributesV2: AttributesV2 }>,
   priority: string[],
   targetSize = 11,
+  group: 'OFFENSE' | 'DEFENSE',
 ): Array<Player & { attributesV2: AttributesV2 }> {
   const picked: Array<Player & { attributesV2: AttributesV2 }> = [];
   for (const pos of priority) {
-    const slice = roster.filter((player) => String(player.pos ?? '').toUpperCase() === pos).sort(stablePlayerSort);
+    const slice = roster.filter((player) => String(player.pos ?? '').toUpperCase() === pos).sort((a, b) => stablePlayerSort(a, b, group));
     picked.push(...slice.slice(0, pos === 'QB' ? 1 : 3));
     if (picked.length >= targetSize) break;
   }
 
   if (picked.length < targetSize) {
     const pickedIds = new Set(picked.map((player) => String(player.id)));
+    const hasQuarterback = group === 'OFFENSE' && picked.some((player) => String(player.pos).toUpperCase() === 'QB');
     const fillers = roster
       .filter((player) => !pickedIds.has(String(player.id)))
-      .sort(stablePlayerSort)
+      .filter((player) => !hasQuarterback || String(player.pos).toUpperCase() !== 'QB')
+      .sort((a, b) => stablePlayerSort(a, b, group))
       .slice(0, targetSize - picked.length);
     picked.push(...fillers);
   }
@@ -68,27 +78,22 @@ function pickUnitPlayers(
 
 export function aggregateTeamUnitsFromRoster(roster: Player[] = []): AggregatedTeamUnits {
   const migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }> = [];
-  const upgradedRoster = roster
-    .map((player) => {
-      const upgraded = ensureAttributesV2(player);
-      const assignedSlot = player?.depthChart?.rowKey;
-      const effective = getEffectivePlayerForRole(upgraded, assignedSlot);
-      const merged = {
-        ...upgraded,
-        attributesV2: {
-          ...upgraded.attributesV2,
-          ...(effective.attributesV2 ?? {}),
-        },
-      };
-      if (!player.attributesV2 && player.id != null) {
-        migratedPlayers.push({ id: player.id, attributesV2: upgraded.attributesV2 });
-      }
-      return merged as Player & { attributesV2: AttributesV2 };
-    })
-    .sort(stablePlayerSort);
+  const upgradedRoster = roster.map((player) => {
+    const upgraded = ensureAttributesV2(player);
+    if (!player.attributesV2 && player.id != null) {
+      migratedPlayers.push({ id: player.id, attributesV2: upgraded.attributesV2 });
+    }
+    return upgraded as Player & { attributesV2: AttributesV2 };
+  });
 
-  const offensePlayers = pickUnitPlayers(upgradedRoster, OFFENSE_PRIORITY, 11);
-  const defensePlayers = pickUnitPlayers(upgradedRoster, DEFENSE_PRIORITY, 11);
+  const forGroup = (group: 'OFFENSE' | 'DEFENSE') => upgradedRoster.map((player) => {
+    const assignment = getScrimmageDepthAssignment(player, group);
+    const effective = getEffectivePlayerForRole(player, assignment?.rowKey ?? String(player.pos ?? ''));
+    return { ...player, attributesV2: { ...player.attributesV2, ...(effective.attributesV2 ?? {}) } };
+  });
+
+  const offensePlayers = pickUnitPlayers(forGroup('OFFENSE'), OFFENSE_PRIORITY, 11, 'OFFENSE');
+  const defensePlayers = pickUnitPlayers(forGroup('DEFENSE'), DEFENSE_PRIORITY, 11, 'DEFENSE');
 
   return {
     offense: aggregateForKeys(offensePlayers, OFFENSE_KEYS),
