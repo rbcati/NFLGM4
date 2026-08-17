@@ -20,6 +20,8 @@ export interface Player {
   id: number;
   name: string;
   pos: string;
+  secondaryPositions?: string[];
+  positions?: string[];
   teamId?: number | null;
   age?: number;
   ovr?: number;
