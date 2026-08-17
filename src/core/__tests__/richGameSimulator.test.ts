@@ -186,6 +186,48 @@ describe('simulateRichGame', () => {
     expect(starterFirst.wr1).toBeGreaterThan(swapped.wr1);
   });
 
+  it.each(['HB', 'FB'])('honors canonical RB alias %s as RB1 ahead of RB2', (pos) => {
+    let aliasAttempts = 0;
+    let rb2Attempts = 0;
+    for (const seed of [1684, 1702, 1703, 1810, 1901, 2002, 2111, 2222]) {
+      const payload = buildPayload(seed);
+      payload.homePlayers = [
+        { id: 'alias-rb1', name: `${pos} Starter`, pos, ovr: 70, depthOrder: 1, depthRowKey: 'RB' },
+        { id: 'natural-rb2', name: 'RB Backup', pos: 'RB', ovr: 90, depthOrder: 2, depthRowKey: 'RB' },
+        ...payload.homePlayers.filter((player) => player.pos !== 'RB'),
+      ];
+      const summary = simulateRichGame(payload);
+      aliasAttempts += Number(summary.boxScore.home['alias-rb1']?.stats.rushAtt ?? 0);
+      rb2Attempts += Number(summary.boxScore.home['natural-rb2']?.stats.rushAtt ?? 0);
+    }
+    expect(aliasAttempts).toBeGreaterThan(rb2Attempts);
+  });
+
+  it.each(['MLB', 'OLB', 'ILB'])('includes canonical LB alias %s in defensive workload', (pos) => {
+    let aliasTackles = 0;
+    let lb2Tackles = 0;
+    for (const seed of [1684, 1702, 1703, 1810, 1901, 2002, 2111, 2222]) {
+      const payload = buildPayload(seed);
+      payload.homePlayers = [
+        { id: 'alias-lb1', name: `${pos} Starter`, pos, ovr: 70, depthOrder: 1, depthRowKey: 'LB' },
+        { id: 'natural-lb2', name: 'LB Backup', pos: 'LB', ovr: 90, depthOrder: 2, depthRowKey: 'LB' },
+        ...payload.homePlayers.filter((player) => player.pos !== 'LB'),
+      ];
+      const summary = simulateRichGame(payload);
+      aliasTackles += Number(summary.boxScore.home['alias-lb1']?.stats.tackles ?? 0);
+      lb2Tackles += Number(summary.boxScore.home['natural-lb2']?.stats.tackles ?? 0);
+    }
+    expect(aliasTackles).toBeGreaterThan(lb2Tackles);
+  });
+
+  it('does not turn RS1 on an HB into RB starter authority', () => {
+    const payload = buildPayload(2111);
+    payload.homePlayers.unshift({ id: 'hb-returner', name: 'HB Returner', pos: 'HB', ovr: 90, depthOrder: 1, depthRowKey: 'RS' });
+    const invalid = structuredClone(payload);
+    invalid.homePlayers[0].depthRowKey = 'UNKNOWN';
+    expect(simulateRichGame(payload)).toEqual(simulateRichGame(invalid));
+  });
+
   it.each([
     ['RB rushing', 'WR', ['RB'], 'RB', 'rushAtt'],
     ['S defense', 'CB', ['S'], 'S', 'tackles'],
