@@ -201,4 +201,92 @@ describe('weekSimulationBridge', () => {
 
     expect(mapped.shutoutFloorApplied).toEqual({ home: false, away: true });
   });
+
+  it('prefers the depth-1 QB over a higher-OVR backup when aggregating unit ratings', () => {
+    const wrs = Array.from({ length: 12 }, (_, i) => ({
+      id: 100 + i,
+      name: `WR${i}`,
+      pos: 'WR',
+      ovr: 50,
+      depthOrder: 1,
+    }));
+    const starterUnits = aggregateTeamUnitsFromRoster([
+      { id: 1, name: 'Starter', pos: 'QB', ovr: 70, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      ...wrs,
+    ] as any);
+    const backupUnits = aggregateTeamUnitsFromRoster([
+      { id: 2, name: 'Backup', pos: 'QB', ovr: 95, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      ...wrs,
+    ] as any);
+    const mixedUnits = aggregateTeamUnitsFromRoster([
+      { id: 2, name: 'Backup', pos: 'QB', ovr: 95, depthOrder: 2, depthChart: { rowKey: 'QB', order: 2 } },
+      { id: 1, name: 'Starter', pos: 'QB', ovr: 70, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      ...wrs,
+    ] as any);
+
+    expect(mixedUnits.offense.throwAccuracyShort).toBe(starterUnits.offense.throwAccuracyShort);
+    expect(mixedUnits.offense.throwPower).toBe(starterUnits.offense.throwPower);
+    expect(mixedUnits.offense.throwAccuracyShort).not.toBe(backupUnits.offense.throwAccuracyShort);
+  });
+
+  it('does not let an RS assignment affect scrimmage unit aggregation', () => {
+    const roster = [
+      { id: 1, name: 'Returner', pos: 'WR', ovr: 92, depthOrder: 1, depthChart: { rowKey: 'RS', order: 1 } },
+      { id: 2, name: 'WR starter', pos: 'WR', ovr: 65, depthOrder: 1, depthChart: { rowKey: 'WR', order: 1 } },
+      { id: 3, name: 'QB', pos: 'QB', ovr: 75, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+    ] as any;
+    const withReturnRow = aggregateTeamUnitsFromRoster(roster);
+    const withoutReturnRow = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 1
+      ? { ...player, depthOrder: undefined, depthChart: undefined }
+      : player));
+
+    expect(withReturnRow.offense).toEqual(withoutReturnRow.offense);
+    expect(withReturnRow.defense).toEqual(withoutReturnRow.defense);
+  });
+
+  it.each(['DT', 'NT', 'DL'])('includes an %s alias assigned to canonical IDL when other defensive rows are full', (pos) => {
+    const attributes = (passRush: number) => ({ ...mapOverallToAttributesV2(70, 0, `idl-${pos}-${passRush}`), passRush });
+    const populated = [
+      ...Array.from({ length: 3 }, (_, i) => ({ id: `edge-${i}`, name: `EDGE${i}`, pos: 'EDGE', attributesV2: attributes(50), depthChart: { rowKey: 'EDGE', order: i + 1 } })),
+      ...Array.from({ length: 3 }, (_, i) => ({ id: `lb-${i}`, name: `LB${i}`, pos: 'LB', attributesV2: attributes(50), depthChart: { rowKey: 'LB', order: i + 1 } })),
+      ...Array.from({ length: 3 }, (_, i) => ({ id: `cb-${i}`, name: `CB${i}`, pos: 'CB', attributesV2: attributes(50), depthChart: { rowKey: 'CB', order: i + 1 } })),
+      ...Array.from({ length: 3 }, (_, i) => ({ id: `s-${i}`, name: `S${i}`, pos: 'S', attributesV2: attributes(50), depthChart: { rowKey: 'S', order: i + 1 } })),
+    ];
+    const lowIdl = { id: 'idl', name: 'IDL1', pos, attributesV2: attributes(20), depthChart: { rowKey: 'IDL', order: 1 } };
+    const highIdl = { ...lowIdl, attributesV2: attributes(100) };
+
+    const lowUnits = aggregateTeamUnitsFromRoster([lowIdl, ...populated] as any);
+    const highUnits = aggregateTeamUnitsFromRoster([highIdl, ...populated] as any);
+
+    expect(highUnits.defense.passRush).toBeGreaterThan(lowUnits.defense.passRush);
+    expect(highUnits.defense.pressCoverage).toBe(lowUnits.defense.pressCoverage);
+  });
+
+  it('retains an incompatible scrimmage-row penalty without granting starter authority', () => {
+    const roster = [
+      { id: 1, name: 'Natural QB', pos: 'QB', ovr: 72, depthChart: { rowKey: 'QB', order: 2 } },
+      { id: 2, name: 'Out-of-position WR', pos: 'WR', ovr: 90, depthChart: { rowKey: 'QB', order: 1 } },
+      { id: 3, name: 'Natural WR', pos: 'WR', ovr: 70 },
+    ] as any;
+    const starterOrder = aggregateTeamUnitsFromRoster(roster);
+    const depthOrderNine = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 2
+      ? { ...player, depthChart: { rowKey: 'QB', order: 9 } }
+      : player));
+    const unassigned = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 2
+      ? { ...player, depthChart: undefined }
+      : player));
+
+    expect(starterOrder.offense).toEqual(depthOrderNine.offense);
+    expect(starterOrder.offense.routeRunning).toBeLessThan(unassigned.offense.routeRunning);
+  });
+
+  it('preserves natural behavior and evaluates an eligible secondary-position row', () => {
+    const natural = { id: 1, name: 'Hybrid', pos: 'WR', secondaryPositions: ['RB'], ovr: 82 } as any;
+    const unassigned = aggregateTeamUnitsFromRoster([natural]);
+    const unknown = aggregateTeamUnitsFromRoster([{ ...natural, depthChart: { rowKey: 'UNKNOWN', order: 1 } }] as any);
+    const assignedRb = aggregateTeamUnitsFromRoster([{ ...natural, depthChart: { rowKey: 'RB', order: 1 } }] as any);
+
+    expect(unknown.offense).toEqual(unassigned.offense);
+    expect(assignedRb.offense.routeRunning).toBeLessThan(unassigned.offense.routeRunning);
+  });
 });

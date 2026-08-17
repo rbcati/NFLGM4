@@ -2,6 +2,7 @@ import type { AttributesV2, Player } from '../../types/player.ts';
 import { ensureAttributesV2 } from '../migration/attributeMigrator.ts';
 import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
+import { DEPTH_CHART_ROWS, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
 
 const OFFENSE_KEYS: Array<keyof AttributesV2> = [
   'throwAccuracyShort', 'throwAccuracyDeep', 'throwPower', 'release', 'routeRunning', 'separation',
@@ -10,7 +11,9 @@ const OFFENSE_KEYS: Array<keyof AttributesV2> = [
 const DEFENSE_KEYS: Array<keyof AttributesV2> = ['passRush', 'pressCoverage', 'zoneCoverage'];
 
 const OFFENSE_PRIORITY = ['QB', 'WR', 'TE', 'RB', 'OL', 'LT', 'LG', 'C', 'RG', 'RT'];
-const DEFENSE_PRIORITY = ['EDGE', 'DE', 'DT', 'LB', 'CB', 'S', 'FS', 'SS'];
+const DEFENSE_PRIORITY = DEPTH_CHART_ROWS
+  .filter((row) => row.group === 'DEFENSE')
+  .map((row) => row.key);
 
 export interface AggregatedTeamUnits {
   offense: AttributesV2;
@@ -18,7 +21,14 @@ export interface AggregatedTeamUnits {
   migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }>;
 }
 
-function stablePlayerSort(a: Player, b: Player): number {
+interface UnitPlayerMetadata {
+  rowKey: string | null;
+  depthOrder: number;
+}
+
+function stablePlayerSort(a: Player, b: Player, metadata: (player: Player) => UnitPlayerMetadata): number {
+  const depthDelta = metadata(a).depthOrder - metadata(b).depthOrder;
+  if (depthDelta !== 0) return depthDelta;
   const ovrDelta = Number(b?.ovr ?? b?.ratings?.overall ?? b?.ratings?.ovr ?? 0)
     - Number(a?.ovr ?? a?.ratings?.overall ?? a?.ratings?.ovr ?? 0);
   if (ovrDelta !== 0) return ovrDelta;
@@ -46,19 +56,26 @@ function pickUnitPlayers(
   roster: Array<Player & { attributesV2: AttributesV2 }>,
   priority: string[],
   targetSize = 11,
+  group: 'OFFENSE' | 'DEFENSE',
+  metadata: (player: Player) => UnitPlayerMetadata,
 ): Array<Player & { attributesV2: AttributesV2 }> {
   const picked: Array<Player & { attributesV2: AttributesV2 }> = [];
   for (const pos of priority) {
-    const slice = roster.filter((player) => String(player.pos ?? '').toUpperCase() === pos).sort(stablePlayerSort);
+    const slice = roster.filter((player) => {
+      return metadata(player).rowKey === pos;
+    }).sort((a, b) => stablePlayerSort(a, b, metadata));
     picked.push(...slice.slice(0, pos === 'QB' ? 1 : 3));
     if (picked.length >= targetSize) break;
   }
 
   if (picked.length < targetSize) {
     const pickedIds = new Set(picked.map((player) => String(player.id)));
+    const hasQuarterback = group === 'OFFENSE'
+      && picked.some((player) => metadata(player).rowKey === 'QB');
     const fillers = roster
       .filter((player) => !pickedIds.has(String(player.id)))
-      .sort(stablePlayerSort)
+      .filter((player) => !hasQuarterback || metadata(player).rowKey !== 'QB')
+      .sort((a, b) => stablePlayerSort(a, b, metadata))
       .slice(0, targetSize - picked.length);
     picked.push(...fillers);
   }
@@ -68,27 +85,52 @@ function pickUnitPlayers(
 
 export function aggregateTeamUnitsFromRoster(roster: Player[] = []): AggregatedTeamUnits {
   const migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }> = [];
-  const upgradedRoster = roster
-    .map((player) => {
-      const upgraded = ensureAttributesV2(player);
-      const assignedSlot = player?.depthChart?.rowKey;
-      const effective = getEffectivePlayerForRole(upgraded, assignedSlot);
-      const merged = {
-        ...upgraded,
-        attributesV2: {
-          ...upgraded.attributesV2,
-          ...(effective.attributesV2 ?? {}),
-        },
-      };
-      if (!player.attributesV2 && player.id != null) {
-        migratedPlayers.push({ id: player.id, attributesV2: upgraded.attributesV2 });
-      }
-      return merged as Player & { attributesV2: AttributesV2 };
-    })
-    .sort(stablePlayerSort);
+  const upgradedRoster = roster.map((player) => {
+    const upgraded = ensureAttributesV2(player);
+    if (!player.attributesV2 && player.id != null) {
+      migratedPlayers.push({ id: player.id, attributesV2: upgraded.attributesV2 });
+    }
+    return upgraded as Player & { attributesV2: AttributesV2 };
+  });
 
-  const offensePlayers = pickUnitPlayers(upgradedRoster, OFFENSE_PRIORITY, 11);
-  const defensePlayers = pickUnitPlayers(upgradedRoster, DEFENSE_PRIORITY, 11);
+  const metadataFor = (group: 'OFFENSE' | 'DEFENSE') => {
+    const cache = new WeakMap<Player, UnitPlayerMetadata>();
+    return (player: Player) => {
+      const cached = cache.get(player);
+      if (cached) return cached;
+      const metadata = {
+        rowKey: getPlayerScrimmageUnitRow(player, group)?.key ?? null,
+        depthOrder: getScrimmageDepthAssignment(player, group)?.order ?? 9999,
+      };
+      cache.set(player, metadata);
+      return metadata;
+    };
+  };
+
+  const applyGroupRole = (players: Array<Player & { attributesV2: AttributesV2 }>, group: 'OFFENSE' | 'DEFENSE') => players.map((player) => {
+    // Eligibility controls starter authority; row identity independently
+    // preserves canonical out-of-position effective-rating penalties.
+    const assignedRow = getScrimmageDepthRow(player, group);
+    const effective = getEffectivePlayerForRole(
+      { ...player, ...player.attributesV2 },
+      assignedRow?.key ?? String(player.pos ?? ''),
+    );
+    const attributesV2 = Object.fromEntries(
+      Object.keys(player.attributesV2).map((key) => [key, effective[key] ?? player.attributesV2[key]]),
+    ) as unknown as AttributesV2;
+    return { ...player, attributesV2 };
+  });
+
+  const offenseMetadata = metadataFor('OFFENSE');
+  const defenseMetadata = metadataFor('DEFENSE');
+  const offensePlayers = applyGroupRole(
+    pickUnitPlayers(upgradedRoster, OFFENSE_PRIORITY, 11, 'OFFENSE', offenseMetadata),
+    'OFFENSE',
+  );
+  const defensePlayers = applyGroupRole(
+    pickUnitPlayers(upgradedRoster, DEFENSE_PRIORITY, 11, 'DEFENSE', defenseMetadata),
+    'DEFENSE',
+  );
 
   return {
     offense: aggregateForKeys(offensePlayers, OFFENSE_KEYS),
