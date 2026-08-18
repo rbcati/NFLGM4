@@ -3,6 +3,7 @@ import { ensureAttributesV2 } from '../migration/attributeMigrator.ts';
 import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
 import { DEPTH_CHART_ROWS, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
+import { FOOTBALL_ROSTER_CONFIG } from '../sports/footballRosterConfig.js';
 
 const OFFENSE_KEYS: Array<keyof AttributesV2> = [
   'throwAccuracyShort', 'throwAccuracyDeep', 'throwPower', 'release', 'routeRunning', 'separation',
@@ -19,6 +20,7 @@ export interface AggregatedTeamUnits {
   offense: AttributesV2;
   defense: AttributesV2;
   migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }>;
+  selectedUnitPlayerIds: { offense: Array<number | string>; defense: Array<number | string> };
 }
 
 interface UnitPlayerMetadata {
@@ -33,6 +35,30 @@ function stablePlayerSort(a: Player, b: Player, metadata: (player: Player) => Un
     - Number(a?.ovr ?? a?.ratings?.overall ?? a?.ratings?.ovr ?? 0);
   if (ovrDelta !== 0) return ovrDelta;
   return String(a?.id ?? '').localeCompare(String(b?.id ?? ''));
+}
+
+function buildDefensiveRowQuotas(targetSize: number): Map<string, number> {
+  const rows = DEPTH_CHART_ROWS.filter((row) => row.group === 'DEFENSE');
+  const lineRows = rows.filter((row) => row.match.includes('DL'));
+  const lineStarterCount = Number(FOOTBALL_ROSTER_CONFIG.groupConfig.DL?.starterCountExpected ?? lineRows.length);
+  const quotas = new Map(rows.map((row) => {
+    const configured = Number(FOOTBALL_ROSTER_CONFIG.groupConfig[row.key]?.starterCountExpected);
+    const count = lineRows.includes(row)
+      ? Math.max(1, Math.floor(lineStarterCount / Math.max(1, lineRows.length)))
+      : (Number.isFinite(configured) ? configured : 1);
+    return [row.key, Math.min(row.slots, count)] as const;
+  }));
+  let allocated = [...quotas.values()].reduce((sum, count) => sum + count, 0);
+  // The canonical group counts describe 12 defensive starters. The rich unit
+  // remains 11 players, so trim rotation seats from the latest rows without
+  // ever removing a canonical row entirely.
+  for (let index = rows.length - 1; allocated > targetSize && index >= 0; index -= 1) {
+    const row = rows[index];
+    const removable = Math.min((quotas.get(row.key) ?? 1) - 1, allocated - targetSize);
+    quotas.set(row.key, (quotas.get(row.key) ?? 1) - removable);
+    allocated -= removable;
+  }
+  return quotas;
 }
 
 function aggregateForKeys(players: Array<Player & { attributesV2: AttributesV2 }>, keys: Array<keyof AttributesV2>): AttributesV2 {
@@ -60,16 +86,20 @@ function pickUnitPlayers(
   metadata: (player: Player) => UnitPlayerMetadata,
 ): Array<Player & { attributesV2: AttributesV2 }> {
   const picked: Array<Player & { attributesV2: AttributesV2 }> = [];
+  const pickedIds = new Set<string>();
+  const rowQuotas = group === 'DEFENSE' ? buildDefensiveRowQuotas(targetSize) : null;
   for (const pos of priority) {
     const slice = roster.filter((player) => {
-      return metadata(player).rowKey === pos;
+      return metadata(player).rowKey === pos && !pickedIds.has(String(player.id));
     }).sort((a, b) => stablePlayerSort(a, b, metadata));
-    picked.push(...slice.slice(0, pos === 'QB' ? 1 : 3));
-    if (picked.length >= targetSize) break;
+    const rowLimit = rowQuotas?.get(pos) ?? (pos === 'QB' ? 1 : 3);
+    const selected = slice.slice(0, rowLimit);
+    picked.push(...selected);
+    selected.forEach((player) => pickedIds.add(String(player.id)));
+    if (!rowQuotas && picked.length >= targetSize) break;
   }
 
   if (picked.length < targetSize) {
-    const pickedIds = new Set(picked.map((player) => String(player.id)));
     const hasQuarterback = group === 'OFFENSE'
       && picked.some((player) => metadata(player).rowKey === 'QB');
     const fillers = roster
@@ -123,19 +153,19 @@ export function aggregateTeamUnitsFromRoster(roster: Player[] = []): AggregatedT
 
   const offenseMetadata = metadataFor('OFFENSE');
   const defenseMetadata = metadataFor('DEFENSE');
-  const offensePlayers = applyGroupRole(
-    pickUnitPlayers(upgradedRoster, OFFENSE_PRIORITY, 11, 'OFFENSE', offenseMetadata),
-    'OFFENSE',
-  );
-  const defensePlayers = applyGroupRole(
-    pickUnitPlayers(upgradedRoster, DEFENSE_PRIORITY, 11, 'DEFENSE', defenseMetadata),
-    'DEFENSE',
-  );
+  const selectedOffense = pickUnitPlayers(upgradedRoster, OFFENSE_PRIORITY, 11, 'OFFENSE', offenseMetadata);
+  const selectedDefense = pickUnitPlayers(upgradedRoster, DEFENSE_PRIORITY, 11, 'DEFENSE', defenseMetadata);
+  const offensePlayers = applyGroupRole(selectedOffense, 'OFFENSE');
+  const defensePlayers = applyGroupRole(selectedDefense, 'DEFENSE');
 
   return {
     offense: aggregateForKeys(offensePlayers, OFFENSE_KEYS),
     defense: aggregateForKeys(defensePlayers, DEFENSE_KEYS),
     migratedPlayers,
+    selectedUnitPlayerIds: {
+      offense: selectedOffense.map((player) => player.id),
+      defense: selectedDefense.map((player) => player.id),
+    },
   };
 }
 

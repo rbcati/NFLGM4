@@ -6,6 +6,7 @@ import {
   mapGameSummaryToLegacyResult,
   simulateWithOptionalNewEngine,
 } from '../sim/weekSimulationBridge.ts';
+import { applyDepthChartToPlayers } from '../depthChart.js';
 
 describe('weekSimulationBridge', () => {
   it('aggregates offense/defense units from roster players and migrates missing attributesV2', () => {
@@ -260,6 +261,49 @@ describe('weekSimulationBridge', () => {
 
     expect(highUnits.defense.passRush).toBeGreaterThan(lowUnits.defense.passRush);
     expect(highUnits.defense.pressCoverage).toBe(lowUnits.defense.pressCoverage);
+  });
+
+  it('builds an 11-player defensive unit across every canonical row without duplicates', () => {
+    const rows = [
+      ['EDGE', 'DE', 4],
+      ['IDL', 'DT', 4],
+      ['LB', 'LB', 5],
+      ['CB', 'CB', 5],
+      ['S', 'S', 3],
+    ] as const;
+    let nextId = 1;
+    const players: any[] = [];
+    const assignments: Record<string, number[]> = {};
+    for (const [rowKey, pos, count] of rows) {
+      assignments[rowKey] = [];
+      for (let order = 1; order <= count; order += 1) {
+        const player = { id: nextId, name: `${rowKey}${order}`, pos, ovr: 90 - order, teamId: 1 };
+        players.push(player);
+        assignments[rowKey].push(nextId);
+        nextId += 1;
+      }
+    }
+    const secondarySafety = { id: nextId, name: 'Secondary S1', pos: 'WR', secondaryPositions: ['S'], ovr: 95, teamId: 1 };
+    players.push(secondarySafety);
+    assignments.S.unshift(nextId);
+    const roster = applyDepthChartToPlayers(players, assignments);
+
+    const first = aggregateTeamUnitsFromRoster(roster as any);
+    const second = aggregateTeamUnitsFromRoster(roster as any);
+    const selected = first.selectedUnitPlayerIds.defense;
+    const namesById = new Map(roster.map((player) => [player.id, player.name]));
+    const selectedNames = selected.map((id) => namesById.get(id));
+
+    expect(selected).toHaveLength(11);
+    expect(new Set(selected).size).toBe(11);
+    expect(selectedNames.some((name) => name?.startsWith('EDGE'))).toBe(true);
+    expect(selectedNames.some((name) => name?.startsWith('IDL'))).toBe(true);
+    expect(selectedNames.some((name) => name?.startsWith('LB'))).toBe(true);
+    expect(selectedNames.some((name) => name?.startsWith('CB'))).toBe(true);
+    expect(selectedNames).toContain('Secondary S1');
+    expect(selectedNames.filter((name) => name?.startsWith('S') || name === 'Secondary S1')).toHaveLength(1);
+    expect(second.selectedUnitPlayerIds.defense).toEqual(selected);
+    expect(second.defense).toEqual(first.defense);
   });
 
   it('retains an incompatible scrimmage-row penalty without granting starter authority', () => {
