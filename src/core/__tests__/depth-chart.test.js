@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { autoBuildDepthChart, applyDepthChartToPlayers, depthWarnings, getScrimmageDepthAssignment } from '../depthChart.js';
+import { autoBuildDepthChart, applyDepthChartToPlayers, depthWarnings, getCanonicalScrimmageAssignment, getScrimmageDepthAssignment } from '../depthChart.js';
 
 describe('depth chart auto population', () => {
   it('accepts only eligible non-special row identity as scrimmage authority', () => {
@@ -9,6 +9,9 @@ describe('depth chart auto population', () => {
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'RS', order: 1 } }, 'OFFENSE')).toBeNull();
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthChart: { rowKey: 'QB', order: 1 } }, 'OFFENSE')).toBeNull();
     expect(getScrimmageDepthAssignment({ pos: 'WR', depthOrder: 1 }, 'OFFENSE')).toBeNull();
+    const qbAssignment = { pos: 'WR', secondaryPositions: ['QB'], depthChart: { rowKey: 'QB', order: 1 } };
+    expect(getCanonicalScrimmageAssignment(qbAssignment)).toEqual({ rowKey: 'QB', order: 1 });
+    expect(getScrimmageDepthAssignment(qbAssignment, 'DEFENSE')).toBeNull();
   });
   it('assigns eligible players into position rooms and preserves manual order', () => {
     const players = [

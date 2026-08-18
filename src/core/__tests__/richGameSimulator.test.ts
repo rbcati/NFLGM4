@@ -141,6 +141,9 @@ describe('simulateRichGame', () => {
     const summary = simulateRichGame(payload);
     expect(summary.boxScore.home['secondary-qb1']?.stats.passAtt).toBe(summary.teamStats.home.passAtt);
     expect(summary.boxScore.home['natural-qb2']?.stats.passAtt ?? 0).toBe(0);
+    expect(summary.boxScore.home['secondary-qb1']?.stats.targets ?? 0).toBe(0);
+    expect(summary.boxScore.home['secondary-qb1']?.stats.receptions ?? 0).toBe(0);
+    expect(summary.boxScore.home['secondary-qb1']?.stats.recYd ?? 0).toBe(0);
   });
 
   it('does not make RS1 or an incompatible QB-row assignment eligible for QB workload', () => {

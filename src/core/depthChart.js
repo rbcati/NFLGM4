@@ -52,17 +52,30 @@ export function getScrimmageDepthRow(player, group = null) {
 }
 
 /** Return a position-compatible scrimmage assignment that may grant depth authority. */
-export function getScrimmageDepthAssignment(player, group = null) {
-  const row = getScrimmageDepthRow(player, group);
-  const order = Number(player?.depthChart?.order);
+export function getCanonicalScrimmageAssignment(player) {
+  const rowKey = String(player?.depthChart?.rowKey ?? player?.depthRowKey ?? '');
+  const row = DEPTH_CHART_ROWS.find((entry) => entry.key === rowKey);
+  const order = Number(player?.depthChart?.order ?? player?.depthOrder);
   if (!row || !isPlayerEligibleForDepthRow(player, row) || !Number.isFinite(order) || order <= 0) return null;
+  if (row.group === 'SPECIAL') return null;
   return { rowKey: row.key, order };
+}
+
+/** Return a canonical assignment only when it belongs to the requested unit. */
+export function getScrimmageDepthAssignment(player, group = null) {
+  const assignment = getCanonicalScrimmageAssignment(player);
+  if (!assignment) return null;
+  const row = DEPTH_CHART_ROWS.find((entry) => entry.key === assignment.rowKey);
+  return group && row?.group !== group ? null : assignment;
 }
 
 /** Canonical row used to place a player in a scrimmage unit. */
 export function getPlayerScrimmageUnitRow(player, group) {
-  const assignment = getScrimmageDepthAssignment(player, group);
-  if (assignment) return DEPTH_CHART_ROWS.find((row) => row.key === assignment.rowKey) ?? null;
+  const assignment = getCanonicalScrimmageAssignment(player);
+  if (assignment) {
+    const row = DEPTH_CHART_ROWS.find((entry) => entry.key === assignment.rowKey) ?? null;
+    return row?.group === group ? row : null;
+  }
   const primaryPos = String(player?.pos ?? '').toUpperCase();
   return DEPTH_CHART_ROWS.find((row) => row.group === group && row.match.includes(primaryPos)) ?? null;
 }

@@ -2,7 +2,7 @@ import type { AttributesV2, Player } from '../../types/player.ts';
 import { ensureAttributesV2 } from '../migration/attributeMigrator.ts';
 import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
-import { DEPTH_CHART_ROWS, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
+import { DEPTH_CHART_ROWS, getCanonicalScrimmageAssignment, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
 import { FOOTBALL_ROSTER_CONFIG } from '../sports/footballRosterConfig.js';
 
 const OFFENSE_KEYS: Array<keyof AttributesV2> = [
@@ -26,6 +26,7 @@ export interface AggregatedTeamUnits {
 interface UnitPlayerMetadata {
   rowKey: string | null;
   depthOrder: number;
+  eligibleForGroup: boolean;
 }
 
 function stablePlayerSort(a: Player, b: Player, metadata: (player: Player) => UnitPlayerMetadata): number {
@@ -104,6 +105,7 @@ function pickUnitPlayers(
       && picked.some((player) => metadata(player).rowKey === 'QB');
     const fillers = roster
       .filter((player) => !pickedIds.has(String(player.id)))
+      .filter((player) => metadata(player).eligibleForGroup)
       .filter((player) => !hasQuarterback || metadata(player).rowKey !== 'QB')
       .sort((a, b) => stablePlayerSort(a, b, metadata))
       .slice(0, targetSize - picked.length);
@@ -128,9 +130,14 @@ export function aggregateTeamUnitsFromRoster(roster: Player[] = []): AggregatedT
     return (player: Player) => {
       const cached = cache.get(player);
       if (cached) return cached;
+      const canonicalAssignment = getCanonicalScrimmageAssignment(player);
+      const canonicalRow = canonicalAssignment
+        ? DEPTH_CHART_ROWS.find((row) => row.key === canonicalAssignment.rowKey)
+        : null;
       const metadata = {
         rowKey: getPlayerScrimmageUnitRow(player, group)?.key ?? null,
         depthOrder: getScrimmageDepthAssignment(player, group)?.order ?? 9999,
+        eligibleForGroup: !canonicalRow || canonicalRow.group === group,
       };
       cache.set(player, metadata);
       return metadata;

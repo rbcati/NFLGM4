@@ -306,6 +306,33 @@ describe('weekSimulationBridge', () => {
     expect(second.defense).toEqual(first.defense);
   });
 
+  it.each([
+    ['CB assigned WR1', { id: 1, name: 'CB at WR', pos: 'CB', secondaryPositions: ['WR'], depthChart: { rowKey: 'WR', order: 1 } }, 'offense', 'defense'],
+    ['WR assigned CB1', { id: 2, name: 'WR at CB', pos: 'WR', secondaryPositions: ['CB'], depthChart: { rowKey: 'CB', order: 1 } }, 'defense', 'offense'],
+  ])('keeps %s exclusively in its authoritative scrimmage unit', (_label, assigned, includedGroup, excludedGroup) => {
+    const roster = [
+      assigned,
+      { id: 10, name: 'QB', pos: 'QB', ovr: 75 },
+      { id: 11, name: 'WR', pos: 'WR', ovr: 75 },
+      { id: 12, name: 'CB', pos: 'CB', ovr: 75 },
+      { id: 13, name: 'S', pos: 'S', ovr: 75 },
+      { id: 14, name: 'LB', pos: 'LB', ovr: 75 },
+      { id: 15, name: 'DE', pos: 'DE', ovr: 75 },
+      { id: 16, name: 'DT', pos: 'DT', ovr: 75 },
+    ] as any;
+    const units = aggregateTeamUnitsFromRoster(roster);
+
+    expect(units.selectedUnitPlayerIds[includedGroup]).toContain(assigned.id);
+    expect(units.selectedUnitPlayerIds[excludedGroup]).not.toContain(assigned.id);
+  });
+
+  it('keeps natural-position fallback when no valid canonical assignment exists', () => {
+    const natural = { id: 1, name: 'Natural WR', pos: 'WR', ovr: 80 } as any;
+    const units = aggregateTeamUnitsFromRoster([natural]);
+
+    expect(units.selectedUnitPlayerIds.offense).toContain(natural.id);
+  });
+
   it('retains an incompatible scrimmage-row penalty without granting starter authority', () => {
     const roster = [
       { id: 1, name: 'Natural QB', pos: 'QB', ovr: 72, depthChart: { rowKey: 'QB', order: 2 } },

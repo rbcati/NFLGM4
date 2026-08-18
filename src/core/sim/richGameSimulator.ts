@@ -4,7 +4,7 @@ import type { DerivedGamePlanMultipliers } from './gamePlanMultipliers.ts';
 import { archiveGameStats } from '../playerSeasonStatsArchive.js';
 import { decideLateGameSequence } from '../simulation/clockManager.js';
 import { applyMoraleToEffectiveOvr } from './moraleSimModifier.js';
-import { DEPTH_CHART_ROWS, isPlayerEligibleForDepthRow } from '../depthChart.js';
+import { DEPTH_CHART_ROWS, getCanonicalScrimmageAssignment, isPlayerEligibleForDepthRow } from '../depthChart.js';
 
 export type DriveResult = 'TD' | 'FG' | 'Punt' | 'INT' | 'Fumble' | 'Downs';
 
@@ -223,7 +223,11 @@ function resolveSimWorkloadRow(player: SimPlayerRef, relevantRows: readonly stri
   const cached = playerCache.get(relevantRows);
   if (cached) return cached;
   const rows = DEPTH_CHART_ROWS.filter((row) => row.group !== 'SPECIAL' && relevantRows.includes(row.key));
-  const assigned = rows.find((row) => row.key === player.depthRowKey && isPlayerEligibleForDepthRow(player, row));
+  const canonicalAssignment = getCanonicalScrimmageAssignment(player);
+  const assigned = canonicalAssignment
+    ? rows.find((row) => row.key === canonicalAssignment.rowKey) ?? null
+    : null;
+  if (canonicalAssignment && !assigned) return null;
   const primaryPos = String(player.pos ?? '').toUpperCase();
   const resolved = assigned ?? rows.find((row) => row.match.includes(primaryPos))
     ?? rows.find((row) => isPlayerEligibleForDepthRow(player, row))
