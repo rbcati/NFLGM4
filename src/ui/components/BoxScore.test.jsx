@@ -56,6 +56,7 @@ describe('BoxScore compact sheet — core rendering', () => {
       <BoxScore gameId="2031_w4_1_2" league={baseLeague} actions={{ getBoxScore: vi.fn() }} scheduleGame={scheduleGame} embedded />,
     );
     expect(getByTestId('game-book-final-score').textContent).toBe('BUF 24 - 13 KC');
+    expect(getByTestId('game-book-final-score').getAttribute('aria-hidden')).toBe('true');
     expect(container.textContent).not.toContain('Game Book unavailable');
   });
 

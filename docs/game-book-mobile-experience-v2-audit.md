@@ -15,6 +15,7 @@ The final supported-game hierarchy is:
 3. existing Game Book section tabs;
 4. existing selected section content;
 5. compact Preparation Context subsection inside Summary.
+6. compact secondary Review Next Week action after Preparation Context.
 
 The redundant full `ScreenHeader`, standalone preparation card, outer “Game Book Detail” card, sticky duplicate score, and embedded close button were removed from the supported-game composition rather than visually hidden. Standalone/non-embedded BoxScore dismiss behavior remains intact.
 
@@ -22,6 +23,7 @@ The redundant full `ScreenHeader`, standalone preparation card, outer “Game Bo
 
 - Score, matchup, W/L/tie, week, and season continue to come from the existing `buildGameBookPresentation` result consumed by `BoxScore`; no score is recalculated.
 - The one return button calls the existing `onBack` callback. No route, navigation state, or bottom-navigation ownership changed.
+- Review Next Week calls the existing `onNavigate('Weekly Prep')` callback already supplied by `LeagueDashboard`; no destination or navigation owner was introduced.
 - Preparation Context still comes from `buildWeeklyDecisionImpact` and the existing `classifyPreparationBullet` rules. “Not recorded” retains the original explanatory text for assistive technology; generic and no-marker fallbacks remain explicit.
 - Team abbreviations in the score hero use the existing `TeamButton`, retaining drill-down when an `onTeamSelect` callback and team ID are available.
 - Player links and their Game Book return context are unchanged.
@@ -52,6 +54,7 @@ Interactive 375/390/430 browser inspection, screenshots, overflow evaluation, an
 - Embedded BoxScore no longer leaves a visually hidden or accessibility-tree duplicate dismiss control.
 - Existing tab roles, selected states, native buttons, focus styles, and 44px tab targets remain.
 - Preparation Context is a labelled Summary section with an `h3`; unavailable details remain available to screen readers.
+- The visible score heading owns the final score's accessible name. The retained `game-book-final-score` test hook is `aria-hidden` so assistive technology does not announce the same final twice.
 - Team score-hero drill-down uses native buttons when supported.
 
 ## Validation

@@ -51,7 +51,7 @@ function GameBookReturnBar({ week, onBack, backLabel }) {
 }
 
 
-export default function GameDetailScreen({ gameId, league, actions, onBack, onPlayerSelect, onTeamSelect, backLabel }) {
+export default function GameDetailScreen({ gameId, league, actions, onBack, onPlayerSelect, onTeamSelect, onNavigate, backLabel }) {
   const weekFromId = typeof gameId === 'string' ? gameId.match(/_w(\d+)_/i)?.[1] : null;
 
   const scheduleGame = findScheduleGame(league, gameId);
@@ -196,23 +196,32 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
         scheduleGame={canonicalGame ?? scheduleGame}
         backLabel={backLabel}
         summarySupplement={(
-          <section className="game-book-preparation" data-testid="game-book-decision-summary" aria-labelledby="game-book-preparation-heading">
-            <h3 id="game-book-preparation-heading">Preparation Context</h3>
-            <p className="game-book-preparation__note">Pregame context captured before kickoff. This does not assign direct causality.</p>
-            <dl className="game-book-prep-context" aria-label="Preparation context">
-              {categorizedPreparation.map((item) => (
-                <div key={item.key} className="game-book-prep-context__row">
-                  <dt>{item.label}</dt>
-                  <dd title={item.unavailable ? item.text : undefined}>{item.unavailable ? 'Not recorded' : item.text}</dd>
-                  {item.unavailable ? <span className="sr-only">{item.text}</span> : null}
-                </div>
+          <>
+            <section className="game-book-preparation" data-testid="game-book-decision-summary" aria-labelledby="game-book-preparation-heading">
+              <h3 id="game-book-preparation-heading">Preparation Context</h3>
+              <p className="game-book-preparation__note">Pregame context captured before kickoff. This does not assign direct causality.</p>
+              <dl className="game-book-prep-context" aria-label="Preparation context">
+                {categorizedPreparation.map((item) => (
+                  <div key={item.key} className="game-book-prep-context__row">
+                    <dt>{item.label}</dt>
+                    <dd title={item.unavailable ? item.text : undefined}>{item.unavailable ? 'Not recorded' : item.text}</dd>
+                    {item.unavailable ? <span className="sr-only">{item.text}</span> : null}
+                  </div>
+                ))}
+              </dl>
+              {genericPreparation.map((bullet, idx) => (
+                <p key={`prep-context-generic-${idx}`} data-testid="game-book-prep-context-generic" className="app-hq-intel-item tone-info">{bullet}</p>
               ))}
-            </dl>
-            {genericPreparation.map((bullet, idx) => (
-              <p key={`prep-context-generic-${idx}`} data-testid="game-book-prep-context-generic" className="app-hq-intel-item tone-info">{bullet}</p>
-            ))}
-            {!preparationBullets.length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
-          </section>
+              {!preparationBullets.length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
+            </section>
+            {onNavigate ? (
+              <div className="game-book-summary-action">
+                <button type="button" className="btn btn-sm" data-testid="game-book-review-next-week" onClick={() => onNavigate('Weekly Prep')}>
+                  Review Next Week
+                </button>
+              </div>
+            ) : null}
+          </>
         )}
       />
     </div>

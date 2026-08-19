@@ -225,4 +225,29 @@ describe('GameDetailScreen score source of truth', () => {
     fireEvent.click(getByTestId('game-book-return'));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
+
+  it('keeps the compact next-week action inside Summary and uses canonical navigation ownership', () => {
+    const onNavigate = vi.fn();
+    const { getByTestId, queryAllByTestId, queryByText } = render(
+      <GameDetailScreen
+        gameId="2031_w3_1_2"
+        league={league}
+        actions={{ getBoxScore: vi.fn() }}
+        onBack={vi.fn()}
+        onNavigate={onNavigate}
+      />,
+    );
+
+    const summary = getByTestId('game-book-view-summary');
+    expect(summary.contains(getByTestId('game-book-decision-summary'))).toBe(true);
+    expect(summary.contains(getByTestId('game-book-review-next-week'))).toBe(true);
+    expect(queryAllByTestId('game-book-return')).toHaveLength(1);
+    expect(queryAllByTestId('game-book-score-hero')).toHaveLength(1);
+    expect(queryByText('Game Book Detail')).toBeNull();
+    expect(document.querySelector('.app-screen-header')).toBeNull();
+
+    fireEvent.click(getByTestId('game-book-review-next-week'));
+    expect(onNavigate).toHaveBeenCalledTimes(1);
+    expect(onNavigate).toHaveBeenCalledWith('Weekly Prep');
+  });
 });

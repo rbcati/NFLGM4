@@ -220,8 +220,8 @@ function BoxScore({
             </span>
           )}
         </h1>
-        {/* Machine-readable line preserved for tests and screen readers */}
-        <div className="sr-only" data-testid="game-book-final-score">{vm.finalScoreLine}</div>
+        {/* Stable machine-readable test hook; hidden from AT to avoid announcing the heading twice. */}
+        <div className="sr-only" aria-hidden="true" data-testid="game-book-final-score">{vm.finalScoreLine}</div>
         <div className="bs-sheet-meta">Week {vm.week ?? mdash} · Season {vm.season ?? mdash}</div>
       </div>
 
