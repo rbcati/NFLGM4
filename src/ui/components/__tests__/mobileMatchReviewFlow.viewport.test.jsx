@@ -92,17 +92,17 @@ describe('mobile Match Review flow — viewport assertions', () => {
     const seasonPulse = screen.getByTestId('season-pulse');
     fireEvent.click(within(seasonPulse).getByRole('button', { name: /view game book/i }));
 
-    // Sticky Game Book header carries the final score + a return action above the fold.
-    const stickyHeader = await screen.findByTestId('game-book-sticky-header');
-    expect(stickyHeader).toBeTruthy();
-    expect(screen.getByTestId('game-book-sticky-back')).toBeTruthy();
-    expect(screen.getByTestId('game-book-sticky-score').textContent).toMatch(/\d/);
+    // Route chrome owns one return action; BoxScore owns the sole score identity.
+    expect(await screen.findByTestId('game-book-return-bar')).toBeTruthy();
+    expect(screen.getAllByTestId('game-book-return')).toHaveLength(1);
+    expect(screen.getAllByTestId('game-book-score-hero')).toHaveLength(1);
+    expect(screen.queryByTestId('game-book-close')).toBeNull();
 
     // Bottom nav remains available so Game Book cannot trap route navigation.
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
 
     // Return to HQ is reachable from the sticky header and restores the nav.
-    fireEvent.click(screen.getByTestId('game-book-sticky-back'));
+    fireEvent.click(screen.getByTestId('game-book-return'));
     expect(await screen.findByTestId('franchise-hq')).toBeTruthy();
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
 

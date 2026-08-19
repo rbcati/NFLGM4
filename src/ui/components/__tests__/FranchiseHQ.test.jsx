@@ -418,7 +418,7 @@ describe('FranchiseHQ', () => {
     expect(await screen.findByTestId('game-book')).toBeTruthy();
     expect(screen.getByTestId('game-book-final-score').textContent).toContain('CHI 23 - 20 DET');
 
-    fireEvent.click(screen.getByTestId('return-to-hq'));
+    fireEvent.click(screen.getByTestId('game-book-return'));
     expect(await screen.findByTestId('franchise-hq')).toBeTruthy();
   });
 
@@ -573,13 +573,13 @@ describe('LeagueDashboard Game Book navigation integrity', () => {
     fireEvent.click(within(seasonPulse).getByRole('button', { name: /view game book/i }));
     expect(await screen.findByTestId('game-book')).toBeTruthy();
     expect(screen.getAllByTestId('game-book')).toHaveLength(1);
-    expect(screen.getAllByTestId('return-to-hq')).toHaveLength(1);
+    expect(screen.getAllByTestId('game-book-return')).toHaveLength(1);
 
     // Navigation stays available so Game Book cannot trap the weekly loop.
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
 
     // Return to HQ restores the nav.
-    fireEvent.click(screen.getByTestId('return-to-hq'));
+    fireEvent.click(screen.getByTestId('game-book-return'));
     expect(await screen.findByTestId('franchise-hq')).toBeTruthy();
     expect(bottomBar().classList.contains('is-collapsed')).toBe(false);
   });

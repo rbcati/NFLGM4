@@ -199,16 +199,16 @@ describe('GameDetailScreen score source of truth', () => {
       />,
     );
 
-    expect(container.textContent).toContain('PIT defeated CLE by 17');
+    expect(container.querySelectorAll('[data-testid="game-book-score-hero"]')).toHaveLength(1);
     expect(container.textContent).toContain('CLE 10 - 27 PIT');
     expect(getByTestId('game-book-final-score').textContent).toBe('CLE 10 - 27 PIT');
     expect(container.textContent).not.toContain('CLE 0 - 0 PIT');
     expect(container.textContent).not.toContain('finished tied');
   });
 
-  it('renders a compact sticky Game Book header with week, teams, score and W/L result', () => {
+  it('renders one return control and leaves score identity to the BoxScore hero', () => {
     const onBack = vi.fn();
-    const { getByTestId } = render(
+    const { getByTestId, queryAllByTestId } = render(
       <GameDetailScreen
         gameId="2031_w3_1_2"
         league={league}
@@ -217,17 +217,12 @@ describe('GameDetailScreen score source of truth', () => {
       />,
     );
 
-    const header = getByTestId('game-book-sticky-header');
-    expect(getByTestId('game-book-sticky-week').textContent).toContain('Wk 3');
-    const scoreText = getByTestId('game-book-sticky-score').textContent;
-    expect(scoreText).toContain('CLE');
-    expect(scoreText).toContain('PIT');
-    expect(scoreText).toContain('10');
-    expect(scoreText).toContain('27');
-    // User team (PIT, id 1) won 27-10 → W badge from the user's perspective.
-    expect(header.querySelector('.game-book-sticky-header__badge').textContent).toBe('W');
+    expect(getByTestId('game-book-return-bar').textContent).toContain('Wk 3 Game Book');
+    expect(queryAllByTestId('game-book-return')).toHaveLength(1);
+    expect(queryAllByTestId('game-book-score-hero')).toHaveLength(1);
+    expect(queryAllByTestId('game-book-close')).toHaveLength(0);
 
-    fireEvent.click(getByTestId('game-book-sticky-back'));
+    fireEvent.click(getByTestId('game-book-return'));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 });

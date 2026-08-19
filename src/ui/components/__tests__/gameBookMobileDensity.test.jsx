@@ -248,7 +248,7 @@ describe('Game Book navigation copy — consistent return affordances', () => {
     vi.mocked(useStableRouteRequest).mockReturnValue({ data: null });
   });
 
-  it('defaults the sticky header and screen header back label to "Return to HQ"', () => {
+  it('defaults the single Game Book return control to "Return to HQ"', () => {
     const { getByTestId } = render(
       <GameDetailScreen
         gameId="g-density"
@@ -257,8 +257,9 @@ describe('Game Book navigation copy — consistent return affordances', () => {
         onBack={vi.fn()}
       />,
     );
-    expect(getByTestId('game-book-sticky-back').textContent).toContain('Return to HQ');
-    expect(getByTestId('return-to-hq').textContent).toContain('Return to HQ');
+    expect(getByTestId('game-book-return').textContent).toContain('Return to HQ');
+    expect(document.querySelectorAll('[data-testid="game-book-return"]')).toHaveLength(1);
+    expect(document.querySelectorAll('[data-testid="return-to-hq"]')).toHaveLength(0);
   });
 
   it('honors an explicit backLabel (e.g. returning to an intermediate results screen) consistently', () => {
@@ -271,7 +272,7 @@ describe('Game Book navigation copy — consistent return affordances', () => {
         backLabel="Back to Weekly Results"
       />,
     );
-    expect(getByTestId('game-book-sticky-back').textContent).toContain('Back to Weekly Results');
+    expect(getByTestId('game-book-return').textContent).toContain('Back to Weekly Results');
   });
 });
 

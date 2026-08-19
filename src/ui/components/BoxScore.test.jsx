@@ -241,7 +241,7 @@ describe('BoxScore compact sheet — core rendering', () => {
   it('single ✕ dismiss button falls back to onBack when onClose is absent', () => {
     const onBack = vi.fn();
     const { getByTestId } = render(
-      <BoxScore gameId="g-back" league={{ ...baseLeague, gameById: { 'g-back': { homeId: 1, awayId: 2, homeScore: 14, awayScore: 7 } } }} onBack={onBack} embedded />,
+      <BoxScore gameId="g-back" league={{ ...baseLeague, gameById: { 'g-back': { homeId: 1, awayId: 2, homeScore: 14, awayScore: 7 } } }} onBack={onBack} />,
     );
     fireEvent.click(getByTestId('game-book-close'));
     expect(onBack).toHaveBeenCalledTimes(1);

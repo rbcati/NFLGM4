@@ -107,12 +107,13 @@ test.describe('Mobile game-day trust loop', () => {
     await boxScoreCta.click();
     await expect(page.getByTestId('game-book')).toBeVisible({ timeout: 20000 });
     await expect(page.getByTestId('game-book-recovery')).toHaveCount(0);
-    const sticky = page.getByTestId('game-book-sticky-score');
-    await expect(sticky).toContainText(String(canonical.home));
-    await expect(sticky).toContainText(String(canonical.away));
+    const scoreHero = page.getByTestId('game-book-score-hero');
+    await expect(scoreHero).toContainText(String(canonical.home));
+    await expect(scoreHero).toContainText(String(canonical.away));
+    await expect(page.getByTestId('game-book-return')).toHaveCount(1);
 
     // Return to HQ (restores postgame), then continue the weekly loop.
-    await page.getByTestId('game-book-sticky-back').click();
+    await page.getByTestId('game-book-return').click();
     await expect(page.getByTestId('box-score-trigger')).toBeVisible({ timeout: 15000 });
     await page.getByRole('button', { name: /Back to Hub/i }).click();
 
@@ -156,7 +157,7 @@ test.describe('Mobile game-day trust loop', () => {
     await expect(recovery).toBeVisible({ timeout: 20000 });
     await expect(recovery).toContainText('Game Book unavailable');
     // No fabricated final behind or inside the recovery surface.
-    await expect(page.getByTestId('game-book-sticky-score')).toHaveCount(0);
+    await expect(page.getByTestId('game-book-score-hero')).toHaveCount(0);
     await expect(recovery).not.toContainText('0 - 0');
 
     await page.getByTestId('game-book-recovery-return').click();
