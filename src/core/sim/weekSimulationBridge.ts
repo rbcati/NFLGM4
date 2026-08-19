@@ -4,6 +4,7 @@ import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
 import { DEPTH_CHART_ROWS, getCanonicalScrimmageAssignment, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
 import { FOOTBALL_ROSTER_CONFIG } from '../sports/footballRosterConfig.js';
+import { isAvailableForGameDay } from '../holdouts/holdoutEngine.js';
 
 const OFFENSE_KEYS: Array<keyof AttributesV2> = [
   'throwAccuracyShort', 'throwAccuracyDeep', 'throwPower', 'release', 'routeRunning', 'separation',
@@ -117,7 +118,7 @@ function pickUnitPlayers(
 
 export function aggregateTeamUnitsFromRoster(roster: Player[] = []): AggregatedTeamUnits {
   const migratedPlayers: Array<{ id: number | string; attributesV2: AttributesV2 }> = [];
-  const upgradedRoster = roster.map((player) => {
+  const upgradedRoster = roster.filter((player) => isAvailableForGameDay(player)).map((player) => {
     const upgraded = ensureAttributesV2(player);
     if (!player.attributesV2 && player.id != null) {
       migratedPlayers.push({ id: player.id, attributesV2: upgraded.attributesV2 });

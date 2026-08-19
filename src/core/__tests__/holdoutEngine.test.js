@@ -308,6 +308,38 @@ describe('isAvailableForGameDay', () => {
     const player = makePlayer({ holdout: null });
     expect(isAvailableForGameDay(player)).toBe(true);
   });
+
+  it.each([
+    ['canonical injury duration', { injured: true, injuryWeeksRemaining: 3 }],
+    ['nested legacy injury duration', { injury: { type: 'Knee', weeksRemaining: 2 } }],
+    ['injured reserve status', { status: 'injured_reserve' }],
+    ['legacy IR flag', { onIR: true }],
+    ['practice squad status', { status: 'practice_squad' }],
+    ['retired flag', { retired: true }],
+    ['retired status', { status: 'retired' }],
+  ])('returns false for %s', (_label, fields) => {
+    expect(isAvailableForGameDay(makePlayer(fields))).toBe(false);
+  });
+
+  it('preserves legacy availability when optional injury fields are missing', () => {
+    expect(isAvailableForGameDay(makePlayer({ status: 'active' }))).toBe(true);
+    expect(isAvailableForGameDay(makePlayer({ injured: false, injuryWeeksRemaining: 0 }))).toBe(true);
+  });
+
+  it('keeps ownership separate and rejects a foreign player only when team context is supplied', () => {
+    const player = makePlayer({ teamId: 2 });
+    expect(isAvailableForGameDay(player)).toBe(true);
+    expect(isAvailableForGameDay(player, { teamId: 1 })).toBe(false);
+    expect(isAvailableForGameDay(player, { teamId: '2' })).toBe(true);
+  });
+
+  it('is deterministic and does not mutate injury, roster, or transaction state', () => {
+    const player = makePlayer({ injured: true, injuryWeeksRemaining: 4, transactions: [{ type: 'SIGN' }] });
+    const before = structuredClone(player);
+    expect(isAvailableForGameDay(player)).toBe(false);
+    expect(isAvailableForGameDay(player)).toBe(false);
+    expect(player).toEqual(before);
+  });
 });
 
 // ── resolveHoldout ────────────────────────────────────────────────────────────

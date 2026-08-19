@@ -277,15 +277,41 @@ export function getHoldoutDemandPremium(player) {
 // ── isAvailableForGameDay ─────────────────────────────────────────────────────
 
 /**
- * False when a player is on holdout (excluded from active game-day roster).
+ * Canonical pre-game participation gate.
+ *
+ * Ownership remains a separate concern: callers that know the expected team
+ * may provide it, while the worker normally supplies an already-owned roster.
+ * Missing optional fields retain legacy-save behavior and do not make a player
+ * unavailable.
  *
  * @param {object} player
+ * @param {{ teamId?: number|string|null }} context
  * @returns {boolean}
  */
-export function isAvailableForGameDay(player) {
-  const h = player?.holdout;
-  if (!h) return true;
-  return !h.active;
+export function isAvailableForGameDay(player, context = {}) {
+  if (!player || typeof player !== 'object') return false;
+
+  if (context.teamId != null && String(player.teamId) !== String(context.teamId)) return false;
+  if (player.holdout?.active === true) return false;
+
+  const status = String(player.status ?? '').trim().toLowerCase();
+  if (player.retired === true || player.isRetired === true) return false;
+  if (['retired', 'practice_squad', 'injured_reserve', 'free_agent', 'draft_eligible'].includes(status)) return false;
+  if (player.onIR === true || player.injury?.ir === true) return false;
+
+  const injuryWeeks = [
+    player.injuryWeeksRemaining,
+    player.injuredWeeks,
+    player.injuryDuration,
+    player.injury?.weeksRemaining,
+    player.injury?.gamesRemaining,
+  ].some((value) => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) > 0);
+  if (injuryWeeks) return false;
+  if (player.injured === true || player.seasonEndingInjury === true || ['injured', 'ir'].includes(status)) return false;
+  if (player.injury?.name || player.injury?.type) return false;
+
+  const injuryStatus = String(player.injury?.status ?? '').trim().toLowerCase();
+  return !injuryStatus || injuryStatus === 'healthy';
 }
 
 // ── checkHoldoutTimeExpiry ────────────────────────────────────────────────────
