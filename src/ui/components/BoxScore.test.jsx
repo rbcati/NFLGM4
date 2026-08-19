@@ -56,6 +56,7 @@ describe('BoxScore compact sheet — core rendering', () => {
       <BoxScore gameId="2031_w4_1_2" league={baseLeague} actions={{ getBoxScore: vi.fn() }} scheduleGame={scheduleGame} embedded />,
     );
     expect(getByTestId('game-book-final-score').textContent).toBe('BUF 24 - 13 KC');
+    expect(getByTestId('game-book-final-score').getAttribute('aria-hidden')).toBe('true');
     expect(container.textContent).not.toContain('Game Book unavailable');
   });
 
@@ -241,7 +242,7 @@ describe('BoxScore compact sheet — core rendering', () => {
   it('single ✕ dismiss button falls back to onBack when onClose is absent', () => {
     const onBack = vi.fn();
     const { getByTestId } = render(
-      <BoxScore gameId="g-back" league={{ ...baseLeague, gameById: { 'g-back': { homeId: 1, awayId: 2, homeScore: 14, awayScore: 7 } } }} onBack={onBack} embedded />,
+      <BoxScore gameId="g-back" league={{ ...baseLeague, gameById: { 'g-back': { homeId: 1, awayId: 2, homeScore: 14, awayScore: 7 } } }} onBack={onBack} />,
     );
     fireEvent.click(getByTestId('game-book-close'));
     expect(onBack).toHaveBeenCalledTimes(1);

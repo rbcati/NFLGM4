@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react';
 import BoxScorePanel from './BoxScorePanel.jsx';
-import { EmptyState, ScreenHeader, SectionCard } from './ScreenSystem.jsx';
+import { EmptyState, ScreenHeader } from './ScreenSystem.jsx';
 import { buildWeeklyDecisionImpact } from '../utils/weeklyDecisionImpact.js';
 import { buildGameBookPresentation, unwrapBoxScoreResponse } from '../utils/boxScoreViewModel.js';
 import useStableRouteRequest from '../hooks/useStableRouteRequest.js';
@@ -30,57 +30,22 @@ export function classifyPreparationBullet(bullet) {
   return { ...match, text, unavailable: text.startsWith('No ') };
 }
 
-// Compact, mobile-first sticky chrome for the Game Book. Keeps the final score,
-// W/L result, week, and a return action above the fold so the user never has to
-// scroll to see the outcome or get back to HQ. Presentational only — it reads
-// from the already-built box-score view model and never recomputes any result.
-function GameBookStickyHeader({ detailVm, userTeamId, week, onBack, backLabel }) {
-  const hasFinal = Boolean(detailVm?.availableData?.finalScore);
-  const home = detailVm?.homeTeam ?? null;
-  const away = detailVm?.awayTeam ?? null;
-  const homeScore = detailVm?.finalScore?.home;
-  const awayScore = detailVm?.finalScore?.away;
-
-  let outcome = null; // { label, tone }
-  if (hasFinal && userTeamId != null && home && away) {
-    const userIsHome = Number(home.id) === Number(userTeamId);
-    const userIsAway = Number(away.id) === Number(userTeamId);
-    if (userIsHome || userIsAway) {
-      const userScore = userIsHome ? homeScore : awayScore;
-      const oppScore = userIsHome ? awayScore : homeScore;
-      if (Number(userScore) === Number(oppScore)) outcome = { label: 'T', tone: 'info' };
-      else if (Number(userScore) > Number(oppScore)) outcome = { label: 'W', tone: 'ok' };
-      else outcome = { label: 'L', tone: 'danger' };
-    }
-  }
-
+// Compact route-owned return chrome. Matchup identity stays in the canonical
+// BoxScore hero so the full Game Book exposes only one score surface.
+function GameBookReturnBar({ week, onBack, backLabel }) {
   return (
-    <div className="game-book-sticky-header" data-testid="game-book-sticky-header">
+    <div className="game-book-return-bar" data-testid="game-book-return-bar">
       <button
         type="button"
-        className="btn btn-sm game-book-sticky-header__back"
+        className="btn btn-sm game-book-return-bar__back"
         onClick={onBack}
-        data-testid="game-book-sticky-back"
+        data-testid="game-book-return"
       >
         ← {backLabel ?? 'Return to HQ'}
       </button>
-      <span className="game-book-sticky-header__week" data-testid="game-book-sticky-week">
-        {week != null ? `Wk ${week}` : 'Game Book'}
+      <span className="game-book-return-bar__context">
+        {week != null ? `Wk ${week} Game Book` : 'Game Book'}
       </span>
-      {hasFinal ? (
-        <span className="game-book-sticky-header__score" data-testid="game-book-sticky-score">
-          {outcome ? (
-            <span className={`game-book-sticky-header__badge tone-${outcome.tone}`} aria-hidden="true">{outcome.label}</span>
-          ) : null}
-          <span className="game-book-sticky-header__teams">
-            {away?.abbr ?? 'AWY'} {awayScore ?? '—'} – {homeScore ?? '—'} {home?.abbr ?? 'HME'}
-          </span>
-        </span>
-      ) : (
-        <span className="game-book-sticky-header__score game-book-sticky-header__score--pending" data-testid="game-book-sticky-score">
-          Final pending
-        </span>
-      )}
     </div>
   );
 }
@@ -123,10 +88,6 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
     }),
     [league, canonicalGame, gameId, scheduleGame, weekFromId],
   );
-  const screenTitle = detailVm?.availableData?.finalScore ? detailVm.headlineSummary : 'Game Book';
-  const screenSubtitle = detailVm?.availableData?.finalScore
-    ? `${detailVm.finalScoreLine} · Game Book sections show only data recorded for this final.`
-    : 'Scan the final, review the recap narrative, compare team stats, then drill into player leaders and play detail.';
 
   // Recovery guard: onBack navigates exactly once even if the recovery action
   // is tapped repeatedly while the route transition is in flight.
@@ -219,61 +180,50 @@ export default function GameDetailScreen({ gameId, league, actions, onBack, onPl
 
   return (
     <div className="app-screen-stack" data-testid="game-book">
-      <GameBookStickyHeader
-        detailVm={detailVm}
-        userTeamId={league?.userTeamId}
+      <GameBookReturnBar
         week={detailVm?.week ?? weekFromId ?? null}
         onBack={onBack}
         backLabel={backLabel}
       />
-      <ScreenHeader
-        eyebrow="Game Book"
-        title={screenTitle}
-        subtitle={screenSubtitle}
+      <BoxScorePanel
+        presentation={detailVm}
+        gameId={gameId}
+        actions={actions}
+        league={league}
         onBack={onBack}
-        backLabel={backLabel ?? "Return to HQ"}
-        primaryAction={(
-          <button type="button" className="btn btn-sm" onClick={() => onNavigate?.('Weekly Prep')}>
-            Review Next Week
-          </button>
-        )}
-        metadata={[
-          { label: 'Game ID', value: gameId },
-          { label: 'Season', value: league?.seasonId ?? '—' },
-          { label: 'Week', value: detailVm?.week ?? weekFromId ?? '—' },
-          { label: 'Final', value: detailVm?.finalScoreLine ?? '—' },
-        ]}
-      />
-      <div data-testid="game-book-decision-summary">
-        <SectionCard variant="compact" title="Preparation Context" subtitle="Pregame context captured before kickoff. This strip does not assign direct causality.">
-          <dl className="game-book-prep-context" aria-label="Preparation context">
-            {categorizedPreparation.map((item) => (
-              <div key={item.key} className="game-book-prep-context__row">
-                <dt>{item.label}</dt>
-                <dd title={item.unavailable ? item.text : undefined}>{item.unavailable ? 'Not recorded' : item.text}</dd>
-                {item.unavailable ? <span className="sr-only">{item.text}</span> : null}
+        onPlayerSelect={onPlayerSelect}
+        onTeamSelect={onTeamSelect}
+        scheduleGame={canonicalGame ?? scheduleGame}
+        backLabel={backLabel}
+        summarySupplement={(
+          <>
+            <section className="game-book-preparation" data-testid="game-book-decision-summary" aria-labelledby="game-book-preparation-heading">
+              <h3 id="game-book-preparation-heading">Preparation Context</h3>
+              <p className="game-book-preparation__note">Pregame context captured before kickoff. This does not assign direct causality.</p>
+              <dl className="game-book-prep-context" aria-label="Preparation context">
+                {categorizedPreparation.map((item) => (
+                  <div key={item.key} className="game-book-prep-context__row">
+                    <dt>{item.label}</dt>
+                    <dd title={item.unavailable ? item.text : undefined}>{item.unavailable ? 'Not recorded' : item.text}</dd>
+                    {item.unavailable ? <span className="sr-only">{item.text}</span> : null}
+                  </div>
+                ))}
+              </dl>
+              {genericPreparation.map((bullet, idx) => (
+                <p key={`prep-context-generic-${idx}`} data-testid="game-book-prep-context-generic" className="app-hq-intel-item tone-info">{bullet}</p>
+              ))}
+              {!preparationBullets.length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
+            </section>
+            {onNavigate ? (
+              <div className="game-book-summary-action">
+                <button type="button" className="btn btn-sm" data-testid="game-book-review-next-week" onClick={() => onNavigate('Weekly Prep')}>
+                  Review Next Week
+                </button>
               </div>
-            ))}
-          </dl>
-          {genericPreparation.map((bullet, idx) => (
-            <p key={`prep-context-generic-${idx}`} data-testid="game-book-prep-context-generic" className="app-hq-intel-item tone-info">{bullet}</p>
-          ))}
-          {!preparationBullets.length ? <p className="app-hq-intel-item tone-info">No pregame preparation markers were found for this game.</p> : null}
-        </SectionCard>
-      </div>
-      <SectionCard variant="info" title="Game Book Detail" subtitle="Summary → Team stats → Player leaders → Drive/play recap.">
-        <BoxScorePanel
-          presentation={detailVm}
-          gameId={gameId}
-          actions={actions}
-          league={league}
-          onBack={onBack}
-          onPlayerSelect={onPlayerSelect}
-          onTeamSelect={onTeamSelect}
-          scheduleGame={canonicalGame ?? scheduleGame}
-          backLabel={backLabel}
-        />
-      </SectionCard>
+            ) : null}
+          </>
+        )}
+      />
     </div>
   );
 }

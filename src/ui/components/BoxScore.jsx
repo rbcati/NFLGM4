@@ -46,6 +46,7 @@ function BoxScore({
   isManualSimRun = false,
   backLabel = "Back to flow",
   presentation = null,
+  summarySupplement = null,
 }) {
   const [activeTab, setActiveTab] = useState('passing');
   const [activeView, setActiveView] = useState('summary');
@@ -78,7 +79,7 @@ function BoxScore({
   if (!vm || vm.status === "unavailable") {
     return (
       <div className={`bs-sheet${embedded ? " bs-sheet--embedded" : ""}`} data-testid="box-score-sheet">
-        <button
+        {!embedded && <button
           type="button"
           className="bs-sheet-dismiss"
           data-testid="game-book-close"
@@ -86,7 +87,7 @@ function BoxScore({
           aria-label="Close box score"
         >
           ✕
-        </button>
+        </button>}
         <p className="bs-sheet-unavailable">Game data missing.</p>
       </div>
     );
@@ -195,7 +196,7 @@ function BoxScore({
       data-testid="box-score-sheet"
     >
       {/* Single ✕ dismiss — top-right */}
-      <button
+      {!embedded && <button
         type="button"
         className="bs-sheet-dismiss"
         data-testid="game-book-close"
@@ -203,24 +204,24 @@ function BoxScore({
         aria-label="Close box score"
       >
         ✕
-      </button>
+      </button>}
 
       {/* ── SCORE HERO ~60px — priority 1: what happened ───────────────── */}
       <div className="bs-sheet-hero" data-testid="game-book-score-hero">
-        <div className="bs-sheet-score-display">
-          <span className="bs-sheet-abbr">{awayAbbr}</span>
+        <h1 className="bs-sheet-score-display" aria-label={vm.finalScoreLine}>
+          <span className="bs-sheet-abbr"><TeamButton team={vm.awayTeam} onSelect={onTeamSelect} /></span>
           <span className="bs-sheet-pts">{awayScore}</span>
           <span className="bs-sheet-sep">·</span>
           <span className="bs-sheet-pts">{homeScore}</span>
-          <span className="bs-sheet-abbr">{homeAbbr}</span>
+          <span className="bs-sheet-abbr"><TeamButton team={vm.homeTeam} onSelect={onTeamSelect} /></span>
           {wlLabel && (
             <span className={`bs-sheet-wl bs-sheet-wl--${wlTone}`} aria-label={wlLabel === "W" ? "Win" : wlLabel === "L" ? "Loss" : "Tie"}>
               {wlLabel}
             </span>
           )}
-        </div>
-        {/* Machine-readable line preserved for tests and screen readers */}
-        <div className="sr-only" data-testid="game-book-final-score">{vm.finalScoreLine}</div>
+        </h1>
+        {/* Stable machine-readable test hook; hidden from AT to avoid announcing the heading twice. */}
+        <div className="sr-only" aria-hidden="true" data-testid="game-book-final-score">{vm.finalScoreLine}</div>
         <div className="bs-sheet-meta">Week {vm.week ?? mdash} · Season {vm.season ?? mdash}</div>
       </div>
 
@@ -359,6 +360,8 @@ function BoxScore({
           )}
         </div>
       )}
+
+      {activeView === 'summary' && summarySupplement}
 
       {/* ── FULL PLAYER STATS — priority 5, collapsed dense tables ───────── */}
       {activeView === 'players' && <section className="bs-sheet-details" data-testid="game-book-player-stats" aria-label="Player Stats">
