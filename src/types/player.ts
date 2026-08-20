@@ -30,6 +30,7 @@ export interface Player {
   status?: string;
   retired?: boolean;
   isRetired?: boolean;
+  onPracticeSquad?: boolean;
   onIR?: boolean;
   injured?: boolean;
   seasonEndingInjury?: boolean;

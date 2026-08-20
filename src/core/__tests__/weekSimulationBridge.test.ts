@@ -39,9 +39,9 @@ describe('weekSimulationBridge', () => {
     const unavailable = [
       { id: 1, name: 'QB1', pos: 'QB', ovr: 99, injured: true, injuryWeeksRemaining: 3, depthChart: { rowKey: 'QB', order: 1 } },
       { id: 3, name: 'RB1', pos: 'RB', ovr: 99, status: 'injured_reserve', depthChart: { rowKey: 'RB', order: 1 } },
-      { id: 5, name: 'WR1', pos: 'WR', ovr: 99, onIR: true, depthChart: { rowKey: 'WR', order: 1 } },
-      { id: 7, name: 'EDGE1', pos: 'EDGE', ovr: 99, injury: { status: 'Out' }, depthChart: { rowKey: 'EDGE', order: 1 } },
-      { id: 9, name: 'RS1', pos: 'WR', ovr: 99, injuryWeeksRemaining: 2, depthChart: { rowKey: 'RS', order: 1 } },
+      { id: 5, name: 'WR1', pos: 'WR', ovr: 99, injured: true, depthChart: { rowKey: 'WR', order: 1 } },
+      { id: 7, name: 'EDGE1', pos: 'EDGE', ovr: 99, seasonEndingInjury: true, depthChart: { rowKey: 'EDGE', order: 1 } },
+      { id: 9, name: 'RS1', pos: 'WR', ovr: 99, injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'RS', order: 1 } },
     ];
     const available = [
       { id: 2, name: 'QB2', pos: 'QB', ovr: 60, depthChart: { rowKey: 'QB', order: 2 } },

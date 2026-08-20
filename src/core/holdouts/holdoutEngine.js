@@ -10,6 +10,8 @@
  *  - Reads morale summary via argument injection (same pattern as negotiationModifiers.js).
  */
 
+import { canPlayerPlay } from '../injury-core.js';
+
 // ── Trigger constants ─────────────────────────────────────────────────────────
 
 export const HOLDOUT_TRIGGERS = Object.freeze({
@@ -292,26 +294,13 @@ export function isAvailableForGameDay(player, context = {}) {
   if (!player || typeof player !== 'object') return false;
 
   if (context.teamId != null && String(player.teamId) !== String(context.teamId)) return false;
+  if (!canPlayerPlay(player)) return false;
   if (player.holdout?.active === true) return false;
+  if (isOnPracticeSquad(player)) return false;
 
   const status = String(player.status ?? '').trim().toLowerCase();
   if (player.retired === true || player.isRetired === true) return false;
-  if (['retired', 'practice_squad', 'injured_reserve', 'free_agent', 'draft_eligible'].includes(status)) return false;
-  if (player.onIR === true || player.injury?.ir === true) return false;
-
-  const injuryWeeks = [
-    player.injuryWeeksRemaining,
-    player.injuredWeeks,
-    player.injuryDuration,
-    player.injury?.weeksRemaining,
-    player.injury?.gamesRemaining,
-  ].some((value) => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) > 0);
-  if (injuryWeeks) return false;
-  if (player.injured === true || player.seasonEndingInjury === true || ['injured', 'ir'].includes(status)) return false;
-  if (player.injury?.name || player.injury?.type) return false;
-
-  const injuryStatus = String(player.injury?.status ?? '').trim().toLowerCase();
-  return !injuryStatus || injuryStatus === 'healthy';
+  return !['retired', 'injured_reserve', 'free_agent', 'draft_eligible'].includes(status);
 }
 
 // ── checkHoldoutTimeExpiry ────────────────────────────────────────────────────
