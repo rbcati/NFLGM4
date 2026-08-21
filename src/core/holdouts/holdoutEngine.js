@@ -10,6 +10,8 @@
  *  - Reads morale summary via argument injection (same pattern as negotiationModifiers.js).
  */
 
+import { canPlayerPlay } from '../injury-core.js';
+
 // ── Trigger constants ─────────────────────────────────────────────────────────
 
 export const HOLDOUT_TRIGGERS = Object.freeze({
@@ -277,15 +279,28 @@ export function getHoldoutDemandPremium(player) {
 // ── isAvailableForGameDay ─────────────────────────────────────────────────────
 
 /**
- * False when a player is on holdout (excluded from active game-day roster).
+ * Canonical pre-game participation gate.
+ *
+ * Ownership remains a separate concern: callers that know the expected team
+ * may provide it, while the worker normally supplies an already-owned roster.
+ * Missing optional fields retain legacy-save behavior and do not make a player
+ * unavailable.
  *
  * @param {object} player
+ * @param {{ teamId?: number|string|null }} context
  * @returns {boolean}
  */
-export function isAvailableForGameDay(player) {
-  const h = player?.holdout;
-  if (!h) return true;
-  return !h.active;
+export function isAvailableForGameDay(player, context = {}) {
+  if (!player || typeof player !== 'object') return false;
+
+  if (context.teamId != null && String(player.teamId) !== String(context.teamId)) return false;
+  if (!canPlayerPlay(player)) return false;
+  if (player.holdout?.active === true) return false;
+  if (isOnPracticeSquad(player)) return false;
+
+  const status = String(player.status ?? '').trim().toLowerCase();
+  if (player.retired === true || player.isRetired === true) return false;
+  return !['retired', 'injured_reserve', 'free_agent', 'draft_eligible'].includes(status);
 }
 
 // ── checkHoldoutTimeExpiry ────────────────────────────────────────────────────

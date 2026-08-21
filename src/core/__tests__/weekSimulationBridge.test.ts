@@ -35,6 +35,35 @@ describe('weekSimulationBridge', () => {
     expect(units.defense.zoneCoverage).toBeGreaterThan(0);
   });
 
+  it('gates unavailable starters before depth and rating selection while preserving healthy backups', () => {
+    const unavailable = [
+      { id: 1, name: 'QB1', pos: 'QB', ovr: 99, injured: true, injuryWeeksRemaining: 3, depthChart: { rowKey: 'QB', order: 1 } },
+      { id: 3, name: 'RB1', pos: 'RB', ovr: 99, status: 'injured_reserve', depthChart: { rowKey: 'RB', order: 1 } },
+      { id: 5, name: 'WR1', pos: 'WR', ovr: 99, injured: true, depthChart: { rowKey: 'WR', order: 1 } },
+      { id: 7, name: 'EDGE1', pos: 'EDGE', ovr: 99, seasonEndingInjury: true, depthChart: { rowKey: 'EDGE', order: 1 } },
+      { id: 9, name: 'RS1', pos: 'WR', ovr: 99, injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'RS', order: 1 } },
+    ];
+    const available = [
+      { id: 2, name: 'QB2', pos: 'QB', ovr: 60, depthChart: { rowKey: 'QB', order: 2 } },
+      { id: 4, name: 'RB2', pos: 'RB', ovr: 60, depthChart: { rowKey: 'RB', order: 2 } },
+      { id: 6, name: 'WR2', pos: 'WR', ovr: 60, depthChart: { rowKey: 'WR', order: 2 } },
+      { id: 8, name: 'EDGE2', pos: 'EDGE', ovr: 60, depthChart: { rowKey: 'EDGE', order: 2 } },
+    ];
+    const roster = [...unavailable, ...available] as any;
+    const before = structuredClone(roster);
+
+    const units = aggregateTeamUnitsFromRoster(roster);
+
+    expect(units.selectedUnitPlayerIds.offense).toEqual(expect.arrayContaining([2, 4, 6]));
+    expect(units.selectedUnitPlayerIds.defense).toContain(8);
+    for (const player of unavailable) {
+      expect(units.selectedUnitPlayerIds.offense).not.toContain(player.id);
+      expect(units.selectedUnitPlayerIds.defense).not.toContain(player.id);
+    }
+    expect(roster).toEqual(before);
+    expect(aggregateTeamUnitsFromRoster(roster)).toEqual(units);
+  });
+
   it('applies severe out-of-position penalties when depth assignment is known', () => {
     const qbAttrs = mapOverallToAttributesV2(90, 5.5, 'qb');
     const wrAttrs = mapOverallToAttributesV2(90, 5.5, 'wr');

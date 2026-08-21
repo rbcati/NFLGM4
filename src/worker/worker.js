@@ -4596,7 +4596,7 @@ function buildLeagueForSim(schedule, week, seasonId) {
   // Exclude holdout players from game-day roster (same treatment as injury unavailability)
   const teamsWithRosters = teams.map(t => ({
     ...t,
-    roster: cache.getPlayersByTeam(t.id).filter(isAvailableForGameDay),
+    roster: cache.getPlayersByTeam(t.id).filter((player) => isAvailableForGameDay(player, { teamId: t.id })),
   }));
 
   // Replace team references in schedule with full team objects

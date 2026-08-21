@@ -27,6 +27,18 @@ export interface Player {
   ovr?: number;
   ratings?: Record<string, number>;
   attributesV2?: AttributesV2;
+  status?: string;
+  retired?: boolean;
+  isRetired?: boolean;
+  onPracticeSquad?: boolean;
+  onIR?: boolean;
+  injured?: boolean;
+  seasonEndingInjury?: boolean;
+  injuredWeeks?: number;
+  injuryDuration?: number;
+  injuryWeeksRemaining?: number;
+  injury?: { name?: string; type?: string; status?: string; ir?: boolean; weeksRemaining?: number; gamesRemaining?: number };
+  holdout?: { active?: boolean } | null;
 }
 
 /**
