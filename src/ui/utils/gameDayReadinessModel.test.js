@@ -4,10 +4,10 @@ import { buildGameDayReadinessModel } from './gameDayReadinessModel.js';
 describe('buildGameDayReadinessModel', () => {
   it('projects factual canonical counts and blocking starter state', () => {
     const roster = [
-      { id: 1, name: 'QB One', pos: 'QB', injured: true, depthOrder: 1 },
-      { id: 2, name: 'Wide One', pos: 'WR', holdout: { active: true }, depthOrder: 1 },
-      { id: 3, name: 'Edge One', pos: 'EDGE', seasonEndingInjury: true, depthOrder: 1 },
-      { id: 4, name: 'QB Two', pos: 'QB', depthOrder: 2 },
+      { id: 1, name: 'QB One', pos: 'QB', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'QB', order: 1 } },
+      { id: 2, name: 'Wide One', pos: 'WR', holdout: { active: true }, depthChart: { rowKey: 'WR', order: 1 } },
+      { id: 3, name: 'Edge One', pos: 'EDGE', seasonEndingInjury: true, injuryDuration: 6, depthChart: { rowKey: 'EDGE', order: 1 } },
+      { id: 4, name: 'QB Two', pos: 'QB', depthChart: { rowKey: 'QB', order: 2 } },
     ];
     const before = structuredClone(roster);
     const model = buildGameDayReadinessModel({ roster });

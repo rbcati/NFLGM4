@@ -23,9 +23,9 @@ function makeLeague(roster) {
 }
 
 const blockingRoster = [
-  { id: 1, teamId: 1, name: 'QB One', pos: 'QB', injured: true, depthOrder: 1 },
-  { id: 2, teamId: 1, name: 'Wide One', pos: 'WR', seasonEndingInjury: true, depthOrder: 1 },
-  { id: 3, teamId: 1, name: 'QB Two', pos: 'QB', depthOrder: 2 },
+  { id: 1, teamId: 1, name: 'QB One', pos: 'QB', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'QB', order: 1 } },
+  { id: 2, teamId: 1, name: 'Wide One', pos: 'WR', seasonEndingInjury: true, status: 'injured', depthChart: { rowKey: 'WR', order: 1 } },
+  { id: 3, teamId: 1, name: 'QB Two', pos: 'QB', depthChart: { rowKey: 'QB', order: 2 } },
 ];
 
 describe('shared game-day readiness consumers', () => {

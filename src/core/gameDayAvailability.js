@@ -1,22 +1,30 @@
-import { canPlayerPlay } from './injury-core.js';
 import { isAvailableForGameDay } from './holdouts/holdoutEngine.js';
+import { getCanonicalScrimmageAssignment } from './depthChart.js';
 
-function isStarter(player) {
-  return Number(player?.depthChart?.order ?? player?.depthOrder ?? 0) === 1;
+/** Preserve the worker's established readiness-only injury interpretation. */
+export function hasReadinessInjury(player) {
+  const weeks = Number(player?.injuryWeeksRemaining ?? player?.injuredWeeks ?? player?.injuryDuration ?? 0);
+  const status = String(player?.status ?? '').toLowerCase();
+  return weeks > 0 || status === 'injured' || status === 'ir';
+}
+
+function isScrimmageStarter(player) {
+  return getCanonicalScrimmageAssignment(player)?.order === 1;
 }
 
 /**
  * Derive participation and readiness facts without altering the owned roster.
- * Injury context deliberately uses canPlayerPlay; the broader game-day gate is
- * reserved for the eligible participant pool.
+ * Readiness injury context preserves the established worker semantics; the
+ * broader game-day gate (and its canPlayerPlay authority) is reserved for the
+ * eligible participant pool.
  */
 export function deriveGameDayAvailability(roster = [], context = {}) {
   const fullRoster = Array.isArray(roster) ? roster.filter(Boolean) : [];
-  const injuredPlayers = fullRoster.filter((player) => !canPlayerPlay(player));
-  const injuredStarters = injuredPlayers.filter(isStarter);
+  const injuredPlayers = fullRoster.filter(hasReadinessInjury);
+  const injuredStarters = injuredPlayers.filter(isScrimmageStarter);
   const eligiblePlayers = fullRoster.filter((player) => isAvailableForGameDay(player, context));
   const unavailablePlayers = fullRoster.filter((player) => !isAvailableForGameDay(player, context));
-  const unavailableStarters = unavailablePlayers.filter(isStarter);
+  const unavailableStarters = unavailablePlayers.filter(isScrimmageStarter);
 
   return {
     fullRoster,

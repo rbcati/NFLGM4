@@ -6,10 +6,10 @@ const player = (id, fields = {}) => ({ id, name: `Player ${id}`, teamId: 1, ...f
 describe('deriveGameDayAvailability', () => {
   it('keeps the full injury context while deriving a separate eligible roster', () => {
     const roster = [
-      player(1, { pos: 'QB', injured: true, depthOrder: 1 }),
-      player(2, { pos: 'WR', seasonEndingInjury: true, depthChart: { order: 1 } }),
-      player(3, { pos: 'EDGE', injured: true, depthOrder: 1 }),
-      player(4, { pos: 'QB', depthOrder: 2 }),
+      player(1, { pos: 'QB', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'QB', order: 1 } }),
+      player(2, { pos: 'WR', seasonEndingInjury: true, status: 'injured', depthChart: { rowKey: 'WR', order: 1 } }),
+      player(3, { pos: 'EDGE', injured: true, injuryDuration: 4, depthChart: { rowKey: 'EDGE', order: 1 } }),
+      player(4, { pos: 'QB', depthChart: { rowKey: 'QB', order: 2 } }),
     ];
     const before = structuredClone(roster);
 
@@ -43,5 +43,41 @@ describe('deriveGameDayAvailability', () => {
     const facts = deriveGameDayAvailability([stale], { teamId: 1 });
     expect(facts.injuredPlayers).toEqual([]);
     expect(facts.eligiblePlayers).toEqual([stale]);
+  });
+
+  it.each([
+    { injuryWeeksRemaining: 2 },
+    { injuredWeeks: 2 },
+    { injuryDuration: 2 },
+    { status: 'injured' },
+    { status: 'ir' },
+  ])('preserves the established readiness injury context for %j', (fields) => {
+    const legacyInjury = player(1, fields);
+    const facts = deriveGameDayAvailability([legacyInjury], { teamId: 1 });
+    expect(facts.injuredPlayers).toEqual([legacyInjury]);
+    expect(facts.eligiblePlayers).toEqual([legacyInjury]);
+  });
+
+  it('preserves the prior major-injury-stress threshold for legacy readiness fields', () => {
+    const roster = [
+      player(1, { injuryWeeksRemaining: 1 }),
+      player(2, { status: 'injured' }),
+      player(3, { status: 'ir' }),
+    ];
+    expect(deriveGameDayAvailability(roster).majorInjuryStress).toBe(true);
+  });
+
+  it('counts only canonical scrimmage assignments as unavailable starters', () => {
+    const roster = [
+      player(1, { pos: 'WR', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'RS', order: 1 } }),
+      player(2, { pos: 'WR', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'WR', order: 1 } }),
+      player(3, { pos: 'CB', secondaryPositions: ['S'], injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'S', order: 1 } }),
+      player(4, { pos: 'K', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'K', order: 1 } }),
+      player(5, { pos: 'P', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'P', order: 1 } }),
+    ];
+    const facts = deriveGameDayAvailability(roster);
+    expect(facts.unavailableStarters.map(({ id }) => id)).toEqual([2, 3]);
+    expect(facts.injuredStarters.map(({ id }) => id)).toEqual([2, 3]);
+    expect(facts.blockingLineupIssue).toBe(true);
   });
 });
