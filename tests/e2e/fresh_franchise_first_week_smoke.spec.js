@@ -215,18 +215,14 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
     await expect(page.getByTestId('game-book')).toBeVisible({ timeout: SMOKE_TIMEOUT });
   }
 
-  // ── Return to HQ and verify Last Result card shows the correct score ─────────
-  await page.getByTestId('return-to-hq').click();
-  let hqVisible = false;
-  try {
-    await page.getByTestId('franchise-hq').waitFor({ state: "visible", timeout: 3000 });
-    hqVisible = true;
-  } catch (err) {
-    if (err.name !== "TimeoutError") throw err;
-  }
-  if (!hqVisible) {
-    await page.getByRole('button', { name: /^Back to HQ$/i }).click();
-  }
+  // ── Follow the canonical Game Book return flow, then return to HQ ───────────
+  // This Game Book was opened from Weekly Results, so its single route-owned
+  // return control correctly restores that source before the user returns home.
+  const gameBookReturn = page.getByTestId('game-book-return');
+  await expect(gameBookReturn).toHaveAccessibleName(/Back to Weekly Results/i);
+  await gameBookReturn.click();
+  await expect(page.getByTestId('weekly-results')).toBeVisible({ timeout: SMOKE_TIMEOUT });
+  await page.getByRole('button', { name: /^Back to HQ$/i }).click();
   await expect(page.getByTestId('franchise-hq')).toBeVisible({ timeout: SMOKE_TIMEOUT });
   // hq-last-result now lives inside the collapsed "Season Pulse & More" drawer
   // (twin-grid dashboard restructure) and is hidden until that <details> is
@@ -282,7 +278,7 @@ test('fresh franchise first week smoke', async ({ page, context }) => {
     await reviewGameBookCta.click();
     await expect(page.getByTestId('game-book')).toBeVisible({ timeout: SMOKE_TIMEOUT });
     await expect(page.getByTestId('game-book-final-score')).toBeVisible({ timeout: SMOKE_TIMEOUT });
-    await page.getByTestId('return-to-hq').click();
+    await page.getByTestId('game-book-return').click();
     await expect(page.getByTestId('franchise-hq')).toBeVisible({ timeout: SMOKE_TIMEOUT });
   }
 
