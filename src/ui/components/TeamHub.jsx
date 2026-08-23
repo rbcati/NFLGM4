@@ -207,7 +207,26 @@ export default function TeamHub({ league, actions, onOpenGameDetail, onPlayerSel
       {subtab === 'Roster / Depth' && (
         <div className="app-screen-stack">
           <SectionCard title="Weekly lineup decisions" subtitle="Confirm starters, depth insurance, and injury contingencies." variant="compact">
-            {blockingIssues.length > 0 ? (
+            {gameDayReadiness.blockingLineupIssue ? (
+              <div className="team-hub-alert-list" data-testid="team-hub-unavailable-starters">
+                <div className="team-hub-alert">
+                  <div>
+                    <strong>{gameDayReadiness.unavailableStarterCount} starters unavailable</strong>
+                    <span>Game-day availability requires lineup review.</span>
+                  </div>
+                  <StatusChip label="Action required" tone="warning" />
+                </div>
+                {gameDayReadiness.unavailableStarters.map((player) => (
+                  <div key={player.id} className="team-hub-alert">
+                    <div>
+                      <strong>{player.position} {player.name}</strong>
+                      <span>Unavailable for game day</span>
+                    </div>
+                    <StatusChip label="Unavailable" tone="warning" />
+                  </div>
+                ))}
+              </div>
+            ) : blockingIssues.length > 0 ? (
               <div className="team-hub-alert-list">
                 {blockingIssues.map((issue) => (
                   <div key={issue.pos} className="team-hub-alert">

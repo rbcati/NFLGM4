@@ -34,6 +34,6 @@ export function deriveGameDayAvailability(roster = [], context = {}) {
     injuredStarters,
     unavailableStarters,
     majorInjuryStress: injuredPlayers.length >= 3,
-    blockingLineupIssue: injuredStarters.length >= 2,
+    blockingLineupIssue: unavailableStarters.length >= 2,
   };
 }

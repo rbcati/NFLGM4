@@ -24,6 +24,16 @@ export interface AggregatedTeamUnits {
   selectedUnitPlayerIds: { offense: Array<number | string>; defense: Array<number | string> };
 }
 
+export function attachFullRostersForSimulation<T extends { id: number | string }>(
+  teams: T[] = [],
+  getPlayersByTeam: (teamId: T['id']) => Player[] = () => [],
+): Array<T & { roster: Player[] }> {
+  return teams.map((team) => ({
+    ...team,
+    roster: getPlayersByTeam(team.id),
+  }));
+}
+
 export function buildEligibleGameDayRoster(roster: Player[] = [], teamId?: number | string | null): Player[] {
   return roster.filter((player) => isAvailableForGameDay(player, teamId == null ? {} : { teamId }));
 }

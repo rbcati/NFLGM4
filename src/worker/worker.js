@@ -159,7 +159,6 @@ import {
   evaluateHoldoutTriggers,
   applyHoldout,
   resolveHoldout,
-  isAvailableForGameDay,
   checkHoldoutTimeExpiry,
   getHoldoutDemandPremium,
 } from '../core/holdouts/holdoutEngine.js';
@@ -329,6 +328,7 @@ import { simulationManager } from './WorkerPool.ts';
 import { buildDefaultLeague } from '../data/defaultLeague.ts';
 import { getPlayableLeagueValidation, isPlayableLeagueState } from '../state/leagueInit.ts';
 import {
+  attachFullRostersForSimulation,
   aggregateTeamUnitsFromRoster,
   buildDeterministicSeed,
   simulateWithOptionalNewEngine,
@@ -4593,12 +4593,9 @@ async function handleAdvanceWeek(payload, id) {
 function buildLeagueForSim(schedule, week, seasonId) {
   const meta   = cache.getMeta();
   const teams  = cache.getAllTeams();
-  // Attach rosters to teams temporarily (simulateBatch needs player arrays for ratings)
-  // Exclude holdout players from game-day roster (same treatment as injury unavailability)
-  const teamsWithRosters = teams.map(t => ({
-    ...t,
-    roster: cache.getPlayersByTeam(t.id).filter((player) => isAvailableForGameDay(player, { teamId: t.id })),
-  }));
+  // Preserve the full owned roster until readiness context is derived. The
+  // rich-sim boundary later derives and passes only game-day eligible players.
+  const teamsWithRosters = attachFullRostersForSimulation(teams, (teamId) => cache.getPlayersByTeam(teamId));
 
   // Replace team references in schedule with full team objects
   const weekData = schedule.weeks.find(w => w.week === week);

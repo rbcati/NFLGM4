@@ -49,6 +49,32 @@ describe('shared game-day readiness consumers', () => {
     expect(readiness.textContent).toContain('2 starters unavailable: QB QB One, WR Wide One');
     fireEvent.click(within(readiness).getByRole('button', { name: /review lineup/i }));
     expect(screen.getByText('Weekly lineup decisions')).toBeTruthy();
+    const destination = screen.getByTestId('team-hub-unavailable-starters');
+    expect(destination.textContent).toContain('2 starters unavailable');
+    expect(destination.textContent).toContain('QB QB One');
+    expect(destination.textContent).toContain('WR Wide One');
+    expect(screen.queryByText('Lineup passes readiness check')).toBeNull();
+  });
+
+  it('sends a nonblocking HQ availability alert to the existing readiness destination', () => {
+    const onNavigate = vi.fn();
+    const roster = [
+      { id: 1, teamId: 1, name: 'QB One', pos: 'QB', depthChart: { rowKey: 'QB', order: 1 } },
+      { id: 2, teamId: 1, name: 'Backup', pos: 'WR', holdout: { active: true }, depthChart: { rowKey: 'WR', order: 2 } },
+    ];
+    render(<FranchiseHQ league={makeLeague(roster)} onNavigate={onNavigate} onAdvanceWeek={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('hq-actions-required'));
+    expect(onNavigate).toHaveBeenCalledWith('Team:Roster / Depth');
+  });
+
+  it('keeps command blockers visible and opens the existing gate when availability is healthy', () => {
+    const healthy = [{ id: 1, teamId: 1, name: 'QB One', pos: 'QB', depthChart: { rowKey: 'QB', order: 1 } }];
+    render(<FranchiseHQ league={makeLeague(healthy)} onNavigate={vi.fn()} onAdvanceWeek={vi.fn()} />);
+    const row = screen.getByTestId('hq-actions-required');
+    expect(row.textContent).toMatch(/\d+ actions required/i);
+    expect(row.getAttribute('aria-label')).toMatch(/\d+ actions required/i);
+    fireEvent.click(row);
+    expect(screen.getByRole('dialog')).toBeTruthy();
   });
 
   it('renders a compact healthy state in both surfaces', () => {

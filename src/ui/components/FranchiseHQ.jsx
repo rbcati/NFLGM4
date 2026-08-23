@@ -696,11 +696,12 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
           type="button"
           className={`hq-alerts-row hq-alerts-row--${gameDayReadiness.blockingLineupIssue ? 'danger' : commandSummary.readinessTone}`}
           data-testid="hq-actions-required"
-          aria-label={`${gameDayReadiness.unavailableCount} unavailable, ${gameDayReadiness.unavailableStarterCount} starters unavailable. Tap to review.`}
-          onClick={() => gameDayReadiness.blockingLineupIssue ? onNavigate?.(gameDayReadiness.actionDestination) : setShowGate(true)}
+          aria-label={gameDayReadiness.status !== 'ready'
+            ? `${gameDayReadiness.unavailableCount} unavailable, ${gameDayReadiness.unavailableStarterCount} starters unavailable${commandSummary.criticalCount > 0 ? `, plus ${commandSummary.criticalCount} other actions required` : ''}. Tap to review lineup.`
+            : `${commandSummary.criticalCount} actions required. Game-day roster is legal. Tap to review.`}
+          onClick={() => gameDayReadiness.status !== 'ready' ? onNavigate?.(gameDayReadiness.actionDestination) : setShowGate(true)}
         >
-          <span><strong>Game-day readiness</strong> · {gameDayReadiness.availableCount} available · {gameDayReadiness.status === 'ready' ? 'roster legal' : `${gameDayReadiness.unavailableCount} unavailable${gameDayReadiness.unavailableStarterCount ? ` · ${gameDayReadiness.unavailableStarterCount} starter unavailable` : ''}`}</span>
-          {commandSummary.criticalCount > 0 && <span className="sr-only">{commandSummary.criticalCount} actions required</span>}
+          <span>{gameDayReadiness.status === 'ready' && commandSummary.criticalCount > 0 ? `⚠ ${commandSummary.criticalCount} actions required · ` : ''}<strong>Game-day readiness</strong> · {gameDayReadiness.availableCount} available · {gameDayReadiness.status === 'ready' ? 'roster legal' : `${gameDayReadiness.unavailableCount} unavailable${gameDayReadiness.unavailableStarterCount ? ` · ${gameDayReadiness.unavailableStarterCount} starter unavailable` : ''}${commandSummary.criticalCount > 0 ? ` · ${commandSummary.criticalCount} other actions required` : ''}`}</span>
           <span className="hq-alerts-row__chevron" aria-hidden="true">›</span>
         </button>
       ) : (

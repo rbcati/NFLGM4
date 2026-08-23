@@ -80,4 +80,27 @@ describe('deriveGameDayAvailability', () => {
     expect(facts.injuredStarters.map(({ id }) => id)).toEqual([2, 3]);
     expect(facts.blockingLineupIssue).toBe(true);
   });
+
+  it('blocks two holdout scrimmage starters without fabricating injury facts', () => {
+    const roster = [
+      player(1, { pos: 'QB', holdout: { active: true }, depthChart: { rowKey: 'QB', order: 1 } }),
+      player(2, { pos: 'WR', holdout: { active: true }, depthChart: { rowKey: 'WR', order: 1 } }),
+    ];
+    const facts = deriveGameDayAvailability(roster);
+    expect(facts.unavailableStarters).toHaveLength(2);
+    expect(facts.injuredStarters).toHaveLength(0);
+    expect(facts.injuredPlayers).toHaveLength(0);
+    expect(facts.blockingLineupIssue).toBe(true);
+  });
+
+  it('blocks mixed injury and holdout causes using broad unavailability', () => {
+    const roster = [
+      player(1, { pos: 'QB', injured: true, injuryWeeksRemaining: 2, depthChart: { rowKey: 'QB', order: 1 } }),
+      player(2, { pos: 'WR', holdout: { active: true }, depthChart: { rowKey: 'WR', order: 1 } }),
+    ];
+    const facts = deriveGameDayAvailability(roster);
+    expect(facts.unavailableStarters).toHaveLength(2);
+    expect(facts.injuredStarters).toHaveLength(1);
+    expect(facts.blockingLineupIssue).toBe(true);
+  });
 });
