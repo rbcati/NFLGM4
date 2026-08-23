@@ -9,7 +9,7 @@ The branch was cut from current `main` commit `bc0483943591b05430849c9560c3acbd1
 - `FranchiseHQ`, `TeamHub`, `LeagueHub`, `WeeklyResultsCenter`, and `GameDetailScreen` already compose the shared `app-screen-stack`, section-card, compact-row, and density-surface grammar.
 - `LeagueLeaders` owned a 560px minimum-width desktop table. At phone widths its bounded scroller could leave the primary metric beyond the initial viewport. Its filters were already locally constrained by `mobile-shell-density.css`.
 - `LeagueStats` independently owned 980px player and 720px team tables, inline responsive layout, filters, and leader cards. The player table had labels but no intentional phone transformation.
-- `PlayerProfile` and its error boundary own their overlay presentation. The profile already had a phone-specific full-viewport shell and profile tabs, but its normal and failure shells lacked explicit dialog semantics.
+- `PlayerProfile` and its error boundary own their overlay presentation. The profile already had a phone-specific full-viewport shell and profile tabs. An audit found no shared focus-management utility, and the profile does not trap or restore focus, so it must not claim true modal semantics.
 - The principal duplicated rule was the dense player-data pattern: rank/identity/team/key metric plus secondary statistics. Table-specific inline minimum widths made that data dependent on local horizontal scrolling.
 - Risky global patterns remain in legacy CSS, including broad base element/card rules and an existing weekly-results `overflow-x: clip`. This PR does not expand those patterns and does not add document-level overflow suppression.
 
@@ -23,9 +23,9 @@ Only a CSS/markup data grammar was introduced: `app-mobile-data-list`, `app-mobi
 
 ## 5. Screens migrated
 
-- **League Leaders:** phone rows expose rank, clickable player, team, primary metric, and secondary metric together. Filters, category tabs, sort state, and the desktop table remain.
+- **League Leaders:** phone rows expose rank, clickable player, team, primary metric, and secondary metric together. A compact mobile empty state distinguishes no recorded leaders from filters with no matches and preserves the existing League/reset action. Filters, category tabs, sort state, and the desktop table remain.
 - **League Stats player browser:** phone rows expose rank, clickable player, team/position, the category's primary metric, and every remaining recorded column as a wrapping secondary line. Filters, tabs, sorting, and the desktop table remain.
-- **Player Profile:** the existing full-viewport mobile presentation is preserved and now explicitly identifies both the normal shell and failure shell as modal dialogs.
+- **Player Profile:** the existing full-viewport mobile presentation and accessible labels are preserved, while unsupported modal claims are intentionally avoided.
 
 ## 6. Intentionally deferred
 
@@ -37,7 +37,7 @@ At up to 768px the wide player tables are replaced visually by source-ordered ro
 
 ## 8. Player Profile transformation
 
-The existing mobile density stylesheet already makes the profile 100% wide, caps it to `100dvh`, removes desktop corner radii, and keeps internal vertical scrolling. Existing profile tabs progressively disclose the long career/analytics material rather than placing all narrative in the first viewport. This PR does not delete or reorder profile data. Explicit `dialog`/`alertdialog`, `aria-modal`, and labels now clarify the overlay contract.
+The existing mobile density stylesheet already makes the profile 100% wide, caps it to `100dvh`, removes desktop corner radii, and keeps internal vertical scrolling. Existing profile tabs progressively disclose the long career/analytics material rather than placing all narrative in the first viewport. This PR does not delete or reorder profile data. The repository audit found a component-local focus trap in `PostGameSummary`, but no canonical reusable modal utility; adding a new global system would exceed this PR. Player Profile therefore uses a labelled region rather than claiming `aria-modal`, and the failure boundary uses a truthful alert. Full focus containment and restoration remain deferred.
 
 ## 9. HQ hierarchy findings
 
@@ -57,11 +57,11 @@ The shared rules are width-independent below the existing 768px breakpoint and c
 
 ## 13. Accessibility
 
-Player and filter controls remain native buttons/inputs/selects. Mobile rows include an accessible rank label, retain explicit player-profile action labels, preserve visible team/status text, and keep all metrics as text. Player Profile and its failure fallback now expose modal dialog semantics. Existing close controls, backdrop policy, focus styling, tab semantics, and portal ownership are retained.
+Player and filter controls remain native buttons/inputs/selects. Mobile rows include an accessible rank label, retain explicit player-profile action labels, preserve visible team/status text, and keep all metrics as text. Player Profile no longer overstates unimplemented focus containment through modal semantics; its label, close control, backdrop policy, focus styling, tab semantics, and portal ownership remain intact.
 
 ## 14. Tests
 
-Focused League tests assert the mobile primary metric, retained entity action, retained desktop table, filters, and sorting. The boundary test asserts modal semantics. Full unit, soak, simulation types, build, deployment parity, and Playwright outcomes are reported in the final PR description from actual command output.
+Focused League tests assert the mobile primary metric, both mobile empty-state branches and actions, retained entity action, retained desktop table, filters, and sorting. Player Profile and boundary tests assert that the overlays retain accessible labels without claiming unimplemented modal semantics. Full unit, soak, simulation types, build, deployment parity, and Playwright outcomes are reported in the final PR description from actual command output.
 
 ## 15. Explicit non-goals and integrity
 

@@ -178,7 +178,10 @@
   .app-mobile-data-row__metrics { display: grid; gap: 2px; }
   .app-mobile-data-row__metrics strong { color: var(--text); font-size: var(--text-sm); }
   .app-mobile-data-row__metrics span { color: var(--text-muted); font-size: var(--text-xs); line-height: 1.35; overflow-wrap: anywhere; }
-  .app-mobile-data-row__empty { padding: var(--space-4); color: var(--text-muted); }
+  .app-mobile-data-row__empty { display: grid; gap: 6px; padding: var(--space-3); color: var(--text-muted); }
+  .app-mobile-data-row__empty strong { color: var(--text); font-size: var(--text-sm); }
+  .app-mobile-data-row__empty span { font-size: var(--text-xs); }
+  .app-mobile-data-row__empty .btn { justify-self: start; min-height: 40px; }
 }
 
 .app-weekly-results-screen { overflow-x: clip; }

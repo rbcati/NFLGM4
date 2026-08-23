@@ -358,6 +358,19 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
   const sourceLabel = leaderPayload?.source === "last_completed_regular_season"
     ? "Showing last completed regular-season leaders."
     : "Showing current regular-season leaders.";
+  const emptyState = hasActiveFilters
+    ? {
+      title: "No matching league leaders",
+      subtitle: "No players match the active leader filters.",
+      action: "Reset filters",
+      onAction: resetFilters,
+    }
+    : {
+      title: "No league leaders yet",
+      subtitle: "No players have logged enough stats this season.",
+      action: "Open league",
+      onAction: () => onNavigate?.("League"),
+    };
 
   return (
     <div className="league-leaders-surface pfgm-density-surface" style={{ display: "grid", gap: "var(--space-3)" }}>
@@ -420,6 +433,13 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
                 </div>
               </div>
             ))}
+            {visibleRows.length === 0 ? (
+              <div className="app-mobile-data-row__empty">
+                <strong>{emptyState.title}</strong>
+                <span>{emptyState.subtitle}</span>
+                <button type="button" className="btn btn-sm" onClick={emptyState.onAction}>{emptyState.action}</button>
+              </div>
+            ) : null}
           </div>
           <div className="table-wrapper league-leaders-table-wrap app-desktop-data-table" style={{ overflowX: "auto", border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)" }}>
             <table className="standings-table league-leaders-table" style={{ width: "100%", minWidth: 560 }}>
@@ -459,10 +479,10 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
                     <td colSpan={5} style={{ padding: 0 }}>
                       <EmptyState
                         icon="📊"
-                        title="No league leaders yet"
-                        subtitle="No players have logged enough stats this season."
-                        action="Open league"
-                        onAction={() => onNavigate?.("League")}
+                        title={emptyState.title}
+                        subtitle={emptyState.subtitle}
+                        action={emptyState.action}
+                        onAction={emptyState.onAction}
                       />
                     </td>
                   </tr>

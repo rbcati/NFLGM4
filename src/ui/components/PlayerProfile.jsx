@@ -1140,8 +1140,7 @@ export default function PlayerProfile({
     >
       <div
         className="player-profile-shell pfgm-density-surface"
-        role="dialog"
-        aria-modal="true"
+        role="region"
         aria-label="Player profile"
         onClick={(e) => e.stopPropagation()}
         style={{

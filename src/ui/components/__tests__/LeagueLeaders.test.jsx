@@ -113,17 +113,50 @@ const BASE_LEAGUE = {
   ],
 };
 
-function renderLeagueLeaders(leagueOverrides = {}, onPlayerSelect = () => {}) {
+function renderLeagueLeaders(leagueOverrides = {}, onPlayerSelect = () => {}, onNavigate = () => {}) {
   const league = { ...BASE_LEAGUE, ...leagueOverrides };
   return render(
     <LeagueLeaders
       league={league}
       actions={BASE_ACTIONS}
       onPlayerSelect={onPlayerSelect}
-      onNavigate={() => {}}
+      onNavigate={onNavigate}
     />,
   );
 }
+
+describe('LeagueLeaders — responsive empty states', () => {
+  afterEach(cleanup);
+
+  it('keeps truthful mobile and desktop empty states with the existing navigation action', () => {
+    const onNavigate = vi.fn();
+    const { container } = renderLeagueLeaders({}, () => {}, onNavigate);
+    const mobile = container.querySelector('.app-mobile-data-list');
+    const desktop = container.querySelector('.app-desktop-data-table');
+
+    expect(mobile.textContent).toContain('No league leaders yet');
+    expect(mobile.textContent).toContain('No players have logged enough stats this season.');
+    expect(desktop.textContent).toContain('No league leaders yet');
+    expect(mobile.textContent).not.toMatch(/fake|0 yards/i);
+    fireEvent.click(mobile.querySelector('button'));
+    expect(onNavigate).toHaveBeenCalledWith('League');
+  });
+
+  it('explains a zero-result filter and resets it from the mobile empty state', () => {
+    const { container } = renderLeagueLeaders({
+      schedule: { weeks: [{ week: 1, games: [{ played: true, homeId: 1, awayId: 2, playerStats: { home: { 10: { name: 'Actual QB', pos: 'QB', stats: { passYd: 100 } } }, away: {} } }] }] },
+    });
+    const mobile = container.querySelector('.app-mobile-data-list');
+
+    fireEvent.change(container.querySelector('[aria-label="Search league leaders"]'), { target: { value: 'no such player' } });
+    expect(mobile.textContent).toContain('No matching league leaders');
+    expect(mobile.textContent).toContain('No players match the active leader filters.');
+    expect(container.querySelector('.app-desktop-data-table').textContent).toContain('No matching league leaders');
+    fireEvent.click(Array.from(mobile.querySelectorAll('button')).find((button) => button.textContent === 'Reset filters'));
+    expect(mobile.textContent).toContain('Actual QB');
+    expect(mobile.textContent).not.toContain('No matching league leaders');
+  });
+});
 
 describe('LeagueLeaders — Advanced tab', () => {
   beforeEach(cleanup);
