@@ -408,7 +408,9 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
               <option value="primary:desc">{config.primaryLabel}: high to low</option>
               <option value="primary:asc">{config.primaryLabel}: low to high</option>
               <option value="name:asc">Player: A to Z</option>
+              <option value="name:desc">Player: Z to A</option>
               <option value="team:asc">Team: A to Z</option>
+              <option value="team:desc">Team: Z to A</option>
             </select>
             {hasActiveFilters ? <button type="button" onClick={resetFilters} style={{ minHeight: 32 }}>Reset filters</button> : null}
           </div>

@@ -33,7 +33,7 @@ Draft, Trade Center, Free Agency, Contract Center, History, honors/records scree
 
 ## 7. League transformation
 
-At up to 768px the wide player tables are replaced visually by source-ordered rows that never apply a desktop minimum width. The current primary metric is rendered in a `strong` element immediately below player/team identity; secondary data wraps rather than disappearing. Above the breakpoint the mobile list is hidden and the original sortable table is unchanged. No values or filters are invented.
+At up to 768px the wide player tables are replaced visually by source-ordered rows that never apply a desktop minimum width. The current primary metric is rendered in a `strong` element immediately below player/team identity; secondary data wraps rather than disappearing. The mobile selector represents all six sort states the component can persist (`primary`, `name`, or `team`, each ascending or descending), so responsive transitions preserve and explain the user's sort intent. Above the breakpoint the mobile list is hidden and the original sortable table is unchanged. No values or filters are invented.
 
 ## 8. Player Profile transformation
 

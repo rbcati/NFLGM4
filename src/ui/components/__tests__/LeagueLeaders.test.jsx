@@ -158,6 +158,55 @@ describe('LeagueLeaders — responsive empty states', () => {
   });
 });
 
+describe('LeagueLeaders — responsive sort state', () => {
+  afterEach(cleanup);
+
+  it('represents every persisted sort state and applies descending player/team sorts', () => {
+    const { container } = renderLeagueLeaders({
+      schedule: {
+        weeks: [{
+          week: 1,
+          games: [{
+            played: true,
+            homeId: 1,
+            awayId: 2,
+            playerStats: {
+              home: { 10: { name: 'Zulu QB', pos: 'QB', stats: { passYd: 100 } } },
+              away: { 20: { name: 'Alpha QB', pos: 'QB', stats: { passYd: 200 } } },
+            },
+          }],
+        }],
+      },
+    });
+    const sortSelect = container.querySelector('[aria-label="Sort league leaders"]');
+    const optionValues = Array.from(sortSelect.options).map((option) => option.value);
+    const mobilePlayerNames = () => Array.from(container.querySelectorAll('.app-mobile-data-row__identity button')).map((button) => button.textContent);
+
+    expect(optionValues).toEqual([
+      'primary:desc',
+      'primary:asc',
+      'name:asc',
+      'name:desc',
+      'team:asc',
+      'team:desc',
+    ]);
+
+    fireEvent.change(sortSelect, { target: { value: 'name:desc' } });
+    expect(sortSelect.value).toBe('name:desc');
+    expect(mobilePlayerNames()).toEqual(['Zulu QB', 'Alpha QB']);
+
+    fireEvent.change(sortSelect, { target: { value: 'team:desc' } });
+    expect(sortSelect.value).toBe('team:desc');
+    expect(mobilePlayerNames()).toEqual(['Alpha QB', 'Zulu QB']);
+
+    const desktopPlayerSort = container.querySelector('.app-desktop-data-table thead th:nth-child(2) button');
+    fireEvent.click(desktopPlayerSort);
+    expect(sortSelect.value).toBe('name:asc');
+    fireEvent.click(desktopPlayerSort);
+    expect(sortSelect.value).toBe('name:desc');
+  });
+});
+
 describe('LeagueLeaders — Advanced tab', () => {
   beforeEach(cleanup);
   afterEach(cleanup);
