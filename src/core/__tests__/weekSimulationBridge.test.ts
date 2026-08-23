@@ -1,14 +1,35 @@
 import { describe, expect, it, vi } from 'vitest';
 import { mapOverallToAttributesV2 } from '../migration/attributeMigrator.ts';
 import {
+  attachFullRostersForSimulation,
   aggregateTeamUnitsFromRoster,
   buildDeterministicSeed,
   mapGameSummaryToLegacyResult,
   simulateWithOptionalNewEngine,
 } from '../sim/weekSimulationBridge.ts';
 import { applyDepthChartToPlayers } from '../depthChart.js';
+import { deriveGameDayAvailability } from '../gameDayAvailability.js';
 
 describe('weekSimulationBridge', () => {
+  it('attaches full owned rosters before deriving eligible simulation players', () => {
+    const qb1 = { id: 1, teamId: 10, name: 'QB1', pos: 'QB', ovr: 99, injured: true, injuryWeeksRemaining: 3, depthChart: { rowKey: 'QB', order: 1 } };
+    const qb2 = { id: 2, teamId: 10, name: 'QB2', pos: 'QB', ovr: 70, depthChart: { rowKey: 'QB', order: 2 } };
+    const teams = [{ id: 10, name: 'Home' }];
+    const before = structuredClone(teams);
+
+    const withRosters = attachFullRostersForSimulation(teams, () => [qb1, qb2] as any);
+    const readiness = deriveGameDayAvailability(withRosters[0].roster, { teamId: 10 });
+    const units = aggregateTeamUnitsFromRoster(withRosters[0].roster, 10);
+
+    expect(withRosters[0].roster).toEqual([qb1, qb2]);
+    expect(readiness.fullRoster).toEqual([qb1, qb2]);
+    expect(readiness.injuredPlayers).toEqual([qb1]);
+    expect(readiness.eligiblePlayers).toEqual([qb2]);
+    expect(units.selectedUnitPlayerIds.offense).not.toContain(1);
+    expect(units.selectedUnitPlayerIds.offense).toContain(2);
+    expect(teams).toEqual(before);
+  });
+
   it('aggregates offense/defense units from roster players and migrates missing attributesV2', () => {
     const roster = [
       { id: 1, name: 'QB1', pos: 'QB', ovr: 90 },

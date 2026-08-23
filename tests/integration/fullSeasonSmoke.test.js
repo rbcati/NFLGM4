@@ -43,7 +43,7 @@
  *     skip downstream logic. Likewise the awards try/catch wraps awards only.
  *   → archiveSeason builds NO game-day roster; holdout availability is a
  *     regular-season / playoff advance-week concern (see 1.4), resolved in
- *     buildLeagueForSim BEFORE matchups are built.
+ *     buildLeagueForSim preserves full rosters before matchups are built.
  *   → NOTE: a SECOND, legacy HOF system (syncHallOfFameAfterRecordBook,
  *     player.hof boolean + meta.hallOfFame) runs at :10782, distinct from the V1
  *     hofStatus/meta.hofRoster system. Both can enshrine. Out of scope here.
@@ -76,10 +76,9 @@
  *     into both homePlayers and awayPlayers refs (old-save safe: undefined → 0).
  *
  * 1.4 — Holdout + sim availability  (src/worker/worker.js:3582–3590)
- *   buildLeagueForSim attaches roster = getPlayersByTeam(t.id).filter(isAvailableForGameDay).
- *   isAvailableForGameDay (holdoutEngine.js:285) checks ONLY holdout.active.
- *   Holdouts therefore use a SEPARATE filter from injuries (injured players are
- *   NOT removed here; the sim/unit aggregation accounts for injury elsewhere).
+ *   buildLeagueForSim attaches the full owned roster. Matchup construction then
+ *   derives readiness from that full context before isAvailableForGameDay builds
+ *   the eligible rich-sim participant pool.
  *   Roster cliff: if every player in a position group is on holdout they are all
  *   filtered out, leaving that position group EMPTY in the SimPlayerRef arrays.
  *   The whole roster is non-empty (other positions remain) so simulateRichGame
