@@ -124,6 +124,13 @@
 .app-compact-list-row__actions { display: flex; gap: 6px; flex-wrap: wrap; }
 
 .app-row-stack, .app-priority-rail, .app-teaser-strip { display: grid; gap: 8px; }
+
+/* A single responsive data grammar shared by dense league surfaces. Desktop
+   tables remain authoritative; phone layouts expose identity and key metrics
+   without requiring horizontal scrolling. */
+.app-mobile-data-list { display: none; }
+.app-mobile-data-sort { display: none; }
+.app-mobile-data-row { min-width: 0; }
 .app-inline-toast { margin: 0; font-size: var(--text-xs); color: var(--accent); }
 .app-hero-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .app-hero-summary-grid span { display: block; font-size: var(--text-xs); color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em; }
@@ -145,6 +152,33 @@
   .app-screen-stack { gap: var(--space-2); }
   .app-section-card { padding: var(--space-3); }
   .app-hero-summary-grid { grid-template-columns: 1fr; }
+  .app-desktop-data-table { display: none; }
+  .app-mobile-data-sort { display: block; min-width: 0; min-height: 44px; }
+  .app-mobile-data-list {
+    display: grid;
+    min-width: 0;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .app-mobile-data-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    gap: 2px 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .app-mobile-data-row:last-child { border-bottom: 0; }
+  .app-mobile-data-row__rank { grid-row: 1 / 3; padding-top: 12px; color: var(--text-muted); font-weight: 800; }
+  .app-mobile-data-row__identity,
+  .app-mobile-data-row__metrics { min-width: 0; }
+  .app-mobile-data-row__identity { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .app-mobile-data-row__identity > :first-child { min-width: 0; overflow-wrap: anywhere; }
+  .app-mobile-data-row__identity > span { flex: 0 0 auto; color: var(--text-muted); font-size: var(--text-xs); }
+  .app-mobile-data-row__metrics { display: grid; gap: 2px; }
+  .app-mobile-data-row__metrics strong { color: var(--text); font-size: var(--text-sm); }
+  .app-mobile-data-row__metrics span { color: var(--text-muted); font-size: var(--text-xs); line-height: 1.35; overflow-wrap: anywhere; }
+  .app-mobile-data-row__empty { padding: var(--space-4); color: var(--text-muted); }
 }
 
 .app-weekly-results-screen { overflow-x: clip; }

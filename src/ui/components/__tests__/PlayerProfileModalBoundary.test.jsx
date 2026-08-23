@@ -20,5 +20,7 @@ describe('PlayerProfileModalBoundary', () => {
     const html = renderToString(boundary.render());
     expect(html).toContain('player-profile-backdrop');
     expect(html).toContain('player-profile-shell');
+    expect(html).toContain('role="alertdialog"');
+    expect(html).toContain('aria-modal="true"');
   });
 });

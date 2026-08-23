@@ -16,12 +16,12 @@ describe('LeagueLeaders', () => {
     };
     render(<LeagueLeaders league={{ userTeamId: 1, teams: [{ id: 1, abbr: 'AAA' }, { id: 2, abbr: 'BBB' }] }} actions={actions} onPlayerSelect={() => {}} />);
 
-    expect(await screen.findByText('Resolved QB')).toBeTruthy();
-    expect(screen.getAllByText('BBB')).toHaveLength(2);
+    expect((await screen.findAllByText('Resolved QB')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('BBB').length).toBeGreaterThanOrEqual(2);
     const teamFilter = screen.getByRole('combobox', { name: 'Filter leaders by team' });
     expect(screen.getByRole('option', { name: 'BBB' })).toBeTruthy();
     fireEvent.change(teamFilter, { target: { value: 'BBB' } });
-    expect(screen.getByText('Resolved QB')).toBeTruthy();
+    expect(screen.getAllByText('Resolved QB').length).toBeGreaterThan(0);
     fireEvent.change(teamFilter, { target: { value: 'ALL' } });
   });
 
@@ -30,7 +30,10 @@ describe('LeagueLeaders', () => {
       schedule: { weeks: [{ week: 1, games: [{ played: true, homeId: 1, awayId: 2, playerStats: { home: { 10: { name: 'Row Link QB', pos: 'QB', stats: { passYd: 100 } } }, away: {} } }] }] },
     });
     expect(container.querySelector('.league-leaders-filters')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open player profile for Row Link QB' }).classList.contains('league-leaders-player-link')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Open player profile for Row Link QB' }).every((button) => button.classList.contains('league-leaders-player-link'))).toBe(true);
+    expect(container.querySelector('.app-mobile-data-row__metrics')?.textContent).toContain('Pass Yds');
+    expect(container.querySelector('.app-desktop-data-table table')).toBeTruthy();
+    fireEvent.change(container.querySelector('[aria-label="Sort league leaders"]'), { target: { value: 'name:asc' } });
   });
 
   it('renders non-zero leaders from completed-game stats when API categories are missing', () => {
@@ -92,7 +95,7 @@ describe('LeagueLeaders', () => {
     );
 
     // Wait for initial render using a simple presence check; the top leader should be our QB
-    expect(screen.getByText('QB Leader')).toBeTruthy();
+    expect(screen.getAllByText('QB Leader').length).toBeGreaterThan(0);
   });
 });
 
