@@ -16,12 +16,12 @@ describe('LeagueLeaders', () => {
     };
     render(<LeagueLeaders league={{ userTeamId: 1, teams: [{ id: 1, abbr: 'AAA' }, { id: 2, abbr: 'BBB' }] }} actions={actions} onPlayerSelect={() => {}} />);
 
-    expect(await screen.findByText('Resolved QB')).toBeTruthy();
-    expect(screen.getAllByText('BBB')).toHaveLength(2);
+    expect((await screen.findAllByText('Resolved QB')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('BBB').length).toBeGreaterThanOrEqual(2);
     const teamFilter = screen.getByRole('combobox', { name: 'Filter leaders by team' });
     expect(screen.getByRole('option', { name: 'BBB' })).toBeTruthy();
     fireEvent.change(teamFilter, { target: { value: 'BBB' } });
-    expect(screen.getByText('Resolved QB')).toBeTruthy();
+    expect(screen.getAllByText('Resolved QB').length).toBeGreaterThan(0);
     fireEvent.change(teamFilter, { target: { value: 'ALL' } });
   });
 
@@ -30,7 +30,10 @@ describe('LeagueLeaders', () => {
       schedule: { weeks: [{ week: 1, games: [{ played: true, homeId: 1, awayId: 2, playerStats: { home: { 10: { name: 'Row Link QB', pos: 'QB', stats: { passYd: 100 } } }, away: {} } }] }] },
     });
     expect(container.querySelector('.league-leaders-filters')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open player profile for Row Link QB' }).classList.contains('league-leaders-player-link')).toBe(true);
+    expect(screen.getAllByRole('button', { name: 'Open player profile for Row Link QB' }).every((button) => button.classList.contains('league-leaders-player-link'))).toBe(true);
+    expect(container.querySelector('.app-mobile-data-row__metrics')?.textContent).toContain('Pass Yds');
+    expect(container.querySelector('.app-desktop-data-table table')).toBeTruthy();
+    fireEvent.change(container.querySelector('[aria-label="Sort league leaders"]'), { target: { value: 'name:asc' } });
   });
 
   it('renders non-zero leaders from completed-game stats when API categories are missing', () => {
@@ -92,7 +95,7 @@ describe('LeagueLeaders', () => {
     );
 
     // Wait for initial render using a simple presence check; the top leader should be our QB
-    expect(screen.getByText('QB Leader')).toBeTruthy();
+    expect(screen.getAllByText('QB Leader').length).toBeGreaterThan(0);
   });
 });
 
@@ -110,17 +113,99 @@ const BASE_LEAGUE = {
   ],
 };
 
-function renderLeagueLeaders(leagueOverrides = {}, onPlayerSelect = () => {}) {
+function renderLeagueLeaders(leagueOverrides = {}, onPlayerSelect = () => {}, onNavigate = () => {}) {
   const league = { ...BASE_LEAGUE, ...leagueOverrides };
   return render(
     <LeagueLeaders
       league={league}
       actions={BASE_ACTIONS}
       onPlayerSelect={onPlayerSelect}
-      onNavigate={() => {}}
+      onNavigate={onNavigate}
     />,
   );
 }
+
+describe('LeagueLeaders — responsive empty states', () => {
+  afterEach(cleanup);
+
+  it('keeps truthful mobile and desktop empty states with the existing navigation action', () => {
+    const onNavigate = vi.fn();
+    const { container } = renderLeagueLeaders({}, () => {}, onNavigate);
+    const mobile = container.querySelector('.app-mobile-data-list');
+    const desktop = container.querySelector('.app-desktop-data-table');
+
+    expect(mobile.textContent).toContain('No league leaders yet');
+    expect(mobile.textContent).toContain('No players have logged enough stats this season.');
+    expect(desktop.textContent).toContain('No league leaders yet');
+    expect(mobile.textContent).not.toMatch(/fake|0 yards/i);
+    fireEvent.click(mobile.querySelector('button'));
+    expect(onNavigate).toHaveBeenCalledWith('League');
+  });
+
+  it('explains a zero-result filter and resets it from the mobile empty state', () => {
+    const { container } = renderLeagueLeaders({
+      schedule: { weeks: [{ week: 1, games: [{ played: true, homeId: 1, awayId: 2, playerStats: { home: { 10: { name: 'Actual QB', pos: 'QB', stats: { passYd: 100 } } }, away: {} } }] }] },
+    });
+    const mobile = container.querySelector('.app-mobile-data-list');
+
+    fireEvent.change(container.querySelector('[aria-label="Search league leaders"]'), { target: { value: 'no such player' } });
+    expect(mobile.textContent).toContain('No matching league leaders');
+    expect(mobile.textContent).toContain('No players match the active leader filters.');
+    expect(container.querySelector('.app-desktop-data-table').textContent).toContain('No matching league leaders');
+    fireEvent.click(Array.from(mobile.querySelectorAll('button')).find((button) => button.textContent === 'Reset filters'));
+    expect(mobile.textContent).toContain('Actual QB');
+    expect(mobile.textContent).not.toContain('No matching league leaders');
+  });
+});
+
+describe('LeagueLeaders — responsive sort state', () => {
+  afterEach(cleanup);
+
+  it('represents every persisted sort state and applies descending player/team sorts', () => {
+    const { container } = renderLeagueLeaders({
+      schedule: {
+        weeks: [{
+          week: 1,
+          games: [{
+            played: true,
+            homeId: 1,
+            awayId: 2,
+            playerStats: {
+              home: { 10: { name: 'Zulu QB', pos: 'QB', stats: { passYd: 100 } } },
+              away: { 20: { name: 'Alpha QB', pos: 'QB', stats: { passYd: 200 } } },
+            },
+          }],
+        }],
+      },
+    });
+    const sortSelect = container.querySelector('[aria-label="Sort league leaders"]');
+    const optionValues = Array.from(sortSelect.options).map((option) => option.value);
+    const mobilePlayerNames = () => Array.from(container.querySelectorAll('.app-mobile-data-row__identity button')).map((button) => button.textContent);
+
+    expect(optionValues).toEqual([
+      'primary:desc',
+      'primary:asc',
+      'name:asc',
+      'name:desc',
+      'team:asc',
+      'team:desc',
+    ]);
+
+    fireEvent.change(sortSelect, { target: { value: 'name:desc' } });
+    expect(sortSelect.value).toBe('name:desc');
+    expect(mobilePlayerNames()).toEqual(['Zulu QB', 'Alpha QB']);
+
+    fireEvent.change(sortSelect, { target: { value: 'team:desc' } });
+    expect(sortSelect.value).toBe('team:desc');
+    expect(mobilePlayerNames()).toEqual(['Alpha QB', 'Zulu QB']);
+
+    const desktopPlayerSort = container.querySelector('.app-desktop-data-table thead th:nth-child(2) button');
+    fireEvent.click(desktopPlayerSort);
+    expect(sortSelect.value).toBe('name:asc');
+    fireEvent.click(desktopPlayerSort);
+    expect(sortSelect.value).toBe('name:desc');
+  });
+});
 
 describe('LeagueLeaders — Advanced tab', () => {
   beforeEach(cleanup);

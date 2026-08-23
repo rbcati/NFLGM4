@@ -39,7 +39,7 @@ export default class PlayerProfileModalBoundary extends Component {
             padding: 16,
             display: "grid",
             gap: 10,
-          }}>
+          }} role="alert" aria-label="Player profile unavailable">
             <strong>Player unavailable</strong>
             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
               This player reference could not be resolved from the loaded franchise data. You can close this panel and keep playing.

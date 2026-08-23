@@ -358,6 +358,19 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
   const sourceLabel = leaderPayload?.source === "last_completed_regular_season"
     ? "Showing last completed regular-season leaders."
     : "Showing current regular-season leaders.";
+  const emptyState = hasActiveFilters
+    ? {
+      title: "No matching league leaders",
+      subtitle: "No players match the active leader filters.",
+      action: "Reset filters",
+      onAction: resetFilters,
+    }
+    : {
+      title: "No league leaders yet",
+      subtitle: "No players have logged enough stats this season.",
+      action: "Open league",
+      onAction: () => onNavigate?.("League"),
+    };
 
   return (
     <div className="league-leaders-surface pfgm-density-surface" style={{ display: "grid", gap: "var(--space-3)" }}>
@@ -391,10 +404,46 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
               <option value="ALL">All teams</option>
               {teamOptions.map((team) => <option key={team} value={team}>{team}</option>)}
             </select>
+            <select className="app-mobile-data-sort" aria-label="Sort league leaders" value={`${sort.key}:${sort.dir}`} onChange={(e) => { const [key, dir] = e.target.value.split(':'); setSort({ key, dir }); }}>
+              <option value="primary:desc">{config.primaryLabel}: high to low</option>
+              <option value="primary:asc">{config.primaryLabel}: low to high</option>
+              <option value="name:asc">Player: A to Z</option>
+              <option value="name:desc">Player: Z to A</option>
+              <option value="team:asc">Team: A to Z</option>
+              <option value="team:desc">Team: Z to A</option>
+            </select>
             {hasActiveFilters ? <button type="button" onClick={resetFilters} style={{ minHeight: 32 }}>Reset filters</button> : null}
           </div>
           <div style={{ color: "var(--text-muted)", fontSize: "var(--text-xs)" }}>{buildShowingLabel(visibleRows.length, rows.length, "leader")}</div>
-          <div className="table-wrapper league-leaders-table-wrap" style={{ overflowX: "auto", border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)" }}>
+          <div className="app-mobile-data-list" aria-label={`${activeTab} leaders mobile view`}>
+            {visibleRows.map((entry, index) => (
+              <div className="app-mobile-data-row" key={`mobile-${entry.player?.id ?? entry.player?.name ?? "player"}-${index}`}>
+                <span className="app-mobile-data-row__rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
+                <div className="app-mobile-data-row__identity">
+                  <button
+                    className="app-entity-link league-leaders-player-link"
+                    aria-label={`Open player profile for ${entry.player?.name ?? "player"}`}
+                    onClick={() => onPlayerSelect?.(entry.player)}
+                  >
+                    {entry.player?.name ?? "—"}
+                  </button>
+                  <span>{entry.player?.teamName ?? "—"}</span>
+                </div>
+                <div className="app-mobile-data-row__metrics">
+                  <strong>{displayNumber(entry.primary)} {config.primaryLabel}</strong>
+                  <span>{entry.secondary ?? "—"} {config.secondaryLabel}</span>
+                </div>
+              </div>
+            ))}
+            {visibleRows.length === 0 ? (
+              <div className="app-mobile-data-row__empty">
+                <strong>{emptyState.title}</strong>
+                <span>{emptyState.subtitle}</span>
+                <button type="button" className="btn btn-sm" onClick={emptyState.onAction}>{emptyState.action}</button>
+              </div>
+            ) : null}
+          </div>
+          <div className="table-wrapper league-leaders-table-wrap app-desktop-data-table" style={{ overflowX: "auto", border: "1px solid var(--hairline)", borderRadius: "var(--radius-md)" }}>
             <table className="standings-table league-leaders-table" style={{ width: "100%", minWidth: 560 }}>
               <thead>
                 <tr>
@@ -432,10 +481,10 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
                     <td colSpan={5} style={{ padding: 0 }}>
                       <EmptyState
                         icon="📊"
-                        title="No league leaders yet"
-                        subtitle="No players have logged enough stats this season."
-                        action="Open league"
-                        onAction={() => onNavigate?.("League")}
+                        title={emptyState.title}
+                        subtitle={emptyState.subtitle}
+                        action={emptyState.action}
+                        onAction={emptyState.onAction}
                       />
                     </td>
                   </tr>

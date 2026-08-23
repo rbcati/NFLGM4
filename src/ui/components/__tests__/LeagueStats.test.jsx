@@ -101,5 +101,8 @@ describe('LeagueStats', () => {
 
     const yardsCells = screen.getAllByText('320').filter((node) => node.getAttribute('data-label') === 'Yds');
     expect(yardsCells.length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('passing player stats mobile view').textContent).toContain('320 Yds');
+    fireEvent.change(screen.getByLabelText('Sort player stats'), { target: { value: 'passYds:asc' } });
+    expect(getFirstPlayerName()).toContain('Gamma Passer');
   });
 });

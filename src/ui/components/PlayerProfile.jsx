@@ -1140,6 +1140,8 @@ export default function PlayerProfile({
     >
       <div
         className="player-profile-shell pfgm-density-surface"
+        role="region"
+        aria-label="Player profile"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: "linear-gradient(180deg, var(--surface-elevated), var(--surface))",

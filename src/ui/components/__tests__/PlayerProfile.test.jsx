@@ -62,6 +62,9 @@ describe('PlayerProfile', () => {
     const { container } = render(<PlayerProfile playerId={11} onClose={vi.fn()} actions={actions} teams={league.teams} league={league} />);
 
     expect(screen.getByTestId('player-profile')).toBeTruthy();
+    const profileRegion = screen.getByRole('region', { name: 'Player profile' });
+    expect(profileRegion.hasAttribute('aria-modal')).toBe(false);
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(screen.getByTestId('player-profile').parentElement).toBe(document.body);
     expect(container.childElementCount).toBe(0);
     await waitFor(() => expect(screen.getByTestId('player-profile-summary').textContent).toContain('Avery Fields'));

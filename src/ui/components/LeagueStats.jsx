@@ -44,7 +44,9 @@ export default function LeagueStats({ league, onPlayerSelect, onTeamSelect }) {
   const setTabWithSort = (t) => { setTab(t); setSort({ key: defaultSort[t], dir: "desc" }); setPosFilter("ALL"); setTeamFilter("ALL"); };
   const clickSort = (key) => setSort((s) => s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: key === "name" || key === "team" || key === "pos" ? "asc" : "desc" });
 
-  return <div style={{ display: "grid", gap: 12 }}>
+  const primaryColumn = columns[tab].find(([, key]) => key === defaultSort[tab]) ?? columns[tab][3];
+
+  return <div className="league-stats-surface pfgm-density-surface" style={{ display: "grid", gap: 12 }}>
     <div className="card" style={{ padding: 12 }}>
       <strong>League Stats</strong> · Season {league?.seasonId ?? "—"} · Week {league?.week ?? "—"}
       <div style={{fontSize:12,color:'var(--text-muted)'}}>Player stats: {sourceBadge(model.statSources.playerStats)}</div>
@@ -67,6 +69,9 @@ export default function LeagueStats({ league, onPlayerSelect, onTeamSelect }) {
             <option value="ALL">All teams</option>
             {teamOptions.map((team) => <option key={team} value={team}>{team}</option>)}
           </select>
+          <select className="app-mobile-data-sort" aria-label="Sort player stats" value={`${sort.key}:${sort.dir}`} onChange={(e)=>{ const [key, dir] = e.target.value.split(':'); setSort({ key, dir }); }}>
+            {columns[tab].map(([label, key]) => <React.Fragment key={key}><option value={`${key}:desc`}>{label}: high to low</option><option value={`${key}:asc`}>{label}: low to high</option></React.Fragment>)}
+          </select>
           {hasActiveFilters ? <button type="button" onClick={resetFilters} style={{ minHeight:32 }}>Reset filters</button> : null}
         </div>
         <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center', fontSize:12, color:'var(--text-muted)' }}>
@@ -79,7 +84,23 @@ export default function LeagueStats({ league, onPlayerSelect, onTeamSelect }) {
           })()} {sort.dir === 'asc' ? '↑' : '↓'}</span>
         </div>
       </div>
-      <div style={{ overflowX:'auto' }}>
+      <div className="app-mobile-data-list" aria-label={`${tab} player stats mobile view`}>
+        {rows.map((r, index) => (
+          <div className="app-mobile-data-row" key={`mobile-${r.playerId}-${tab}`}>
+            <span className="app-mobile-data-row__rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
+            <div className="app-mobile-data-row__identity">
+              <button aria-label={`Open player profile for ${r.name}`} onClick={()=>onPlayerSelect?.(r.playerId)}>{r.name}</button>
+              <span>{[r.team, r.pos].filter(Boolean).join(' · ')}</span>
+            </div>
+            <div className="app-mobile-data-row__metrics">
+              <strong>{fmt(primaryColumn[1], r[primaryColumn[1]])} {primaryColumn[0]}</strong>
+              <span>{columns[tab].filter(([, key]) => !['name', 'team', 'pos', primaryColumn[1]].includes(key)).map(([label, key]) => `${fmt(key, r[key])} ${label}`).join(' · ')}</span>
+            </div>
+          </div>
+        ))}
+        {!rows.length ? <div className="app-mobile-data-row__empty">{hasActiveFilters ? 'No player stats match those filters.' : `No ${tab} stats recorded yet.`}</div> : null}
+      </div>
+      <div className="app-desktop-data-table" style={{ overflowX:'auto' }}>
         <table aria-label="Player stat table" style={{ minWidth: 980, width:'100%' }}>
           <thead>
             <tr>
