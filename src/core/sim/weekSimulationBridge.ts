@@ -2,7 +2,7 @@ import type { AttributesV2, Player } from '../../types/player.ts';
 import { ensureAttributesV2 } from '../migration/attributeMigrator.ts';
 import { getEffectivePlayerForRole } from './positionalMultipliers.js';
 import type { GameSummary, Matchup, SimulationManager } from '../../worker/WorkerPool.ts';
-import { DEPTH_CHART_ROWS, getCanonicalScrimmageAssignment, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
+import { DEPTH_CHART_ROWS, getPlayerScrimmageUnitRow, getScrimmageDepthAssignment, getScrimmageDepthRow } from '../depthChart.js';
 import { FOOTBALL_ROSTER_CONFIG } from '../sports/footballRosterConfig.js';
 import { isAvailableForGameDay } from '../holdouts/holdoutEngine.js';
 
@@ -145,14 +145,11 @@ export function aggregateTeamUnitsFromRoster(roster: Player[] = [], teamId?: num
     return (player: Player) => {
       const cached = cache.get(player);
       if (cached) return cached;
-      const canonicalAssignment = getCanonicalScrimmageAssignment(player);
-      const canonicalRow = canonicalAssignment
-        ? DEPTH_CHART_ROWS.find((row) => row.key === canonicalAssignment.rowKey)
-        : null;
+      const unitRow = getPlayerScrimmageUnitRow(player, group);
       const metadata = {
-        rowKey: getPlayerScrimmageUnitRow(player, group)?.key ?? null,
+        rowKey: unitRow?.key ?? null,
         depthOrder: getScrimmageDepthAssignment(player, group)?.order ?? 9999,
-        eligibleForGroup: !canonicalRow || canonicalRow.group === group,
+        eligibleForGroup: unitRow != null,
       };
       cache.set(player, metadata);
       return metadata;

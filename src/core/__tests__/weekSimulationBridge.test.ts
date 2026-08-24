@@ -285,6 +285,7 @@ describe('weekSimulationBridge', () => {
       { id: 1, name: 'Returner', pos: 'WR', ovr: 92, depthOrder: 1, depthChart: { rowKey: 'RS', order: 1 } },
       { id: 2, name: 'WR starter', pos: 'WR', ovr: 65, depthOrder: 1, depthChart: { rowKey: 'WR', order: 1 } },
       { id: 3, name: 'QB', pos: 'QB', ovr: 75, depthOrder: 1, depthChart: { rowKey: 'QB', order: 1 } },
+      { id: 4, name: 'Defensive returner', pos: 'CB', ovr: 80, depthOrder: 1, depthChart: { rowKey: 'RS', order: 1 } },
     ] as any;
     const withReturnRow = aggregateTeamUnitsFromRoster(roster);
     const withoutReturnRow = aggregateTeamUnitsFromRoster(roster.map((player) => player.id === 1
@@ -293,6 +294,8 @@ describe('weekSimulationBridge', () => {
 
     expect(withReturnRow.offense).toEqual(withoutReturnRow.offense);
     expect(withReturnRow.defense).toEqual(withoutReturnRow.defense);
+    expect(withReturnRow.selectedUnitPlayerIds.offense).toContain(1);
+    expect(withReturnRow.selectedUnitPlayerIds.defense).toContain(4);
   });
 
   it.each(['DT', 'NT', 'DL'])('includes an %s alias assigned to canonical IDL when other defensive rows are full', (pos) => {
@@ -381,6 +384,25 @@ describe('weekSimulationBridge', () => {
     const units = aggregateTeamUnitsFromRoster([natural]);
 
     expect(units.selectedUnitPlayerIds.offense).toContain(natural.id);
+  });
+
+  it('excludes pure special-team players from sparse scrimmage-unit fallback', () => {
+    const roster = [
+      { id: 1, name: 'QB', pos: 'QB', ovr: 75 },
+      { id: 2, name: 'Kicker', pos: 'K', ovr: 99, depthChart: { rowKey: 'K', order: 1 } },
+      { id: 3, name: 'Punter', pos: 'P', ovr: 98, depthChart: { rowKey: 'P', order: 1 } },
+    ] as any;
+
+    const units = aggregateTeamUnitsFromRoster(roster);
+    const repeated = aggregateTeamUnitsFromRoster(roster);
+
+    expect(units.selectedUnitPlayerIds.offense).not.toContain(2);
+    expect(units.selectedUnitPlayerIds.defense).not.toContain(2);
+    expect(units.selectedUnitPlayerIds.offense).not.toContain(3);
+    expect(units.selectedUnitPlayerIds.defense).not.toContain(3);
+    expect(repeated.selectedUnitPlayerIds).toEqual(units.selectedUnitPlayerIds);
+    expect(repeated.offense).toEqual(units.offense);
+    expect(repeated.defense).toEqual(units.defense);
   });
 
   it('retains an incompatible scrimmage-row penalty without granting starter authority', () => {
