@@ -200,6 +200,44 @@ export function buildDeterministicSeed(input: string): number {
 export function mapGameSummaryToLegacyResult(summary: GameSummary) {
   const homePassRate = Number((summary.teamStats.home.passAtt / Math.max(1, summary.teamStats.home.plays)).toFixed(3));
   const awayPassRate = Number((summary.teamStats.away.passAtt / Math.max(1, summary.teamStats.away.plays)).toFixed(3));
+  // The rich engine owns scoring chronology but does not use the legacy
+  // drive-ledger shape. Adapt its canonical scoring summary once, here at the
+  // existing compatibility seam, so Watch can present the completed result
+  // without running a narration simulation.
+  const canonicalEvents = summary.scoringSummary.map((event, index) => ({
+    eventId: `${summary.gameId}:score:${index + 1}`,
+    gameId: summary.gameId,
+    sequence: index + 1,
+    eventType: event.scoreType === 'field_goal' ? 'field_goal' : 'touchdown',
+    periodLabel: Number(event.quarter) > 4 ? 'OT' : `Q${event.quarter}`,
+    driveNumber: null,
+    possessionTeamId: event.teamId,
+    scoringTeamId: event.teamId,
+    text: event.text,
+    scoreAfter: event.scoreAfter,
+    points: event.points,
+    plays: 0,
+    yards: 0,
+    isScore: true,
+    isOvertime: Number(event.quarter) > 4,
+  }));
+  canonicalEvents.push({
+    eventId: `${summary.gameId}:final`,
+    gameId: summary.gameId,
+    sequence: canonicalEvents.length + 1,
+    eventType: 'game_end',
+    periodLabel: summary.overtime?.played ? 'OT' : 'Final',
+    driveNumber: null,
+    possessionTeamId: null,
+    scoringTeamId: null,
+    text: 'Final whistle. Game Book is ready.',
+    scoreAfter: { home: summary.homeScore, away: summary.awayScore },
+    points: 0,
+    plays: 0,
+    yards: 0,
+    isScore: false,
+    isOvertime: Boolean(summary.overtime?.played),
+  });
 
   return {
     gameId: summary.gameId,
@@ -222,6 +260,7 @@ export function mapGameSummaryToLegacyResult(summary: GameSummary) {
     playLogs: summary.playLogs,
     eventDigest: summary.playDigest,
     scoringSummary: summary.scoringSummary ?? [],
+    canonicalEvents,
     linescore: summary.quarterScores,
     teamDriveStats: summary.teamStats,
     teamStats: summary.teamStats,
@@ -252,6 +291,7 @@ export function mapGameSummaryToLegacyResult(summary: GameSummary) {
       },
     },
     advancedAttribution: summary.advancedAttribution,
+    gameReasoningFlags: [summary.topReason1, summary.topReason2].filter(Boolean),
     shutoutFloorApplied: summary.shutoutFloorApplied,
   };
 }

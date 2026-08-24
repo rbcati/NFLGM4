@@ -166,6 +166,11 @@ describe('weekSimulationBridge', () => {
     expect(mapped.playerStats).toEqual({ home: {}, away: {} });
     expect(mapped.teamStats.home.totalYards).toBe(370);
     expect(mapped.scoringSummary).toHaveLength(1);
+    expect(mapped.canonicalEvents).toEqual([
+      expect.objectContaining({ eventType: 'touchdown', scoreAfter: { home: 7, away: 0 }, isScore: true }),
+      expect.objectContaining({ eventType: 'game_end', scoreAfter: { home: 28, away: 21 }, isScore: false }),
+    ]);
+    expect(mapped.gameReasoningFlags).toEqual(['Pocket survived pressure', 'Route leverage over zone']);
     expect(mapped.summary.storyline).toContain('Key edge');
   });
 
