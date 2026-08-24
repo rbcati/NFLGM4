@@ -14651,26 +14651,47 @@ async function handleWatchGame(payload, id) {
   }
 
   const userGame = league._weekGames[userGameIndex];
+  const playerSeasonStatsArchive = (meta?.playerSeasonStatsArchive && typeof meta.playerSeasonStatsArchive === 'object')
+    ? meta.playerSeasonStatsArchive
+    : {};
+  if (!meta?.playerSeasonStatsArchive || typeof meta.playerSeasonStatsArchive !== 'object') {
+    cache.setMeta({ playerSeasonStatsArchive });
+  }
 
-  // Simulate JUST the user game, passing options to generate logs.
-  //
-  // ENGINE ROUTING — INTENTIONAL: watched games run the LEGACY simulator even
-  // when useNewSimulationEngine is on. The LiveGameViewer streams the granular
-  // per-play logs that only simulateBatch({ generateLogs: true }) produces;
-  // the rich engine (simulateRichGame) emits a capped post-game digest, not a
-  // live play feed, so routing it here would break the viewer. Known trade-off
-  // until then: the watched game uses legacy scoring/OT behavior while the
-  // rest of the week runs the rich engine.
-  // TODO(rich-engine live viewer): switch this to the rich engine once it can
-  // emit a full play-by-play stream the LiveGameViewer can consume (and the
-  // e2e watch-game flow covers it).
-  const batchResults = simulateBatch([userGame], {
-    league,
-    isPlayoff: meta.phase === 'playoffs',
-    generateLogs: true,
-    userTendency: payload?.userTendency || 'BALANCED',
-    injuryFactor: Math.max(0, Number(getLeagueSetting('injuryFrequency', 50)) / 50),
-    overtimeFormat: getLeagueSetting('overtimeFormat', 'nfl'),
+  // Watch is a presentation choice, not an engine choice. Construct the game
+  // through the same canonical week builder and use the same rich→legacy
+  // routing/fallback seam as ADVANCE_WEEK; legacy logs remain fallback-only.
+  const { matchups, migratedPlayers } = buildWeekMatchupsFromLeague(
+    { ...league, _weekGames: [userGame] },
+    meta,
+    week,
+    { year: Number(meta?.year ?? 0), playerStatsStore: playerSeasonStatsArchive },
+  );
+  for (const migrated of migratedPlayers) {
+    const player = cache.getPlayer(migrated.id);
+    if (!player?.attributesV2) cache.updatePlayer(migrated.id, { attributesV2: migrated.attributesV2 });
+  }
+
+  const useNewSimulationEngine = Boolean(getLeagueSetting('useNewSimulationEngine', false)) && matchups.length === 1;
+  const { results: batchResults } = await simulateWithOptionalNewEngine({
+    enabled: useNewSimulationEngine,
+    matchups,
+    manager: simulationManager,
+    onError: (error) => {
+      console.warn('[Worker] New simulation path failed for watched game, reverting to legacy simulation.', error);
+      post(toUI.NOTIFICATION, {
+        level: 'warn',
+        message: 'New simulation engine failed for this game. The legacy simulator completed it safely.',
+      });
+    },
+    legacySimulate: () => simulateBatch([userGame], {
+      league,
+      isPlayoff: meta.phase === 'playoffs',
+      generateLogs: true,
+      userTendency: payload?.userTendency || 'BALANCED',
+      injuryFactor: Math.max(0, Number(getLeagueSetting('injuryFrequency', 50)) / 50),
+      overtimeFormat: getLeagueSetting('overtimeFormat', 'nfl'),
+    }),
   });
 
   const res = batchResults[0];
