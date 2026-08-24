@@ -36,6 +36,7 @@ import DraftHistory from "./DraftHistory.jsx";
 import TradeWorkspace from "./TradeWorkspace.jsx";
 import PlayerProfile from "./PlayerProfile.jsx";
 import PlayerProfileModalBoundary from "./PlayerProfileModalBoundary.jsx";
+import PlayerQuickViewSheet from "./PlayerQuickViewSheet.jsx";
 import TeamProfile from "./TeamProfile.jsx";
 import Leaders from "./Leaders.jsx";
 import LeagueLeaders from "./LeagueLeaders.jsx";
@@ -647,8 +648,14 @@ export default function LeagueDashboard({
   const [gameDetailModal, setGameDetailModal] = useState({ open: false, gameId: null, source: null });
   const [selectedPlayerId, setSelectedPlayerId] = useState(null);
   const [selectedPlayerContext, setSelectedPlayerContext] = useState(null);
+  const [quickViewPlayerId, setQuickViewPlayerId] = useState(null);
   const handlePlayerSelect = (playerOrId, profileContext = null) => {
     const playerId = getPlayerProfileId(playerOrId);
+    if (hasValidPlayerProfileId(playerId) && ['game-book', 'lineup'].includes(profileContext?.source)) {
+      setQuickViewPlayerId(playerId);
+      setSelectedPlayerContext(profileContext);
+      return;
+    }
     setSelectedPlayerId(hasValidPlayerProfileId(playerId) ? playerId : '__missing_player__');
     setSelectedPlayerContext(profileContext ?? { source: 'unknown', missingEntity: true });
   };
@@ -1672,6 +1679,13 @@ export default function LeagueDashboard({
       )}
 
       {/* ── Player Profile modal ── */}
+      {quickViewPlayerId && <PlayerQuickViewSheet
+        playerId={quickViewPlayerId}
+        context={selectedPlayerContext}
+        league={league}
+        onClose={() => { setQuickViewPlayerId(null); setSelectedPlayerContext(null); }}
+        onViewFullProfile={() => { setSelectedPlayerId(quickViewPlayerId); setQuickViewPlayerId(null); }}
+      />}
       {selectedPlayerId && (
         <TabErrorBoundary label="Player Profile">
           <PlayerProfileModalBoundary playerId={selectedPlayerId} onClose={closePlayerProfile}>

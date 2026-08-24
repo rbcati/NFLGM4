@@ -4700,6 +4700,10 @@ function buildWeekMatchupsFromLeague(league, meta, week, opts = {}) {
       homeDefense: homeUnits.defense,
       awayOffense: awayUnits.offense,
       awayDefense: awayUnits.defense,
+      gameDayUnits: {
+        home: homeUnits.selectedUnitPlayerIds,
+        away: awayUnits.selectedUnitPlayerIds,
+      },
       homePrepMultipliers,
       awayPrepMultipliers,
       homePlayers: homeAvailability.eligiblePlayers.map((player) => ({
@@ -5143,6 +5147,7 @@ function applyGameResultToCache(result, week, seasonId) {
     archiveQuality,
     advancedAttribution: result.advancedAttribution ?? null,
     shutoutFloorApplied: result.shutoutFloorApplied ?? null,
+    gameDayUnits: result.gameDayUnits ?? null,
   }));
   const archiveValidation = validateArchivedGame(archivedGame);
   if (!archiveValidation.valid) {

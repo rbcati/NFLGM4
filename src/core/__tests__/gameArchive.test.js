@@ -10,6 +10,13 @@ import {
 
 describe('gameArchive helpers', () => {
 
+  it('preserves exact game-day unit IDs without reconstructing them', () => {
+    const gameDayUnits = { home: { offense: [1, 2], defense: [3] }, away: { offense: [4], defense: [5, 6] } };
+    const archived = normalizeArchivedGamePayload({ id: 'units', homeId: 1, awayId: 2, homeScore: 7, awayScore: 3, gameDayUnits });
+    expect(normalizeArchivedGamePayload(JSON.parse(JSON.stringify(archived))).gameDayUnits).toEqual(gameDayUnits);
+    expect(normalizeArchivedGamePayload({ id: 'legacy', homeId: 1, awayId: 2, homeScore: 7, awayScore: 3 }).gameDayUnits).toBeNull();
+  });
+
   it('retains completed-game score and detail through JSON save/reload normalization', () => {
     const archived = normalizeArchivedGamePayload({
       id: '2031_w2_1_2',
