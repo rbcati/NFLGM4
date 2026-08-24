@@ -197,30 +197,77 @@ export function buildDeterministicSeed(input: string): number {
   return hash >>> 0;
 }
 
-export function mapGameSummaryToLegacyResult(summary: GameSummary) {
-  const homePassRate = Number((summary.teamStats.home.passAtt / Math.max(1, summary.teamStats.home.plays)).toFixed(3));
-  const awayPassRate = Number((summary.teamStats.away.passAtt / Math.max(1, summary.teamStats.away.plays)).toFixed(3));
-  // The rich engine owns scoring chronology but does not use the legacy
-  // drive-ledger shape. Adapt its canonical scoring summary once, here at the
-  // existing compatibility seam, so Watch can present the completed result
-  // without running a narration simulation.
-  const canonicalEvents = summary.scoringSummary.map((event, index) => ({
-    eventId: `${summary.gameId}:score:${index + 1}`,
-    gameId: summary.gameId,
-    sequence: index + 1,
-    eventType: event.scoreType === 'field_goal' ? 'field_goal' : 'touchdown',
-    periodLabel: Number(event.quarter) > 4 ? 'OT' : `Q${event.quarter}`,
-    driveNumber: null,
-    possessionTeamId: event.teamId,
-    scoringTeamId: event.teamId,
-    text: event.text,
-    scoreAfter: event.scoreAfter,
-    points: event.points,
-    plays: 0,
-    yards: 0,
-    isScore: true,
-    isOvertime: Number(event.quarter) > 4,
-  }));
+export function buildCanonicalEventsFromRichSummary(summary: GameSummary) {
+  const scoring = [...(summary.scoringSummary ?? [])];
+  let scoringIndex = 0;
+  let scoreAfter = { home: 0, away: 0 };
+  const teamId = (side: 'home' | 'away') => side === 'home' ? summary.homeTeamId : summary.awayTeamId;
+  const resultType = (result: string) => {
+    if (result === 'TD') return 'touchdown';
+    if (result === 'FG') return 'field_goal';
+    if (result === 'INT' || result === 'Fumble') return 'turnover';
+    if (result === 'Downs') return 'failed_conversion';
+    if (result === 'Punt') return 'punt';
+    return 'routine';
+  };
+
+  // driveSummary is the rich engine's completed, deterministic drive order.
+  // Preserve its real plays/yards/outcome without inventing clocks, downs, or
+  // player attribution. scoringSummary supplies the authoritative score delta.
+  const canonicalEvents = (summary.driveSummary ?? []).map((drive, index) => {
+    const isScore = drive.result === 'TD' || drive.result === 'FG';
+    const scored = isScore ? scoring[scoringIndex++] : null;
+    if (scored?.scoreAfter) scoreAfter = { ...scored.scoreAfter };
+    const sideLabel = drive.team === 'home' ? 'Home' : 'Away';
+    const resultLabel = drive.result === 'TD' ? 'touchdown'
+      : drive.result === 'FG' ? 'field goal'
+        : drive.result === 'INT' ? 'interception'
+          : drive.result === 'Fumble' ? 'fumble'
+            : drive.result === 'Downs' ? 'turnover on downs'
+              : 'punt';
+    return {
+      eventId: `${summary.gameId}:drive:${drive.drive ?? index + 1}`,
+      gameId: summary.gameId,
+      sequence: index + 1,
+      eventType: resultType(drive.result),
+      periodLabel: `Drive ${drive.drive ?? index + 1}`,
+      driveNumber: drive.drive ?? index + 1,
+      possessionTeamId: teamId(drive.team),
+      scoringTeamId: isScore ? (scored?.teamId ?? teamId(drive.team)) : null,
+      text: scored?.text ?? `${sideLabel} drive ends with a ${resultLabel}.`,
+      scoreAfter: { ...scoreAfter },
+      points: scored?.points ?? 0,
+      plays: drive.plays,
+      yards: drive.yards,
+      isScore,
+      isOvertime: Number(scored?.quarter) > 4,
+    };
+  });
+
+  // End-of-regulation score floors (and sparse old rich summaries) may own a
+  // canonical score without a corresponding drive row. Retain those truthful
+  // scoring records explicitly rather than dropping or fabricating a drive.
+  for (; scoringIndex < scoring.length; scoringIndex += 1) {
+    const scored = scoring[scoringIndex];
+    scoreAfter = { ...scored.scoreAfter };
+    canonicalEvents.push({
+      eventId: `${summary.gameId}:score:${scoringIndex + 1}`,
+      gameId: summary.gameId,
+      sequence: canonicalEvents.length + 1,
+      eventType: scored.scoreType === 'field_goal' ? 'field_goal' : 'touchdown',
+      periodLabel: Number(scored.quarter) > 4 ? 'OT' : `Q${scored.quarter}`,
+      driveNumber: null,
+      possessionTeamId: scored.teamId,
+      scoringTeamId: scored.teamId,
+      text: scored.text,
+      scoreAfter: { ...scoreAfter },
+      points: scored.points,
+      plays: 0,
+      yards: 0,
+      isScore: true,
+      isOvertime: Number(scored.quarter) > 4,
+    });
+  }
   canonicalEvents.push({
     eventId: `${summary.gameId}:final`,
     gameId: summary.gameId,
@@ -238,6 +285,13 @@ export function mapGameSummaryToLegacyResult(summary: GameSummary) {
     isScore: false,
     isOvertime: Boolean(summary.overtime?.played),
   });
+  return canonicalEvents;
+}
+
+export function mapGameSummaryToLegacyResult(summary: GameSummary) {
+  const homePassRate = Number((summary.teamStats.home.passAtt / Math.max(1, summary.teamStats.home.plays)).toFixed(3));
+  const awayPassRate = Number((summary.teamStats.away.passAtt / Math.max(1, summary.teamStats.away.plays)).toFixed(3));
+  const canonicalEvents = buildCanonicalEventsFromRichSummary(summary);
 
   return {
     gameId: summary.gameId,

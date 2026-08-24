@@ -135,6 +135,10 @@ describe('weekSimulationBridge', () => {
       topReason1: 'Pocket survived pressure',
       topReason2: 'Route leverage over zone',
       quarterScores: { home: [7, 7, 7, 7], away: [7, 7, 0, 7] },
+      driveSummary: [
+        { drive: 1, team: 'away', result: 'Punt', yards: 24, plays: 6, topSeconds: 188 },
+        { drive: 2, team: 'home', result: 'TD', yards: 76, plays: 8, topSeconds: 251 },
+      ],
       teamStats: {
         home: {
           plays: 62, firstDowns: 21, passAtt: 35, passComp: 23, passYd: 260, passTD: 2,
@@ -167,7 +171,8 @@ describe('weekSimulationBridge', () => {
     expect(mapped.teamStats.home.totalYards).toBe(370);
     expect(mapped.scoringSummary).toHaveLength(1);
     expect(mapped.canonicalEvents).toEqual([
-      expect.objectContaining({ eventType: 'touchdown', scoreAfter: { home: 7, away: 0 }, isScore: true }),
+      expect.objectContaining({ eventType: 'punt', driveNumber: 1, plays: 6, yards: 24, scoreAfter: { home: 0, away: 0 }, isScore: false }),
+      expect.objectContaining({ eventType: 'touchdown', driveNumber: 2, plays: 8, yards: 76, scoreAfter: { home: 7, away: 0 }, isScore: true }),
       expect.objectContaining({ eventType: 'game_end', scoreAfter: { home: 28, away: 21 }, isScore: false }),
     ]);
     expect(mapped.gameReasoningFlags).toEqual(['Pocket survived pressure', 'Route leverage over zone']);
