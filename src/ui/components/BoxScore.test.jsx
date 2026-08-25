@@ -176,7 +176,7 @@ describe('BoxScore compact sheet — core rendering', () => {
     expect(queryByTestId('game-book-table-passing')).toBeNull();
   });
 
-  it('stat table caps rows at MAX_STAT_ROWS (6) even with more players', () => {
+  it('keeps all qualifying rows and preserves separate team identities', () => {
     const playerStats = {};
     for (let i = 1; i <= 10; i++) {
       playerStats[i] = { name: `QB ${i}`, stats: { passAtt: 10 + i, passYd: 100 + i * 10 } };
@@ -193,8 +193,52 @@ describe('BoxScore compact sheet — core rendering', () => {
       <BoxScore gameId="g-maxrows" league={{ ...baseLeague, gameById: { 'g-maxrows': game } }} embedded />,
     );
     openGameBookTab('Players');
-    const rows = getByTestId('game-book-table-passing').querySelectorAll('tbody tr');
-    expect(rows.length).toBeLessThanOrEqual(6);
+    const rows = getByTestId('game-book-team-home').querySelectorAll('tbody tr');
+    expect(rows.length).toBe(10);
+    expect(getByTestId('game-book-team-away').textContent).toContain(baseLeague.teams[1].abbr);
+    expect(getByTestId('game-book-team-home').textContent).toContain(baseLeague.teams[0].abbr);
+  });
+
+  it('switches the active mobile team panel without flattening either team', () => {
+    const game = {
+      homeId: 1, awayId: 2, homeScore: 14, awayScore: 10,
+      playerStats: {
+        away: { 20: { name: 'Away Passer', stats: { passAtt: 20, passYd: 180 } } },
+        home: { 10: { name: 'Home Passer', stats: { passAtt: 25, passYd: 220 } } },
+      },
+    };
+    const { getByRole, getByTestId } = render(<BoxScore gameId="mobile-teams" league={{ ...baseLeague, gameById: { 'mobile-teams': game } }} embedded />);
+    openGameBookTab('Players');
+    expect(getByTestId('game-book-team-away').className).toContain('is-active');
+    expect(getByTestId('game-book-team-away').textContent).toContain('Away Passer');
+    expect(getByTestId('game-book-team-home').textContent).not.toContain('Away Passer');
+    fireEvent.click(getByRole('tab', { name: baseLeague.teams[0].abbr }));
+    expect(getByTestId('game-book-team-home').className).toContain('is-active');
+    expect(getByTestId('game-book-team-home').textContent).toContain('Home Passer');
+    expect(getByTestId('game-book-team-away').textContent).not.toContain('Home Passer');
+  });
+
+  it('labels legacy archives as recorded participants rather than reconstructed starters', () => {
+    const game = { homeId: 1, awayId: 2, homeScore: 14, awayScore: 10, playerStats: { home: { 10: { name: 'Legacy QB', stats: { passAtt: 1 } } }, away: {} } };
+    const { getByTestId } = render(<BoxScore gameId="legacy-participants" league={{ ...baseLeague, gameById: { 'legacy-participants': game } }} embedded />);
+    openGameBookTab('Players');
+    expect(getByTestId('game-book-participant-label').textContent).toBe('Recorded Participants');
+  });
+
+  it('renders archived lineup IDs unchanged after the current roster changes', () => {
+    const archived = {
+      homeId: 1, awayId: 2, homeScore: 14, awayScore: 10,
+      gameDayUnits: { away: { offense: [20, 21], defense: [22] }, home: { offense: [10], defense: [11] } },
+      playerStats: { away: { 20: { name: 'Archived QB', pos: 'QB', stats: { passAtt: 1 } } }, home: {} },
+    };
+    const changedLeague = { ...baseLeague, teams: [{ id: 1, abbr: 'KC', roster: [] }, { id: 2, abbr: 'BUF', roster: [{ id: 999, name: 'Replacement QB', pos: 'QB' }] }], gameById: { historical: archived } };
+    const { getByTestId } = render(<BoxScore gameId="historical" league={changedLeague} embedded />);
+    openGameBookTab('Lineups');
+    const ids = [...getByTestId('game-book-lineup-away-offense').querySelectorAll('[data-player-id]')].map((row) => row.dataset.playerId);
+    expect(ids).toEqual(['20', '21']);
+    expect(getByTestId('game-book-lineup-away-offense').textContent).toContain('Archived QB');
+    expect(getByTestId('game-book-lineup-away-offense').textContent).toContain('Player #21');
+    expect(getByTestId('game-book-lineup-away-offense').textContent).not.toContain('Replacement QB');
   });
 
   it('renders executive summary when reasoning bullets exist', () => {
@@ -463,7 +507,7 @@ describe('BoxScore player name resolution', () => {
     openGameBookTab('Players');
     const table = container.querySelector('[data-testid="game-book-table-passing"]');
     expect(table).toBeTruthy();
-    expect(table.className).toContain('bs-sheet-table');
+    expect(table.className).toContain('bs-sheet-team-grid');
   });
 });
 

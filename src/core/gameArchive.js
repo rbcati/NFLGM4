@@ -234,6 +234,7 @@ export function normalizeArchivedGamePayload(rawGame) {
     archiveQuality: rawGame?.archiveQuality,
     advancedAttribution: rawGame?.advancedAttribution ?? null,
     shutoutFloorApplied: rawGame?.shutoutFloorApplied ?? null,
+    gameDayUnits: rawGame?.gameDayUnits ?? null,
     // legacy compatibility fields
     stats: legacyStats ?? (playerStats ? { ...playerStats, playLogs: playLog } : null),
     drives: Array.isArray(rawGame?.drives) ? rawGame.drives : (Array.isArray(rawGame?.driveSummary) ? rawGame.driveSummary : []),

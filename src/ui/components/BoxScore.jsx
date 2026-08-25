@@ -31,7 +31,6 @@ export function PlayerButton({ player, onSelect, context }) {
 }
 
 const TAB_KEYS = ['passing', 'rushing', 'receiving', 'defense', 'kicking', 'returns'];
-const MAX_STAT_ROWS = 6;
 
 function BoxScore({
   gameId,
@@ -50,6 +49,9 @@ function BoxScore({
 }) {
   const [activeTab, setActiveTab] = useState('passing');
   const [activeView, setActiveView] = useState('summary');
+  const [activeTeam, setActiveTeam] = useState('away');
+  const [activeLineupTeam, setActiveLineupTeam] = useState('away');
+  const [activeLineupUnit, setActiveLineupUnit] = useState('offense');
 
   // A route can reuse this component instance for another game. Reset local
   // disclosure only when game identity changes so no previous game's tab or
@@ -57,6 +59,9 @@ function BoxScore({
   useEffect(() => {
     setActiveView('summary');
     setActiveTab('passing');
+    setActiveTeam('away');
+    setActiveLineupTeam('away');
+    setActiveLineupUnit('offense');
   }, [gameId]);
 
   const canLoadArchive = Boolean(!presentation && gameId && typeof actions?.getBoxScore === "function");
@@ -133,17 +138,13 @@ function BoxScore({
     }
     const away = section.teams?.away ?? [];
     const home = section.teams?.home ?? [];
-    const players = [...away, ...home].slice(0, MAX_STAT_ROWS);
-    if (!players.length) {
+    if (!away.length && !home.length) {
       return <p className="bs-sheet-no-stats">No {activeTab} stats recorded.</p>;
     }
     const cols = section.cols.slice(0, 3);
-    return (
-      <table
-        className="bs-sheet-table"
-        data-testid={`game-book-table-${activeTab}`}
-        aria-label={`${section.title} statistics`}
-      >
+    const renderTeam = (side, players, team) => <section className={`bs-sheet-team-panel bs-sheet-team-panel--${side}${activeTeam === side ? ' is-active' : ''}`} data-testid={`game-book-team-${side}`} aria-label={`${team.abbr} ${section.title}`}>
+      <h3 className="bs-sheet-team-heading">{team.abbr} <span>{section.title}</span></h3>
+      {players.length ? <table className="bs-sheet-table" data-testid={`game-book-table-${activeTab}-${side}`} aria-label={`${team.abbr} ${section.title} statistics`}>
         <thead>
           <tr>
             <th scope="col">Player</th>
@@ -168,8 +169,17 @@ function BoxScore({
             </tr>
           ))}
         </tbody>
-      </table>
-    );
+      </table> : <p className="bs-sheet-no-stats">No {activeTab} stats recorded for {team.abbr}.</p>}
+    </section>;
+    return <>
+      <div className="bs-sheet-team-switcher" role="tablist" aria-label="Select team statistics">
+        {[['away', vm.awayTeam], ['home', vm.homeTeam]].map(([side, team]) => <button key={side} type="button" role="tab" aria-selected={activeTeam === side} className={activeTeam === side ? 'is-active' : ''} onClick={() => setActiveTeam(side)}>{team.abbr}</button>)}
+      </div>
+      <div className="bs-sheet-team-grid" data-testid={`game-book-table-${activeTab}`}>
+        {renderTeam('away', away, vm.awayTeam)}
+        {renderTeam('home', home, vm.homeTeam)}
+      </div>
+    </>;
   };
 
   // Key leaders — top performers surfaced above dense tables so mobile users
@@ -230,6 +240,7 @@ function BoxScore({
           ['summary', 'Summary'],
           ...(teamComparisonRows.length ? [['team-stats', 'Team Stats']] : []),
           ...(tableSections.length ? [['players', 'Players']] : []),
+          ...((vm.recordedLineups || vm.playerTables?.away?.length || vm.playerTables?.home?.length) ? [['lineups', vm.recordedLineups ? 'Lineups' : 'Participants']] : []),
           ...(playByPlayRows.length ? [['plays', 'Plays']] : []),
         ].map(([key, label]) => (
           <button key={key} type="button" role="tab" aria-selected={activeView === key} className={`bs-sheet-view-tab${activeView === key ? ' is-active' : ''}`} onClick={() => setActiveView(key)}>{label}</button>
@@ -366,6 +377,7 @@ function BoxScore({
       {/* ── FULL PLAYER STATS — priority 5, collapsed dense tables ───────── */}
       {activeView === 'players' && <section className="bs-sheet-details" data-testid="game-book-player-stats" aria-label="Player Stats">
         <h3 className="bs-sheet-view-heading">Player Stats</h3>
+        <p className="bs-sheet-participant-label" data-testid="game-book-participant-label">{vm.gameDayUnits ? 'Game-day lineup recorded' : 'Recorded Participants'}</p>
         <div className="bs-sheet-details-body">
           <div className="bs-sheet-tab-row" data-testid="game-book-stat-tabs" role="tablist" aria-label="Stat category">
             {TAB_KEYS.filter((tab) => tableSections.some((section) => section.key === tab)).map((tab) => (
@@ -385,6 +397,22 @@ function BoxScore({
           <div className="bs-sheet-stat-body" data-testid="game-book-stat-body" role="tabpanel">
             {renderStatRows(activeSection)}
           </div>
+        </div>
+      </section>}
+
+      {activeView === 'lineups' && <section className="bs-sheet-details bs-sheet-lineups" data-testid="game-book-lineups" aria-label={vm.recordedLineups ? 'Recorded game-day lineups' : 'Recorded participants'}>
+        <h3 className="bs-sheet-view-heading">{vm.recordedLineups ? 'Recorded Game-day Lineups' : 'Recorded Participants'}</h3>
+        <div className="bs-sheet-team-switcher is-lineup" role="tablist" aria-label="Select lineup team">
+          {[['away', vm.awayTeam], ['home', vm.homeTeam]].map(([side, team]) => <button key={side} type="button" role="tab" aria-selected={activeLineupTeam === side} className={activeLineupTeam === side ? 'is-active' : ''} onClick={() => setActiveLineupTeam(side)}>{team.abbr}</button>)}
+        </div>
+        {vm.recordedLineups ? <div className="bs-sheet-lineup-units" role="tablist" aria-label="Select lineup unit">
+          {['offense', 'defense'].map((unit) => <button key={unit} type="button" role="tab" aria-selected={activeLineupUnit === unit} className={activeLineupUnit === unit ? 'is-active' : ''} onClick={() => setActiveLineupUnit(unit)}>{unit[0].toUpperCase() + unit.slice(1)}</button>)}
+        </div> : null}
+        <div className="bs-sheet-lineup-list" data-testid={`game-book-lineup-${activeLineupTeam}-${activeLineupUnit}`}>
+          {(vm.recordedLineups?.[activeLineupTeam]?.[activeLineupUnit] ?? vm.playerTables?.[activeLineupTeam] ?? []).map((player) => <div className="bs-sheet-lineup-row" key={String(player.playerId)} data-player-id={String(player.playerId)}>
+            <span>{player.pos ?? '—'}</span>
+            <PlayerButton player={player} onSelect={onPlayerSelect} context={{ ...gameContextBase, source: 'game-book', role: vm.recordedLineups ? `${activeLineupUnit} lineup` : 'recorded participant', returnTo: 'game-book' }} />
+          </div>)}
         </div>
       </section>}
 

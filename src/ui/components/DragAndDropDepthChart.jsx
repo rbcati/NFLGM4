@@ -23,6 +23,8 @@ import { CSS } from "@dnd-kit/utilities";
 import { derivePlayerContractFinancials, formatContractMoney } from "../utils/contractFormatting.js";
 import { TeamWorkspaceHeader, TeamCapSummaryStrip } from "./TeamWorkspacePrimitives.jsx";
 import { deriveTeamCapSnapshot } from "../utils/numberFormatting.js";
+import { aggregateTeamUnitsFromRoster } from "../../core/sim/weekSimulationBridge.ts";
+import { getPlayerScrimmageUnitRow } from "../../core/depthChart.js";
 
 const POSITION_GROUPS = [
   { key: "QB", label: "QB Room", positions: ["QB"] },
@@ -221,11 +223,19 @@ function PositionGroup({ group, players, onPlayerSelect, recentlyMovedId }) {
 export default function DragAndDropDepthChart({ league, actions, onPlayerSelect, onNavigate = null }) {
   // Guard against null entries in the teams array after a save/load migration
   const userTeam = league?.teams?.find((t) => t?.id === league?.userTeamId);
-  const roster = Array.isArray(userTeam?.roster) ? userTeam.roster.filter(Boolean) : [];
+  // Keep the filtered roster referentially stable. A fresh array on every
+  // render retriggers the roster-sync effect below, which sets chart state and
+  // creates an unbounded render loop even when the source roster is unchanged.
+  const roster = useMemo(
+    () => (Array.isArray(userTeam?.roster) ? userTeam.roster.filter(Boolean) : []),
+    [userTeam?.roster],
+  );
 
   const [chartOrder, setChartOrder] = useState(() => buildChartOrder(roster));
   const [activeGroup, setActiveGroup] = useState(null);
   const [recentlyMovedId, setRecentlyMovedId] = useState(null);
+  const [viewMode, setViewMode] = useState('lineup');
+  const [lineupUnit, setLineupUnit] = useState('offense');
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -300,6 +310,14 @@ export default function DragAndDropDepthChart({ league, actions, onPlayerSelect,
   }, [roster]);
 
   const capSnapshot = deriveTeamCapSnapshot(userTeam ?? {}, { fallbackCapTotal: 255 });
+  const canonicalUnits = useMemo(() => aggregateTeamUnitsFromRoster(roster, userTeam?.id).selectedUnitPlayerIds, [roster, userTeam?.id]);
+  const playerById = useMemo(() => new Map(roster.map((player) => [String(player.id), player])), [roster]);
+  const lineupPlayers = useMemo(() => {
+    if (lineupUnit === 'special') {
+      return roster.filter((player) => ['K', 'P'].includes(player.pos) || player?.depthChart?.rowKey === 'RS');
+    }
+    return canonicalUnits[lineupUnit].map((id) => playerById.get(String(id))).filter(Boolean);
+  }, [canonicalUnits, lineupUnit, playerById, roster]);
   const missingStarterGroups = POSITION_GROUPS
     .map((g) => ({ key: g.key, missing: Math.max(0, (STARTERS[g.key] ?? 1) - ((groupedPlayers[g.key] ?? []).length)) }))
     .filter((g) => g.missing > 0);
@@ -329,6 +347,28 @@ export default function DragAndDropDepthChart({ league, actions, onPlayerSelect,
       />
 
       <TeamCapSummaryStrip capSnapshot={capSnapshot} rosterCount={roster.length} />
+
+      <div className="depth-view-switcher" role="tablist" aria-label="Depth chart view">
+        <button type="button" role="tab" aria-selected={viewMode === 'lineup'} className={viewMode === 'lineup' ? 'is-active' : ''} onClick={() => setViewMode('lineup')}>Lineup</button>
+        <button type="button" role="tab" aria-selected={viewMode === 'rooms'} className={viewMode === 'rooms' ? 'is-active' : ''} onClick={() => setViewMode('rooms')}>Position Rooms</button>
+      </div>
+
+      {viewMode === 'lineup' ? <section className="canonical-lineup" data-testid="canonical-lineup">
+        <div className="canonical-lineup__units" role="tablist" aria-label="Lineup unit">
+          {[['offense', 'Offense'], ['defense', 'Defense'], ['special', 'Special Teams']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={lineupUnit === key} className={lineupUnit === key ? 'is-active' : ''} onClick={() => setLineupUnit(key)}>{label}</button>)}
+        </div>
+        <h3>{lineupUnit === 'special' ? 'SPECIAL TEAMS' : lineupUnit.toUpperCase()} — {lineupPlayers.length} {lineupUnit === 'special' ? 'assigned' : 'eligible'}</h3>
+        {lineupUnit === 'special' ? <p className="canonical-lineup__note">Specialists are shown separately and are not scrimmage starters.</p> : null}
+        <div className="canonical-lineup__rows">
+          {lineupPlayers.map((player) => <button type="button" className="canonical-lineup__row" key={player.id} data-player-id={player.id} onClick={() => onPlayerSelect?.(player.id, { source: 'lineup', player })}>
+            <span className="canonical-lineup__role">{lineupUnit === 'special' ? (player?.depthChart?.rowKey ?? player.pos) : (getPlayerScrimmageUnitRow(player, lineupUnit.toUpperCase())?.key ?? player.pos)}</span>
+            <strong>{player.name ?? `Player #${player.id}`}</strong>
+            <span>OVR {player.ovr ?? player?.ratings?.overall ?? '—'}</span>
+            {(player.injury || player.injuredWeeks > 0) ? <span className="canonical-lineup__status">Unavailable</span> : <span className="canonical-lineup__status is-ready">Ready</span>}
+          </button>)}
+          {!lineupPlayers.length ? <p>No eligible players recorded for this unit.</p> : null}
+        </div>
+      </section> : <>
 
       {missingStarterGroups.length > 0 ? (
         <div className="card" style={{ padding: '10px', borderColor: 'rgba(255,159,10,.4)' }}>
@@ -379,6 +419,7 @@ export default function DragAndDropDepthChart({ league, actions, onPlayerSelect,
           />
         ))}
       </DndContext>
+      </>}
     </div>
   );
 }

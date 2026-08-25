@@ -94,6 +94,7 @@ export interface RichGameSummary {
   gameId: number | string;
   homeTeamId: number;
   awayTeamId: number;
+  gameDayUnits?: { home: { offense: Array<number | string>; defense: Array<number | string> }; away: { offense: Array<number | string>; defense: Array<number | string> } };
   homeScore: number;
   awayScore: number;
   totalPlays: number;
@@ -155,6 +156,7 @@ export interface RichMatchupPayload {
   normalizationConstant?: number;
   homeTeamId: number;
   awayTeamId: number;
+  gameDayUnits?: RichGameSummary['gameDayUnits'];
   homeOffense: AttributesV2;
   awayOffense: AttributesV2;
   homeDefense: AttributesV2;
@@ -1090,6 +1092,7 @@ export function simulateRichGame(payload: RichMatchupPayload): RichGameSummary {
     gameId: payload.gameId,
     homeTeamId: payload.homeTeamId,
     awayTeamId: payload.awayTeamId,
+    gameDayUnits: payload.gameDayUnits,
     homeScore: state.homeScore,
     awayScore: state.awayScore,
     totalPlays: stats.home.plays + stats.away.plays,
