@@ -13,10 +13,10 @@ const CATEGORY_CONFIG = {
     secondaryLabel: "TD / Cmp%",
     getPrimary: (player) => stat(player, ["passingYards", "passYd"]),
     getSecondary: (player) => {
-      const td = stat(player, ["touchdowns", "passTD", "passTDs"]);
+      const td = stat(player, ["passTD", "passTDs", "touchdowns"]);
       const comp = stat(player, ["completions", "passComp"]);
       const att = stat(player, ["attempts", "passAtt"]);
-      const pct = att > 0 ? (comp / att) * 100 : 0;
+      const pct = comp == null || att == null ? undefined : att > 0 ? (comp / att) * 100 : 0;
       return `${displayNumber(td)} / ${displayNumber(pct, 1, "%")}`;
     },
   },
@@ -28,7 +28,7 @@ const CATEGORY_CONFIG = {
       const td = stat(player, ["rushingTDs", "rushTD", "rushTDs"]);
       const yds = stat(player, ["rushingYards", "rushYd", "rushYds"]);
       const att = stat(player, ["rushingAttempts", "rushAtt"]);
-      const ypc = att > 0 ? yds / att : 0;
+      const ypc = yds == null || att == null ? undefined : att > 0 ? yds / att : 0;
       return `${displayNumber(td)} / ${displayNumber(ypc, 1)}`;
     },
   },
@@ -62,7 +62,7 @@ const CATEGORY_CONFIG = {
   Interceptions: {
     primaryLabel: "INT",
     secondaryLabel: "PD / Tkl",
-    getPrimary: (player) => stat(player, ["interceptions", "ints"]),
+    getPrimary: (player) => stat(player, ["interceptions", "defInterceptions", "ints"]),
     getSecondary: (player) => `${displayNumber(stat(player, ["passesDefended"]))} / ${displayNumber(stat(player, ["tackles", "totalTackles"]))}`,
   },
   Kicking: {
@@ -73,22 +73,28 @@ const CATEGORY_CONFIG = {
       const made = stat(player, ["fgm", "fgMade", "fieldGoalsMade"]);
       const att = stat(player, ["fga", "fgAtt", "fieldGoalsAttempted"]);
       const pts = stat(player, ["kickingPoints", "points", "pts"]);
-      const pct = att > 0 ? (made / att) * 100 : 0;
+      const pct = made == null || att == null ? undefined : att > 0 ? (made / att) * 100 : 0;
       return `${displayNumber(pct, 1, "%")} / ${displayNumber(pts)}`;
     },
   },
 };
 
 function stat(player, keys) {
-  const source = player?.stats ?? player?.seasonStats ?? player?.totals ?? {};
-  const fromSource = keys.reduce((value, key) => (value != null ? value : source?.[key]), null);
-  const fromPlayer = keys.reduce((value, key) => (value != null ? value : player?.[key]), null);
-  return Number(fromSource ?? fromPlayer ?? 0) || 0;
+  const hasCanonicalStats = player?.canonicalStats && typeof player.canonicalStats === "object";
+  const sources = hasCanonicalStats
+    ? [player?.totals, player.canonicalStats]
+    : [player?.totals, player?.stats, player?.seasonStats, player];
+  for (const source of sources) {
+    for (const key of keys) {
+      if (source?.[key] != null && Number.isFinite(Number(source[key]))) return Number(source[key]);
+    }
+  }
+  return undefined;
 }
 
 function displayNumber(value, decimals = 0, suffix = "") {
-  const safe = Number(value ?? 0) || 0;
-  if (safe === 0) return "—";
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const safe = Number(value);
   return `${safe.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${suffix}`;
 }
 
@@ -115,12 +121,12 @@ function resolveTeamIdentity(row, teams) {
 }
 
 const API_TAB_MAP = Object.freeze({
-  Passing: { category: "passing", primaryKey: "passYards", secondaryKey: "passTDs" },
-  Rushing: { category: "rushing", primaryKey: "rushYards", secondaryKey: "rushTDs" },
-  Receiving: { category: "receiving", primaryKey: "recYards", secondaryKey: "receptions" },
-  Tackles: { category: "defense", primaryKey: "tackles", secondaryKey: "sacks" },
-  Sacks: { category: "defense", primaryKey: "sacks", secondaryKey: "pressures" },
-  Interceptions: { category: "defense", primaryKey: "interceptions", secondaryKey: "passesDefended" },
+  Passing: { category: "passing", primaryKey: "passYards" },
+  Rushing: { category: "rushing", primaryKey: "rushYards" },
+  Receiving: { category: "receiving", primaryKey: "recYards" },
+  Tackles: { category: "defense", primaryKey: "tackles" },
+  Sacks: { category: "defense", primaryKey: "sacks" },
+  Interceptions: { category: "defense", primaryKey: "interceptions" },
   // Kicking leaders currently come from local aggregation only.
 });
 
@@ -277,10 +283,8 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
       const safeCategories = getSafeLeagueLeaderCategories(remoteCategories);
       const bucket = safeCategories?.[apiConfig.category] ?? {};
       const primaryRows = normalizeLeaderRows(bucket?.[apiConfig.primaryKey]).slice(0, 10);
-      const secondaryMap = new Map(
-        normalizeLeaderRows(bucket?.[apiConfig.secondaryKey]).map((row) => [String(row.id), row.value]),
-      );
       if (primaryRows.length > 0) {
+        const config = CATEGORY_CONFIG[activeTab] ?? CATEGORY_CONFIG.Passing;
         return primaryRows.map((row) => {
           const identity = resolveTeamIdentity(row.raw, teams);
           return ({
@@ -294,7 +298,7 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
               isUserTeam: Number(identity.teamId) === Number(league?.userTeamId),
             },
             primary: row.value,
-            secondary: displayNumber(secondaryMap.get(String(row.id))),
+            secondary: config.getSecondary(row.raw),
           });
         });
       }

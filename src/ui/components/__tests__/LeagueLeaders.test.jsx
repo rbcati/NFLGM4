@@ -5,6 +5,53 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import LeagueLeaders from '../LeagueLeaders.jsx';
 
 describe('LeagueLeaders', () => {
+  afterEach(cleanup);
+  it('builds every remote row from that leader\'s canonical totals instead of independent top-N lists', async () => {
+    const actions = {
+      getLeagueLeaders: () => Promise.resolve({
+        payload: {
+          source: 'current_regular_season',
+          categories: {
+            passing: {
+              passYards: [
+                { playerId: 1, name: 'Outside TD Top Ten', pos: 'QB', teamId: 1, value: 4126, totals: { passYd: 4126, passTD: 21, passComp: 337, passAtt: 500 } },
+                { playerId: 2, name: 'Zero TD QB', pos: 'QB', teamId: 2, value: 900, totals: { passYd: 900, passTD: 0, passComp: 80, passAtt: 120 } },
+                { playerId: 3, name: 'Sparse QB', pos: 'QB', teamId: 2, value: 700, totals: { passYd: 700 } },
+              ],
+              passTDs: [{ playerId: 99, name: 'Unrelated TD Leader', value: 40, totals: { passTD: 40 } }],
+            },
+            rushing: { rushYards: [{ playerId: 4, name: 'Runner', pos: 'RB', teamId: 1, value: 1200, totals: { rushYd: 1200, rushTD: 8, rushAtt: 240 } }] },
+            receiving: { recYards: [{ playerId: 5, name: 'Receiver', pos: 'WR', teamId: 1, value: 1100, totals: { recYd: 1100, receptions: 75, recTD: 7 } }] },
+            defense: {
+              tackles: [{ playerId: 6, name: 'Tackler', pos: 'LB', teamId: 1, value: 101, totals: { tackles: 101 } }],
+              sacks: [{ playerId: 7, name: 'Rusher', pos: 'DE', teamId: 1, value: 12, totals: { sacks: 12, tacklesForLoss: 16, forcedFumbles: 3 } }],
+              interceptions: [{ playerId: 8, name: 'Ball Hawk', pos: 'CB', teamId: 2, value: 6, totals: { interceptions: 6, passesDefended: 14, tackles: 44 } }],
+            },
+          },
+        },
+      }),
+    };
+    const { container } = render(<LeagueLeaders league={BASE_LEAGUE} actions={actions} />);
+
+    await screen.findAllByText('Outside TD Top Ten');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain('21 / 67.4%');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain('0 / 66.7%');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain('— / —');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).not.toContain('Unrelated TD Leader');
+
+    const expected = [
+      ['Rushing', '8 / 5.0'],
+      ['Receiving', '75 / 7'],
+      ['Tackles', '— / —'],
+      ['Sacks', '16 / 3'],
+      ['Interceptions', '14 / 44'],
+    ];
+    for (const [tab, secondary] of expected) {
+      fireEvent.click(screen.getByRole('tab', { name: tab }));
+      expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain(secondary);
+    }
+  });
+
   it('resolves API leader team identity from a real team id and exposes a working team filter', async () => {
     const actions = {
       getLeagueLeaders: () => Promise.resolve({

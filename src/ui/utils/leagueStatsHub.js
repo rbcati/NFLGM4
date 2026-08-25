@@ -46,6 +46,7 @@ const withDerived = (row) => ({
 function normalizeSeasonRow(player, team) {
   const s = player?.seasonStats ?? player?.stats ?? {};
   return withDerived({
+    canonicalStats: s,
     playerId: player?.id,
     name: player?.name ?? "Unknown",
     teamId: team?.id ?? null,
@@ -168,6 +169,9 @@ function aggregateGamePlayers(games, teamsById) {
         const key = String(pid);
         const prev = byPlayer.get(key) ?? normalizeSeasonRow({ id: Number(pid), name: raw?.name ?? raw?.playerName, position: raw?.pos }, team);
         const next = { ...prev };
+        // This row is now an aggregate, not the first game's raw stat object.
+        // Its normalized numeric fields are the canonical values to present.
+        delete next.canonicalStats;
         next.g += 1;
         next.cmp += base.cmp; next.att += base.att; next.passYds += base.passYds; next.passTd += base.passTd; next.passInt += base.passInt;
         next.rushAtt += base.rushAtt; next.rushYds += base.rushYds; next.rushTd += base.rushTd; next.rushLong = Math.max(next.rushLong, base.rushLong);
