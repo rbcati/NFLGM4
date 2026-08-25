@@ -11,11 +11,11 @@ const CATEGORY_CONFIG = {
   Passing: {
     primaryLabel: "Pass Yds",
     secondaryLabel: "TD / Cmp%",
-    getPrimary: (player) => stat(player, ["passingYards", "passYd"]),
+    getPrimary: (player) => stat(player, ["passingYards", "passYards", "passYd", "passYds"]),
     getSecondary: (player) => {
-      const td = stat(player, ["passTD", "passTDs", "touchdowns"]);
-      const comp = stat(player, ["completions", "passComp"]);
-      const att = stat(player, ["attempts", "passAtt"]);
+      const td = stat(player, ["passTD", "passTDs", "passTd", "touchdowns"]);
+      const comp = stat(player, ["completions", "passComp", "cmp"]);
+      const att = stat(player, ["attempts", "passAtt", "att"]);
       const pct = comp == null || att == null ? undefined : att > 0 ? (comp / att) * 100 : 0;
       return `${displayNumber(td)} / ${displayNumber(pct, 1, "%")}`;
     },
@@ -25,7 +25,7 @@ const CATEGORY_CONFIG = {
     secondaryLabel: "TD / YPC",
     getPrimary: (player) => stat(player, ["rushingYards", "rushYd", "rushYds"]),
     getSecondary: (player) => {
-      const td = stat(player, ["rushingTDs", "rushTD", "rushTDs"]);
+      const td = stat(player, ["rushingTDs", "rushTD", "rushTDs", "rushTd"]);
       const yds = stat(player, ["rushingYards", "rushYd", "rushYds"]);
       const att = stat(player, ["rushingAttempts", "rushAtt"]);
       const ypc = yds == null || att == null ? undefined : att > 0 ? yds / att : 0;
@@ -37,8 +37,8 @@ const CATEGORY_CONFIG = {
     secondaryLabel: "Rec / TD",
     getPrimary: (player) => stat(player, ["receivingYards", "recYd", "recYds"]),
     getSecondary: (player) => {
-      const rec = stat(player, ["receptions"]);
-      const td = stat(player, ["receivingTDs", "recTD", "recTDs"]);
+      const rec = stat(player, ["receptions", "rec"]);
+      const td = stat(player, ["receivingTDs", "recTD", "recTDs", "recTd"]);
       return `${displayNumber(rec)} / ${displayNumber(td)}`;
     },
   },
@@ -48,22 +48,24 @@ const CATEGORY_CONFIG = {
     getPrimary: (player) => {
       const solo = stat(player, ["soloTackles"]);
       const assist = stat(player, ["assistTackles"]);
-      const tackles = stat(player, ["totalTackles", "tackles"]);
-      return Math.max(tackles, solo + assist);
+      const tackles = stat(player, ["totalTackles", "tackles", "tkl"]);
+      const hasSplits = solo != null && assist != null;
+      if (tackles != null) return hasSplits ? Math.max(tackles, solo + assist) : tackles;
+      return hasSplits ? solo + assist : undefined;
     },
     getSecondary: (player) => `${displayNumber(stat(player, ["soloTackles"]))} / ${displayNumber(stat(player, ["assistTackles"]))}`,
   },
   Sacks: {
     primaryLabel: "Sacks",
     secondaryLabel: "TFL / FF",
-    getPrimary: (player) => stat(player, ["sacks"]),
-    getSecondary: (player) => `${displayNumber(stat(player, ["tacklesForLoss", "tfl"]))} / ${displayNumber(stat(player, ["forcedFumbles", "ffum"]))}`,
+    getPrimary: (player) => stat(player, ["sacks", "sack"]),
+    getSecondary: (player) => `${displayNumber(stat(player, ["tacklesForLoss", "tfl"]))} / ${displayNumber(stat(player, ["forcedFumbles", "ffum", "ff"]))}`,
   },
   Interceptions: {
     primaryLabel: "INT",
     secondaryLabel: "PD / Tkl",
-    getPrimary: (player) => stat(player, ["interceptions", "defInterceptions", "ints"]),
-    getSecondary: (player) => `${displayNumber(stat(player, ["passesDefended"]))} / ${displayNumber(stat(player, ["tackles", "totalTackles"]))}`,
+    getPrimary: (player) => stat(player, ["interceptions", "defInterceptions", "ints", "defInt"]),
+    getSecondary: (player) => `${displayNumber(stat(player, ["passesDefended", "pd"]))} / ${displayNumber(stat(player, ["tackles", "totalTackles", "tkl"]))}`,
   },
   Kicking: {
     primaryLabel: "FGM",

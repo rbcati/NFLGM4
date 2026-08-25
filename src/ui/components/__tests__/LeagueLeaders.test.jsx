@@ -83,7 +83,7 @@ describe('LeagueLeaders', () => {
     fireEvent.change(container.querySelector('[aria-label="Sort league leaders"]'), { target: { value: 'name:asc' } });
   });
 
-  it('renders non-zero leaders from completed-game stats when API categories are missing', () => {
+  it('renders and sorts normalized completed-game fallback stats for every category', () => {
     const league = {
       userTeamId: 1,
       teams: [
@@ -118,6 +118,13 @@ describe('LeagueLeaders', () => {
                       pos: 'QB',
                       stats: { passYd: 320, passTD: 3, passComp: 24, passAtt: 33 },
                     },
+                    102: { name: 'QB Two', pos: 'QB', stats: { passYd: 100, passTD: 0, passComp: 10, passAtt: 20 } },
+                    201: { name: 'Runner', pos: 'RB', stats: { rushYd: 120, rushTD: 2, rushAtt: 20 } },
+                    301: { name: 'Receiver', pos: 'WR', stats: { recYd: 140, receptions: 7, recTD: 1 } },
+                    401: { name: 'Tackler', pos: 'LB', stats: { tackles: 101 } },
+                    402: { name: 'Rusher', pos: 'DE', stats: { sacks: 4, tacklesForLoss: 2, forcedFumbles: 1 } },
+                    403: { name: 'Ball Hawk', pos: 'CB', stats: { interceptions: 2, passesDefended: 5, tackles: 44 } },
+                    501: { name: 'Kicker', pos: 'K', stats: { fgm: 3, fga: 4, points: 10 } },
                   },
                   away: {},
                 },
@@ -132,7 +139,7 @@ describe('LeagueLeaders', () => {
       getLeagueLeaders: () => Promise.resolve({ payload: { categories: null, source: null, phase: null } }),
     };
 
-    render(
+    const { container } = render(
       <LeagueLeaders
         league={league}
         actions={actions}
@@ -141,8 +148,51 @@ describe('LeagueLeaders', () => {
       />,
     );
 
-    // Wait for initial render using a simple presence check; the top leader should be our QB
     expect(screen.getAllByText('QB Leader').length).toBeGreaterThan(0);
+    const desktopRows = () => container.querySelector('.app-desktop-data-table tbody')?.textContent ?? '';
+    const desktopNames = () => Array.from(container.querySelectorAll('.app-desktop-data-table tbody .league-leaders-player-link')).map((button) => button.textContent);
+
+    expect(desktopRows()).toContain('320');
+    expect(desktopRows()).toContain('3 / 72.7%');
+    expect(desktopNames().slice(0, 2)).toEqual(['QB Leader', 'QB Two']);
+
+    const categories = [
+      ['Rushing', '120', '2 / 6.0'],
+      ['Receiving', '140', '7 / 1'],
+      ['Tackles', '101', '— / —'],
+      ['Sacks', '4', '2 / 1'],
+      ['Interceptions', '2', '5 / 44'],
+      ['Kicking', '3', '75.0% / 10'],
+    ];
+    for (const [tab, primary, secondary] of categories) {
+      fireEvent.click(screen.getByRole('tab', { name: tab }));
+      expect(desktopRows()).toContain(primary);
+      expect(desktopRows()).toContain(secondary);
+    }
+  });
+
+  it('computes tackle primaries without treating missing splits as zero', () => {
+    const { container } = renderLeagueLeaders({
+      teams: [{
+        id: 1,
+        abbr: 'AAA',
+        roster: [
+          { id: 1, name: 'Total Only', position: 'LB', seasonStats: { tackles: 101 } },
+          { id: 2, name: 'Full Split', position: 'LB', seasonStats: { tackles: 100, soloTackles: 70, assistTackles: 40 } },
+          { id: 3, name: 'Splits Only', position: 'LB', seasonStats: { soloTackles: 60, assistTackles: 30, sacks: 1 } },
+        ],
+      }],
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Tackles' }));
+    const rows = Array.from(container.querySelectorAll('.app-desktop-data-table tbody tr'));
+    const values = Object.fromEntries(rows.map((row) => {
+      const cells = row.querySelectorAll('td');
+      return [cells[1]?.textContent, { primary: cells[3]?.textContent, secondary: cells[4]?.textContent }];
+    }));
+    expect(values['Total Only']).toEqual({ primary: '101', secondary: '— / —' });
+    expect(values['Full Split']).toEqual({ primary: '110', secondary: '70 / 40' });
+    expect(values['Splits Only']).toEqual({ primary: '90', secondary: '60 / 30' });
   });
 });
 
