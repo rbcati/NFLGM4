@@ -223,7 +223,13 @@ function PositionGroup({ group, players, onPlayerSelect, recentlyMovedId }) {
 export default function DragAndDropDepthChart({ league, actions, onPlayerSelect, onNavigate = null }) {
   // Guard against null entries in the teams array after a save/load migration
   const userTeam = league?.teams?.find((t) => t?.id === league?.userTeamId);
-  const roster = Array.isArray(userTeam?.roster) ? userTeam.roster.filter(Boolean) : [];
+  // Keep the filtered roster referentially stable. A fresh array on every
+  // render retriggers the roster-sync effect below, which sets chart state and
+  // creates an unbounded render loop even when the source roster is unchanged.
+  const roster = useMemo(
+    () => (Array.isArray(userTeam?.roster) ? userTeam.roster.filter(Boolean) : []),
+    [userTeam?.roster],
+  );
 
   const [chartOrder, setChartOrder] = useState(() => buildChartOrder(roster));
   const [activeGroup, setActiveGroup] = useState(null);

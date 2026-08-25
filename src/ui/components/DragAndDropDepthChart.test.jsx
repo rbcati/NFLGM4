@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import DragAndDropDepthChart from './DragAndDropDepthChart.jsx';
 import { aggregateTeamUnitsFromRoster } from '../../core/sim/weekSimulationBridge.ts';
 
@@ -12,6 +12,8 @@ const roster = [...offense.map((rowKey, index) => ({ id: index + 1, name: `O ${i
   { id: 300, name: 'Pure K', pos: 'K', ovr: 90, teamId: 1, depthChart: { rowKey: 'K', order: 1 } },
   { id: 301, name: 'Pure P', pos: 'P', ovr: 90, teamId: 1, depthChart: { rowKey: 'P', order: 1 } }];
 const league = { userTeamId: 1, teams: [{ id: 1, name: 'Test', roster }] };
+
+afterEach(cleanup);
 
 describe('canonical lineup view', () => {
   it('renders exactly the simulation authority IDs and keeps rooms as a non-mutating editor mode', () => {
