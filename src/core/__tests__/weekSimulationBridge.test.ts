@@ -120,10 +120,12 @@ describe('weekSimulationBridge', () => {
   });
 
   it('maps game summaries into existing result shape', () => {
+    const gameDayUnits = { home: { offense: [1, 2], defense: [3] }, away: { offense: [4], defense: [5] } };
     const mapped = mapGameSummaryToLegacyResult({
       gameId: 'g1',
       homeTeamId: 1,
       awayTeamId: 2,
+      gameDayUnits,
       homeScore: 28,
       awayScore: 21,
       totalPlays: 120,
@@ -166,6 +168,7 @@ describe('weekSimulationBridge', () => {
     });
 
     expect(mapped.scoreHome).toBe(28);
+    expect(mapped.gameDayUnits).toEqual(gameDayUnits);
     expect(mapped.boxScore).toEqual({ home: {}, away: {} });
     expect(mapped.playerStats).toEqual({ home: {}, away: {} });
     expect(mapped.teamStats.home.totalYards).toBe(370);

@@ -225,6 +225,22 @@ describe('BoxScore compact sheet — core rendering', () => {
     expect(getByTestId('game-book-participant-label').textContent).toBe('Recorded Participants');
   });
 
+  it('renders archived lineup IDs unchanged after the current roster changes', () => {
+    const archived = {
+      homeId: 1, awayId: 2, homeScore: 14, awayScore: 10,
+      gameDayUnits: { away: { offense: [20, 21], defense: [22] }, home: { offense: [10], defense: [11] } },
+      playerStats: { away: { 20: { name: 'Archived QB', pos: 'QB', stats: { passAtt: 1 } } }, home: {} },
+    };
+    const changedLeague = { ...baseLeague, teams: [{ id: 1, abbr: 'KC', roster: [] }, { id: 2, abbr: 'BUF', roster: [{ id: 999, name: 'Replacement QB', pos: 'QB' }] }], gameById: { historical: archived } };
+    const { getByTestId } = render(<BoxScore gameId="historical" league={changedLeague} embedded />);
+    openGameBookTab('Lineups');
+    const ids = [...getByTestId('game-book-lineup-away-offense').querySelectorAll('[data-player-id]')].map((row) => row.dataset.playerId);
+    expect(ids).toEqual(['20', '21']);
+    expect(getByTestId('game-book-lineup-away-offense').textContent).toContain('Archived QB');
+    expect(getByTestId('game-book-lineup-away-offense').textContent).toContain('Player #21');
+    expect(getByTestId('game-book-lineup-away-offense').textContent).not.toContain('Replacement QB');
+  });
+
   it('renders executive summary when reasoning bullets exist', () => {
     vi.mocked(useStableRouteRequest).mockReturnValue({
       data: {

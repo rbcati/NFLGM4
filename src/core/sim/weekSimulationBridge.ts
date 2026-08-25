@@ -295,6 +295,7 @@ export function mapGameSummaryToLegacyResult(summary: GameSummary) {
 
   return {
     gameId: summary.gameId,
+    gameDayUnits: summary.gameDayUnits ?? null,
     home: summary.homeTeamId,
     away: summary.awayTeamId,
     homeId: summary.homeTeamId,

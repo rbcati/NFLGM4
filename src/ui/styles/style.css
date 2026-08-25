@@ -8313,6 +8313,7 @@ details[open] .nav-summary::after {
 }
 
 .bs-sheet-team-switcher { display: none; }
+.bs-sheet-team-switcher.is-lineup { display: flex; gap: 6px; margin: 10px 0; }
 .bs-sheet-team-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .bs-sheet-team-panel { min-width: 0; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
 .bs-sheet-team-heading { margin: 0; padding: 8px 10px; font-size: .78rem; background: var(--surface-strong); }
@@ -8328,6 +8329,13 @@ details[open] .nav-summary::after {
 .canonical-lineup__role { color: var(--accent); font-size: .72rem; font-weight: 900; }
 .canonical-lineup__status { color: var(--danger); font-size: .68rem; }
 .canonical-lineup__status.is-ready { color: var(--success); }
+.bs-sheet-lineup-units { display: flex; gap: 6px; margin-bottom: 10px; }
+.bs-sheet-lineup-units button { min-height: 44px; flex: 1; border: 1px solid var(--hairline); border-radius: 8px; background: var(--surface); color: var(--text-muted); font-weight: 800; }
+.bs-sheet-lineup-units button.is-active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.bs-sheet-lineup-list { border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; }
+.bs-sheet-lineup-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; min-height: 44px; padding: 6px 10px; border-bottom: 1px solid var(--hairline); }
+.bs-sheet-lineup-row:last-child { border-bottom: 0; }
+.bs-sheet-lineup-row > span { color: var(--accent); font-size: .7rem; font-weight: 900; }
 
 @media (max-width: 700px) {
   .bs-sheet-team-switcher { display: flex; gap: 6px; margin-bottom: 10px; }

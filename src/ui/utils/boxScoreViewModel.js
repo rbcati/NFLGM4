@@ -549,6 +549,16 @@ export function buildGameBookPresentation({ league, game, gameId, context = {}, 
     awayXPs: rawGame?.awayXPs,
   });
   const playerTables = { home: homePlayers, away: awayPlayers };
+  const archivedPlayerBySide = {
+    home: new Map(homePlayers.map((player) => [String(player.playerId), player])),
+    away: new Map(awayPlayers.map((player) => [String(player.playerId), player])),
+  };
+  const recordedLineups = payload?.gameDayUnits ? Object.fromEntries(['home', 'away'].map((side) => [side, Object.fromEntries(['offense', 'defense'].map((unit) => [unit,
+    (payload.gameDayUnits?.[side]?.[unit] ?? []).map((playerId) => {
+      const archived = archivedPlayerBySide[side].get(String(playerId));
+      return archived ?? { playerId, teamId: side === 'home' ? homeId : awayId, teamSide: side, name: `Player #${playerId}`, pos: null, stats: {} };
+    }),
+  ]))])) : null;
   const winnerSide = hasScore && awayScore !== homeScore ? (awayScore > homeScore ? 'away' : 'home') : null;
   const teamContext = { home: homeTeam, away: awayTeam };
   const driveSummaryRows = normalizeDriveSummaryRows(payload, teamContext);
@@ -636,6 +646,7 @@ export function buildGameBookPresentation({ league, game, gameId, context = {}, 
     prepImpact: Array.isArray(payload?.prepImpact) ? payload.prepImpact : (payload?.prepImpact ? [String(payload.prepImpact)] : []),
     advancedAttribution: normalizeAdvancedAttribution(payload?.advancedAttribution ?? game?.advancedAttribution),
     gameDayUnits: payload?.gameDayUnits ?? null,
+    recordedLineups,
     detailWarning,
     missingDetailReason: detailWarning,
     hasDetailedStats: archiveQuality === QUALITY.full || archiveQuality === QUALITY.partial,

@@ -7,6 +7,9 @@ import {
   recoverArchivedGameFromSchedule,
   summarizeArchiveDefects,
 } from '../gameArchive.js';
+import { aggregateTeamUnitsFromRoster, mapGameSummaryToLegacyResult } from '../sim/weekSimulationBridge.ts';
+import { simulateRichGame } from '../sim/richGameSimulator.ts';
+import { mapOverallToAttributesV2 } from '../migration/attributeMigrator.ts';
 
 describe('gameArchive helpers', () => {
 
@@ -15,6 +18,18 @@ describe('gameArchive helpers', () => {
     const archived = normalizeArchivedGamePayload({ id: 'units', homeId: 1, awayId: 2, homeScore: 7, awayScore: 3, gameDayUnits });
     expect(normalizeArchivedGamePayload(JSON.parse(JSON.stringify(archived))).gameDayUnits).toEqual(gameDayUnits);
     expect(normalizeArchivedGamePayload({ id: 'legacy', homeId: 1, awayId: 2, homeScore: 7, awayScore: 3 }).gameDayUnits).toBeNull();
+  });
+
+  it('carries canonical matchup units through rich simulation, bridge mapping, and archive normalization', () => {
+    const roster = [{ id: 'qb-recorded', pos: 'QB', ovr: 80, depthChart: { rowKey: 'QB', order: 1 } }];
+    const selected = aggregateTeamUnitsFromRoster(roster).selectedUnitPlayerIds;
+    const gameDayUnits = { home: selected, away: selected };
+    const attributes = mapOverallToAttributesV2(75);
+    const rich = simulateRichGame({ gameId: 'unit-pipeline', seed: 77, homeTeamId: 1, awayTeamId: 2, homeOffense: attributes, awayOffense: attributes, homeDefense: attributes, awayDefense: attributes, gameDayUnits });
+    const mapped = mapGameSummaryToLegacyResult(rich);
+    const archived = normalizeArchivedGamePayload({ ...mapped, homeId: 1, awayId: 2 });
+    expect(mapped.gameDayUnits).toEqual(gameDayUnits);
+    expect(archived.gameDayUnits).toEqual(gameDayUnits);
   });
 
   it('retains completed-game score and detail through JSON save/reload normalization', () => {

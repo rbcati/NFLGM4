@@ -3,7 +3,9 @@ import { derivePlayerContractFinancials, formatContractMoney } from '../utils/co
 
 export default function PlayerQuickViewSheet({ playerId, context, league, onClose, onViewFullProfile }) {
   const closeRef = useRef(null);
-  const player = context?.player ?? (league?.teams ?? []).flatMap((team) => team?.roster ?? []).find((row) => String(row?.id) === String(playerId));
+  const returnFocusRef = useRef(typeof document !== 'undefined' ? document.activeElement : null);
+  const rosterPlayer = (league?.teams ?? []).flatMap((team) => team?.roster ?? []).find((row) => String(row?.id) === String(playerId));
+  const player = rosterPlayer ? { ...context?.player, ...rosterPlayer, name: context?.player?.name ?? rosterPlayer.name, pos: context?.player?.pos ?? rosterPlayer.pos } : context?.player;
   const team = (league?.teams ?? []).find((row) => String(row?.id) === String(player?.teamId));
   const contract = derivePlayerContractFinancials(player ?? {});
 
@@ -11,11 +13,14 @@ export default function PlayerQuickViewSheet({ playerId, context, league, onClos
     closeRef.current?.focus();
     const onKeyDown = (event) => event.key === 'Escape' && onClose?.();
     window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      returnFocusRef.current?.focus?.();
+    };
   }, [onClose]);
 
   return <div className="player-quick-view-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose?.()} data-testid="player-quick-view-backdrop">
-    <aside className="player-quick-view" role="dialog" aria-modal="true" aria-labelledby="player-quick-view-title" data-testid="player-quick-view">
+    <aside className="player-quick-view" role="dialog" aria-labelledby="player-quick-view-title" data-testid="player-quick-view">
       <button ref={closeRef} type="button" className="player-quick-view__close" onClick={onClose} aria-label="Close player quick view">✕</button>
       <p className="player-quick-view__eyebrow">Player Snapshot</p>
       <h2 id="player-quick-view-title">{player?.name ?? `Player #${playerId}`}</h2>
