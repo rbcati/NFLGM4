@@ -119,6 +119,9 @@ describe('LeagueLeaders', () => {
                       stats: { passYd: 320, passTD: 3, passComp: 24, passAtt: 33 },
                     },
                     102: { name: 'QB Two', pos: 'QB', stats: { passYd: 100, passTD: 0, passComp: 10, passAtt: 20 } },
+                    103: { name: 'QB Sparse', pos: 'QB', stats: { passYd: 100 } },
+                    104: { name: 'QB Explicit Zero', pos: 'QB', stats: { passYd: 100, passTD: 0, passComp: 0, passAtt: 0 } },
+                    105: { name: 'QB Partial History', pos: 'QB', stats: { passYd: 80, passTD: 1, passComp: 8, passAtt: 10 } },
                     201: { name: 'Runner', pos: 'RB', stats: { rushYd: 120, rushTD: 2, rushAtt: 20 } },
                     301: { name: 'Receiver', pos: 'WR', stats: { recYd: 140, receptions: 7, recTD: 1 } },
                     401: { name: 'Tackler', pos: 'LB', stats: { tackles: 101 } },
@@ -130,6 +133,19 @@ describe('LeagueLeaders', () => {
                 },
               },
             ],
+          }, {
+            week: 2,
+            games: [{
+              played: true,
+              homeId: 1,
+              awayId: 2,
+              homeScore: 17,
+              awayScore: 10,
+              playerStats: {
+                home: { 105: { name: 'QB Partial History', pos: 'QB', stats: { passYd: 20 } } },
+                away: {},
+              },
+            }],
           },
         ],
       },
@@ -154,7 +170,14 @@ describe('LeagueLeaders', () => {
 
     expect(desktopRows()).toContain('320');
     expect(desktopRows()).toContain('3 / 72.7%');
-    expect(desktopNames().slice(0, 2)).toEqual(['QB Leader', 'QB Two']);
+    expect(desktopNames()[0]).toBe('QB Leader');
+    const passingValues = Object.fromEntries(Array.from(container.querySelectorAll('.app-desktop-data-table tbody tr')).map((row) => {
+      const cells = row.querySelectorAll('td');
+      return [cells[1]?.textContent, { primary: cells[3]?.textContent, secondary: cells[4]?.textContent }];
+    }));
+    expect(passingValues['QB Sparse']).toEqual({ primary: '100', secondary: '— / —' });
+    expect(passingValues['QB Explicit Zero']).toEqual({ primary: '100', secondary: '0 / 0.0%' });
+    expect(passingValues['QB Partial History']).toEqual({ primary: '100', secondary: '— / —' });
 
     const categories = [
       ['Rushing', '120', '2 / 6.0'],

@@ -88,6 +88,7 @@ function stat(player, keys) {
     : [player?.totals, player?.stats, player?.seasonStats, player];
   for (const source of sources) {
     for (const key of keys) {
+      if (source === player && player?.statAvailability?.[key] === false) continue;
       if (source?.[key] != null && Number.isFinite(Number(source[key]))) return Number(source[key]);
     }
   }
