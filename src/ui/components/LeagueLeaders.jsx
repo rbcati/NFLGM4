@@ -11,12 +11,12 @@ const CATEGORY_CONFIG = {
   Passing: {
     primaryLabel: "Pass Yds",
     secondaryLabel: "TD / Cmp%",
-    getPrimary: (player) => stat(player, ["passingYards", "passYd"]),
+    getPrimary: (player) => stat(player, ["passingYards", "passYards", "passYd", "passYds"]),
     getSecondary: (player) => {
-      const td = stat(player, ["touchdowns", "passTD", "passTDs"]);
-      const comp = stat(player, ["completions", "passComp"]);
-      const att = stat(player, ["attempts", "passAtt"]);
-      const pct = att > 0 ? (comp / att) * 100 : 0;
+      const td = stat(player, ["passTD", "passTDs", "passTd", "touchdowns"]);
+      const comp = stat(player, ["completions", "passComp", "cmp"]);
+      const att = stat(player, ["attempts", "passAtt", "att"]);
+      const pct = comp == null || att == null ? undefined : att > 0 ? (comp / att) * 100 : 0;
       return `${displayNumber(td)} / ${displayNumber(pct, 1, "%")}`;
     },
   },
@@ -25,10 +25,10 @@ const CATEGORY_CONFIG = {
     secondaryLabel: "TD / YPC",
     getPrimary: (player) => stat(player, ["rushingYards", "rushYd", "rushYds"]),
     getSecondary: (player) => {
-      const td = stat(player, ["rushingTDs", "rushTD", "rushTDs"]);
+      const td = stat(player, ["rushingTDs", "rushTD", "rushTDs", "rushTd"]);
       const yds = stat(player, ["rushingYards", "rushYd", "rushYds"]);
       const att = stat(player, ["rushingAttempts", "rushAtt"]);
-      const ypc = att > 0 ? yds / att : 0;
+      const ypc = yds == null || att == null ? undefined : att > 0 ? yds / att : 0;
       return `${displayNumber(td)} / ${displayNumber(ypc, 1)}`;
     },
   },
@@ -37,8 +37,8 @@ const CATEGORY_CONFIG = {
     secondaryLabel: "Rec / TD",
     getPrimary: (player) => stat(player, ["receivingYards", "recYd", "recYds"]),
     getSecondary: (player) => {
-      const rec = stat(player, ["receptions"]);
-      const td = stat(player, ["receivingTDs", "recTD", "recTDs"]);
+      const rec = stat(player, ["receptions", "rec"]);
+      const td = stat(player, ["receivingTDs", "recTD", "recTDs", "recTd"]);
       return `${displayNumber(rec)} / ${displayNumber(td)}`;
     },
   },
@@ -48,22 +48,24 @@ const CATEGORY_CONFIG = {
     getPrimary: (player) => {
       const solo = stat(player, ["soloTackles"]);
       const assist = stat(player, ["assistTackles"]);
-      const tackles = stat(player, ["totalTackles", "tackles"]);
-      return Math.max(tackles, solo + assist);
+      const tackles = stat(player, ["totalTackles", "tackles", "tkl"]);
+      const hasSplits = solo != null && assist != null;
+      if (tackles != null) return hasSplits ? Math.max(tackles, solo + assist) : tackles;
+      return hasSplits ? solo + assist : undefined;
     },
     getSecondary: (player) => `${displayNumber(stat(player, ["soloTackles"]))} / ${displayNumber(stat(player, ["assistTackles"]))}`,
   },
   Sacks: {
     primaryLabel: "Sacks",
     secondaryLabel: "TFL / FF",
-    getPrimary: (player) => stat(player, ["sacks"]),
-    getSecondary: (player) => `${displayNumber(stat(player, ["tacklesForLoss", "tfl"]))} / ${displayNumber(stat(player, ["forcedFumbles", "ffum"]))}`,
+    getPrimary: (player) => stat(player, ["sacks", "sack"]),
+    getSecondary: (player) => `${displayNumber(stat(player, ["tacklesForLoss", "tfl"]))} / ${displayNumber(stat(player, ["forcedFumbles", "ffum", "ff"]))}`,
   },
   Interceptions: {
     primaryLabel: "INT",
     secondaryLabel: "PD / Tkl",
-    getPrimary: (player) => stat(player, ["interceptions", "ints"]),
-    getSecondary: (player) => `${displayNumber(stat(player, ["passesDefended"]))} / ${displayNumber(stat(player, ["tackles", "totalTackles"]))}`,
+    getPrimary: (player) => stat(player, ["interceptions", "defInterceptions", "ints", "defInt"]),
+    getSecondary: (player) => `${displayNumber(stat(player, ["passesDefended", "pd"]))} / ${displayNumber(stat(player, ["tackles", "totalTackles", "tkl"]))}`,
   },
   Kicking: {
     primaryLabel: "FGM",
@@ -73,22 +75,29 @@ const CATEGORY_CONFIG = {
       const made = stat(player, ["fgm", "fgMade", "fieldGoalsMade"]);
       const att = stat(player, ["fga", "fgAtt", "fieldGoalsAttempted"]);
       const pts = stat(player, ["kickingPoints", "points", "pts"]);
-      const pct = att > 0 ? (made / att) * 100 : 0;
+      const pct = made == null || att == null ? undefined : att > 0 ? (made / att) * 100 : 0;
       return `${displayNumber(pct, 1, "%")} / ${displayNumber(pts)}`;
     },
   },
 };
 
 function stat(player, keys) {
-  const source = player?.stats ?? player?.seasonStats ?? player?.totals ?? {};
-  const fromSource = keys.reduce((value, key) => (value != null ? value : source?.[key]), null);
-  const fromPlayer = keys.reduce((value, key) => (value != null ? value : player?.[key]), null);
-  return Number(fromSource ?? fromPlayer ?? 0) || 0;
+  const hasCanonicalStats = player?.canonicalStats && typeof player.canonicalStats === "object";
+  const sources = hasCanonicalStats
+    ? [player?.totals, player.canonicalStats]
+    : [player?.totals, player?.stats, player?.seasonStats, player];
+  for (const source of sources) {
+    for (const key of keys) {
+      if (source === player && player?.statAvailability?.[key] === false) continue;
+      if (source?.[key] != null && Number.isFinite(Number(source[key]))) return Number(source[key]);
+    }
+  }
+  return undefined;
 }
 
 function displayNumber(value, decimals = 0, suffix = "") {
-  const safe = Number(value ?? 0) || 0;
-  if (safe === 0) return "—";
+  if (value == null || !Number.isFinite(Number(value))) return "—";
+  const safe = Number(value);
   return `${safe.toLocaleString(undefined, { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}${suffix}`;
 }
 
@@ -115,12 +124,12 @@ function resolveTeamIdentity(row, teams) {
 }
 
 const API_TAB_MAP = Object.freeze({
-  Passing: { category: "passing", primaryKey: "passYards", secondaryKey: "passTDs" },
-  Rushing: { category: "rushing", primaryKey: "rushYards", secondaryKey: "rushTDs" },
-  Receiving: { category: "receiving", primaryKey: "recYards", secondaryKey: "receptions" },
-  Tackles: { category: "defense", primaryKey: "tackles", secondaryKey: "sacks" },
-  Sacks: { category: "defense", primaryKey: "sacks", secondaryKey: "pressures" },
-  Interceptions: { category: "defense", primaryKey: "interceptions", secondaryKey: "passesDefended" },
+  Passing: { category: "passing", primaryKey: "passYards" },
+  Rushing: { category: "rushing", primaryKey: "rushYards" },
+  Receiving: { category: "receiving", primaryKey: "recYards" },
+  Tackles: { category: "defense", primaryKey: "tackles" },
+  Sacks: { category: "defense", primaryKey: "sacks" },
+  Interceptions: { category: "defense", primaryKey: "interceptions" },
   // Kicking leaders currently come from local aggregation only.
 });
 
@@ -277,10 +286,8 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
       const safeCategories = getSafeLeagueLeaderCategories(remoteCategories);
       const bucket = safeCategories?.[apiConfig.category] ?? {};
       const primaryRows = normalizeLeaderRows(bucket?.[apiConfig.primaryKey]).slice(0, 10);
-      const secondaryMap = new Map(
-        normalizeLeaderRows(bucket?.[apiConfig.secondaryKey]).map((row) => [String(row.id), row.value]),
-      );
       if (primaryRows.length > 0) {
+        const config = CATEGORY_CONFIG[activeTab] ?? CATEGORY_CONFIG.Passing;
         return primaryRows.map((row) => {
           const identity = resolveTeamIdentity(row.raw, teams);
           return ({
@@ -294,7 +301,7 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
               isUserTeam: Number(identity.teamId) === Number(league?.userTeamId),
             },
             primary: row.value,
-            secondary: displayNumber(secondaryMap.get(String(row.id))),
+            secondary: config.getSecondary(row.raw),
           });
         });
       }
@@ -314,19 +321,23 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
 
     const sourceRows = model.playerTables?.[bucketKey] ?? [];
     return sourceRows
-      .map((row) => ({
-        player: {
-          ...row,
-          id: row.playerId,
-          name: row.name,
-          teamName: row.team,
-          teamId: row.teamId,
-          pos: row.pos ?? row.position ?? "",
-          isUserTeam: Number(row.teamId) === Number(league?.userTeamId),
-        },
-        primary: config.getPrimary(row) ?? 0,
-        secondary: config.getSecondary(row),
-      }))
+      .map((row) => {
+        const primary = config.getPrimary(row);
+        return {
+          player: {
+            ...row,
+            id: row.playerId,
+            name: row.name,
+            teamName: row.team,
+            teamId: row.teamId,
+            pos: row.pos ?? row.position ?? "",
+            isUserTeam: Number(row.teamId) === Number(league?.userTeamId),
+          },
+          primary,
+          secondary: config.getSecondary(row),
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.primary))
       .sort((a, b) => (b.primary ?? 0) - (a.primary ?? 0))
       .slice(0, 10);
   }, [activeTab, league?.userTeamId, model.playerTables, remoteCategories, teams]);

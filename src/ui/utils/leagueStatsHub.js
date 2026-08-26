@@ -21,6 +21,18 @@ const pickDefined = (obj = {}, keys = []) => {
 const safePct = (num, den) => (NUM(den) > 0 ? (NUM(num) / NUM(den)) * 100 : 0);
 const safeRate = (num, den) => (NUM(den) > 0 ? NUM(num) / NUM(den) : 0);
 
+const PLAYER_STAT_ALIASES = Object.freeze({
+  cmp: ["passComp", "completions"], att: ["passAtt", "attempts"], passYds: ["passYards", "passYd", "passingYards"], passTd: ["passTD", "passTd", "passTDs"], passInt: ["interceptions", "int", "passInt"],
+  rushAtt: ["rushAtt", "rushingAttempts"], rushYds: ["rushYards", "rushYd", "rushingYards"], rushTd: ["rushTD", "rushTd", "rushTDs"], rushLong: ["rushLong", "longRush"],
+  tgt: ["targets", "tgt"], rec: ["receptions", "rec"], recYds: ["recYards", "recYd", "receivingYards"], recTd: ["recTD", "recTd", "recTDs"], recLong: ["recLong", "longReception"],
+  tkl: ["tackles", "totalTackles"], sack: ["sacks"], tfl: ["tfl", "tacklesForLoss"], defInt: ["interceptions", "defInt"], pd: ["passesDefended", "passDeflections", "pd"], ff: ["forcedFumbles", "ff"], fr: ["fumbleRecoveries", "fr"], defTd: ["defTD", "defensiveTD"],
+  fgm: ["fgm", "fgMade", "fieldGoalsMade"], fga: ["fga", "fgAtt", "fieldGoalsAttempted"], xpm: ["xpm", "xpMade", "extraPointsMade"], xpa: ["xpa", "xpAtt", "extraPointsAttempted"], pts: ["kickingPoints", "points", "pts"],
+});
+
+const statAvailability = (stats = {}) => Object.fromEntries(
+  Object.entries(PLAYER_STAT_ALIASES).map(([key, aliases]) => [key, aliases.some((alias) => stats?.[alias] != null && Number.isFinite(Number(stats[alias])))]),
+);
+
 const withDerived = (row) => ({
   ...row,
   passPct: safePct(row.cmp, row.att),
@@ -46,6 +58,8 @@ const withDerived = (row) => ({
 function normalizeSeasonRow(player, team) {
   const s = player?.seasonStats ?? player?.stats ?? {};
   return withDerived({
+    canonicalStats: s,
+    statAvailability: statAvailability(s),
     playerId: player?.id,
     name: player?.name ?? "Unknown",
     teamId: team?.id ?? null,
@@ -166,8 +180,15 @@ function aggregateGamePlayers(games, teamsById) {
       for (const [pid, raw] of Object.entries(rows)) {
         const base = normalizePlayerStats(raw?.stats ?? raw ?? {});
         const key = String(pid);
-        const prev = byPlayer.get(key) ?? normalizeSeasonRow({ id: Number(pid), name: raw?.name ?? raw?.playerName, position: raw?.pos }, team);
+        const existing = byPlayer.get(key);
+        const prev = existing ?? normalizeSeasonRow({ id: Number(pid), name: raw?.name ?? raw?.playerName, position: raw?.pos }, team);
         const next = { ...prev };
+        // This row is now an aggregate, not the first game's raw stat object.
+        // Its normalized numeric fields are the canonical values to present.
+        delete next.canonicalStats;
+        next.statAvailability = existing
+          ? Object.fromEntries(Object.keys(PLAYER_STAT_ALIASES).map((statKey) => [statKey, Boolean(existing.statAvailability?.[statKey] && base.statAvailability?.[statKey])]))
+          : { ...base.statAvailability };
         next.g += 1;
         next.cmp += base.cmp; next.att += base.att; next.passYds += base.passYds; next.passTd += base.passTd; next.passInt += base.passInt;
         next.rushAtt += base.rushAtt; next.rushYds += base.rushYds; next.rushTd += base.rushTd; next.rushLong = Math.max(next.rushLong, base.rushLong);

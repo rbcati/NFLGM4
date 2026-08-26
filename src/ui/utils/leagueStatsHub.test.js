@@ -22,6 +22,26 @@ describe('buildLeagueStatsHubModel', () => {
     expect(model.playerTables.receiving[0].recYds).toBe(20);
   });
 
+  it('tracks explicit-zero versus missing fields conservatively across game-log aggregates', () => {
+    const game = (week, home) => ({ id: `g-${week}`, week, played: true, homeId: 1, awayId: 2, playerStats: { home, away: {} } });
+    const model = buildLeagueStatsHubModel({
+      teams: [{ id: 1, abbr: 'AAA', roster: [] }, { id: 2, abbr: 'BBB', roster: [] }],
+      schedule: [
+        game(1, {
+          1: { name: 'Sparse', stats: { passYd: 100 } },
+          2: { name: 'Explicit Zero', stats: { passYd: 100, passTD: 0, passComp: 0, passAtt: 0 } },
+          3: { name: 'Partial', stats: { passYd: 80, passTD: 1, passComp: 8, passAtt: 10 } },
+        }),
+        game(2, { 3: { name: 'Partial', stats: { passYd: 20 } } }),
+      ],
+    });
+    const rows = Object.fromEntries(model.playerTables.passing.map((row) => [row.name, row]));
+    expect(rows.Sparse.statAvailability).toMatchObject({ passYds: true, passTd: false, cmp: false, att: false });
+    expect(rows['Explicit Zero'].statAvailability).toMatchObject({ passYds: true, passTd: true, cmp: true, att: true });
+    expect(rows.Partial.passYds).toBe(100);
+    expect(rows.Partial.statAvailability).toMatchObject({ passYds: true, passTd: false, cmp: false, att: false });
+  });
+
   it('de-dupes completed games by game id across schedule shapes', () => {
     const sharedGame = { id: 's1_w1_1_2', played: true, homeId: 1, awayId: 2, homeScore: 21, awayScore: 14, teamStats:{ home:{ passYd:200,rushYd:40 }, away:{ passYd:150,rushYd:30 } } };
     const league = {

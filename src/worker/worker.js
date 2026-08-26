@@ -13792,6 +13792,10 @@ async function handleGetLeagueLeaders({ mode = 'season' }, id) {
         pos:      e.pos      || '?',
         teamId:   e.teamId,
         value:    e.totals[key] || 0,
+        // Keep the ranked value for backward compatibility, while also
+        // carrying this player's canonical season line. Consumers must not
+        // reconstruct a row by joining independent top-N lists.
+        totals:   { ...(e.totals || {}) },
       }));
   };
 

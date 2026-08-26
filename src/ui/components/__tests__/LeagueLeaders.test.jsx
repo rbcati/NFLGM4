@@ -5,6 +5,53 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import LeagueLeaders from '../LeagueLeaders.jsx';
 
 describe('LeagueLeaders', () => {
+  afterEach(cleanup);
+  it('builds every remote row from that leader\'s canonical totals instead of independent top-N lists', async () => {
+    const actions = {
+      getLeagueLeaders: () => Promise.resolve({
+        payload: {
+          source: 'current_regular_season',
+          categories: {
+            passing: {
+              passYards: [
+                { playerId: 1, name: 'Outside TD Top Ten', pos: 'QB', teamId: 1, value: 4126, totals: { passYd: 4126, passTD: 21, passComp: 337, passAtt: 500 } },
+                { playerId: 2, name: 'Zero TD QB', pos: 'QB', teamId: 2, value: 900, totals: { passYd: 900, passTD: 0, passComp: 80, passAtt: 120 } },
+                { playerId: 3, name: 'Sparse QB', pos: 'QB', teamId: 2, value: 700, totals: { passYd: 700 } },
+              ],
+              passTDs: [{ playerId: 99, name: 'Unrelated TD Leader', value: 40, totals: { passTD: 40 } }],
+            },
+            rushing: { rushYards: [{ playerId: 4, name: 'Runner', pos: 'RB', teamId: 1, value: 1200, totals: { rushYd: 1200, rushTD: 8, rushAtt: 240 } }] },
+            receiving: { recYards: [{ playerId: 5, name: 'Receiver', pos: 'WR', teamId: 1, value: 1100, totals: { recYd: 1100, receptions: 75, recTD: 7 } }] },
+            defense: {
+              tackles: [{ playerId: 6, name: 'Tackler', pos: 'LB', teamId: 1, value: 101, totals: { tackles: 101 } }],
+              sacks: [{ playerId: 7, name: 'Rusher', pos: 'DE', teamId: 1, value: 12, totals: { sacks: 12, tacklesForLoss: 16, forcedFumbles: 3 } }],
+              interceptions: [{ playerId: 8, name: 'Ball Hawk', pos: 'CB', teamId: 2, value: 6, totals: { interceptions: 6, passesDefended: 14, tackles: 44 } }],
+            },
+          },
+        },
+      }),
+    };
+    const { container } = render(<LeagueLeaders league={BASE_LEAGUE} actions={actions} />);
+
+    await screen.findAllByText('Outside TD Top Ten');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain('21 / 67.4%');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain('0 / 66.7%');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain('— / —');
+    expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).not.toContain('Unrelated TD Leader');
+
+    const expected = [
+      ['Rushing', '8 / 5.0'],
+      ['Receiving', '75 / 7'],
+      ['Tackles', '— / —'],
+      ['Sacks', '16 / 3'],
+      ['Interceptions', '14 / 44'],
+    ];
+    for (const [tab, secondary] of expected) {
+      fireEvent.click(screen.getByRole('tab', { name: tab }));
+      expect(container.querySelector('.app-desktop-data-table tbody')?.textContent).toContain(secondary);
+    }
+  });
+
   it('resolves API leader team identity from a real team id and exposes a working team filter', async () => {
     const actions = {
       getLeagueLeaders: () => Promise.resolve({
@@ -36,7 +83,7 @@ describe('LeagueLeaders', () => {
     fireEvent.change(container.querySelector('[aria-label="Sort league leaders"]'), { target: { value: 'name:asc' } });
   });
 
-  it('renders non-zero leaders from completed-game stats when API categories are missing', () => {
+  it('renders and sorts normalized completed-game fallback stats for every category', () => {
     const league = {
       userTeamId: 1,
       teams: [
@@ -71,11 +118,35 @@ describe('LeagueLeaders', () => {
                       pos: 'QB',
                       stats: { passYd: 320, passTD: 3, passComp: 24, passAtt: 33 },
                     },
+                    102: { name: 'QB Two', pos: 'QB', stats: { passYd: 100, passTD: 0, passComp: 10, passAtt: 20 } },
+                    103: { name: 'QB Sparse', pos: 'QB', stats: { passYd: 100 } },
+                    104: { name: 'QB Explicit Zero', pos: 'QB', stats: { passYd: 100, passTD: 0, passComp: 0, passAtt: 0 } },
+                    105: { name: 'QB Partial History', pos: 'QB', stats: { passYd: 80, passTD: 1, passComp: 8, passAtt: 10 } },
+                    201: { name: 'Runner', pos: 'RB', stats: { rushYd: 120, rushTD: 2, rushAtt: 20 } },
+                    301: { name: 'Receiver', pos: 'WR', stats: { recYd: 140, receptions: 7, recTD: 1 } },
+                    401: { name: 'Tackler', pos: 'LB', stats: { tackles: 101 } },
+                    402: { name: 'Rusher', pos: 'DE', stats: { sacks: 4, tacklesForLoss: 2, forcedFumbles: 1 } },
+                    403: { name: 'Ball Hawk', pos: 'CB', stats: { interceptions: 2, passesDefended: 5, tackles: 44 } },
+                    404: { name: 'Zero INT', pos: 'S', stats: { interceptions: 0, tackles: 30 } },
+                    501: { name: 'Kicker', pos: 'K', stats: { fgm: 3, fga: 4, points: 10 } },
                   },
                   away: {},
                 },
               },
             ],
+          }, {
+            week: 2,
+            games: [{
+              played: true,
+              homeId: 1,
+              awayId: 2,
+              homeScore: 17,
+              awayScore: 10,
+              playerStats: {
+                home: { 105: { name: 'QB Partial History', pos: 'QB', stats: { passYd: 20 } } },
+                away: {},
+              },
+            }],
           },
         ],
       },
@@ -85,7 +156,7 @@ describe('LeagueLeaders', () => {
       getLeagueLeaders: () => Promise.resolve({ payload: { categories: null, source: null, phase: null } }),
     };
 
-    render(
+    const { container } = render(
       <LeagueLeaders
         league={league}
         actions={actions}
@@ -94,8 +165,64 @@ describe('LeagueLeaders', () => {
       />,
     );
 
-    // Wait for initial render using a simple presence check; the top leader should be our QB
     expect(screen.getAllByText('QB Leader').length).toBeGreaterThan(0);
+    const desktopRows = () => container.querySelector('.app-desktop-data-table tbody')?.textContent ?? '';
+    const desktopNames = () => Array.from(container.querySelectorAll('.app-desktop-data-table tbody .league-leaders-player-link')).map((button) => button.textContent);
+
+    expect(desktopRows()).toContain('320');
+    expect(desktopRows()).toContain('3 / 72.7%');
+    expect(desktopNames()[0]).toBe('QB Leader');
+    const passingValues = Object.fromEntries(Array.from(container.querySelectorAll('.app-desktop-data-table tbody tr')).map((row) => {
+      const cells = row.querySelectorAll('td');
+      return [cells[1]?.textContent, { primary: cells[3]?.textContent, secondary: cells[4]?.textContent }];
+    }));
+    expect(passingValues['QB Sparse']).toEqual({ primary: '100', secondary: '— / —' });
+    expect(passingValues['QB Explicit Zero']).toEqual({ primary: '100', secondary: '0 / 0.0%' });
+    expect(passingValues['QB Partial History']).toEqual({ primary: '100', secondary: '— / —' });
+
+    const categories = [
+      ['Rushing', '120', '2 / 6.0'],
+      ['Receiving', '140', '7 / 1'],
+      ['Tackles', '101', '— / —'],
+      ['Sacks', '4', '2 / 1'],
+      ['Interceptions', '2', '5 / 44'],
+      ['Kicking', '3', '75.0% / 10'],
+    ];
+    for (const [tab, primary, secondary] of categories) {
+      fireEvent.click(screen.getByRole('tab', { name: tab }));
+      expect(desktopRows()).toContain(primary);
+      expect(desktopRows()).toContain(secondary);
+      if (tab === 'Interceptions') {
+        expect(desktopNames()).not.toContain('Tackler');
+        expect(desktopNames()).toContain('Zero INT');
+        const zeroRow = Array.from(container.querySelectorAll('.app-desktop-data-table tbody tr')).find((row) => row.textContent.includes('Zero INT'));
+        expect(zeroRow?.querySelectorAll('td')[3]?.textContent).toBe('0');
+      }
+    }
+  });
+
+  it('computes tackle primaries without treating missing splits as zero', () => {
+    const { container } = renderLeagueLeaders({
+      teams: [{
+        id: 1,
+        abbr: 'AAA',
+        roster: [
+          { id: 1, name: 'Total Only', position: 'LB', seasonStats: { tackles: 101 } },
+          { id: 2, name: 'Full Split', position: 'LB', seasonStats: { tackles: 100, soloTackles: 70, assistTackles: 40 } },
+          { id: 3, name: 'Splits Only', position: 'LB', seasonStats: { soloTackles: 60, assistTackles: 30, sacks: 1 } },
+        ],
+      }],
+    });
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Tackles' }));
+    const rows = Array.from(container.querySelectorAll('.app-desktop-data-table tbody tr'));
+    const values = Object.fromEntries(rows.map((row) => {
+      const cells = row.querySelectorAll('td');
+      return [cells[1]?.textContent, { primary: cells[3]?.textContent, secondary: cells[4]?.textContent }];
+    }));
+    expect(values['Total Only']).toEqual({ primary: '101', secondary: '— / —' });
+    expect(values['Full Split']).toEqual({ primary: '110', secondary: '70 / 40' });
+    expect(values['Splits Only']).toEqual({ primary: '90', secondary: '60 / 30' });
   });
 });
 
