@@ -485,51 +485,6 @@
   box-shadow: 0 8px 20px rgba(0,0,0,.16);
   background: color-mix(in srgb, #0a0f19 85%, var(--surface) 15%);
 }
-.app-hq-bottom-nav {
-  position: sticky;
-  bottom: calc(66px + env(safe-area-inset-bottom, 0px));
-  z-index: 3;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(13,20,32,.92), rgba(10,16,27,.9));
-  padding: 4px 5px calc(4px + env(safe-area-inset-bottom, 0px));
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 3px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, .28);
-  backdrop-filter: blur(12px);
-}
- .app-hq-bottom-nav button {
-  min-height: 44px;
-  border: 0;
-  background: transparent;
-  color: var(--text-subtle);
-  border-radius: 12px;
-  padding: 5px 3px 4px;
-  display: grid;
-  justify-items: center;
-  gap: 1px;
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background .16s ease, color .16s ease, transform .16s ease;
-}
-.app-hq-bottom-nav button:focus-visible,
-.app-command-advance-gold:focus-visible,
-.app-action-tile:focus-visible {
-  outline: 0.14rem solid #ffd166;
-  outline-offset: 0.12rem;
-}
-.app-hq-bottom-nav button span { font-size: 15px; line-height: 1; color: #8ea1bf; display: grid; place-items: center; }
-.app-hq-bottom-nav button svg { width: 17px; height: 17px; }
-.app-hq-bottom-nav button small { font-size: 10px; letter-spacing: .01em; color: #8ea1bf; }
-.app-hq-bottom-nav button.is-active {
-  color: #f5f9ff;
-  background: linear-gradient(180deg, rgba(67, 124, 241, .45), rgba(67, 124, 241, .2));
-  box-shadow: inset 0 0 0 1px rgba(125, 171, 255, .35);
-}
-.app-hq-bottom-nav button.is-active span,
-.app-hq-bottom-nav button.is-active small { color: #f2f7ff; }
 .app-blocker-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .app-command-bottom-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .app-summary-grid { display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -620,7 +575,12 @@
 .app-action-tile__subtitle { color: var(--text-muted); font-size: 12px; line-height: 1.3; }
 .app-action-tile__icon { width: 88px; height: 88px; border-radius: 12px; display: grid; place-items: center; padding: 12px; background: linear-gradient(180deg, #0B0F14, #121821); border: 1px solid #2A3441; color: #d9e7ff; }
 .app-action-tile .app-status-chip { font-size: 10px; background: rgba(255, 188, 84, .24); border-color: rgba(255, 188, 84, .5); color: #ffd28c; }
-.app-hq-sticky-advance { position: sticky; bottom: calc(72px + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+.app-hq-sticky-advance {
+  position: sticky;
+  /* MobileNav owns a 60px bar, safe-area padding, and a minimum 10px gutter. */
+  bottom: calc(76px + max(10px, env(safe-area-inset-bottom, 0px)) + env(safe-area-inset-bottom, 0px));
+  z-index: 5;
+}
 
 .week-operations-shell { background: #0b1118; border: 1px solid #2A3441; border-radius: 12px; padding: 10px; margin-bottom: 8px; }
 .week-operations-shell__title { margin: 0; color: #E6EDF3; font-size: 14px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
@@ -670,13 +630,11 @@
   .app-hq-topbar { grid-template-columns: 1fr auto; }
   .app-hq-matchup-main { grid-template-columns: 1fr auto; }
   .app-hq-hero-subcard__value { font-size: 12px; }
-  .app-hq-bottom-nav { bottom: calc(136px + env(safe-area-inset-bottom, 0px)); }
 }
 
 @media (max-width: 420px) {
   .franchise-command-center { overflow-x: clip; }
   .app-task-row__copy span { white-space: normal; }
-  .app-hq-bottom-nav { gap: 6px; }
   .app-action-grid-2x2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .app-summary-grid { grid-template-columns: 1fr; }
   .app-hq-pulse-grid { grid-template-columns: 1fr; }
@@ -694,8 +652,6 @@
   .app-hq-topbar__left strong, .app-hq-topbar__team strong { font-size: 0.78rem; letter-spacing: 0.08em; }
   .app-hq-matchup-hero { padding: 0.8rem 0.75rem; gap: 0.65rem; }
   .app-hq-hero-copy strong { font-size: clamp(1rem, 5.5vw, 1.18rem); }
-  .app-hq-bottom-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); bottom: calc(124px + env(safe-area-inset-bottom, 0px)); }
-  .app-hq-bottom-nav button small { font-size: 0.58rem; }
 }
 
 @media (min-width: 900px) {

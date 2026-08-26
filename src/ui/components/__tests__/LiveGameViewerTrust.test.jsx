@@ -55,7 +55,7 @@ describe('LiveGameViewer — score authority', () => {
     const bug = screen.getByTestId('watch-scorebug');
     expect(bug.textContent).toContain('41');
     expect(bug.textContent).toContain('35');
-    expect(bug.textContent).toContain('FINAL');
+    expect(bug.textContent).toMatch(/Final/);
   });
 
   it('reports the canonical final (not narration) through onComplete', () => {

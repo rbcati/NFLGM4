@@ -28,14 +28,6 @@ import GMDecisionCenter from './GMDecisionCenter.jsx';
 import { readStrictFinalScore, recoverArchivedGameFromSchedule } from '../../core/gameArchive.js';
 import { buildGameDayReadinessModel } from '../utils/gameDayReadinessModel.js';
 
-const BOTTOM_NAV_ITEMS = [
-  { label: 'Home', route: 'HQ', icon: 'home', active: true },
-  { label: 'Team', route: 'Team:Overview', icon: 'team' },
-  { label: 'League', route: 'League:Overview', icon: 'league' },
-  { label: 'News', route: 'News', icon: 'news' },
-  { label: 'More', route: 'More', icon: 'more' },
-];
-
 function safeNum(value, fallback = 0) {
   const n = Number(value);
   return Number.isFinite(n) ? n : fallback;
@@ -1340,7 +1332,7 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
       ) : null}
 
       {/* ── ADVANCE WEEK BUTTON — full-width, always visible without scroll ── */}
-      <div className="app-hq-sticky-advance">
+      <div className="app-hq-sticky-advance" data-layout-owner="hq-context-action">
         <Button
           className="app-command-advance app-command-advance-gold"
           data-testid="advance-week-cta"
@@ -1360,20 +1352,6 @@ export default function FranchiseHQ({ league, lastResults = [], lastSimWeek = nu
         </Button>
       </div>
 
-      <nav className="app-hq-bottom-nav" aria-label="HQ quick bottom navigation">
-        {BOTTOM_NAV_ITEMS.map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            className={item.active ? 'is-active' : ''}
-            onClick={() => onNavigate?.(item.route)}
-            aria-label={`Open ${item.label}`}
-          >
-            <span aria-hidden="true"><HQIcon name={item.icon} size={18} /></span>
-            <small>{item.label}</small>
-          </button>
-        ))}
-      </nav>
     </div>
   );
 }

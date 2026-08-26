@@ -117,6 +117,22 @@ describe('LiveGame — final state presentation', () => {
     fireEvent.click(cta);
     expect(onOpenBoxScore).toHaveBeenCalledWith('game-abc');
   });
+
+  it('renders all available canonical Week Recap metrics without blank shells', () => {
+    const league = leagueWith([{ home: USER_ID, away: OPP_ID }]);
+    const result = {
+      gameId: 'rich-game', homeId: USER_ID, awayId: OPP_ID,
+      homeAbbr: 'CHI', awayAbbr: 'DET', homeScore: 30, awayScore: 13,
+      simFactors: { away: { qbRating: 88.2, rushYpc: 3.4 }, home: { qbRating: 102.4, rushYpc: 4.8 } },
+      teamStats: { away: { turnovers: 1, sacksMade: 2 }, home: { turnovers: 0, sacksMade: 4 } },
+    };
+    renderFinished({ league, gameEvents: [result], lastResults: [result], simulatedWeek: 9 });
+    expect(document.body.textContent).toContain('DET 88.2 · CHI 102.4');
+    expect(document.body.textContent).toContain('DET 3.40 · CHI 4.80');
+    expect(document.body.textContent).toContain('DET 1 · CHI 0');
+    expect(document.body.textContent).toContain('DET 2 · CHI 4');
+    expect(document.body.textContent).not.toMatch(/QB Rtg\s*YPC|YPC\s*TO|TO\s*Sacks/);
+  });
 });
 
 describe('LiveGame — play feed highlighting', () => {

@@ -34,6 +34,7 @@ import React, {
 } from "react";
 import { getClickableCardProps } from "../utils/clickableCard.js";
 import { buildCompletedGamePresentation, openResolvedBoxScore } from "../utils/boxScoreAccess.js";
+import { buildWeeklyRecapMetrics } from "../utils/weeklyRecapMetrics.js";
 
 // ── Momentum Bar ───────────────────────────────────────────────────────────────
 // Shows which team has the momentum based on recent plays.
@@ -753,6 +754,8 @@ export default function LiveGame({
     awayScore: userLastResults[0].awayScore,
     recapText: userLastResults[0].recapText ?? null,
     teamDriveStats: userLastResults[0].teamDriveStats ?? null,
+    teamStats: userLastResults[0].teamStats ?? userLastResults[0].teamDriveStats ?? null,
+    simFactors: userLastResults[0].simFactors ?? null,
     scoringSummary: userLastResults[0].scoringSummary ?? [],
     driveSummary: userLastResults[0].driveSummary ?? [],
     quarterScores: userLastResults[0].quarterScores ?? null,
@@ -778,22 +781,10 @@ export default function LiveGame({
     if (margin <= 10) return "Competitive loss. You were in it, but couldn't finish.";
     return "Rough day. Regroup and reset before next week.";
   })();
-  const recapDriveStats = recapGame?.teamDriveStats ?? null;
-  const hasDriveStats = Boolean(recapDriveStats?.home && recapDriveStats?.away);
-  const statValuePair = (key, digits = 1) => {
-    if (!hasDriveStats) return null;
-    const homeVal = recapDriveStats.home?.[key];
-    const awayVal = recapDriveStats.away?.[key];
-    if (homeVal == null || awayVal == null) return null;
-    const fmt = (value) => (typeof value === "number" ? value.toFixed(digits) : value);
-    return `${recapGame.awayAbbr} ${fmt(awayVal)} · ${recapGame.homeAbbr} ${fmt(homeVal)}`;
-  };
-  const statGridRows = hasDriveStats ? [
-    { label: "QB Rtg", value: statValuePair("qbRating", 1) },
-    { label: "YPC", value: statValuePair("rushYPC", 2) },
-    { label: "TO", value: statValuePair("turnovers", 0) },
-    { label: "Sacks", value: statValuePair("sacks", 0) },
-  ].filter((row) => row.value != null) : [];
+  const statGridRows = buildWeeklyRecapMetrics(recapGame, userLastResults).map((row) => ({
+    ...row,
+    value: `${recapGame.awayAbbr} ${row.away.toFixed(row.digits)} · ${recapGame.homeAbbr} ${row.home.toFixed(row.digits)}`,
+  }));
   const recapScoring = Array.isArray(recapGame?.scoringSummary) ? recapGame.scoringSummary.slice(-2) : [];
   const recapDrives = Array.isArray(recapGame?.driveSummary) ? recapGame.driveSummary.slice(-2) : [];
 
@@ -1237,7 +1228,7 @@ export default function LiveGame({
                 <div style={{ fontSize: "var(--text-xs)", textTransform: "uppercase", letterSpacing: ".06em", color: "var(--text-subtle)", marginBottom: 2 }}>
                   Week Recap
                 </div>
-                {hasDriveStats && (
+                {statGridRows.length > 0 && (
                   <div style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
@@ -1253,9 +1244,9 @@ export default function LiveGame({
                   </div>
                 )}
                 <div style={{ fontSize: "var(--text-sm)", fontWeight: 700, color: "var(--text)", fontStyle: "italic" }}>{recapText}</div>
-                <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
+                {!finalFraming ? <div style={{ fontSize: "var(--text-xs)", color: "var(--text-muted)" }}>
                   {recapGame.awayAbbr} {recapGame.awayScore} - {recapGame.homeScore} {recapGame.homeAbbr}
-                </div>
+                </div> : null}
                 {!!recapScoring.length && (
                   <div style={{ fontSize: "var(--text-xs)", color: "var(--text-subtle)", marginTop: 6 }}>
                     Recent scores: {recapScoring.map((s) => `Q${s.quarter} ${s.teamId === recapGame.homeId ? recapGame.homeAbbr : recapGame.awayAbbr} ${s.type ?? s.scoreType ?? 'Score'}`).join(" · ")}
