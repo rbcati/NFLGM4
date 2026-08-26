@@ -189,12 +189,19 @@ export function aggregateTeamUnitsFromRoster(roster: Player[] = [], teamId?: num
 }
 
 export function buildDeterministicSeed(input: string): number {
+  if (typeof input !== 'string') {
+    throw new TypeError('buildDeterministicSeed requires a string key');
+  }
   let hash = 2166136261;
   for (let i = 0; i < input.length; i += 1) {
     hash ^= input.charCodeAt(i);
     hash = Math.imul(hash, 16777619);
   }
   return hash >>> 0;
+}
+
+export function buildEvolutionSeedKey(year: number, week: number, salt: 'weekly_evolution_v1' | 'offseason_evolution_v1'): string {
+  return `${year}:${week}:${salt}`;
 }
 
 export function buildCanonicalEventsFromRichSummary(summary: GameSummary) {

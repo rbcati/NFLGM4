@@ -4,6 +4,7 @@ import {
   attachFullRostersForSimulation,
   aggregateTeamUnitsFromRoster,
   buildDeterministicSeed,
+  buildEvolutionSeedKey,
   mapGameSummaryToLegacyResult,
   simulateWithOptionalNewEngine,
 } from '../sim/weekSimulationBridge.ts';
@@ -182,8 +183,33 @@ describe('weekSimulationBridge', () => {
     expect(mapped.summary.storyline).toContain('Key edge');
   });
 
-  it('builds deterministic seeds', () => {
+  it('preserves deterministic string hashing and canonical game seed semantics', () => {
     expect(buildDeterministicSeed('2026:4:1:2')).toBe(buildDeterministicSeed('2026:4:1:2'));
+    expect(buildDeterministicSeed('2026:4:1:2')).toBe(3726982352);
+  });
+
+  it('builds distinct canonical evolution keys and seeds', () => {
+    const offseason2026 = buildEvolutionSeedKey(2026, 0, 'offseason_evolution_v1');
+    const offseason2027 = buildEvolutionSeedKey(2027, 0, 'offseason_evolution_v1');
+    const weekly4 = buildEvolutionSeedKey(2026, 4, 'weekly_evolution_v1');
+    const weekly5 = buildEvolutionSeedKey(2026, 5, 'weekly_evolution_v1');
+
+    expect(offseason2026).toBe('2026:0:offseason_evolution_v1');
+    expect(weekly4).toBe('2026:4:weekly_evolution_v1');
+    expect(buildDeterministicSeed(offseason2026)).not.toBe(buildDeterministicSeed(offseason2027));
+    expect(buildDeterministicSeed(weekly4)).not.toBe(buildDeterministicSeed(weekly5));
+    expect(buildDeterministicSeed(weekly4)).not.toBe(buildDeterministicSeed(buildEvolutionSeedKey(2026, 4, 'offseason_evolution_v1')));
+  });
+
+  it.each([
+    { year: 2026, week: 4, salt: 'weekly_evolution_v1' },
+    null,
+    undefined,
+    2026,
+  ])('rejects non-string seed key %#', (input) => {
+    expect(() => buildDeterministicSeed(input as any)).toThrowError(
+      new TypeError('buildDeterministicSeed requires a string key'),
+    );
   });
 
   it('carries advancedAttribution from rich summary into bridge result', () => {
