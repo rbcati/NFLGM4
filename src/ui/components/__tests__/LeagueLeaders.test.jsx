@@ -127,6 +127,7 @@ describe('LeagueLeaders', () => {
                     401: { name: 'Tackler', pos: 'LB', stats: { tackles: 101 } },
                     402: { name: 'Rusher', pos: 'DE', stats: { sacks: 4, tacklesForLoss: 2, forcedFumbles: 1 } },
                     403: { name: 'Ball Hawk', pos: 'CB', stats: { interceptions: 2, passesDefended: 5, tackles: 44 } },
+                    404: { name: 'Zero INT', pos: 'S', stats: { interceptions: 0, tackles: 30 } },
                     501: { name: 'Kicker', pos: 'K', stats: { fgm: 3, fga: 4, points: 10 } },
                   },
                   away: {},
@@ -191,6 +192,12 @@ describe('LeagueLeaders', () => {
       fireEvent.click(screen.getByRole('tab', { name: tab }));
       expect(desktopRows()).toContain(primary);
       expect(desktopRows()).toContain(secondary);
+      if (tab === 'Interceptions') {
+        expect(desktopNames()).not.toContain('Tackler');
+        expect(desktopNames()).toContain('Zero INT');
+        const zeroRow = Array.from(container.querySelectorAll('.app-desktop-data-table tbody tr')).find((row) => row.textContent.includes('Zero INT'));
+        expect(zeroRow?.querySelectorAll('td')[3]?.textContent).toBe('0');
+      }
     }
   });
 

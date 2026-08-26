@@ -321,19 +321,23 @@ export default function LeagueLeaders({ league, actions, onPlayerSelect, onNavig
 
     const sourceRows = model.playerTables?.[bucketKey] ?? [];
     return sourceRows
-      .map((row) => ({
-        player: {
-          ...row,
-          id: row.playerId,
-          name: row.name,
-          teamName: row.team,
-          teamId: row.teamId,
-          pos: row.pos ?? row.position ?? "",
-          isUserTeam: Number(row.teamId) === Number(league?.userTeamId),
-        },
-        primary: config.getPrimary(row) ?? 0,
-        secondary: config.getSecondary(row),
-      }))
+      .map((row) => {
+        const primary = config.getPrimary(row);
+        return {
+          player: {
+            ...row,
+            id: row.playerId,
+            name: row.name,
+            teamName: row.team,
+            teamId: row.teamId,
+            pos: row.pos ?? row.position ?? "",
+            isUserTeam: Number(row.teamId) === Number(league?.userTeamId),
+          },
+          primary,
+          secondary: config.getSecondary(row),
+        };
+      })
+      .filter((entry) => Number.isFinite(entry.primary))
       .sort((a, b) => (b.primary ?? 0) - (a.primary ?? 0))
       .slice(0, 10);
   }, [activeTab, league?.userTeamId, model.playerTables, remoteCategories, teams]);
