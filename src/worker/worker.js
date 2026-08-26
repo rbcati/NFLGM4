@@ -331,6 +331,7 @@ import {
   attachFullRostersForSimulation,
   aggregateTeamUnitsFromRoster,
   buildDeterministicSeed,
+  buildEvolutionSeedKey,
   simulateWithOptionalNewEngine,
 } from '../core/sim/weekSimulationBridge.ts';
 import { deriveFeatsFromRichGame } from '../core/sim/featDerivation.js';
@@ -5253,7 +5254,7 @@ function applyWeeklyEvolution({ week, seasonId, results, metaObj }) {
     results,
     week,
     seasonId,
-    seed: buildDeterministicSeed({ year: Number(metaObj?.year ?? 2025), week, salt: 'weekly_evolution_v1' }),
+    seed: buildDeterministicSeed(buildEvolutionSeedKey(Number(metaObj?.year ?? 2025), week, 'weekly_evolution_v1')),
     teamFocusByTeamId: buildTeamDevelopmentFocusMap(metaObj),
   });
 
@@ -11785,7 +11786,7 @@ async function handleAdvanceOffseason(payload, id) {
   const offseasonEvolution = processOffseasonEvolution({
     players: attrPlayers,
     seasonId: Number(meta?.year ?? 2025),
-    seed: buildDeterministicSeed({ year: Number(meta?.year ?? 2025), week: 0, salt: 'offseason_evolution_v1' }),
+    seed: buildDeterministicSeed(buildEvolutionSeedKey(Number(meta?.year ?? 2025), 0, 'offseason_evolution_v1')),
     teamFocusByTeamId: focusByTeamId,
   });
   const touchedAttrTeamIds = new Set();

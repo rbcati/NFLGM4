@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { processOffseasonEvolution, processWeeklyEvolution } from '../evolutionEngine.ts';
+import { buildDeterministicSeed, buildEvolutionSeedKey } from '../../sim/weekSimulationBridge.ts';
 
 function makePlayer(overrides = {}) {
   return {
@@ -32,6 +33,21 @@ describe('evolutionEngine integration behaviors', () => {
     expect(result.updates.length).toBe(2);
     expect(result.summary.processedPlayers).toBe(2);
     expect(result.summary.netDelta).not.toBe(0);
+  });
+
+  it('reproduces offseason evolution while consuming season-specific seed noise', () => {
+    const players = [makePlayer({ id: '1', age: 22 })];
+    const seed2026 = buildDeterministicSeed(buildEvolutionSeedKey(2026, 0, 'offseason_evolution_v1'));
+    const seed2027 = buildDeterministicSeed(buildEvolutionSeedKey(2027, 0, 'offseason_evolution_v1'));
+    const input2026 = { players, seasonId: 2026, seed: seed2026 };
+
+    const first = processOffseasonEvolution(input2026);
+    const repeated = processOffseasonEvolution(input2026);
+    const nextSeason = processOffseasonEvolution({ players, seasonId: 2027, seed: seed2027 });
+
+    expect(seed2026).not.toBe(seed2027);
+    expect(first).toEqual(repeated);
+    expect(first.updates[0].attributesV2).not.toEqual(nextSeason.updates[0].attributesV2);
   });
 
   it('keeps weekly evolution functional for in-season path', () => {
