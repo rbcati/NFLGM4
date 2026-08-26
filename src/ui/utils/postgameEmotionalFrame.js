@@ -10,6 +10,18 @@ function num(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+// Result contracts evolved from *Yards to the canonical *Yd names. Preserve
+// missingness: an absent metric is not a recorded zero and cannot support a
+// negative postgame conclusion.
+function readStat(stats, keys) {
+  for (const key of keys) {
+    if (stats?.[key] == null || stats[key] === '') continue;
+    const value = Number(stats[key]);
+    if (Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
 function toId(raw) {
   if (raw == null) return NaN;
   if (typeof raw === 'object') return num(raw.id, NaN);
@@ -75,14 +87,14 @@ function deriveBiggestConcern(opts) {
   }
 
   const userOffSide = userIsHome ? teamStats?.home : teamStats?.away;
-  const turnoversCommitted = num(userOffSide?.turnovers, 0);
-  if (turnoversCommitted >= 3) {
+  const turnoversCommitted = readStat(userOffSide, ['turnovers', 'turnoversCommitted']);
+  if (turnoversCommitted != null && turnoversCommitted >= 3) {
     return { label: 'Turnover problem', detail: `Gave the ball away ${turnoversCommitted} times — cannot sustain that going forward.`, tone: 'warning' };
   }
 
-  const passYds = num(userOffSide?.passYds, 0);
-  const rushYds = num(userOffSide?.rushYds, 0);
-  if (passYds < 150 && rushYds < 80) {
+  const passYds = readStat(userOffSide, ['passYd', 'passYards', 'passYds']);
+  const rushYds = readStat(userOffSide, ['rushYd', 'rushYards', 'rushYds']);
+  if (passYds != null && rushYds != null && passYds < 150 && rushYds < 80) {
     return { label: 'Offense stalled', detail: 'Struggling to move the chains in both phases — game plan needs adjustment.', tone: 'warning' };
   }
 

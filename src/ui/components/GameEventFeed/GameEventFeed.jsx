@@ -68,7 +68,11 @@ export default function GameEventFeed({ events = [], activeIndex = 0 }) {
                 <div className="feed-headline">{event.headline}</div>
                 {(scoreText || tags.length > 0) ? (
                   <div className="feed-meta">
-                    {scoreText ? <span className="feed-score">FINAL {scoreText}</span> : null}
+                    {scoreText ? (
+                      <span className="feed-score">
+                        {event.eventType === 'game_end' ? `FINAL ${scoreText}` : scoreText}
+                      </span>
+                    ) : null}
                     {tags.map((tag) => (
                       <span key={tag} className={`feed-tag ${TAG_CLASS[tag] || 'feed-tag-default'}`}>{tag}</span>
                     ))}

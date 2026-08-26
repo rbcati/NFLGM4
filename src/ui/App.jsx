@@ -1990,7 +1990,7 @@ function AppContent() {
           injuries={skipGameSummary.injuries}
           momentumChange={skipGameSummary.momentumChange}
           onClose={() => setSkipGameSummary(null)}
-          nextWeek={nextWeekBriefingContext}
+          nextWeek={buildNextWeekStoryContext(league, { completedWeek: skipGameSummary.week }) ?? nextWeekBriefingContext}
           onPreparationAction={(destination) => {
             setGameBookBriefingStash(null);
             setSkipGameSummary(null);

@@ -793,7 +793,7 @@ export default function LiveGame({
     { label: "YPC", value: statValuePair("rushYPC", 2) },
     { label: "TO", value: statValuePair("turnovers", 0) },
     { label: "Sacks", value: statValuePair("sacks", 0) },
-  ] : [];
+  ].filter((row) => row.value != null) : [];
   const recapScoring = Array.isArray(recapGame?.scoringSummary) ? recapGame.scoringSummary.slice(-2) : [];
   const recapDrives = Array.isArray(recapGame?.driveSummary) ? recapGame.driveSummary.slice(-2) : [];
 
@@ -1093,7 +1093,7 @@ export default function LiveGame({
             }}
           >
             {/* User's finished game (GAME_EVENT received) */}
-            {userResolvedEvents.map((ev, i) => (
+            {!finalFraming && userResolvedEvents.map((ev, i) => (
               <MatchupCard
                 key={ev.gameId ?? i}
                 event={ev}
@@ -1117,7 +1117,7 @@ export default function LiveGame({
             {/* Post-sim fallback: show user's lastResult if no events (e.g. skip was used) */}
             {isFinished &&
               userResolvedEvents.length === 0 &&
-              userLastResults.map((r, i) => (
+              !finalFraming && userLastResults.map((r, i) => (
                 <MatchupCard
                   key={i}
                   event={{

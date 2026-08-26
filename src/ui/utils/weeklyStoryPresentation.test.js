@@ -128,6 +128,22 @@ describe('buildWeeklyStoryPresentation', () => {
     expect(JSON.stringify(weeks)).toBe(before);
   });
 
+  it('anchors postgame context after the completed week and skips byes', () => {
+    const context = buildNextWeekStoryContext({
+      week: 5,
+      userTeamId: 1,
+      teams: [{ id: 1, abbr: 'BUF' }, { id: 2, abbr: 'MIA' }, { id: 3, abbr: 'KC' }],
+      schedule: { weeks: [
+        { week: 4, games: [{ home: 1, away: 2 }] },
+        { week: 5, games: [] },
+        { week: 6, games: [{ home: 3, away: 1 }] },
+      ] },
+    }, { completedWeek: 4 });
+    expect(context.week).toBe(6);
+    expect(context.opponentAbbr).toBe('KC');
+    expect(context.previousMeetingWeek).toBeNull();
+  });
+
   it('degrades for bye weeks, old saves, and missing identities', () => {
     const vm = buildWeeklyStoryPresentation({ league: {}, week: 8, completedGames: [], injuries: [{ injuryWeeksRemaining: 5 }] });
     expect(vm.userGameStory).toBeNull();

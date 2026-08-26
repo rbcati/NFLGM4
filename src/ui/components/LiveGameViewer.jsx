@@ -126,18 +126,18 @@ export default function LiveGameViewer({ logs = [], canonicalEvents = null, play
     // the scorebug shows the period label + possession instead of a fake clock.
     clock: null,
     progressLabel: finished
-      ? 'Final'
+      ? null
       : (useCanonical
         ? null
         : `Play ${Math.min(index + 1, events.length)} of ${events.length}`),
-    downDistance: useCanonical
+    downDistance: finished ? null : useCanonical
       ? (currentEvent.plays != null ? `${currentEvent.plays} plays · ${currentEvent.yards || 0} yds` : 'Drive update')
       : (currentEvent.down ? `${currentEvent.down}${ordinal(currentEvent.down)} & ${currentEvent.distance || 10}` : 'Drive update'),
-    ballSpot: useCanonical
+    ballSpot: finished ? null : useCanonical
       ? '—'
       : (currentEvent.fieldPosition != null ? `Ball on ${Math.round(Number(currentEvent.fieldPosition) || 50)}` : 'Ball spot --'),
     fieldPosition: currentEvent.fieldPosition,
-    possessionTeamId: currentEvent.possessionTeamId,
+    possessionTeamId: finished ? null : currentEvent.possessionTeamId,
     isFinal: finished,
   };
   const isLateGame = useCanonical
@@ -170,7 +170,7 @@ export default function LiveGameViewer({ logs = [], canonicalEvents = null, play
       <header className="watch-header">
         <Scorebug homeTeam={homeTeam} awayTeam={awayTeam} state={scoreState} />
         <div className="watch-state-strip">
-          <span className="watch-mode-chip">{modeLabel}</span>
+          {!finished ? <span className="watch-mode-chip">{modeLabel}</span> : null}
           {/* Honest framing: the drive-by-drive order and the running score shown
               before the final are a deterministic RECONSTRUCTION of possessions,
               not the game's recorded chronology (the engine simulates each side's
@@ -185,10 +185,10 @@ export default function LiveGameViewer({ logs = [], canonicalEvents = null, play
             </span>
           ) : null}
           {isLateGame && !finished ? <span className="watch-mode-chip clutch">Late Game</span> : null}
-          {finished ? <span className="watch-mode-chip final">Complete</span> : null}
+          {finished ? <span className="watch-mode-chip final">Final</span> : null}
           {(() => {
             const tc = TENDENCY_CONFIG[userTendency] || TENDENCY_CONFIG.BALANCED;
-            return <span className={`watch-mode-chip tendency-${tc.chipClass}`}>{tc.label}</span>;
+            return !finished ? <span className={`watch-mode-chip tendency-${tc.chipClass}`}>{tc.label}</span> : null;
           })()}
         </div>
         {momentBanner ? <div className={`watch-moment-banner ${momentBanner.type}`} role="status">{momentBanner.text}</div> : null}
@@ -196,14 +196,14 @@ export default function LiveGameViewer({ logs = [], canonicalEvents = null, play
 
       <main className="watch-main">
         <section className="watch-panel">
-          <div className={`momentum ${swing.tone}`}>Momentum: {swing.label}</div>
-          <div className="jump-row" role="group" aria-label="Jump to game moments">
+          {!finished ? <div className={`momentum ${swing.tone}`}>Momentum: {swing.label}</div> : null}
+          {!finished ? <div className="jump-row" role="group" aria-label="Jump to game moments">
             <JumpBtn label="Scores" onClick={() => setIndex(getNextImportantEvent(events, index, 'score'))} />
             <JumpBtn label="Red Zone" onClick={() => setIndex(getNextImportantEvent(events, index, 'redZone'))} />
             <JumpBtn label="Turnovers" onClick={() => setIndex(getNextImportantEvent(events, index, 'turnover'))} />
             <JumpBtn label="Late Game" onClick={() => setIndex(getNextImportantEvent(events, index, 'finalMinutes'))} />
             <JumpBtn label="End" onClick={() => setIndex(events.length - 1)} />
-          </div>
+          </div> : null}
           <GameEventFeed events={events} activeIndex={index} />
         </section>
 
@@ -251,7 +251,7 @@ export default function LiveGameViewer({ logs = [], canonicalEvents = null, play
 
       {/* Compact sticky control tray — one row of playback controls above the
           safe area so the feed owns the screen on mobile. */}
-      <footer className="watch-controls-tray" aria-label="Playback controls">
+      {!finished ? <footer className="watch-controls-tray" aria-label="Playback controls">
         <button
           className="ctrl-btn pause-btn"
           onClick={() => setPaused((prev) => !prev)}
@@ -289,7 +289,7 @@ export default function LiveGameViewer({ logs = [], canonicalEvents = null, play
             ) : null}
           </div>
         </details>
-      </footer>
+      </footer> : null}
     </div>
   );
 }
