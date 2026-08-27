@@ -35,6 +35,11 @@ export function reconcileLegacyTeamRosters(teams = [], canonicalPlayers = []) {
       if (id == null) return;
       const key = String(id);
       if (seen.has(key)) return;
+      const canonicalPlayer = playersById.get(key);
+      if (
+        canonicalPlayer?.teamId != null
+        && String(canonicalPlayer.teamId) !== String(team?.id)
+      ) return;
       seen.add(key);
       membership.push(id);
     };

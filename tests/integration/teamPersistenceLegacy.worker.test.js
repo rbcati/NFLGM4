@@ -78,4 +78,46 @@ describe.sequential('legacy team persistence rewrite', () => {
     expect(cache.getPlayersByTeam(1).some((player) => player.id === legacyOnly.id)).toBe(false);
     expect((await Players.loadAll()).filter((player) => player.id === legacyOnly.id)).toHaveLength(1);
   }, 300_000);
+
+  it('does not let stale Team A membership steal a canonical Team B player', async () => {
+    const foreignSlot = 'save_slot_2';
+    const created = await dispatchWorker(toWorker.USE_SAFE_STARTER_LEAGUE, {
+      slotKey: foreignSlot,
+      options: { rngSeed: 1782, userTeamId: 0, name: 'Foreign Membership Precedence' },
+    }, { timeoutMs: 60_000 });
+    expect(created.type).toBe(toUI.FULL_STATE);
+
+    const teamA = await Teams.load(0);
+    const teamB = await Teams.load(1);
+    const teamAPlayers = await Players.byTeam(teamA.id);
+    const canonicalX = (await Players.byTeam(teamB.id))[0];
+    for (const player of teamAPlayers) await Players.delete(player.id);
+    const staleX = { ...canonicalX, teamId: teamA.id, ovr: Math.max(0, Number(canonicalX.ovr) - 25) };
+    await putRawLegacyTeam({
+      ...teamA,
+      rosterIds: [canonicalX.id],
+      rosterCount: 1,
+      roster: [staleX],
+      players: [staleX],
+    });
+
+    cache.reset();
+    expect((await dispatchWorker(toWorker.LOAD_SAVE, { leagueId: foreignSlot }, { timeoutMs: 180_000 })).type).toBe(toUI.FULL_STATE);
+    expect(cache.getPlayer(canonicalX.id)).toMatchObject({ teamId: teamB.id, ovr: canonicalX.ovr });
+    expect(cache.getPlayersByTeam(teamB.id).filter((player) => player.id === canonicalX.id)).toHaveLength(1);
+    expect(cache.getPlayersByTeam(teamA.id).some((player) => player.id === canonicalX.id)).toBe(false);
+    expect(cache.getTeam(teamA.id).rosterIds).not.toContain(canonicalX.id);
+    expect(cache.getAllPlayers().filter((player) => player.id === canonicalX.id)).toHaveLength(1);
+
+    expect((await dispatchWorker(toWorker.SAVE_NOW, {}, { timeoutMs: 120_000 })).type).toBe(toUI.SAVED);
+    const rawTeamA = await Teams.load(teamA.id);
+    expect(rawTeamA).not.toHaveProperty('roster');
+    expect(rawTeamA).not.toHaveProperty('players');
+    expect(rawTeamA.rosterIds).not.toContain(canonicalX.id);
+
+    cache.reset();
+    expect((await dispatchWorker(toWorker.LOAD_SAVE, { leagueId: foreignSlot }, { timeoutMs: 180_000 })).type).toBe(toUI.FULL_STATE);
+    expect(cache.getPlayer(canonicalX.id)).toMatchObject({ teamId: teamB.id, ovr: canonicalX.ovr });
+    expect(cache.getPlayersByTeam(teamA.id).some((player) => player.id === canonicalX.id)).toBe(false);
+  }, 300_000);
 });

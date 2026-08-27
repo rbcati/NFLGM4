@@ -71,6 +71,22 @@ describe('team persistence normalization', () => {
     expect(result.normalizedTeamIds).toEqual([4]);
   });
 
+  it('rejects foreign canonical membership while retaining matching canonical membership', () => {
+    const belongsToA = richPlayer('home', { teamId: '1' });
+    const belongsToB = richPlayer('foreign', { teamId: 2, ovr: 91 });
+    const staleForeign = richPlayer('foreign', { teamId: 1, ovr: 60 });
+    const result = reconcileLegacyTeamRosters([{
+      id: 1,
+      rosterIds: ['home', 'foreign'],
+      roster: [belongsToA, staleForeign],
+      players: [staleForeign],
+    }], [belongsToA, belongsToB]);
+
+    expect(result.teams[0]).toMatchObject({ rosterIds: ['home'], rosterCount: 1 });
+    expect(result.players.find((player) => player.id === 'foreign')).toBe(belongsToB);
+    expect(result.migratedPlayers).toEqual([]);
+  });
+
   it.each([
     { id: 1, roster: null, players: undefined },
     { id: 1, roster: [], rosterIds: [] },
