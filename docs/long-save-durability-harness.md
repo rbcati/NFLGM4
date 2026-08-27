@@ -289,10 +289,12 @@ Checkpoint reports deliberately separate three authorities:
   memory readings, and (when enabled) the compact storage census.
 
 Determinism legs compare checkpoint digests as they arrive from isolated child
-processes. A mismatch records the first checkpoint and bounded summaries; the
-parent does not deserialize two histories of full snapshots. Save/reload still
-performs a full current before/after comparison and emits bounded first-difference
-diagnostics on divergence.
+processes. Only determinism mode writes canonical checkpoints to temporary
+files. On a digest mismatch the parent loads the two files for that first
+checkpoint, emits a bounded domain/entity/field difference, and deletes every
+temporary artifact; the successful path never loads the files. Save/reload
+still performs a full current before/after comparison and emits bounded
+first-difference diagnostics on divergence.
 
 The storage census visits `meta`, `teams`, `players`, `rosters`, `games`,
 `seasons`, `playerStats`, `transactions`, `draftPicks`, and `news` one cursor row
@@ -327,11 +329,64 @@ rows), `teams` (28.3 MiB / 32 rows), `players` (27.8 MiB / 2,215 rows), and
 snapshot constructed through that checkpoint was only 8.7 MiB. Thus historical
 snapshot retention was real, unbounded diagnostic state and is removed here,
 but it was **not** the primary explanation for the approximately 4 GiB Node
-failure. The dominant retained heap in this harness tracks fake-indexeddb's
-in-heap representation of growing persisted history plus live worker state.
-This evidence does not establish browser disk allocation and does not justify
-production history deletion; store-level archival fidelity requires a separate
-UI-authority and compatibility audit before any compaction.
+failure. Its 8.7 MiB cumulative serialized magnitude is about 0.46% of the
+season-5 post-GC heap; that ratio is context, not an exact retained-heap share.
+Retained heap and fake-indexeddb payload growth are strongly correlated in this
+runner, but this census does not prove the V8 retaining path or distinguish all
+fake-indexeddb, worker, and harness references. It also does not establish
+browser disk allocation or justify production history deletion.
+
+The required post-fix ten-season authority run (default V8 heap, seed 1684)
+still OOMed during the season-9 rollover while deserializing a worker message.
+The last boundary with explicit GC was the season-8 rollover; the last completed
+checkpoint was season 9 `afterPlayoffs` (4,416.0 MiB RSS, 3,985.4 MiB pre-GC
+heap, no boundary GC, 215.8 MiB estimated payload). Boundary trajectory:
+
+| Rollover | RSS | pre-GC heap | post-GC heap | estimated payload |
+|---:|---:|---:|---:|---:|
+| 1 | 436.3 MiB | 269.8 MiB | 214.8 MiB | 34.4 MiB |
+| 2 | 850.6 MiB | 651.4 MiB | 636.0 MiB | 78.2 MiB |
+| 3 | 1,336.8 MiB | 1,100.6 MiB | 1,033.1 MiB | 99.4 MiB |
+| 4 | 1,827.8 MiB | 1,549.3 MiB | 1,457.2 MiB | 119.4 MiB |
+| 5 | 2,245.9 MiB | 1,937.6 MiB | 1,908.0 MiB | 139.3 MiB |
+| 6 | 2,971.0 MiB | 2,576.7 MiB | 2,540.2 MiB | 160.8 MiB |
+| 7 | 3,510.6 MiB | 3,094.3 MiB | 3,057.5 MiB | 180.6 MiB |
+| 8 | 4,067.5 MiB | 3,644.8 MiB | 3,596.3 MiB | 199.1 MiB |
+
+At season 8, `games` held 2,296 rows / 115.0 MiB, `teams` 32 rows /
+35.7 MiB, `players` 2,319 rows / 31.5 MiB, and `meta` one row / 10.4 MiB.
+Games add 285 rows and approximately 14.1–15.3 MiB per season. Their average
+size gently declined from 53,416 bytes in season 1 to 52,499 bytes in season 8;
+at the season-8 postseason checkpoint, current-season games averaged 51,899
+bytes versus 52,585 bytes for older rows, so old games are not individually
+inflating—the unbounded row count is the growth mechanism.
+
+The field census explains the oversized singleton records. At season 8,
+`teams[].roster` contributed 36,961,815 bytes (98.62% of all team payload),
+duplicating full player-shaped data already present in the `players` store; the
+largest team row was 4.0 MiB and 99.63% roster. Meta was dominated by `history`
+(5.21 MiB / 49.97%), `leagueHistory` (3.25 MiB / 31.15%), and
+`playerSeasonStatsArchive` (1.44 MiB / 13.84%). `draftBoard` was only 1,888
+bytes across all teams and was not causal.
+
+The measured next production work should be a historical-game payload authority
+and progressive-fidelity audit because `games` is the largest store and adds
+about 15 MiB every season. Any compaction must first map box-score/history UI
+requirements and preserve factual results. A separate, narrower team-persistence
+repair should stop writing full `team.roster` objects once save/reload tests
+prove the canonical `players` store reconstructs every required roster field.
+No production archive was deleted in this PR.
+
+The long run also reproduced `roster.size-within-legal-range` at season 7
+`afterSeasonRollover` for teams 16 (51), 17 (52), and 22 (52), and again at
+season 8 `afterRegularSeason` for those same entities. It recorded no failures
+at the last successful season-9 postseason checkpoint.
+
+The requested five-season determinism gate completed both isolated legs in
+17m15s. Each leg completed five seasons with 750 passing invariants, zero
+failures, and stable save/reload checks at seasons 1 and 5; lifecycle and
+checkpoint state digests were identical. Canonical artifacts remained on disk
+only while the two child reports were compared and were deleted afterward.
 
 ## 16. Runtime & peak-memory benchmarks
 

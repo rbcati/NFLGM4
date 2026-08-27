@@ -419,26 +419,81 @@ function profileStore(storeName, currentSeasonId) {
     let rowCount = 0;
     let serializedBytes = 0;
     let currentSeasonRows = 0;
+    const fieldBytes = storeName === STORES.META || storeName === STORES.TEAMS ? {} : null;
+    let largestTeamRow = null;
+    const gameAge = storeName === STORES.GAMES
+      ? { currentSeason: emptySizeBucket(), olderSeasons: emptySizeBucket() }
+      : null;
     const encoder = new TextEncoder();
     const req = store.openCursor();
     req.onsuccess = () => {
       const cursor = req.result;
       if (!cursor) {
-        resolve({
+        const result = {
           rowCount,
           serializedBytes,
           averageBytesPerRow: rowCount > 0 ? Math.round(serializedBytes / rowCount) : 0,
           ...(storeName === STORES.PLAYER_STATS ? { currentSeasonRows } : {}),
-        });
+        };
+        if (fieldBytes) {
+          result.topLevelFields = finalizeFieldBytes(fieldBytes, serializedBytes);
+          if (largestTeamRow) result.largestTeamRow = {
+            ...largestTeamRow,
+            topLevelFields: finalizeFieldBytes(largestTeamRow.topLevelFields, largestTeamRow.serializedBytes),
+          };
+        }
+        if (gameAge) result.bySeasonAge = finalizeSizeBuckets(gameAge);
+        resolve(result);
         return;
       }
-      serializedBytes += encoder.encode(JSON.stringify(cursor.value)).byteLength;
+      const rowBytes = utf8JsonBytes(cursor.value, encoder);
+      serializedBytes += rowBytes;
+      if (fieldBytes && cursor.value && typeof cursor.value === 'object') {
+        const rowFields = {};
+        for (const [field, value] of Object.entries(cursor.value)) {
+          const bytes = utf8JsonBytes(value, encoder);
+          fieldBytes[field] = (fieldBytes[field] ?? 0) + bytes;
+          if (storeName === STORES.TEAMS) rowFields[field] = bytes;
+        }
+        if (storeName === STORES.TEAMS && (!largestTeamRow || rowBytes > largestTeamRow.serializedBytes)) {
+          largestTeamRow = { id: cursor.value.id ?? null, serializedBytes: rowBytes, topLevelFields: rowFields };
+        }
+      }
+      if (gameAge) {
+        const bucket = currentSeasonId != null && String(cursor.value?.seasonId ?? cursor.value?.season) === String(currentSeasonId)
+          ? gameAge.currentSeason
+          : gameAge.olderSeasons;
+        bucket.rowCount += 1;
+        bucket.serializedBytes += rowBytes;
+      }
       if (storeName === STORES.PLAYER_STATS && currentSeasonId != null && String(cursor.value?.seasonId) === String(currentSeasonId)) currentSeasonRows += 1;
       rowCount += 1;
       cursor.continue();
     };
     req.onerror = () => reject(req.error);
   });
+}
+
+function utf8JsonBytes(value, encoder) {
+  const serialized = JSON.stringify(value);
+  return encoder.encode(serialized === undefined ? 'null' : serialized).byteLength;
+}
+
+function finalizeFieldBytes(fieldBytes, parentBytes) {
+  return Object.fromEntries(Object.entries(fieldBytes)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([field, serializedBytes]) => [field, {
+      serializedBytes,
+      percentOfParent: parentBytes > 0 ? Math.round((serializedBytes / parentBytes) * 10_000) / 100 : 0,
+    }]));
+}
+
+function emptySizeBucket() { return { rowCount: 0, serializedBytes: 0 }; }
+function finalizeSizeBuckets(buckets) {
+  return Object.fromEntries(Object.entries(buckets).map(([name, bucket]) => [name, {
+    ...bucket,
+    averageBytesPerRow: bucket.rowCount > 0 ? Math.round(bucket.serializedBytes / bucket.rowCount) : 0,
+  }]));
 }
 
 function dbPutBulk(storeName, records) {

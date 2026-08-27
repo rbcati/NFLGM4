@@ -15,7 +15,11 @@
 import { LifecycleDriver, CHECKPOINTS, EXPECTED_TEAM_COUNT } from './lifecycleDriver.js';
 import { runInvariants } from './invariants/index.js';
 import { canonicalSummary, compareCanonical } from './invariants/saveReload.js';
+import { compareDurableSnapshots } from './invariants/durableSnapshot.js';
 import { DurabilityReport } from './report.js';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export const MODES = Object.freeze({
   '1-season': { seasons: 1, durabilityCheckpoints: [1] },
@@ -85,12 +89,9 @@ export async function runDurabilityHarness(config = {}) {
   let previousSeasonStorageCensus = null;
   let lastCheckpointAt = Date.now();
   const evaluate = (ctx) => {
-    const preGc = memoryUsage();
-    sampleMem();
     const isBoundary = ctx.phase === CHECKPOINTS.AFTER_SEASON_ROLLOVER || ctx.phase === CHECKPOINTS.AFTER_RELOAD;
-    const gcAvailable = typeof globalThis.gc === 'function';
-    if (config.gcAtBoundaries === true && isBoundary && gcAvailable) globalThis.gc();
-    const postGc = config.gcAtBoundaries === true && isBoundary && gcAvailable ? memoryUsage() : null;
+    const memory = sampleBoundaryMemory({ gcAtBoundaries: config.gcAtBoundaries === true, isBoundary });
+    sampleMem();
     const snap = canonicalSummary({ view: ctx.view, db: ctx.db, season: ctx.season });
     cumulativeSnapshotSerializedBytes += snap.durableSnapshotSerializedBytes;
     ctx.durableSnapshot = snap.durableSnapshot;
@@ -102,15 +103,16 @@ export async function runDurabilityHarness(config = {}) {
     const storage = withStorageDeltas(ctx.storageCensus, previousStorageCensus, isBoundary && ctx.phase === CHECKPOINTS.AFTER_SEASON_ROLLOVER ? previousSeasonStorageCensus : null);
     if (ctx.storageCensus) previousStorageCensus = ctx.storageCensus;
     if (ctx.storageCensus && ctx.phase === CHECKPOINTS.AFTER_SEASON_ROLLOVER) previousSeasonStorageCensus = ctx.storageCensus;
+    const diagnosticArtifact = writeDeterminismArtifact(config.determinismArtifactsDir, ctx, snap.durableSnapshot);
     const counts = report.addCheckpoint({
       season: ctx.season,
       phase: ctx.phase,
       week: ctx.week,
       results,
-      durable: { digest: ctx.durableSnapshotDigest, summary: summarizeSnapshot(ctx.durableSnapshot) },
+      durable: { digest: ctx.durableSnapshotDigest, summary: summarizeSnapshot(ctx.durableSnapshot), ...(diagnosticArtifact ? { diagnosticArtifact } : {}) },
       metrics: {
         elapsedSincePreviousMs: now - lastCheckpointAt,
-        memory: { preGc, postGc, explicitGcRequested: config.gcAtBoundaries === true && isBoundary, explicitGcAvailable: gcAvailable },
+        memory,
         liveCounts: summarizeLiveCounts(ctx),
         harnessRetention: { fullSnapshotsInReport: 0, fullSnapshotsRetainedAfterCheckpoint: 1, currentSnapshotSerializedBytes: snap.durableSnapshotSerializedBytes, cumulativeSnapshotSerializedBytes },
         persistentStorage: storage,
@@ -119,7 +121,7 @@ export async function runDurabilityHarness(config = {}) {
     lastCheckpointAt = now;
     previousDurableSnapshot = ctx.durableSnapshot;
     if (Array.isArray(ctx?.probes?.transactions)) previousTransactions = ctx.probes.transactions;
-    onEvent({ type: 'checkpoint', season: ctx.season, phase: ctx.phase, counts });
+    onEvent({ type: 'checkpoint', season: ctx.season, phase: ctx.phase, counts, checkpoint: report.report.checkpoints.at(-1) });
     if (failureMode === 'fail-fast' && counts.fail > 0) {
       throw new StopHarness(`fail-fast: ${counts.fail} invariant failure(s) at season ${ctx.season} ${ctx.phase}`);
     }
@@ -244,9 +246,17 @@ export async function runDurabilityHarness(config = {}) {
  * We compare a normalized canonical outcome, not raw state.
  */
 export async function runDeterminismCheck(config = {}) {
-  const a = await runDurabilityHarness({ ...config, _determinismRun: 'A' });
-  const b = await runDurabilityHarness({ ...config, _determinismRun: 'B' });
-  return { ...compareReportDeterminism(a.report, b.report), reports: [a, b] };
+  const root = mkdtempSync(join(tmpdir(), 'durability-determinism-'));
+  const dirA = join(root, 'A');
+  const dirB = join(root, 'B');
+  mkdirSync(dirA); mkdirSync(dirB);
+  try {
+    const a = await runDurabilityHarness({ ...config, _determinismRun: 'A', determinismArtifactsDir: dirA });
+    const b = await runDurabilityHarness({ ...config, _determinismRun: 'B', determinismArtifactsDir: dirB });
+    return { ...compareReportDeterminism(a.report, b.report), reports: [a, b] };
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 }
 
 export function compareReportDeterminism(reportA, reportB) {
@@ -288,6 +298,19 @@ function memoryUsage() {
   if (typeof process === 'undefined' || !process.memoryUsage) return null;
   const { rss, heapUsed, heapTotal, external, arrayBuffers } = process.memoryUsage();
   return { rss, heapUsed, heapTotal, external, arrayBuffers };
+}
+
+export function sampleBoundaryMemory({ gcAtBoundaries, isBoundary, gc = globalThis.gc } = {}) {
+  const preGc = memoryUsage();
+  const explicitGcAvailable = typeof gc === 'function';
+  const explicitGcRequested = gcAtBoundaries === true && isBoundary === true;
+  if (explicitGcRequested && explicitGcAvailable) gc();
+  return {
+    preGc,
+    postGc: explicitGcRequested && explicitGcAvailable ? memoryUsage() : null,
+    explicitGcRequested,
+    explicitGcAvailable,
+  };
 }
 
 function summarizeLiveCounts(ctx) {
@@ -342,9 +365,42 @@ function compareReportSnapshots(a, b) {
     const bc = bByKey.get(key);
     if (!bc) { diffs.push({ domain: 'checkpoint', entityId: key, field: 'missing', runA: true, runB: false }); break; }
     if (ac.durable?.digest !== bc.durable?.digest) {
+      const diagnostic = compareArtifactSnapshots(ac.durable?.diagnosticArtifact, bc.durable?.diagnosticArtifact, key);
+      if (diagnostic) return diagnostic;
       const first = { domain: 'checkpoint', entityId: key, field: 'digest', checkpoint: key, runA: ac.durable?.digest, runB: bc.durable?.digest };
       return { ok: false, firstDivergence: first, diffs: [{ ...first, summaryA: ac.durable?.summary, summaryB: bc.durable?.summary }] };
     }
   }
   return { ok: diffs.length === 0, firstDivergence: diffs[0] || null, diffs };
+}
+
+function writeDeterminismArtifact(directory, ctx, snapshot) {
+  if (!directory) return null;
+  const name = `${ctx.season}-${String(ctx.phase).replace(/[^a-z0-9_-]/gi, '_')}.json`;
+  const path = join(directory, name);
+  writeFileSync(path, JSON.stringify(snapshot));
+  return path;
+}
+
+function compareArtifactSnapshots(pathA, pathB, checkpoint) {
+  if (!pathA || !pathB) return null;
+  try {
+    const snapshotA = JSON.parse(readFileSync(pathA, 'utf8'));
+    const snapshotB = JSON.parse(readFileSync(pathB, 'utf8'));
+    const cmp = compareDurableSnapshots(snapshotA, snapshotB, 20);
+    const diffs = cmp.diffs.map((diff) => boundDiff({ ...diff, checkpoint }));
+    return { ok: false, firstDivergence: diffs[0] ?? null, diffs };
+  } catch {
+    return null;
+  }
+}
+
+function boundDiff(diff) {
+  return { ...diff, runA: boundedValue(diff.runA), runB: boundedValue(diff.runB) };
+}
+
+function boundedValue(value) {
+  const serialized = JSON.stringify(value);
+  if (serialized == null || serialized.length <= 500) return value;
+  return `${serialized.slice(0, 497)}...`;
 }

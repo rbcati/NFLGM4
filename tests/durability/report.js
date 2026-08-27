@@ -61,7 +61,12 @@ export class DurabilityReport {
         message: firstFail.message,
       };
     }
-    this.report.checkpoints.push({ season, phase, week, summary: counts, results, durable, metrics });
+    const compactDurable = durable ? {
+      digest: durable.digest,
+      summary: durable.summary,
+      ...(durable.diagnosticArtifact ? { diagnosticArtifact: durable.diagnosticArtifact } : {}),
+    } : null;
+    this.report.checkpoints.push({ season, phase, week, summary: counts, results, durable: compactDurable, metrics });
     return counts;
   }
 
