@@ -233,7 +233,7 @@ Stable JSON (see `report.js`, `DurabilityReport`):
 
 ```jsonc
 {
-  "harnessVersion": "1.0.0", "gitSha": "…", "seed": 1684,
+  "harnessVersion": "3.0.0", "gitSha": "…", "seed": 1684,
   "mode": "1-season", "failureMode": "fail-fast",
   "requestedSeasons": 1, "seasonsAttempted": 1, "seasonsCompleted": 0,
   "competitiveSeasonsCompleted": 1, "completedThrough": "afterPlayoffs", "boundedRun": true,
@@ -266,6 +266,72 @@ counts) for commit-safe long-run artifacts.
 | `… -- --seed=1234` | Custom seed. |
 | `… -- --determinism` | Two clean runs + determinism verdict. |
 | `… -- --write-report --summary` | Write full + compact reports (stable names). |
+
+### 15.1 Long-save memory and storage authority
+
+Checkpoint reports deliberately separate three authorities:
+
+- `metrics.memory` is **process heap/RAM** (`rss`, `heapUsed`, `heapTotal`,
+  `external`, and `arrayBuffers`). With `--gc-at-boundaries`, season-boundary
+  rows contain both `preGc` and `postGc` when the process exposes
+  `global.gc`. Run with `node --expose-gc --import tsx
+  scripts/long-save-durability.mjs ...`; if GC is unavailable the report says
+  so and does not relabel pre-GC values as post-GC values.
+- `metrics.persistentStorage` is a cursor-based census enabled by
+  `--profile-storage`. Its byte values are deterministic UTF-8 JSON payload
+  estimates. They are **not actual browser IndexedDB disk allocation** because
+  browser encoding, indexes, implementation metadata, and page allocation are
+  outside this measurement.
+- `metrics.harnessRetention` accounts for diagnostic state. A report retains
+  zero full canonical snapshots. The runner keeps only the immediately previous
+  snapshot needed by continuity invariants; save/reload temporarily holds its
+  before/after pair. Reports store a digest, compact summary, invariant bodies,
+  memory readings, and (when enabled) the compact storage census.
+
+Determinism legs compare checkpoint digests as they arrive from isolated child
+processes. A mismatch records the first checkpoint and bounded summaries; the
+parent does not deserialize two histories of full snapshots. Save/reload still
+performs a full current before/after comparison and emits bounded first-difference
+diagnostics on divergence.
+
+The storage census visits `meta`, `teams`, `players`, `rosters`, `games`,
+`seasons`, `playerStats`, `transactions`, `draftPicks`, and `news` one cursor row
+at a time. Each store reports row count, estimated serialized bytes, average
+bytes per row, percentage of total, and delta from the preceding durable
+checkpoint. It never uses `getAll()` solely to estimate size.
+
+### 15.2 V1 audit evidence (seed 1684)
+
+The audited main SHA was
+`9adacebe3037c1c4c1a63df84d0ae485ea09f6cc` (the merge commit for PR #1778;
+PR #1779 was not present on main). Before implementation, the full lifecycle
+completed one season at 508 MiB peak RSS and five seasons at 2,410 MiB peak
+RSS. The ten-season collect-all run reproduced invariant failures at the
+season-7 rollover and exhausted V8's approximately 4 GiB heap during the
+season-9 rollover while deserializing a worker message.
+
+The post-instrumentation five-season census distinguishes that process failure
+from save payload size:
+
+| Season rollover | post-GC heapUsed | estimated serialized payload | current canonical snapshot |
+|---:|---:|---:|---:|
+| 1 | 214.7 MiB | 34.4 MiB | 0.50 MiB |
+| 2 | 636.0 MiB | 78.2 MiB | 0.53 MiB |
+| 3 | 1,032.9 MiB | 99.4 MiB | 0.56 MiB |
+| 4 | 1,457.0 MiB | 119.4 MiB | 0.58 MiB |
+| 5 | 1,907.8 MiB | 139.3 MiB | 0.60 MiB |
+
+At season 5, the largest serialized stores were `games` (72.4 MiB / 1,441
+rows), `teams` (28.3 MiB / 32 rows), `players` (27.8 MiB / 2,215 rows), and
+`meta` (6.7 MiB / one row). The cumulative serialized size of every canonical
+snapshot constructed through that checkpoint was only 8.7 MiB. Thus historical
+snapshot retention was real, unbounded diagnostic state and is removed here,
+but it was **not** the primary explanation for the approximately 4 GiB Node
+failure. The dominant retained heap in this harness tracks fake-indexeddb's
+in-heap representation of growing persisted history plus live worker state.
+This evidence does not establish browser disk allocation and does not justify
+production history deletion; store-level archival fidelity requires a separate
+UI-authority and compatibility audit before any compaction.
 
 ## 16. Runtime & peak-memory benchmarks
 

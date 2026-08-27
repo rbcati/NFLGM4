@@ -22,7 +22,7 @@
  * real DB layer (src/db/index.js) after SAVE_NOW.
  */
 import { toWorker, toUI } from '../../src/worker/protocol.js';
-import { Players, Teams, DraftPicks, Meta, Seasons, clearAllData, deleteLeagueDB } from '../../src/db/index.js';
+import { Players, Teams, DraftPicks, Meta, Seasons, clearAllData, deleteLeagueDB, profileLeagueStorage } from '../../src/db/index.js';
 import { Utils } from '../../src/core/utils.js';
 import { dispatchWorker as defaultDispatch, loadWorkerModule as defaultLoad } from '../../src/testSupport/dynastySoakRunner.js';
 
@@ -60,6 +60,7 @@ export class LifecycleDriver {
     this.dispatch = typeof opts.dispatch === 'function' ? opts.dispatch : defaultDispatch;
     this.loadWorker = typeof opts.loadWorker === 'function' ? opts.loadWorker : defaultLoad;
     this.onEvent = typeof opts.onEvent === 'function' ? opts.onEvent : () => {};
+    this.storageProfile = opts.storageProfile === true;
     if (typeof opts.readDbPool === 'function') this.readDbPool = opts.readDbPool;
     this.view = null;
     this.booted = false;
@@ -194,6 +195,9 @@ export class LifecycleDriver {
       db = await this.readDbPool();
     }
     const probes = includeProbes ? await this.gatherProbes() : {};
+    const storageCensus = includeDb && this.storageProfile
+      ? await profileLeagueStorage({ currentSeasonId: this.view?.currentSeasonId ?? this.view?.seasonId ?? db?.meta?.currentSeasonId })
+      : null;
     return {
       season,
       phase,
@@ -203,6 +207,7 @@ export class LifecycleDriver {
       view: this.view,
       db,
       probes,
+      storageCensus,
       saveReload,
     };
   }

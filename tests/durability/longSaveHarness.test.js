@@ -324,6 +324,12 @@ describe('cli parser', () => {
     expect(raw.mode).toBe('1-season');
     expect(raw.failureMode).toBe('fail-fast');
   });
+  it('parses storage and explicit-GC profiling flags', () => {
+    const { raw, errors } = parseArgv(['node', 's', '--profile-storage', '--gc-at-boundaries']);
+    expect(errors).toEqual([]);
+    expect(raw.profileStorage).toBe(true);
+    expect(raw.gcAtBoundaries).toBe(true);
+  });
   it('flags an unknown mode', () => {
     const { errors } = parseArgv(['node', 's', '--mode=99-season']);
     expect(errors.length).toBeGreaterThan(0);

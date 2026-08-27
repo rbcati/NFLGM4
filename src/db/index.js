@@ -28,6 +28,42 @@ const STORES = {
   NEWS:          'news',
 };
 
+/**
+ * Profiling-only census of the active league's persistent payload.
+ *
+ * Values are visited one cursor row at a time so the profiler never builds a
+ * second getAll()-sized object graph. `serializedBytes` is the UTF-8 size of
+ * deterministic JSON payloads; it is not IndexedDB/browser disk allocation
+ * (which also includes implementation encoding, indexes, and page overhead).
+ */
+export async function profileLeagueStorage({ currentSeasonId = null } = {}) {
+  const stores = {};
+  let totalRows = 0;
+  let totalSerializedBytes = 0;
+
+  for (const name of Object.values(STORES)) {
+    const measured = await profileStore(name, currentSeasonId);
+    stores[name] = measured;
+    totalRows += measured.rowCount;
+    totalSerializedBytes += measured.serializedBytes;
+  }
+
+  for (const measured of Object.values(stores)) {
+    measured.percentOfTotal = totalSerializedBytes > 0
+      ? Math.round((measured.serializedBytes / totalSerializedBytes) * 10_000) / 100
+      : 0;
+  }
+
+  return {
+    authority: 'approximate-serialized-payload',
+    byteEncoding: 'utf-8-json',
+    note: 'Estimated serialized payload only; not actual IndexedDB disk allocation.',
+    totalRows,
+    totalSerializedBytes,
+    stores,
+  };
+}
+
 const GLOBAL_STORES = {
   SAVES: 'saves',
 };
@@ -376,6 +412,33 @@ function dbGetAllByIndex(storeName, indexName, value) {
     req.onsuccess = () => resolve(req.result);
     req.onerror   = () => reject(req.error);
   }));
+}
+
+function profileStore(storeName, currentSeasonId) {
+  return txOp(storeName, 'readonly', (store, resolve, reject) => {
+    let rowCount = 0;
+    let serializedBytes = 0;
+    let currentSeasonRows = 0;
+    const encoder = new TextEncoder();
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) {
+        resolve({
+          rowCount,
+          serializedBytes,
+          averageBytesPerRow: rowCount > 0 ? Math.round(serializedBytes / rowCount) : 0,
+          ...(storeName === STORES.PLAYER_STATS ? { currentSeasonRows } : {}),
+        });
+        return;
+      }
+      serializedBytes += encoder.encode(JSON.stringify(cursor.value)).byteLength;
+      if (storeName === STORES.PLAYER_STATS && currentSeasonId != null && String(cursor.value?.seasonId) === String(currentSeasonId)) currentSeasonRows += 1;
+      rowCount += 1;
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
 }
 
 function dbPutBulk(storeName, records) {

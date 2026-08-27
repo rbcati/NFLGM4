@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Players, configureActiveLeague, openDB, clearAllData } from '../../src/db/index.js';
+import { Players, PlayerStats, configureActiveLeague, openDB, clearAllData, profileLeagueStorage } from '../../src/db/index.js';
 
 describe('db loadBulk', () => {
   it('loads multiple ids in-order when indexedDB is available', async () => {
@@ -29,5 +29,22 @@ describe('db loadBulk', () => {
 
     const empty = await Players.loadBulk([]);
     expect(empty).toEqual([]);
+  });
+
+  it('profiles UTF-8 serialized payloads one store at a time', async () => {
+    if (!global.indexedDB) return;
+    configureActiveLeague('storage_profile_league');
+    await openDB();
+    await clearAllData();
+    const player = { id: 'p-unicode', name: 'José 🏈', teamId: 1 };
+    await Players.save(player);
+    await PlayerStats.save({ id: 's1_p-unicode', seasonId: 's1', playerId: 'p-unicode', totals: { yards: 10 } });
+
+    const census = await profileLeagueStorage({ currentSeasonId: 's1' });
+
+    expect(census.authority).toBe('approximate-serialized-payload');
+    expect(census.stores.players).toMatchObject({ rowCount: 1, serializedBytes: new TextEncoder().encode(JSON.stringify(player)).byteLength });
+    expect(census.stores.playerStats).toMatchObject({ rowCount: 1, currentSeasonRows: 1 });
+    expect(census.totalSerializedBytes).toBeGreaterThan(census.stores.players.serializedBytes);
   });
 });

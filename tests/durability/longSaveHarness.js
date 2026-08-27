@@ -15,7 +15,6 @@
 import { LifecycleDriver, CHECKPOINTS, EXPECTED_TEAM_COUNT } from './lifecycleDriver.js';
 import { runInvariants } from './invariants/index.js';
 import { canonicalSummary, compareCanonical } from './invariants/saveReload.js';
-import { compareDurableSnapshots } from './invariants/durableSnapshot.js';
 import { DurabilityReport } from './report.js';
 
 export const MODES = Object.freeze({
@@ -57,6 +56,7 @@ export async function runDurabilityHarness(config = {}) {
 
   const driver = new LifecycleDriver({
     seed: config.seed, onEvent,
+    storageProfile: config.storageProfile === true,
     ...(Number.isFinite(config.phaseTimeoutMs) ? { phaseTimeoutMs: config.phaseTimeoutMs } : {}),
     ...(config.driverOverrides || {}),
   });
@@ -80,17 +80,42 @@ export async function runDurabilityHarness(config = {}) {
 
   let previousDurableSnapshot = null;
   let previousTransactions = [];
+  let cumulativeSnapshotSerializedBytes = 0;
+  let previousStorageCensus = null;
+  let previousSeasonStorageCensus = null;
   let lastCheckpointAt = Date.now();
   const evaluate = (ctx) => {
+    const preGc = memoryUsage();
     sampleMem();
+    const isBoundary = ctx.phase === CHECKPOINTS.AFTER_SEASON_ROLLOVER || ctx.phase === CHECKPOINTS.AFTER_RELOAD;
+    const gcAvailable = typeof globalThis.gc === 'function';
+    if (config.gcAtBoundaries === true && isBoundary && gcAvailable) globalThis.gc();
+    const postGc = config.gcAtBoundaries === true && isBoundary && gcAvailable ? memoryUsage() : null;
     const snap = canonicalSummary({ view: ctx.view, db: ctx.db, season: ctx.season });
+    cumulativeSnapshotSerializedBytes += snap.durableSnapshotSerializedBytes;
     ctx.durableSnapshot = snap.durableSnapshot;
     ctx.durableSnapshotDigest = snap.durableSnapshotDigest;
     ctx.previousDurableSnapshot = previousDurableSnapshot;
     ctx.previousTransactions = previousTransactions;
     const results = runInvariants(ctx);
     const now = Date.now();
-    const counts = report.addCheckpoint({ season: ctx.season, phase: ctx.phase, week: ctx.week, results, durable: { digest: ctx.durableSnapshotDigest, summary: summarizeSnapshot(ctx.durableSnapshot), snapshot: ctx.durableSnapshot }, metrics: { elapsedSincePreviousMs: now - lastCheckpointAt, rssMb: currentRssMb() } });
+    const storage = withStorageDeltas(ctx.storageCensus, previousStorageCensus, isBoundary && ctx.phase === CHECKPOINTS.AFTER_SEASON_ROLLOVER ? previousSeasonStorageCensus : null);
+    if (ctx.storageCensus) previousStorageCensus = ctx.storageCensus;
+    if (ctx.storageCensus && ctx.phase === CHECKPOINTS.AFTER_SEASON_ROLLOVER) previousSeasonStorageCensus = ctx.storageCensus;
+    const counts = report.addCheckpoint({
+      season: ctx.season,
+      phase: ctx.phase,
+      week: ctx.week,
+      results,
+      durable: { digest: ctx.durableSnapshotDigest, summary: summarizeSnapshot(ctx.durableSnapshot) },
+      metrics: {
+        elapsedSincePreviousMs: now - lastCheckpointAt,
+        memory: { preGc, postGc, explicitGcRequested: config.gcAtBoundaries === true && isBoundary, explicitGcAvailable: gcAvailable },
+        liveCounts: summarizeLiveCounts(ctx),
+        harnessRetention: { fullSnapshotsInReport: 0, fullSnapshotsRetainedAfterCheckpoint: 1, currentSnapshotSerializedBytes: snap.durableSnapshotSerializedBytes, cumulativeSnapshotSerializedBytes },
+        persistentStorage: storage,
+      },
+    });
     lastCheckpointAt = now;
     previousDurableSnapshot = ctx.durableSnapshot;
     if (Array.isArray(ctx?.probes?.transactions)) previousTransactions = ctx.probes.transactions;
@@ -259,7 +284,53 @@ function unexercisedStages(perSeasonStopPhase) {
   return ['playoffs', 'draft', 'freeAgency', 'progression', 'retirement', 'historyRollover', 'nextSeasonGeneration'];
 }
 
-function currentRssMb() { return typeof process !== 'undefined' && process.memoryUsage ? Math.round(process.memoryUsage().rss / (1024 * 1024)) : null; }
+function memoryUsage() {
+  if (typeof process === 'undefined' || !process.memoryUsage) return null;
+  const { rss, heapUsed, heapTotal, external, arrayBuffers } = process.memoryUsage();
+  return { rss, heapUsed, heapTotal, external, arrayBuffers };
+}
+
+function summarizeLiveCounts(ctx) {
+  const players = Array.isArray(ctx?.db?.players) ? ctx.db.players : [];
+  const retired = Array.isArray(ctx?.view?.retiredPlayers)
+    ? ctx.view.retiredPlayers
+    : (Array.isArray(ctx?.db?.meta?.retiredPlayers) ? ctx.db.meta.retiredPlayers : []);
+  const stores = ctx?.storageCensus?.stores ?? {};
+  return {
+    activePlayers: players.filter((p) => p?.status !== 'retired' && p?.retired !== true).length,
+    retiredPlayers: retired.length,
+    currentSeasonStats: stores.playerStats?.currentSeasonRows ?? null,
+    draftPicks: ctx?.db?.picks?.length ?? null,
+    scheduleGames: summarizeSnapshot(ctx?.durableSnapshot).scheduleCount,
+    history: Array.isArray(ctx?.view?.leagueHistory) ? ctx.view.leagueHistory.length : 0,
+    transactions: stores.transactions?.rowCount ?? (Array.isArray(ctx?.probes?.transactions) ? ctx.probes.transactions.length : null),
+    persistedGames: stores.games?.rowCount ?? null,
+    persistedPlayerStats: stores.playerStats?.rowCount ?? null,
+    persistedNews: stores.news?.rowCount ?? null,
+  };
+}
+
+function withStorageDeltas(current, previous, previousSeason) {
+  if (!current) return null;
+  const stores = {};
+  for (const [name, measured] of Object.entries(current.stores)) {
+    const prior = previous?.stores?.[name];
+    const priorSeason = previousSeason?.stores?.[name];
+    stores[name] = {
+      ...measured,
+      rowDelta: prior ? measured.rowCount - prior.rowCount : null,
+      serializedBytesDelta: prior ? measured.serializedBytes - prior.serializedBytes : null,
+      rowDeltaFromPreviousSeason: priorSeason ? measured.rowCount - priorSeason.rowCount : null,
+      serializedBytesDeltaFromPreviousSeason: priorSeason ? measured.serializedBytes - priorSeason.serializedBytes : null,
+    };
+  }
+  return {
+    ...current,
+    stores,
+    totalSerializedBytesDelta: previous ? current.totalSerializedBytes - previous.totalSerializedBytes : null,
+    totalSerializedBytesDeltaFromPreviousSeason: previousSeason ? current.totalSerializedBytes - previousSeason.totalSerializedBytes : null,
+  };
+}
 function summarizeSnapshot(s) {
   return { league: s?.league, pools: s?.pools, teamCount: s?.teams?.length ?? 0, playerCount: s?.players?.length ?? 0, retiredCount: s?.retiredPlayers?.length ?? 0, pickCount: s?.draftPicks?.length ?? 0, scheduleCount: s?.schedule?.length ?? 0, historyCount: s?.history?.length ?? 0 };
 }
@@ -271,10 +342,8 @@ function compareReportSnapshots(a, b) {
     const bc = bByKey.get(key);
     if (!bc) { diffs.push({ domain: 'checkpoint', entityId: key, field: 'missing', runA: true, runB: false }); break; }
     if (ac.durable?.digest !== bc.durable?.digest) {
-      const cmp = compareDurableSnapshots(ac.durable?.snapshot, bc.durable?.snapshot);
-      const first = cmp.firstDivergence || { domain: 'checkpoint', entityId: key, field: 'digest', runA: ac.durable?.digest, runB: bc.durable?.digest };
-      first.checkpoint = key;
-      return { ok: false, firstDivergence: first, diffs: cmp.diffs.map((d) => ({ ...d, checkpoint: key })).slice(0, 20) };
+      const first = { domain: 'checkpoint', entityId: key, field: 'digest', checkpoint: key, runA: ac.durable?.digest, runB: bc.durable?.digest };
+      return { ok: false, firstDivergence: first, diffs: [{ ...first, summaryA: ac.durable?.summary, summaryB: bc.durable?.summary }] };
     }
   }
   return { ok: diffs.length === 0, firstDivergence: diffs[0] || null, diffs };
