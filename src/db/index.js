@@ -1,3 +1,5 @@
+import { serializeTeamForPersistence } from './teamPersistence.js';
+
 /**
  * db/index.js
  *
@@ -563,8 +565,8 @@ export const Meta = {
 export const Teams = {
   load:     (id)    => dbGet(STORES.TEAMS, id),
   loadAll:  ()      => dbGetAll(STORES.TEAMS),
-  save:     (team)  => dbPut(STORES.TEAMS, team),
-  saveBulk: (teams) => dbPutBulk(STORES.TEAMS, teams),
+  save:     (team)  => dbPut(STORES.TEAMS, serializeTeamForPersistence(team)),
+  saveBulk: (teams) => dbPutBulk(STORES.TEAMS, teams.map(serializeTeamForPersistence)),
 };
 
 // --- Players ---
@@ -686,7 +688,7 @@ export async function bulkWrite({
   seasonStats   = [],
 } = {}) {
   // Validate records
-  const validTeams = teams.filter(t => {
+  const validTeams = teams.map(serializeTeamForPersistence).filter(t => {
     if (_hasValidKey(t, 'id')) return true;
     console.error('[bulkWrite] Dropping team with missing id:', t);
     return false;
