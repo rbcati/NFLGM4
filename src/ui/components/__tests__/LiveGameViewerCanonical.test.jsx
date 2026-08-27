@@ -72,6 +72,8 @@ describe('LiveGameViewer — canonical event ledger', () => {
     // At the terminal marker the scorebug reads "Final", never "Drive 3 of 2".
     expect(within(bug).getByText(/Final/)).toBeTruthy();
     expect(within(bug).queryByText(/of 3/)).toBeNull();
+    expect(bug.textContent).not.toMatch(/Final\s*·\s*Final/i);
+    expect(bug.textContent).not.toMatch(/0 plays|0 yds|possession/i);
   });
 
   it('labels the intermediate progression honestly with a "Reconstructed order" chip during playback (post-review point 2)', () => {
@@ -171,6 +173,10 @@ describe('LiveGameViewer — canonical event ledger', () => {
     expect(finalCard).toBeTruthy();
     expect(finalCard.textContent).toContain('MIA 7');
     expect(finalCard.textContent).toContain('BUF 3');
+    expect(screen.queryByRole('group', { name: /Playback speed/i })).toBeNull();
+    expect(screen.queryByLabelText(/Skip options/i)).toBeNull();
+    expect(screen.queryByText(/Momentum:/i)).toBeNull();
+    expect(screen.getByRole('button', { name: /Open Final Game Book/i })).toBeTruthy();
   });
 
   it('mapCanonicalEventsToLiveFeed carries scoreAfter on every event and stamps score chips only on scoring events', () => {
@@ -190,5 +196,21 @@ describe('LiveGameViewer — canonical event ledger', () => {
       prevHome = e.scoreAfter.home;
     });
     expect(feed[feed.length - 1].scoreAfter).toEqual(canonicalFinal);
+  });
+
+  it('labels only the terminal score as FINAL in the event feed', () => {
+    render(
+      <LiveGameViewer
+        canonicalEvents={canonicalEvents}
+        homeTeam={homeTeam}
+        awayTeam={awayTeam}
+        initialMode="instant"
+        finalScore={canonicalFinal}
+      />,
+    );
+    const scores = [...document.querySelectorAll('.feed-score')].map((node) => node.textContent);
+    expect(scores).toContain('0–7');
+    expect(scores).not.toContain('FINAL 0–7');
+    expect(scores.filter((score) => score.startsWith('FINAL '))).toEqual(['FINAL 3–7']);
   });
 });

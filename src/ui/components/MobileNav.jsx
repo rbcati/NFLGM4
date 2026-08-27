@@ -146,6 +146,7 @@ export default function MobileNav({ activeSection, activeTab, onSectionChange, o
 
       <div
         className={`mobile-bottom-bar premium-bottom-nav${collapsed ? ' is-collapsed' : ''}`}
+        data-layout-owner="global-app-navigation"
         data-collapsed={collapsed ? 'true' : 'false'}
         aria-hidden={collapsed || undefined}
       >

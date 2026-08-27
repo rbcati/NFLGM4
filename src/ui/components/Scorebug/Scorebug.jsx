@@ -57,11 +57,10 @@ export default function Scorebug({ homeTeam, awayTeam, state }) {
         {scoreCell(awayScore, awayTeam?.abbr || 'Away')}
       </div>
       <div className="sb-center">
-        <div>{periodLabel}{possessionAbbr ? ` · ${possessionAbbr} possession` : (state?.progressLabel ? ` · ${state.progressLabel}` : '')}</div>
-        <div>{state?.downDistance || '—'} · {state?.ballSpot || 'Ball on --'}</div>
+        <div>{isFinal ? 'Final' : `${periodLabel}${possessionAbbr ? ` · ${possessionAbbr} possession` : (state?.progressLabel ? ` · ${state.progressLabel}` : '')}`}</div>
+        {!isFinal ? <div>{state?.downDistance || '—'} · {state?.ballSpot || 'Ball on --'}</div> : null}
         <div className="sb-flags">
-          {isFinal ? <span className="sb-flag final">FINAL</span> : null}
-          {isOvertime ? <span className="sb-flag overtime">OVERTIME</span> : null}
+          {isOvertime && !isFinal ? <span className="sb-flag overtime">OVERTIME</span> : null}
           {inRedZone && !isFinal ? <span className="sb-flag redzone">RED ZONE</span> : null}
         </div>
       </div>

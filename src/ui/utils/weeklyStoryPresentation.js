@@ -7,8 +7,8 @@ export async function loadWeeklyStoryArchivedGame({ getBoxScore, gameId } = {}) 
 }
 
 /** Resolves factual next-game context from the saved schedule without mutation. */
-export function buildNextWeekStoryContext(league = {}) {
-  const week = league?.week;
+export function buildNextWeekStoryContext(league = {}, { completedWeek = null } = {}) {
+  const currentWeek = number(league?.week);
   const userTeamId = league?.userTeamId;
   const weeks = Array.isArray(league?.schedule?.weeks) ? league.schedule.weeks : [];
   const teamId = (side) => side?.id ?? side;
@@ -16,9 +16,19 @@ export function buildNextWeekStoryContext(league = {}) {
     const ids = [Number(teamId(game?.homeId ?? game?.home)), Number(teamId(game?.awayId ?? game?.away))];
     return ids.includes(Number(first)) && (second == null || ids.includes(Number(second)));
   };
-  const weekRow = weeks.find((row) => Number(row?.week) === Number(week));
+  // During the postgame transition the worker and React can briefly disagree
+  // about whether league.week still names the completed week or the upcoming
+  // week. Anchor on the completed result when supplied, then choose the first
+  // actual scheduled user game after it (which also handles byes).
+  const eligibleWeeks = weeks
+    .filter((row) => completedWeek == null
+      ? Number(row?.week) >= Number(currentWeek)
+      : Number(row?.week) > Number(completedWeek))
+    .sort((a, b) => Number(a?.week) - Number(b?.week));
+  const weekRow = eligibleWeeks.find((row) => (row?.games ?? []).some((game) => involves(game, userTeamId)));
+  const week = weekRow?.week ?? (completedWeek == null ? currentWeek : null);
   const matchup = (weekRow?.games ?? []).find((game) => involves(game, userTeamId));
-  if (!matchup) return { week };
+  if (!matchup) return week == null ? null : { week };
   const homeId = teamId(matchup?.homeId ?? matchup?.home);
   const awayId = teamId(matchup?.awayId ?? matchup?.away);
   const opponentId = Number(homeId) === Number(userTeamId) ? awayId : homeId;

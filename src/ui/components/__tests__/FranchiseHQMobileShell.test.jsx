@@ -40,7 +40,7 @@ const baseLeague = {
 describe('FranchiseHQ — mobile shell & safe-area layout', () => {
   afterEach(() => cleanup());
 
-  it('keeps the primary Advance Week control outside the bottom nav so the nav cannot obscure it', () => {
+  it('exposes the contextual Advance Week owner without creating app navigation', () => {
     render(<FranchiseHQ league={baseLeague} onNavigate={() => {}} onAdvanceWeek={() => {}} busy={false} simulating={false} />);
 
     const advance = screen.getByTestId('advance-week-cta');
@@ -51,10 +51,8 @@ describe('FranchiseHQ — mobile shell & safe-area layout', () => {
     expect(stickyFooter).toBeTruthy();
     expect(stickyFooter.contains(advance)).toBe(true);
 
-    // ...which is a separate element from the bottom navigation bar.
-    const bottomNav = document.querySelector('.app-hq-bottom-nav');
-    expect(bottomNav).toBeTruthy();
-    expect(bottomNav.contains(advance)).toBe(false);
+    expect(stickyFooter.dataset.layoutOwner).toBe('hq-context-action');
+    expect(document.querySelector('.app-hq-bottom-nav')).toBeNull();
   });
 
   it('exposes exactly one primary Advance Week action', () => {
