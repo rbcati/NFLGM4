@@ -2125,9 +2125,11 @@ async function loadSave() {
   // giving existing player-store records strict precedence.
   const reconciled = reconcileLegacyTeamRosters(teams, players);
   cache.hydrate({ meta, teams: reconciled.teams, players: reconciled.players, draftPicks });
-  // hydrate deliberately marks nothing dirty. Newly promoted legacy-only
-  // players must be written on the next SAVE_NOW rather than remaining a
-  // cache-only compatibility fallback.
+  // hydrate deliberately marks nothing dirty. Explicitly queue legacy team
+  // rows for normalized rewrite; do not depend on later roster repair to do so.
+  for (const teamId of reconciled.normalizedTeamIds) cache.updateTeam(teamId, {});
+  // Newly promoted legacy-only players must likewise reach the canonical
+  // players store on the next SAVE_NOW.
   for (const player of reconciled.migratedPlayers) cache.setPlayer(player);
   // Backfill persisted current-season stats. hydrate() clears _seasonStats and
   // only restores meta/teams/players/draftPicks, so without this the League

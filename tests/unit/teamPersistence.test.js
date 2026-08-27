@@ -41,12 +41,12 @@ describe('team persistence normalization', () => {
     expect(team.players).toBe(roster);
   });
 
-  it('keeps canonical players and safely promotes missing legacy players', () => {
+  it('combines both projections while canonical players win and duplicates reconcile once', () => {
     const canonicalA = richPlayer('a', { ovr: 88, contract: { years: 4 } });
     const staleA = richPlayer('a', { ovr: 71, contract: { years: 1 } });
     const legacyB = richPlayer('b', { teamId: 2, morale: 93 });
     const result = reconcileLegacyTeamRosters([
-      { id: 1, roster: [staleA, legacyB], rosterIds: ['a'], depthChart: { QB: ['a'] } },
+      { id: 1, roster: [staleA, legacyB], players: [staleA, legacyB], rosterIds: ['a'], depthChart: { QB: ['a'] } },
     ], [canonicalA]);
 
     expect(result.players.find((p) => p.id === 'a')).toBe(canonicalA);
@@ -55,6 +55,20 @@ describe('team persistence normalization', () => {
     expect(result.migratedPlayers.map((p) => p.id)).toEqual(['b']);
     expect(result.teams[0]).toMatchObject({ rosterIds: ['a', 'b'], rosterCount: 2, depthChart: { QB: ['a'] } });
     expect(result.teams[0]).not.toHaveProperty('roster');
+    expect(result.teams[0]).not.toHaveProperty('players');
+    expect(result.normalizedTeamIds).toEqual([1]);
+  });
+
+  it('uses populated team.players when team.roster is empty', () => {
+    const legacyOnly = richPlayer('players-only', { teamId: 99, morale: 61 });
+    const result = reconcileLegacyTeamRosters([
+      { id: 4, roster: [], players: [legacyOnly] },
+    ], []);
+
+    expect(result.players).toEqual([{ ...legacyOnly, teamId: 4 }]);
+    expect(result.migratedPlayers).toEqual([{ ...legacyOnly, teamId: 4 }]);
+    expect(result.teams[0]).toMatchObject({ rosterIds: ['players-only'], rosterCount: 1 });
+    expect(result.normalizedTeamIds).toEqual([4]);
   });
 
   it.each([
@@ -66,6 +80,9 @@ describe('team persistence normalization', () => {
     expect(result.teams[0]).not.toHaveProperty('roster');
     expect(result.teams[0]).not.toHaveProperty('players');
     expect(new Set(result.teams[0].rosterIds || []).size).toBe((result.teams[0].rosterIds || []).length);
+    expect(result.normalizedTeamIds).toEqual(
+      Array.isArray(team.roster) || Array.isArray(team.players) ? [1] : [],
+    );
   });
 
   it('normalizes every raw team write seam while preserving player rows', async () => {

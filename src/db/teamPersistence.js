@@ -23,10 +23,11 @@ export function reconcileLegacyTeamRosters(teams = [], canonicalPlayers = []) {
   }
 
   const migratedPlayers = [];
+  const normalizedTeamIds = [];
   const normalizedTeams = (teams || []).map((team) => {
-    const embedded = Array.isArray(team?.roster)
-      ? team.roster
-      : Array.isArray(team?.players) ? team.players : [];
+    const embeddedRosters = [team?.roster, team?.players].filter(Array.isArray);
+    const embedded = embeddedRosters.flat();
+    if (embeddedRosters.length > 0 && team?.id != null) normalizedTeamIds.push(team.id);
     const membership = [];
     const seen = new Set();
 
@@ -61,5 +62,6 @@ export function reconcileLegacyTeamRosters(teams = [], canonicalPlayers = []) {
     teams: normalizedTeams,
     players: [...playersById.values()],
     migratedPlayers,
+    normalizedTeamIds,
   };
 }
