@@ -15,6 +15,9 @@
  */
 import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import * as roster from './invariants/roster.js';
 import * as cap from './invariants/cap.js';
@@ -33,6 +36,7 @@ import { scanNumericCorruption, findDuplicateIds } from './invariants/helpers.js
 import { DurabilityReport, recommendRepair } from './report.js';
 import { parseArgv } from './cli.js';
 import { LifecycleDriver } from './lifecycleDriver.js';
+import { compareReportDeterminism, sampleBoundaryMemory } from './longSaveHarness.js';
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 function healthyTeam(id, roster = []) {
@@ -309,6 +313,51 @@ describe('report builder', () => {
   it('recommendRepair returns null when clean', () => {
     expect(recommendRepair({ firstFailure: null })).toBeNull();
   });
+  it('retains digest and summary without accumulating full snapshots', () => {
+    const rep = new DurabilityReport({ seed: 1, mode: '5-season', failureMode: 'collect-all', requestedSeasons: 5 });
+    for (let season = 1; season <= 5; season += 1) {
+      rep.addCheckpoint({ season, phase: 'afterSeasonRollover', week: 1, results: [], durable: { digest: `digest-${season}`, summary: { playerCount: season }, snapshot: { forbiddenMarker: `full-${season}` } } });
+    }
+    expect(rep.report.checkpoints).toHaveLength(5);
+    expect(rep.report.checkpoints.every((checkpoint) => checkpoint.durable.digest && checkpoint.durable.summary && !('snapshot' in checkpoint.durable))).toBe(true);
+    const serialized = JSON.stringify(rep.toJSON());
+    expect(serialized).not.toContain('"snapshot"');
+    expect(serialized).not.toContain('forbiddenMarker');
+    expect(serialized).toContain('digest-5');
+  });
+
+  it('reports unavailable explicit GC honestly', () => {
+    const memory = sampleBoundaryMemory({ gcAtBoundaries: true, isBoundary: true, gc: undefined });
+    expect(memory).toMatchObject({ explicitGcRequested: true, explicitGcAvailable: false, postGc: null });
+    expect(memory.preGc?.heapUsed).toBeTypeOf('number');
+  });
+});
+
+describe('bounded determinism diagnostics', () => {
+  const reportWith = (digest, diagnosticArtifact) => ({
+    seasonsCompleted: 1, firstFailure: null, lifecycleException: null, summary: { failed: 0 }, saveReload: [],
+    checkpoints: [{ season: 1, phase: 'afterSeasonRollover', summary: { fail: 0 }, durable: { digest, summary: { playerCount: 1 }, diagnosticArtifact } }],
+  });
+
+  it('keeps identical checkpoint digests state-deterministic', () => {
+    const result = compareReportDeterminism(reportWith('same'), reportWith('same'));
+    expect(result).toMatchObject({ deterministic: true, stateDeterministic: true, firstDivergence: null });
+  });
+
+  it('loads only mismatched artifacts and identifies a player OVR divergence', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'durability-diff-test-'));
+    try {
+      const a = join(dir, 'a.json'); const b = join(dir, 'b.json');
+      writeFileSync(a, JSON.stringify({ players: [{ id: '9001', ovr: 70 }] }));
+      writeFileSync(b, JSON.stringify({ players: [{ id: '9001', ovr: 71 }] }));
+      const result = compareReportDeterminism(reportWith('a', a), reportWith('b', b));
+      expect(result.stateDeterministic).toBe(false);
+      expect(result.firstDivergence).toMatchObject({ domain: 'players', entityId: '9001', field: 'ovr', runA: 70, runB: 71 });
+      expect(readFileSync(a, 'utf8')).toContain('9001');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('cli parser', () => {
@@ -323,6 +372,12 @@ describe('cli parser', () => {
     const { raw } = parseArgv(['node', 's']);
     expect(raw.mode).toBe('1-season');
     expect(raw.failureMode).toBe('fail-fast');
+  });
+  it('parses storage and explicit-GC profiling flags', () => {
+    const { raw, errors } = parseArgv(['node', 's', '--profile-storage', '--gc-at-boundaries']);
+    expect(errors).toEqual([]);
+    expect(raw.profileStorage).toBe(true);
+    expect(raw.gcAtBoundaries).toBe(true);
   });
   it('flags an unknown mode', () => {
     const { errors } = parseArgv(['node', 's', '--mode=99-season']);
@@ -428,17 +483,21 @@ describe('durable snapshot V2', () => {
   it('detects identical lifecycle metadata with different roster state as non-deterministic', async () => {
     const { runDeterminismCheck } = await import('./longSaveHarness.js');
     let run = 0;
+    let currentOvr = 70;
     const dispatch = async (type) => {
       if (type === 'INIT') return { type: 'OK', payload: { ok: true } };
       const v = healthyViewCtx().view;
-      v.teams[0].roster[0] = healthyPlayer(run < 2 ? 1 : 2, 0);
-      if (type === 'USE_SAFE_STARTER_LEAGUE') { run += 1; return { type: 'OK', payload: v }; }
+      if (type === 'USE_SAFE_STARTER_LEAGUE') { currentOvr = run++ === 0 ? 70 : 71; }
+      v.teams[0].roster[0] = { ...healthyPlayer(1, 0), ovr: currentOvr };
       return { type: 'OK', payload: { ...v, phase: 'playoffs' } };
     };
-    const det = await runDeterminismCheck({ mode: '1-season', perSeasonStopPhase: 'playoffs', failureMode: 'collect-all', driverOverrides: { loadWorker: async () => {}, dispatch, readDbPool: async () => { const v = healthyViewCtx().view; v.teams[0].roster[0] = healthyPlayer(run < 2 ? 1 : 2, 0); return { players: v.teams.flatMap((t) => t.roster), teams: v.teams, meta: null, seasons: [], picks: [] }; } } });
+    const det = await runDeterminismCheck({ mode: '1-season', perSeasonStopPhase: 'playoffs', failureMode: 'collect-all', driverOverrides: { loadWorker: async () => {}, dispatch, readDbPool: async () => { const v = healthyViewCtx().view; v.teams[0].roster[0] = { ...healthyPlayer(1, 0), ovr: currentOvr }; return { players: v.teams.flatMap((t) => t.roster), teams: v.teams, meta: null, seasons: [], picks: [] }; } } });
     expect(det.lifecycleDeterministic).toBe(true);
     expect(det.stateDeterministic).toBe(false);
-    expect(det.firstDivergence).toMatchObject({ domain: expect.any(String), field: expect.any(String) });
+    expect(det.firstDivergence).toMatchObject({ domain: 'players', entityId: '1', field: 'ovr', runA: 70, runB: 71 });
+    for (const report of det.reports) {
+      for (const checkpoint of report.report.checkpoints) expect(existsSync(checkpoint.durable.diagnosticArtifact)).toBe(false);
+    }
   });
 
   it('canonicalizes collection ordering and mixed id aliases but preserves duplicates', async () => {

@@ -28,6 +28,42 @@ const STORES = {
   NEWS:          'news',
 };
 
+/**
+ * Profiling-only census of the active league's persistent payload.
+ *
+ * Values are visited one cursor row at a time so the profiler never builds a
+ * second getAll()-sized object graph. `serializedBytes` is the UTF-8 size of
+ * deterministic JSON payloads; it is not IndexedDB/browser disk allocation
+ * (which also includes implementation encoding, indexes, and page overhead).
+ */
+export async function profileLeagueStorage({ currentSeasonId = null } = {}) {
+  const stores = {};
+  let totalRows = 0;
+  let totalSerializedBytes = 0;
+
+  for (const name of Object.values(STORES)) {
+    const measured = await profileStore(name, currentSeasonId);
+    stores[name] = measured;
+    totalRows += measured.rowCount;
+    totalSerializedBytes += measured.serializedBytes;
+  }
+
+  for (const measured of Object.values(stores)) {
+    measured.percentOfTotal = totalSerializedBytes > 0
+      ? Math.round((measured.serializedBytes / totalSerializedBytes) * 10_000) / 100
+      : 0;
+  }
+
+  return {
+    authority: 'approximate-serialized-payload',
+    byteEncoding: 'utf-8-json',
+    note: 'Estimated serialized payload only; not actual IndexedDB disk allocation.',
+    totalRows,
+    totalSerializedBytes,
+    stores,
+  };
+}
+
 const GLOBAL_STORES = {
   SAVES: 'saves',
 };
@@ -376,6 +412,88 @@ function dbGetAllByIndex(storeName, indexName, value) {
     req.onsuccess = () => resolve(req.result);
     req.onerror   = () => reject(req.error);
   }));
+}
+
+function profileStore(storeName, currentSeasonId) {
+  return txOp(storeName, 'readonly', (store, resolve, reject) => {
+    let rowCount = 0;
+    let serializedBytes = 0;
+    let currentSeasonRows = 0;
+    const fieldBytes = storeName === STORES.META || storeName === STORES.TEAMS ? {} : null;
+    let largestTeamRow = null;
+    const gameAge = storeName === STORES.GAMES
+      ? { currentSeason: emptySizeBucket(), olderSeasons: emptySizeBucket() }
+      : null;
+    const encoder = new TextEncoder();
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) {
+        const result = {
+          rowCount,
+          serializedBytes,
+          averageBytesPerRow: rowCount > 0 ? Math.round(serializedBytes / rowCount) : 0,
+          ...(storeName === STORES.PLAYER_STATS ? { currentSeasonRows } : {}),
+        };
+        if (fieldBytes) {
+          result.topLevelFields = finalizeFieldBytes(fieldBytes, serializedBytes);
+          if (largestTeamRow) result.largestTeamRow = {
+            ...largestTeamRow,
+            topLevelFields: finalizeFieldBytes(largestTeamRow.topLevelFields, largestTeamRow.serializedBytes),
+          };
+        }
+        if (gameAge) result.bySeasonAge = finalizeSizeBuckets(gameAge);
+        resolve(result);
+        return;
+      }
+      const rowBytes = utf8JsonBytes(cursor.value, encoder);
+      serializedBytes += rowBytes;
+      if (fieldBytes && cursor.value && typeof cursor.value === 'object') {
+        const rowFields = {};
+        for (const [field, value] of Object.entries(cursor.value)) {
+          const bytes = utf8JsonBytes(value, encoder);
+          fieldBytes[field] = (fieldBytes[field] ?? 0) + bytes;
+          if (storeName === STORES.TEAMS) rowFields[field] = bytes;
+        }
+        if (storeName === STORES.TEAMS && (!largestTeamRow || rowBytes > largestTeamRow.serializedBytes)) {
+          largestTeamRow = { id: cursor.value.id ?? null, serializedBytes: rowBytes, topLevelFields: rowFields };
+        }
+      }
+      if (gameAge) {
+        const bucket = currentSeasonId != null && String(cursor.value?.seasonId ?? cursor.value?.season) === String(currentSeasonId)
+          ? gameAge.currentSeason
+          : gameAge.olderSeasons;
+        bucket.rowCount += 1;
+        bucket.serializedBytes += rowBytes;
+      }
+      if (storeName === STORES.PLAYER_STATS && currentSeasonId != null && String(cursor.value?.seasonId) === String(currentSeasonId)) currentSeasonRows += 1;
+      rowCount += 1;
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function utf8JsonBytes(value, encoder) {
+  const serialized = JSON.stringify(value);
+  return encoder.encode(serialized === undefined ? 'null' : serialized).byteLength;
+}
+
+function finalizeFieldBytes(fieldBytes, parentBytes) {
+  return Object.fromEntries(Object.entries(fieldBytes)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([field, serializedBytes]) => [field, {
+      serializedBytes,
+      percentOfParent: parentBytes > 0 ? Math.round((serializedBytes / parentBytes) * 10_000) / 100 : 0,
+    }]));
+}
+
+function emptySizeBucket() { return { rowCount: 0, serializedBytes: 0 }; }
+function finalizeSizeBuckets(buckets) {
+  return Object.fromEntries(Object.entries(buckets).map(([name, bucket]) => [name, {
+    ...bucket,
+    averageBytesPerRow: bucket.rowCount > 0 ? Math.round(bucket.serializedBytes / bucket.rowCount) : 0,
+  }]));
 }
 
 function dbPutBulk(storeName, records) {

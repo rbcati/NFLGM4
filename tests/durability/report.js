@@ -6,7 +6,7 @@
  * `toSummaryJSON()` returns a compact form safe to commit for long runs (drops
  * per-result pass/skip noise, keeps failures + per-checkpoint counts).
  */
-export const HARNESS_VERSION = '2.0.0';
+export const HARNESS_VERSION = '3.0.0';
 
 export class DurabilityReport {
   constructor({ seed, mode, failureMode, requestedSeasons, gitSha = null, perSeasonStopPhase = 'rollover' }) {
@@ -61,7 +61,12 @@ export class DurabilityReport {
         message: firstFail.message,
       };
     }
-    this.report.checkpoints.push({ season, phase, week, summary: counts, results, durable, metrics });
+    const compactDurable = durable ? {
+      digest: durable.digest,
+      summary: durable.summary,
+      ...(durable.diagnosticArtifact ? { diagnosticArtifact: durable.diagnosticArtifact } : {}),
+    } : null;
+    this.report.checkpoints.push({ season, phase, week, summary: counts, results, durable: compactDurable, metrics });
     return counts;
   }
 

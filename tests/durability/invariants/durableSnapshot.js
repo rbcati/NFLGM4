@@ -52,7 +52,15 @@ export function buildDurableSnapshot(state = {}) {
 }
 
 export function durableDigest(snapshot) {
-  return createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
+  return durableFingerprint(snapshot).digest;
+}
+
+export function durableFingerprint(snapshot) {
+  const serialized = JSON.stringify(snapshot);
+  return {
+    digest: createHash('sha256').update(serialized).digest('hex'),
+    serializedBytes: new TextEncoder().encode(serialized).byteLength,
+  };
 }
 
 export function compareDurableSnapshots(a, b, limit = 20) {

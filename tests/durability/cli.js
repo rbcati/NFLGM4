@@ -27,6 +27,8 @@ Flags:
                        performance-timeout finding and finalizes an honest partial report.
   --collect-all        Continue past failures, accumulate all (default: fail-fast)
   --determinism        Run the mode twice and report determinism
+  --profile-storage    Cursor-scan stores at durable checkpoints and report approximate UTF-8 JSON bytes
+  --gc-at-boundaries   With node --expose-gc, record pre/post-GC memory at season boundaries
   --write-report       Write full JSON report under the reports dir
   --summary            Also write the compact summary report
   --out=<path>         Explicit output file for the full report
@@ -39,13 +41,15 @@ const KNOWN_MODES = ['1-season', '5-season', '10-season', '20-season'];
 
 export function parseArgv(argv) {
   const args = argv.slice(2);
-  const raw = { mode: null, seed: 1684, seeds: null, failureMode: 'fail-fast', determinism: false, writeReport: false, summary: false, out: null, reportName: null, stopPhase: 'rollover', phaseTimeoutMs: null, help: false, childRun: false };
+  const raw = { mode: null, seed: 1684, seeds: null, failureMode: 'fail-fast', determinism: false, profileStorage: false, gcAtBoundaries: false, writeReport: false, summary: false, out: null, reportName: null, stopPhase: 'rollover', phaseTimeoutMs: null, help: false, childRun: false };
   const errors = [];
   for (const a of args) {
     if (a === '-h' || a === '--help') raw.help = true;
     else if (a === '--child-run') raw.childRun = true;
     else if (a === '--collect-all') raw.failureMode = 'collect-all';
     else if (a === '--determinism') raw.determinism = true;
+    else if (a === '--profile-storage') raw.profileStorage = true;
+    else if (a === '--gc-at-boundaries') raw.gcAtBoundaries = true;
     else if (a === '--write-report') raw.writeReport = true;
     else if (a === '--summary') raw.summary = true;
     else if (a.startsWith('--mode=')) raw.mode = a.slice(7);

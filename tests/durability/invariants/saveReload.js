@@ -18,7 +18,7 @@
  */
 import { pass, fail, skip } from './helpers.js';
 import { canonicalIdKey, stableIdCompare } from '../../../src/core/referenceIntegrity.js';
-import { buildDurableSnapshot, compareDurableSnapshots, durableDigest } from './durableSnapshot.js';
+import { buildDurableSnapshot, compareDurableSnapshots, durableFingerprint } from './durableSnapshot.js';
 
 export const id = 'saveReload';
 
@@ -28,7 +28,8 @@ export const id = 'saveReload';
  */
 export function canonicalSummary(state) {
   const durableSnapshot = buildDurableSnapshot(state);
-  const durableSnapshotDigest = durableDigest(durableSnapshot);
+  const fingerprint = durableFingerprint(durableSnapshot);
+  const durableSnapshotDigest = fingerprint.digest;
   const view = state?.view ?? {};
   const db = state?.db ?? null;
   const teams = Array.isArray(view.teams) ? view.teams : [];
@@ -74,6 +75,7 @@ export function canonicalSummary(state) {
     pickOwnership,
     durableSnapshotVersion: durableSnapshot.version,
     durableSnapshotDigest,
+    durableSnapshotSerializedBytes: fingerprint.serializedBytes,
     durableSnapshot,
   };
 }
