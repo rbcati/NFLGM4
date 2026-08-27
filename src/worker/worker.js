@@ -2125,6 +2125,9 @@ async function loadSave() {
   // giving existing player-store records strict precedence.
   const reconciled = reconcileLegacyTeamRosters(teams, players);
   cache.hydrate({ meta, teams: reconciled.teams, players: reconciled.players, draftPicks });
+  // Ensure LOAD_SAVE -> SAVE_NOW rewrites legacy raw team rows. Only teams
+  // that actually carried an embedded roster projection are marked dirty.
+  for (const teamId of reconciled.normalizedTeamIds) cache.updateTeam(teamId, {});
   // hydrate deliberately marks nothing dirty. Newly promoted legacy-only
   // players must be written on the next SAVE_NOW rather than remaining a
   // cache-only compatibility fallback.

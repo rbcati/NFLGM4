@@ -55,6 +55,41 @@ describe('team persistence normalization', () => {
     expect(result.migratedPlayers.map((p) => p.id)).toEqual(['b']);
     expect(result.teams[0]).toMatchObject({ rosterIds: ['a', 'b'], rosterCount: 2, depthChart: { QB: ['a'] } });
     expect(result.teams[0]).not.toHaveProperty('roster');
+    expect(result.normalizedTeamIds).toEqual([1]);
+  });
+
+  it.each([
+    {
+      label: 'empty roster plus populated players',
+      team: { id: 1, roster: [], players: [richPlayer('players-only')] },
+      expectedIds: ['players-only'],
+    },
+    {
+      label: 'populated roster plus populated players',
+      team: { id: 1, roster: [richPlayer('roster-only')], players: [richPlayer('players-only')] },
+      expectedIds: ['roster-only', 'players-only'],
+    },
+    {
+      label: 'same player duplicated in both projections',
+      team: { id: 1, roster: [richPlayer('same')], players: [richPlayer('same', { ovr: 40 })] },
+      expectedIds: ['same'],
+    },
+  ])('reconciles $label', ({ team, expectedIds }) => {
+    const result = reconcileLegacyTeamRosters([team], []);
+    expect(result.teams[0].rosterIds).toEqual(expectedIds);
+    expect(result.players.map((player) => player.id)).toEqual(expectedIds);
+    expect(result.normalizedTeamIds).toEqual([1]);
+  });
+
+  it('keeps the canonical copy over stale copies in both embedded arrays', () => {
+    const canonical = richPlayer('same', { ovr: 96, contract: { years: 5 } });
+    const result = reconcileLegacyTeamRosters([{
+      id: 1,
+      roster: [richPlayer('same', { ovr: 70, contract: { years: 1 } })],
+      players: [richPlayer('same', { ovr: 60, contract: { years: 2 } })],
+    }], [canonical]);
+    expect(result.players).toEqual([canonical]);
+    expect(result.teams[0]).toMatchObject({ rosterIds: ['same'], rosterCount: 1 });
   });
 
   it.each([
