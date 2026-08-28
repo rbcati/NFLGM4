@@ -3210,6 +3210,12 @@ async function handleAdvanceWeek(payload, id) {
     // only an explicit headless lifecycle (durability batch-sim) opts it in.
     await AiLogic.executeAICapManagement({ autoManageUserCap: batchSim });
 
+    // Cap management above reserves the exact room needed by an underfilled
+    // canonical roster. Complete those existing-FA, minimum-contract
+    // transactions before the stable-phase legality gate. The interactive user
+    // remains untouched; headless lifecycle runs explicitly opt it in.
+    await AiLogic.ensureMinimumRosters({ includeUserTeam: batchSim });
+
     // Cutdowns/releases above release players directly (teamId -> null) without
     // touching team.depthChart, leaving dangling starter/backup references.
     // Repair them before the legality gate validates depth-chart integrity.

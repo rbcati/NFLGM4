@@ -49,23 +49,19 @@ function positionRank(pos, order) {
     return idx >= 0 ? idx : order.length;
 }
 
-const round1 = (v) => Math.round(Number(v || 0) * 10) / 10;
-
 export function buildMinimumRosterContract(player = {}, team = {}, context = {}) {
     const year = Number(context.year ?? context.currentYear ?? context.seasonYear ?? 0);
-    const market = evaluateContractMarket(player, {
-        team,
-        strategy: context.strategy,
-        teamCapRoom: context.capRoom ?? team?.capRoom,
-        capRoom: context.capRoom ?? team?.capRoom,
-        positionalNeed: context.needMultiplier ?? 1,
-    });
-    const years = Math.max(1, Math.round(Number(market?.suggestedYears ?? market?.years ?? 1)));
-    const annual = round1(market?.suggestedAnnual ?? market?.annualSalary ?? Constants.SALARY_CAP.MIN_CONTRACT);
-    const signingBonus = round1(market?.signingBonus ?? 0);
+    // This path is the final preseason roster-legality market, not the open-FA
+    // valuation path above it.  Players still available here receive the
+    // league's canonical one-year minimum contract.  Pricing them through the
+    // normal market model made the reconciliation demand multi-year, market-rate
+    // deals and stop with affordable minimum-contract roster slots still open.
+    const years = 1;
+    const annual = Number(Constants.SALARY_CAP.MIN_CONTRACT);
+    const signingBonus = 0;
     return {
         ...buildContractFromMarket(
-            { ...market, suggestedAnnual: annual, suggestedYears: years, signingBonus },
+            { suggestedAnnual: annual, suggestedYears: years, signingBonus },
             { startYear: year, signedYear: year },
         ),
         yearsRemaining: years,
@@ -665,10 +661,19 @@ class AiLogic {
             this.updateTeamCap(team.id);
             const freshTeam = cache.getTeam(team.id);
             const roster = cache.getPlayersByTeam(team.id);
-            const snapshot = buildTeamCapSnapshot({ team: freshTeam, roster, salaryCap: legalCap, targetBuffer });
+            // A below-floor roster is not financially ready merely because its
+            // current 51- or 52-player payroll is under the cap. Reserve enough
+            // room for the missing one-year league-minimum contracts; otherwise
+            // cap management no-ops and the following canonical signing pass has
+            // no legal transaction available.
+            const missingRosterSlots = Math.max(0, Constants.ROSTER_LIMITS.REGULAR_SEASON - roster.length);
+            const minimumContractCapHit = Number(buildMinimumRosterContract({}, freshTeam, { year: season }).baseAnnual ?? Constants.SALARY_CAP.MIN_CONTRACT);
+            const rosterReserve = Math.round(missingRosterSlots * minimumContractCapHit * 100) / 100;
+            const rosterReadyCap = Math.max(0, legalCap - rosterReserve);
+            const snapshot = buildTeamCapSnapshot({ team: freshTeam, roster, salaryCap: rosterReadyCap, targetBuffer });
             if (snapshot.isWithinPlanningTarget) continue;
 
-            const plan = AiLogic.buildAiCapCompliancePlan(freshTeam, roster, { legalCap, targetBuffer, season });
+            const plan = AiLogic.buildAiCapCompliancePlan(freshTeam, roster, { legalCap: rosterReadyCap, targetBuffer, season });
 
             // If no legal plan exists, do NOT commit partial destructive actions.
             // Committing releases/restructures that cannot eliminate the overage
@@ -676,7 +681,7 @@ class AiLogic {
             // retries operating on a needlessly mutated roster. Record the
             // structured failure and leave the roster intact instead.
             if (plan.failure) {
-                failures.push({ ...plan.failure, legalCap });
+                failures.push({ ...plan.failure, legalCap, rosterReserve });
                 continue;
             }
 
