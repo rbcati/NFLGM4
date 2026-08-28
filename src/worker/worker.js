@@ -76,6 +76,7 @@ import {
   Saves, configureActiveLeague, deleteLeagueDB, openGlobalDB, getActiveLeagueId,
   setReloadRequiredCallback,
 } from '../db/index.js';
+import { reconcileLegacyTeamRosters } from '../db/teamPersistence.js';
 import { makeLeague }     from '../core/league.js';
 import GameRunner         from '../core/game-runner.js';
 import { simulateBatch }  from '../core/game-simulator.js';
@@ -2119,7 +2120,17 @@ async function loadSave() {
     DraftPicks.byYear(meta.year).catch(() => []),
   ]);
 
-  cache.hydrate({ meta, teams, players, draftPicks });
+  // Old saves may have canonical players duplicated (or, in older shapes,
+  // present only) inside team rows. Preserve missing legacy players while
+  // giving existing player-store records strict precedence.
+  const reconciled = reconcileLegacyTeamRosters(teams, players);
+  cache.hydrate({ meta, teams: reconciled.teams, players: reconciled.players, draftPicks });
+  // hydrate deliberately marks nothing dirty. Explicitly queue legacy team
+  // rows for normalized rewrite; do not depend on later roster repair to do so.
+  for (const teamId of reconciled.normalizedTeamIds) cache.updateTeam(teamId, {});
+  // Newly promoted legacy-only players must likewise reach the canonical
+  // players store on the next SAVE_NOW.
+  for (const player of reconciled.migratedPlayers) cache.setPlayer(player);
   // Backfill persisted current-season stats. hydrate() clears _seasonStats and
   // only restores meta/teams/players/draftPicks, so without this the League
   // Stats view model rebuilds from roster players with no seasonStats and shows
