@@ -3214,7 +3214,15 @@ async function handleAdvanceWeek(payload, id) {
     // canonical roster. Complete those existing-FA, minimum-contract
     // transactions before the stable-phase legality gate. The interactive user
     // remains untouched; headless lifecycle runs explicitly opt it in.
-    await AiLogic.ensureMinimumRosters({ includeUserTeam: batchSim });
+    const reconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: batchSim });
+    if (reconciliation.failures.length > 0) {
+      const failure = reconciliation.failures[0];
+      post(toUI.ERROR, {
+        message: `Team ${failure.teamId} cannot reach the 53-player minimum (${failure.rosterCount}/53).`,
+        rosterLegalityFailure: failure,
+      }, id);
+      return;
+    }
 
     // Cutdowns/releases above release players directly (teamId -> null) without
     // touching team.depthChart, leaving dangling starter/backup references.
@@ -13490,9 +13498,29 @@ async function handleStartNewSeason(payload, id) {
     }),
   });
 
-  await AiLogic.ensureMinimumRosters({
-    includeUserTeam: typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__,
-  });
+  const rolloverBatchSim = typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__;
+  let rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
+  if (rolloverReconciliation.failures.length > 0) {
+    // Only underfilled teams enter this cap-planning retry. Oversized preseason
+    // rosters remain untouched until the later canonical cutdown pass.
+    await AiLogic.executeAICapManagement({
+      autoManageUserCap: rolloverBatchSim,
+      teamIds: rolloverReconciliation.failures.map((failure) => failure.teamId),
+    });
+    rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
+  }
+  const rolloverFloorFailures = cache.getAllTeams()
+    .map((team) => ({ teamId: team.id, rosterCount: cache.getPlayersByTeam(team.id).length }))
+    .filter((row) => row.rosterCount < Constants.ROSTER_LIMITS.REGULAR_SEASON);
+  if (rolloverFloorFailures.length > 0) {
+    const detail = rolloverReconciliation.failures.find((row) => Number(row.teamId) === Number(rolloverFloorFailures[0].teamId))
+      ?? rolloverFloorFailures[0];
+    post(toUI.ERROR, {
+      message: `Team ${detail.teamId} cannot enter preseason below the 53-player minimum (${detail.rosterCount}/53).`,
+      rosterLegalityFailure: detail,
+    }, id);
+    return;
+  }
   for (const team of cache.getAllTeams()) recalculateTeamCap(team.id);
 
   // ── Update franchise all-time leaders once per season rollover ──────────
