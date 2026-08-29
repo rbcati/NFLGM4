@@ -369,6 +369,28 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
     expect(h.state.txLog).toHaveLength(1);
   });
 
+  it('preserves minimum-contract room for every slot remaining after a signing', async () => {
+    h.state.store = {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 53 }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },
+      teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: 53, deadCap: 0, capRoom: 2 }]]),
+      players: new Map(),
+    };
+    for (let i = 0; i < 51; i++) h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-rotation', { id: 'fa-rotation', teamId: null, pos: 'CB', ovr: 64, potential: 64, age: 27, status: 'free_agent', contract: contract(2, 0, 1, 1) });
+    h.state.store.players.set('fa-replacement-a', { id: 'fa-replacement-a', teamId: null, pos: 'CB', ovr: 60, potential: 60, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-replacement-b', { id: 'fa-replacement-b', teamId: null, pos: 'CB', ovr: 59, potential: 59, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+
+    const result = await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
+
+    expect(result.failures).toEqual([]);
+    expect(h.state.store.players.get('fa-rotation')).toMatchObject({ teamId: null, status: 'free_agent' });
+    expect(h.state.store.players.get('fa-replacement-a').teamId).toBe(31);
+    expect(h.state.store.players.get('fa-replacement-b').teamId).toBe(31);
+    expect(h.state.store.players.get('fa-replacement-a').contract.baseAnnual).toBe(0.8);
+    expect(h.state.store.players.get('fa-replacement-b').contract.baseAnnual).toBe(0.8);
+    expect(h.state.txLog).toHaveLength(2);
+  });
+
   it('leaves player and team state unchanged when even the league minimum cannot fit under the live cap', async () => {
     h.state.store = {
       meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 52.5 }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },

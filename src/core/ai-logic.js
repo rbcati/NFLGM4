@@ -422,7 +422,12 @@ class AiLogic {
                         roster: [...roster, projectedPlayer],
                         salaryCap: liveSalaryCap,
                     });
-                    if (Number(getActiveCapHit(projectedPlayer) ?? 0) <= room + 0.01 && projection?.isLegallyCompliant !== false) {
+                    const remainingSlots = Math.max(0, minimum - (roster.length + 1));
+                    const remainingMinimumRoom = Math.round(remainingSlots * minimumRosterCapHit() * 100) / 100;
+                    const preservesRemainingMinimumRoom = Number(projection?.capRoom ?? 0) + 0.001 >= remainingMinimumRoom;
+                    if (Number(getActiveCapHit(projectedPlayer) ?? 0) <= room + 0.01
+                        && projection?.isLegallyCompliant !== false
+                        && preservesRemainingMinimumRoom) {
                         candidate = p;
                         contract = proposedContract;
                         projectedCap = projection;
