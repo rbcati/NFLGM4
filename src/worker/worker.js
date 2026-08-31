@@ -3182,6 +3182,10 @@ async function handleAdvanceWeek(payload, id) {
     // batch flag opts the user team into automated cutdowns/cap management.
     if (!batchSim) {
       const userRoster = cache.getPlayersByTeam(meta.userTeamId);
+      if (userRoster.length < rosterLimit) {
+        post(toUI.ERROR, { message: `Roster minimum not met! You have ${userRoster.length}/${rosterLimit} players. Sign players before starting the regular season.` }, id);
+        return;
+      }
       if (userRoster.length > rosterLimit) {
         post(toUI.ERROR, { message: `Roster limit exceeded! You have ${userRoster.length} players. Cut down to ${rosterLimit} to advance.` }, id);
         return;
@@ -3209,6 +3213,20 @@ async function handleAdvanceWeek(payload, id) {
     // least-destructive plan. The interactive user team is NEVER auto-managed;
     // only an explicit headless lifecycle (durability batch-sim) opts it in.
     await AiLogic.executeAICapManagement({ autoManageUserCap: batchSim });
+
+    // Cap management above reserves the exact room needed by an underfilled
+    // canonical roster. Complete those existing-FA, minimum-contract
+    // transactions before the stable-phase legality gate. The interactive user
+    // remains untouched; headless lifecycle runs explicitly opt it in.
+    const reconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: batchSim });
+    if (reconciliation.failures.length > 0) {
+      const failure = reconciliation.failures[0];
+      post(toUI.ERROR, {
+        message: `Team ${failure.teamId} cannot reach the 53-player minimum (${failure.rosterCount}/53).`,
+        rosterLegalityFailure: failure,
+      }, id);
+      return;
+    }
 
     // Cutdowns/releases above release players directly (teamId -> null) without
     // touching team.depthChart, leaving dangling starter/backup references.
@@ -13484,9 +13502,30 @@ async function handleStartNewSeason(payload, id) {
     }),
   });
 
-  await AiLogic.ensureMinimumRosters({
-    includeUserTeam: typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__,
-  });
+  const rolloverBatchSim = typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__;
+  let rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
+  if (rolloverReconciliation.failures.length > 0) {
+    // Only underfilled teams enter this cap-planning retry. Oversized preseason
+    // rosters remain untouched until the later canonical cutdown pass.
+    await AiLogic.executeAICapManagement({
+      autoManageUserCap: rolloverBatchSim,
+      teamIds: rolloverReconciliation.failures.map((failure) => failure.teamId),
+    });
+    rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
+  }
+  if (rolloverReconciliation.failures.length > 0) {
+    const detail = rolloverReconciliation.failures[0];
+    // START_NEW_SEASON is only valid from draft/offseason. Restore its lifecycle
+    // metadata before returning a hard reconciliation error so the command can
+    // be retried after the underlying AI roster/cap condition is corrected.
+    // No rollover flush has occurred yet.
+    cache.setMeta(meta);
+    post(toUI.ERROR, {
+      message: `Team ${detail.teamId} cannot enter preseason below the 53-player minimum (${detail.rosterCount}/53).`,
+      rosterLegalityFailure: detail,
+    }, id);
+    return;
+  }
   for (const team of cache.getAllTeams()) recalculateTeamCap(team.id);
 
   // ── Update franchise all-time leaders once per season rollover ──────────
