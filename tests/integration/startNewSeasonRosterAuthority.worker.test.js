@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cache } from '../../src/db/cache.js';
 import { toUI, toWorker } from '../../src/worker/protocol.js';
+import AiLogic from '../../src/core/ai-logic.js';
 
 const USER_TEAM_ID = 0;
 const SLOT_KEY = 'save_slot_1';
@@ -123,6 +124,35 @@ describe('START_NEW_SEASON roster-management authority', () => {
     expect(reply.type, JSON.stringify(payloadOf(reply))).toBe(toUI.FULL_STATE);
     expect(cache.getMeta()?.phase).toBe('preseason');
     expect(roster(aiTeamId).length).toBeGreaterThanOrEqual(53);
+  }, TIMEOUT_MS);
+
+  it('passes reconciliation actual completion cost into the targeted rollover cap retry', async () => {
+    const aiTeamId = Number(cache.getAllTeams().find((team) => Number(team.id) !== USER_TEAM_ID).id);
+    const completionCost = 1.2;
+    const ensureSpy = vi.spyOn(AiLogic, 'ensureMinimumRosters')
+      .mockResolvedValueOnce({
+        failures: [{
+          teamId: aiTeamId,
+          rosterCount: 52,
+          remainingSlots: 1,
+          cheapestActualCompletionCost: completionCost,
+          reason: 'no_feasible_completion',
+        }],
+        signedByTeam: [],
+      })
+      .mockResolvedValueOnce({ failures: [], signedByTeam: [{ teamId: aiTeamId, signed: 1, rosterCount: 53 }] });
+    const capSpy = vi.spyOn(AiLogic, 'executeAICapManagement').mockResolvedValue({ failures: [], teamsManaged: 1 });
+
+    const reply = await send(toWorker.START_NEW_SEASON);
+
+    expect(reply.type, JSON.stringify(payloadOf(reply))).toBe(toUI.FULL_STATE);
+    expect(capSpy).toHaveBeenCalledTimes(1);
+    const options = capSpy.mock.calls[0][0];
+    expect(options.teamIds).toEqual([aiTeamId]);
+    expect(options.rosterCompletionReserveByTeam).toBeInstanceOf(Map);
+    expect(options.rosterCompletionReserveByTeam.get(aiTeamId)).toBe(completionCost);
+    ensureSpy.mockRestore();
+    capSpy.mockRestore();
   }, TIMEOUT_MS);
 
   it('reports a genuine AI failure without stranding START_NEW_SEASON in preseason', async () => {

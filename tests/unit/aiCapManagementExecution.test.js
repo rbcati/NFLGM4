@@ -101,6 +101,119 @@ describe('executeAICapManagement — user-team isolation', () => {
 });
 
 describe('executeAICapManagement — legality & structure', () => {
+  function underfilledRestructureStore({ teams = [{ id: 31, reserve: 1.4, candidateOvr: 64, candidatePos: 'RB' }] } = {}) {
+    const teamRows = new Map();
+    const players = new Map();
+    for (const config of teams) {
+      teamRows.set(config.id, { id: config.id, abbr: `AI${config.id}`, capTotal: LIVE_CAP, deadCap: 0, capRoom: 1 });
+      players.set(`${config.id}-star`, { id: `${config.id}-star`, teamId: config.id, pos: 'QB', ovr: 90, age: 28, status: 'active', contract: contract(48, 0, 4, 4) });
+      for (let i = 0; i < 51; i++) players.set(`${config.id}-owned-${i}`, { id: `${config.id}-owned-${i}`, teamId: config.id, pos: 'WR', ovr: 60, age: 25, status: 'active', contract: contract(1) });
+      players.set(`${config.id}-fa`, { id: `${config.id}-fa`, teamId: null, pos: config.candidatePos, ovr: config.candidateOvr, potential: config.candidateOvr, age: 27, status: 'free_agent', contract: contract(1) });
+    }
+    return {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's7', currentWeek: 1, year: 2032, phase: 'preseason' },
+      teams: teamRows,
+      players,
+    };
+  }
+
+  it('uses reconciliation actual completion reserve during targeted cap management', async () => {
+    h.state.store = underfilledRestructureStore();
+    const first = await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
+    const failure = first.failures[0];
+    expect(failure).toMatchObject({ teamId: 31, reason: 'no_feasible_completion' });
+    expect(failure.cheapestActualCompletionCost).toBeGreaterThan(1);
+    expect(h.mockCache.getPlayersByTeam(31)).toHaveLength(52);
+
+    const managed = await AiLogic.executeAICapManagement({
+      teamIds: [31],
+      rosterCompletionReserveByTeam: new Map([[31, failure.cheapestActualCompletionCost]]),
+    });
+
+    expect(managed.failures).toEqual([]);
+    expect(h.state.txLog.filter((tx) => tx.type === 'RESTRUCTURE')).toHaveLength(1);
+    expect(h.state.txLog.some((tx) => tx.type === 'RELEASE')).toBe(false);
+    const roomAfterManagement = buildTeamCapSnapshot({ team: h.state.store.teams.get(31), roster: h.mockCache.getPlayersByTeam(31), salaryCap: LIVE_CAP }).capRoom;
+    expect(roomAfterManagement).toBeGreaterThanOrEqual(failure.cheapestActualCompletionCost);
+
+    const retry = await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
+    expect(retry.failures).toEqual([]);
+    expect(h.mockCache.getPlayersByTeam(31)).toHaveLength(53);
+    expect(buildTeamCapSnapshot({ team: h.state.store.teams.get(31), roster: h.mockCache.getPlayersByTeam(31), salaryCap: LIVE_CAP }).isLegallyCompliant).toBe(true);
+  });
+
+  it('keeps minimum fallback behavior when no explicit actual reserve is supplied', async () => {
+    h.state.store = underfilledRestructureStore();
+
+    const managed = await AiLogic.executeAICapManagement({ teamIds: [31] });
+
+    expect(managed).toMatchObject({ failures: [], teamsManaged: 0 });
+    expect(h.state.txLog).toEqual([]);
+  });
+
+  it('applies different actual completion reserves independently per team', async () => {
+    h.state.store = underfilledRestructureStore({ teams: [
+      { id: 31, candidateOvr: 64, candidatePos: 'RB' },
+      { id: 32, candidateOvr: 64, candidatePos: 'CB' },
+    ] });
+    const reserves = new Map([[31, 1.2], [32, 2.4]]);
+
+    const managed = await AiLogic.executeAICapManagement({
+      teamIds: [31, 32],
+      rosterCompletionReserveByTeam: reserves,
+    });
+
+    expect(managed.failures).toEqual([]);
+    expect(managed.teamsManaged).toBe(2);
+    for (const [teamId, reserve] of reserves) {
+      const cap = buildTeamCapSnapshot({ team: h.state.store.teams.get(teamId), roster: h.mockCache.getPlayersByTeam(teamId), salaryCap: LIVE_CAP });
+      expect(cap.capRoom).toBeGreaterThanOrEqual(reserve);
+      expect(h.state.txLog.filter((tx) => tx.type === 'RESTRUCTURE' && tx.teamId === teamId)).toHaveLength(1);
+      expect(h.state.txLog.some((tx) => tx.type === 'RELEASE' && tx.teamId === teamId)).toBe(false);
+    }
+  });
+
+  it('uses the full actual two-slot completion cost and then signs both market offers', async () => {
+    h.state.store = underfilledRestructureStore();
+    h.state.store.players.delete('31-owned-50');
+    h.state.store.players.set('31-fa-2', { id: '31-fa-2', teamId: null, pos: 'RB', ovr: 64, potential: 64, age: 27, status: 'free_agent', contract: contract(1) });
+    const first = await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
+    const failure = first.failures[0];
+    expect(failure.remainingSlots).toBe(2);
+    expect(failure.cheapestActualCompletionCost).toBeGreaterThan(1.6);
+
+    const managed = await AiLogic.executeAICapManagement({
+      teamIds: [31],
+      rosterCompletionReserveByTeam: new Map([[31, failure.cheapestActualCompletionCost]]),
+    });
+    const retry = await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
+
+    expect(managed.failures).toEqual([]);
+    expect(retry.failures).toEqual([]);
+    expect(h.mockCache.getPlayersByTeam(31)).toHaveLength(53);
+    expect(h.state.txLog.filter((tx) => tx.details?.source === 'minimum_roster_reconciliation')).toHaveLength(2);
+    expect(buildTeamCapSnapshot({ team: h.state.store.teams.get(31), roster: h.mockCache.getPlayersByTeam(31), salaryCap: LIVE_CAP }).isLegallyCompliant).toBe(true);
+  });
+
+  it('treats an explicit replacement-level completion reserve like the minimum fallback', () => {
+    const store = underfilledRestructureStore();
+    store.players.get('31-fa').ovr = 59;
+    store.players.get('31-fa').potential = 59;
+    const owned = [...store.players.values()].filter((player) => player.teamId === 31);
+
+    const plan = AiLogic.buildAiCapCompliancePlan(store.teams.get(31), owned, {
+      legalCap: LIVE_CAP,
+      season: 2032,
+      rosterCompletionReserve: 0.8,
+    });
+
+    expect(plan.actions).toEqual([]);
+    expect(plan.failure).toBeNull();
+    expect(plan.projected.requiredMinimumRoom).toBe(0.8);
+    expect(plan.projected.requiredRosterCompletionRoom).toBe(0.8);
+    expect(plan.projected.rosterCompletionReserveSource).toBe('actual_completion');
+  });
+
   function releaseReserveRoster({ overage, releasableBase }) {
     const players = [];
     const floors = { QB: 2, RB: 2, WR: 3, TE: 1, OL: 5, DL: 4, LB: 3, CB: 2, S: 2, K: 1, P: 1 };
@@ -173,6 +286,36 @@ describe('executeAICapManagement — legality & structure', () => {
     expect(res.failures.length).toBe(1);
     expect(res.failures[0].teamId).toBe(7);
     expect(res.failures[0].remainingOverage).toBeGreaterThan(0);
+  });
+
+  it('does not commit partial actions when an explicit completion reserve has no legal plan', async () => {
+    const floors = { QB: 2, RB: 2, WR: 3, TE: 1, OL: 5, DL: 4, LB: 3, CB: 2, S: 2, K: 1, P: 1 };
+    const players = new Map();
+    for (const [pos, count] of Object.entries(floors)) {
+      for (let k = 0; k < count; k++) {
+        const id = `actual-imp-${pos}-${k}`;
+        players.set(id, { id, teamId: 7, pos, ovr: 80, age: 30, status: 'active', contract: contract(2, 0, 1, 1) });
+      }
+    }
+    h.state.store = {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 50 }, currentSeasonId: 's4', currentWeek: 1, year: 2029 },
+      teams: new Map([[7, { id: 7, abbr: 'IMP', capTotal: 50, deadCap: 0 }]]),
+      players,
+    };
+    const before = JSON.stringify([...players.values()]);
+
+    const result = await AiLogic.executeAICapManagement({
+      teamIds: [7],
+      rosterCompletionReserveByTeam: new Map([[7, 20]]),
+    });
+
+    expect(result.failures).toEqual([expect.objectContaining({
+      teamId: 7,
+      requiredRosterCompletionRoom: 20,
+      rosterCompletionReserveSource: 'actual_completion',
+    })]);
+    expect(h.state.txLog).toEqual([]);
+    expect(JSON.stringify([...players.values()])).toBe(before);
   });
 
   it('emits one transaction per committed action', async () => {

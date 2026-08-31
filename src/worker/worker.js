@@ -13510,6 +13510,13 @@ async function handleStartNewSeason(payload, id) {
     await AiLogic.executeAICapManagement({
       autoManageUserCap: rolloverBatchSim,
       teamIds: rolloverReconciliation.failures.map((failure) => failure.teamId),
+      rosterCompletionReserveByTeam: new Map(
+        rolloverReconciliation.failures
+          .filter((failure) => failure.cheapestActualCompletionCost !== null
+            && failure.cheapestActualCompletionCost !== undefined
+            && Number.isFinite(Number(failure.cheapestActualCompletionCost)))
+          .map((failure) => [failure.teamId, Number(failure.cheapestActualCompletionCost)]),
+      ),
     });
     rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
   }

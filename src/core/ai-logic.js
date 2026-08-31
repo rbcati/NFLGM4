@@ -93,16 +93,32 @@ function minimumRosterCapHit() {
     }).baseAnnual);
 }
 
-function buildRosterReadySnapshot(team, roster, { legalCap, targetBuffer = 0 } = {}) {
+function buildRosterReadySnapshot(team, roster, {
+    legalCap,
+    targetBuffer = 0,
+    rosterCompletionReserve = null,
+    reserveRosterCount = roster.length,
+} = {}) {
     const cap = buildTeamCapSnapshot({ team, roster, salaryCap: legalCap, targetBuffer });
     const missingRosterSlots = Math.max(0, Constants.ROSTER_LIMITS.REGULAR_SEASON - roster.length);
     const requiredMinimumRoom = Math.round(missingRosterSlots * minimumRosterCapHit() * 100) / 100;
-    const rosterReadyCommitted = Math.round((cap.totalCommitted + requiredMinimumRoom) * 100) / 100;
+    const hasActualReserve = rosterCompletionReserve !== null
+        && rosterCompletionReserve !== undefined
+        && Number.isFinite(Number(rosterCompletionReserve))
+        && Number(rosterCompletionReserve) >= 0;
+    const initialMissingSlots = Math.max(0, Constants.ROSTER_LIMITS.REGULAR_SEASON - Number(reserveRosterCount));
+    const releaseCreatedSlots = Math.max(0, missingRosterSlots - initialMissingSlots);
+    const requiredRosterCompletionRoom = hasActualReserve
+        ? Math.round((Number(rosterCompletionReserve) + releaseCreatedSlots * minimumRosterCapHit()) * 100) / 100
+        : requiredMinimumRoom;
+    const rosterReadyCommitted = Math.round((cap.totalCommitted + requiredRosterCompletionRoom) * 100) / 100;
     return {
         ...cap,
         projectedRosterCount: roster.length,
         missingRosterSlots,
         requiredMinimumRoom,
+        requiredRosterCompletionRoom,
+        rosterCompletionReserveSource: hasActualReserve ? 'actual_completion' : 'minimum_fallback',
         rosterReadyCommitted,
         isRosterReadyCompliant: rosterReadyCommitted <= Number(legalCap) + 0.001,
         isRosterReadyWithinPlanningTarget: rosterReadyCommitted <= Number(cap.targetCommitted) + 0.001,
@@ -574,14 +590,25 @@ class AiLogic {
      *
      * @returns {{ actions: object[], projected: object, failure: object|null }}
      */
-    static buildAiCapCompliancePlan(team, roster, { legalCap, targetBuffer = 0, season = 0 } = {}) {
+    static buildAiCapCompliancePlan(team, roster, {
+        legalCap,
+        targetBuffer = 0,
+        season = 0,
+        rosterCompletionReserve = null,
+    } = {}) {
         const actions = [];
         let workRoster = roster.map((p) => ({ ...p, contract: { ...(p?.contract ?? {}) } }));
         let deadCap = Math.max(0, Number(team?.deadCap ?? 0));
         // Original (pre-restructure) contracts, kept so a restructure can be rolled
         // back if the player later turns out to be the only cap-legal release.
         const originalContracts = new Map();
-        const snap = () => buildRosterReadySnapshot({ deadCap }, workRoster, { legalCap, targetBuffer });
+        const reserveRosterCount = roster.length;
+        const snap = () => buildRosterReadySnapshot({ deadCap }, workRoster, {
+            legalCap,
+            targetBuffer,
+            rosterCompletionReserve,
+            reserveRosterCount,
+        });
 
         // ── Phase 1: restructures toward the planning target ──────────────────
         const touched = new Set();
@@ -725,6 +752,8 @@ class AiLogic {
             totalCommitted: projected.totalCommitted,
             rosterReadyCommitted: projected.rosterReadyCommitted,
             requiredMinimumRoom: projected.requiredMinimumRoom,
+            requiredRosterCompletionRoom: projected.requiredRosterCompletionRoom,
+            rosterCompletionReserveSource: projected.rosterCompletionReserveSource,
             projectedRosterCount: workRoster.length,
             legalCap,
             protectedPositions: Object.keys(AiLogic.POSITION_FLOOR).filter((pos) => (posCount[pos] ?? 0) <= (AiLogic.POSITION_FLOOR[pos] ?? 1)),
@@ -747,10 +776,15 @@ class AiLogic {
      * capability by the caller) so the franchise can start a season without an
      * interactive front office.
      *
-     * @param {{autoManageUserCap?: boolean}} [opts]
+     * @param {{autoManageUserCap?: boolean, teamIds?: Array<number|string>|null,
+     *   rosterCompletionReserveByTeam?: Map<number|string, number>|Record<string, number>|null}} [opts]
      * @returns {Promise<{failures: object[], teamsManaged: number}>}
      */
-    static async executeAICapManagement({ autoManageUserCap = false, teamIds = null } = {}) {
+    static async executeAICapManagement({
+        autoManageUserCap = false,
+        teamIds = null,
+        rosterCompletionReserveByTeam = null,
+    } = {}) {
         const txsToCommit = [];
         const meta        = cache.getMeta();
         const userTeamId  = meta.userTeamId;
@@ -770,10 +804,23 @@ class AiLogic {
             this.updateTeamCap(team.id);
             const freshTeam = cache.getTeam(team.id);
             const roster = cache.getPlayersByTeam(team.id);
-            const snapshot = buildRosterReadySnapshot(freshTeam, roster, { legalCap, targetBuffer });
+            const rosterCompletionReserve = rosterCompletionReserveByTeam instanceof Map
+                ? [...rosterCompletionReserveByTeam.entries()].find(([teamId]) => Number(teamId) === Number(team.id))?.[1]
+                : rosterCompletionReserveByTeam?.[String(team.id)];
+            const snapshot = buildRosterReadySnapshot(freshTeam, roster, {
+                legalCap,
+                targetBuffer,
+                rosterCompletionReserve,
+                reserveRosterCount: roster.length,
+            });
             if (snapshot.isRosterReadyWithinPlanningTarget) continue;
 
-            const plan = AiLogic.buildAiCapCompliancePlan(freshTeam, roster, { legalCap, targetBuffer, season });
+            const plan = AiLogic.buildAiCapCompliancePlan(freshTeam, roster, {
+                legalCap,
+                targetBuffer,
+                season,
+                rosterCompletionReserve,
+            });
 
             // If no legal plan exists, do NOT commit partial destructive actions.
             // Committing releases/restructures that cannot eliminate the overage
