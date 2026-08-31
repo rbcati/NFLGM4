@@ -3182,6 +3182,10 @@ async function handleAdvanceWeek(payload, id) {
     // batch flag opts the user team into automated cutdowns/cap management.
     if (!batchSim) {
       const userRoster = cache.getPlayersByTeam(meta.userTeamId);
+      if (userRoster.length < rosterLimit) {
+        post(toUI.ERROR, { message: `Roster minimum not met! You have ${userRoster.length}/${rosterLimit} players. Sign players before starting the regular season.` }, id);
+        return;
+      }
       if (userRoster.length > rosterLimit) {
         post(toUI.ERROR, { message: `Roster limit exceeded! You have ${userRoster.length} players. Cut down to ${rosterLimit} to advance.` }, id);
         return;
@@ -13509,12 +13513,13 @@ async function handleStartNewSeason(payload, id) {
     });
     rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
   }
-  const rolloverFloorFailures = cache.getAllTeams()
-    .map((team) => ({ teamId: team.id, rosterCount: cache.getPlayersByTeam(team.id).length }))
-    .filter((row) => row.rosterCount < Constants.ROSTER_LIMITS.REGULAR_SEASON);
-  if (rolloverFloorFailures.length > 0) {
-    const detail = rolloverReconciliation.failures.find((row) => Number(row.teamId) === Number(rolloverFloorFailures[0].teamId))
-      ?? rolloverFloorFailures[0];
+  if (rolloverReconciliation.failures.length > 0) {
+    const detail = rolloverReconciliation.failures[0];
+    // START_NEW_SEASON is only valid from draft/offseason. Restore its lifecycle
+    // metadata before returning a hard reconciliation error so the command can
+    // be retried after the underlying AI roster/cap condition is corrected.
+    // No rollover flush has occurred yet.
+    cache.setMeta(meta);
     post(toUI.ERROR, {
       message: `Team ${detail.teamId} cannot enter preseason below the 53-player minimum (${detail.rosterCount}/53).`,
       rosterLegalityFailure: detail,
