@@ -101,6 +101,39 @@ describe('executeAICapManagement — user-team isolation', () => {
 });
 
 describe('executeAICapManagement — legality & structure', () => {
+  function releaseReserveRoster({ overage, releasableBase }) {
+    const players = [];
+    const floors = { QB: 2, RB: 2, WR: 3, TE: 1, OL: 5, DL: 4, LB: 3, CB: 2, S: 2, K: 1, P: 1 };
+    let index = 0;
+    for (const [pos, count] of Object.entries(floors)) {
+      for (let i = 0; i < count; i += 1) players.push({ id: `floor-${index++}`, teamId: 9, pos, ovr: 70, contract: contract(1) });
+    }
+    while (players.length < 53) players.push({ id: `extra-${index++}`, teamId: 9, pos: 'WR', ovr: 60, contract: contract(releasableBase) });
+    const current = players.reduce((sum, player) => sum + player.contract.baseAnnual, 0);
+    players[0].contract.baseAnnual += LIVE_CAP + overage - current;
+    return players;
+  }
+
+  it('dynamically reserves the replacement minimum after a release creates one missing slot', () => {
+    const roster = releaseReserveRoster({ overage: 0.2, releasableBase: 1.2 });
+    const plan = AiLogic.buildAiCapCompliancePlan({ id: 9, deadCap: 0 }, roster, { legalCap: LIVE_CAP, season: 2032 });
+    const releases = plan.actions.filter((action) => action.type === 'RELEASE');
+    expect(releases).toHaveLength(1);
+    expect(plan.projected.projectedRosterCount ?? (53 - releases.length)).toBe(52);
+    expect(plan.projected.requiredMinimumRoom).toBe(0.8);
+    expect(plan.projected.rosterReadyCommitted).toBeLessThanOrEqual(LIVE_CAP);
+  });
+
+  it('keeps planning when the first release is cap-legal alone but not with its replacement', () => {
+    const roster = releaseReserveRoster({ overage: 0.5, releasableBase: 1.1 });
+    const plan = AiLogic.buildAiCapCompliancePlan({ id: 9, deadCap: 0 }, roster, { legalCap: LIVE_CAP, season: 2032 });
+    const releases = plan.actions.filter((action) => action.type === 'RELEASE');
+    expect(releases).toHaveLength(2);
+    expect(plan.projected.requiredMinimumRoom).toBe(1.6);
+    expect(plan.projected.rosterReadyCommitted).toBeLessThanOrEqual(LIVE_CAP);
+    expect(plan.failure).toBeNull();
+  });
+
   it('brings every AI team legally under the LIVE cap', async () => {
     await AiLogic.executeAICapManagement({ autoManageUserCap: false });
     expect(committed(1).isLegallyCompliant).toBe(true);
@@ -153,6 +186,26 @@ describe('executeAICapManagement — legality & structure', () => {
 });
 
 describe('ensureMinimumRosters — stable rollover legality', () => {
+  it('cap management reserves a legal minimum-contract slot before the production signing pass', async () => {
+    h.state.store = {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's7', currentWeek: 1, year: 2032, phase: 'preseason' },
+      teams: new Map([[22, { id: 22, abbr: 'AI22', capTotal: LIVE_CAP, deadCap: 0, capRoom: 0.5 }]]),
+      players: new Map(),
+    };
+    h.state.store.players.set('star', { id: 'star', teamId: 22, pos: 'QB', ovr: 90, status: 'active', contract: contract(48.5, 0, 4, 4) });
+    for (let i = 0; i < 51; i++) h.state.store.players.set(`owned-${i}`, { id: `owned-${i}`, teamId: 22, pos: 'WR', ovr: 60, status: 'active', contract: contract(1) });
+    h.state.store.players.set('fa', { id: 'fa', teamId: null, pos: 'CB', ovr: 60, status: 'free_agent', contract: contract(12, 3, 3, 3) });
+
+    await AiLogic.executeAICapManagement({ autoManageUserCap: false });
+    await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
+
+    expect(h.mockCache.getPlayersByTeam(22)).toHaveLength(53);
+    expect(h.state.store.players.get('fa')).toMatchObject({ teamId: 22, status: 'active', contract: { baseAnnual: 0.8, yearsTotal: 1 } });
+    expect(committed(22).isLegallyCompliant).toBe(true);
+    expect(h.state.txLog.map((tx) => tx.type)).toContain('RESTRUCTURE');
+    expect(h.state.txLog.some((tx) => tx.details?.source === 'minimum_roster_reconciliation')).toBe(true);
+  });
+
   it('fills under-minimum AI rosters from existing free agents without touching interactive user teams', async () => {
     h.state.store = {
       meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's5', currentWeek: 1, year: 2030 },
@@ -166,8 +219,8 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
       h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
       h.state.store.players.set(`usr-${i}`, { id: `usr-${i}`, teamId: 0, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
     }
-    h.state.store.players.set('fa-b', { id: 'fa-b', teamId: null, pos: 'CB', ovr: 65, age: 25, status: 'free_agent', contract: contract(1, 0, 1, 1) });
-    h.state.store.players.set('fa-a', { id: 'fa-a', teamId: null, pos: 'CB', ovr: 66, age: 25, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-b', { id: 'fa-b', teamId: null, pos: 'CB', ovr: 59, age: 25, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-a', { id: 'fa-a', teamId: null, pos: 'CB', ovr: 60, age: 25, status: 'free_agent', contract: contract(1, 0, 1, 1) });
 
     await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
 
@@ -177,15 +230,33 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
     expect(h.state.txLog.some((tx) => tx.details?.source === 'minimum_roster_reconciliation')).toBe(true);
   });
 
+  it('signs two distinct minimum-contract free agents when canonical ownership starts at 51', async () => {
+    h.state.store = {
+      meta: { userTeamId: 0, economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's7', currentWeek: 1, year: 2032, phase: 'preseason' },
+      teams: new Map([[16, { id: 16, abbr: 'AI16', capTotal: LIVE_CAP, deadCap: 0, capRoom: 2 }]]),
+      players: new Map(),
+    };
+    for (let i = 0; i < 51; i++) h.state.store.players.set(`owned-${i}`, { id: `owned-${i}`, teamId: 16, pos: 'WR', ovr: 60, status: 'active', contract: contract(1) });
+    h.state.store.players.set('fa-2', { id: 'fa-2', teamId: null, pos: 'CB', ovr: 60, status: 'free_agent', contract: contract(20, 5, 3, 3) });
+    h.state.store.players.set('fa-1', { id: 'fa-1', teamId: null, pos: 'S', ovr: 60, status: 'free_agent', contract: contract(18, 4, 3, 3) });
+
+    await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
+
+    expect(h.mockCache.getPlayersByTeam(16)).toHaveLength(53);
+    expect(h.state.txLog.map((tx) => tx.playerId)).toHaveLength(2);
+    expect(new Set(h.state.txLog.map((tx) => tx.playerId))).toEqual(new Set(['fa-1', 'fa-2']));
+    expect(h.state.txLog.every((tx) => tx.details.contract.baseAnnual === 0.8)).toBe(true);
+  });
+
   it('recomputes positional needs after each signing and preserves deterministic signing order', async () => {
     const makeStore = () => ({
       meta: { userTeamId: 0, economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's5', currentWeek: 1, year: 2030 },
       teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: LIVE_CAP, deadCap: 0, capRoom: 90 }]]),
       players: new Map([
         ['roster-rb', { id: 'roster-rb', teamId: 31, pos: 'RB', ovr: 60, age: 24, status: 'active', contract: contract(1) }],
-        ['fa-qb-a', { id: 'fa-qb-a', teamId: null, pos: 'QB', ovr: 70, age: 25, status: 'free_agent', contract: contract(1) }],
-        ['fa-qb-b', { id: 'fa-qb-b', teamId: null, pos: 'QB', ovr: 69, age: 25, status: 'free_agent', contract: contract(1) }],
-        ['fa-cb', { id: 'fa-cb', teamId: null, pos: 'CB', ovr: 68, age: 25, status: 'free_agent', contract: contract(1) }],
+        ['fa-qb-a', { id: 'fa-qb-a', teamId: null, pos: 'QB', ovr: 60, age: 25, status: 'free_agent', contract: contract(1) }],
+        ['fa-qb-b', { id: 'fa-qb-b', teamId: null, pos: 'QB', ovr: 59, age: 25, status: 'free_agent', contract: contract(1) }],
+        ['fa-cb', { id: 'fa-cb', teamId: null, pos: 'CB', ovr: 58, age: 25, status: 'free_agent', contract: contract(1) }],
       ]),
     });
     const needsSpy = vi.spyOn(AiLogic, 'calculateTeamNeeds').mockImplementation((teamId) => {
@@ -217,7 +288,7 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
     };
     for (let i = 0; i < 52; i++) h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
     h.state.store.players.set('released', {
-      id: 'released', teamId: null, pos: 'CB', ovr: 70, potential: 70, age: 26, status: 'free_agent',
+      id: 'released', teamId: null, pos: 'CB', ovr: 60, potential: 60, age: 26, status: 'free_agent',
       contract: { ...contract(22, 18, 5, 3), restructureCount: 2, restructureHistory: [{ year: 2029, savings: 5 }], tag: 'franchise' },
       restructureCount: 2, restructureHistory: [{ year: 2029, savings: 5 }], franchiseTag: true,
     });
@@ -272,7 +343,7 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
       { id: 'inconsistent-active', teamId: null, pos: 'CB', ovr: 93, age: 26, status: 'active', contract: contract(1, 0, 1, 1) },
     ];
     for (const p of prohibited) h.state.store.players.set(p.id, p);
-    h.state.store.players.set('valid-fa', { id: 'valid-fa', teamId: null, pos: 'CB', ovr: 65, potential: 65, age: 25, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('valid-fa', { id: 'valid-fa', teamId: null, pos: 'CB', ovr: 60, potential: 60, age: 25, status: 'free_agent', contract: contract(1, 0, 1, 1) });
 
     await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
 
@@ -280,10 +351,50 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
     for (const p of prohibited) expect(h.state.store.players.get(p.id).teamId).toBeNull();
   });
 
-  it('leaves player and team state unchanged when projected signing cannot fit under the live cap', async () => {
+  it('does not reprice an elite free agent and chooses a legitimate replacement-level minimum candidate', async () => {
     h.state.store = {
       meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 53 }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },
       teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: 53, deadCap: 0, capRoom: 1 }]]),
+      players: new Map(),
+    };
+    for (let i = 0; i < 52; i++) h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-costly', { id: 'fa-costly', teamId: null, pos: 'QB', ovr: 90, potential: 90, age: 27, status: 'free_agent', contract: contract(30, 10, 4, 4) });
+    h.state.store.players.set('fa-replacement', { id: 'fa-replacement', teamId: null, pos: 'QB', ovr: 59, potential: 59, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+    await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
+
+    const signed = h.state.store.players.get('fa-replacement');
+    expect(signed.teamId).toBe(31);
+    expect(signed.contract).toMatchObject({ baseAnnual: 0.8, yearsTotal: 1, yearsRemaining: 1, signingBonus: 0 });
+    expect(h.state.store.players.get('fa-costly')).toMatchObject({ teamId: null, status: 'free_agent', contract: { baseAnnual: 30 } });
+    expect(h.state.txLog).toHaveLength(1);
+  });
+
+  it('preserves minimum-contract room for every slot remaining after a signing', async () => {
+    h.state.store = {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 53 }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },
+      teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: 53, deadCap: 0, capRoom: 2 }]]),
+      players: new Map(),
+    };
+    for (let i = 0; i < 51; i++) h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-rotation', { id: 'fa-rotation', teamId: null, pos: 'CB', ovr: 64, potential: 64, age: 27, status: 'free_agent', contract: contract(2, 0, 1, 1) });
+    h.state.store.players.set('fa-replacement-a', { id: 'fa-replacement-a', teamId: null, pos: 'CB', ovr: 60, potential: 60, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+    h.state.store.players.set('fa-replacement-b', { id: 'fa-replacement-b', teamId: null, pos: 'CB', ovr: 59, potential: 59, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 1) });
+
+    const result = await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
+
+    expect(result.failures).toEqual([]);
+    expect(h.state.store.players.get('fa-rotation')).toMatchObject({ teamId: null, status: 'free_agent' });
+    expect(h.state.store.players.get('fa-replacement-a').teamId).toBe(31);
+    expect(h.state.store.players.get('fa-replacement-b').teamId).toBe(31);
+    expect(h.state.store.players.get('fa-replacement-a').contract.baseAnnual).toBe(0.8);
+    expect(h.state.store.players.get('fa-replacement-b').contract.baseAnnual).toBe(0.8);
+    expect(h.state.txLog).toHaveLength(2);
+  });
+
+  it('leaves player and team state unchanged when even the league minimum cannot fit under the live cap', async () => {
+    h.state.store = {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 52.5 }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },
+      teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: 52.5, deadCap: 0, capRoom: 0.5 }]]),
       players: new Map(),
     };
     for (let i = 0; i < 52; i++) h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
@@ -296,20 +407,22 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
     expect(h.state.txLog).toHaveLength(0);
   });
 
-  it('uses the live economy cap before stale team capTotal when validating projected minimum-roster signings', async () => {
+  it('uses the live economy cap rather than stale team capTotal while accepting a legal minimum deal', async () => {
     h.state.store = {
       meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: 53 }, currentSeasonId: 's5', currentWeek: 1, year: 2030, phase: 'preseason' },
       teams: new Map([[31, { id: 31, abbr: 'AI31', capTotal: 100, deadCap: 0, capRoom: 48 }]]),
       players: new Map(),
     };
     for (let i = 0; i < 52; i++) h.state.store.players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
-    h.state.store.players.set('fits-stale-cap', { id: 'fits-stale-cap', teamId: null, pos: 'QB', ovr: 90, potential: 90, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 0) });
-    const before = JSON.stringify([...h.state.store.teams, ...h.state.store.players]);
-
+    h.state.store.players.set('fits-stale-cap', { id: 'fits-stale-cap', teamId: null, pos: 'QB', ovr: 59, potential: 59, age: 27, status: 'free_agent', contract: contract(1, 0, 1, 0) });
     await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
 
-    expect(JSON.stringify([...h.state.store.teams, ...h.state.store.players])).toBe(before);
-    expect(h.state.txLog).toHaveLength(0);
+    expect(h.state.store.players.get('fits-stale-cap')).toMatchObject({
+      teamId: 31,
+      status: 'active',
+      contract: { baseAnnual: 0.8, yearsTotal: 1 },
+    });
+    expect(h.state.txLog).toHaveLength(1);
   });
 
   it('does not record a SIGN and rolls back all durable state when final cap validation fails after mutation', async () => {
@@ -335,8 +448,8 @@ describe('ensureMinimumRosters — stable rollover legality', () => {
       const players = new Map();
       for (let i = 0; i < 52; i++) players.set(`ai-${i}`, { id: `ai-${i}`, teamId: 31, pos: 'WR', ovr: 60, age: 24, status: 'active', contract: contract(1, 0, 1, 1) });
       const fas = [
-        ['fa-b', { id: 'fa-b', teamId: null, pos: 'CB', ovr: 66, potential: 66, age: 25, status: 'free_agent', contract: contract(5, 2, 2, 2) }],
-        ['fa-a', { id: 'fa-a', teamId: null, pos: 'CB', ovr: 66, potential: 66, age: 25, status: 'free_agent', contract: contract(20, 9, 3, 3) }],
+        ['fa-b', { id: 'fa-b', teamId: null, pos: 'CB', ovr: 60, potential: 60, age: 25, status: 'free_agent', contract: contract(5, 2, 2, 2) }],
+        ['fa-a', { id: 'fa-a', teamId: null, pos: 'CB', ovr: 60, potential: 60, age: 25, status: 'free_agent', contract: contract(20, 9, 3, 3) }],
       ];
       for (const [id, p] of (reverse ? fas.reverse() : fas)) players.set(id, p);
       return {
