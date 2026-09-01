@@ -13306,6 +13306,67 @@ async function archiveSeason(seasonId) {
 
 // ── Handler: START_NEW_SEASON ─────────────────────────────────────────────────
 
+function rosterCompletionReserveMap(failures = []) {
+  return new Map(
+    failures
+      .filter((failure) => failure.cheapestActualCompletionCost !== null
+        && failure.cheapestActualCompletionCost !== undefined
+        && Number.isFinite(Number(failure.cheapestActualCompletionCost)))
+      .map((failure) => [failure.teamId, Number(failure.cheapestActualCompletionCost)]),
+  );
+}
+
+async function preflightStartNewSeasonRosters({ meta, newYear, newSeason, newSeasonId, nextEconomy, includeUserTeam }) {
+  const snapshot = cache.snapshotStartNewSeasonState();
+  const stagedTransactions = [];
+  try {
+    for (const team of cache.getAllTeams()) {
+      cache.updateTeam(team.id, {
+        wins: 0, losses: 0, ties: 0, ptsFor: 0, ptsAgainst: 0,
+        deadCap: team.deadMoneyNextYear ?? 0,
+        deadMoneyNextYear: 0,
+        capTotal: nextEconomy.currentSalaryCap,
+        fanApproval: team?.fanApproval ?? 50,
+        fanApprovalWinBoostUsed: 0,
+        lossStreak: 0,
+      });
+      recalculateTeamCap(team.id);
+    }
+    cache.setMeta({
+      year: newYear,
+      season: newSeason,
+      currentSeasonId: newSeasonId,
+      currentWeek: 1,
+      phase: 'preseason',
+      economy: nextEconomy,
+      settings: normalizeLeagueSettings({
+        ...(meta?.settings ?? {}),
+        salaryCap: nextEconomy.currentSalaryCap,
+      }),
+    });
+
+    let reconciliation = await AiLogic.ensureMinimumRosters({
+      includeUserTeam,
+      transactionSink: stagedTransactions,
+    });
+    if (reconciliation.failures.length > 0) {
+      await AiLogic.executeAICapManagement({
+        autoManageUserCap: includeUserTeam,
+        teamIds: reconciliation.failures.map((failure) => failure.teamId),
+        rosterCompletionReserveByTeam: rosterCompletionReserveMap(reconciliation.failures),
+        transactionSink: stagedTransactions,
+      });
+      reconciliation = await AiLogic.ensureMinimumRosters({
+        includeUserTeam,
+        transactionSink: stagedTransactions,
+      });
+    }
+    return reconciliation;
+  } finally {
+    cache.restoreStartNewSeasonState(snapshot);
+  }
+}
+
 async function handleStartNewSeason(payload, id) {
   const meta = ensureDynastyMeta(cache.getMeta());
   if (!meta) { post(toUI.ERROR, { message: 'No league loaded' }, id); return; }
@@ -13317,15 +13378,58 @@ async function handleStartNewSeason(payload, id) {
     return;
   }
 
-  // Archive the completed season (if any) before resetting
-  if (meta.currentSeasonId) {
-    await archiveSeason(meta.currentSeasonId);
-  }
-
   const newYear     = (meta.year   ?? 2025) + 1;
   const newSeason   = (meta.season ?? 1)    + 1;
   const newSeasonId = `s${newSeason}`;
   const nextEconomy = projectNextSeasonEconomy(meta?.economy ?? {}, newYear);
+  const rolloverBatchSim = typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__;
+  const rolloverSnapshot = cache.snapshotStartNewSeasonState();
+  const preflight = await preflightStartNewSeasonRosters({
+    meta,
+    newYear,
+    newSeason,
+    newSeasonId,
+    nextEconomy,
+    includeUserTeam: rolloverBatchSim,
+  });
+  if (preflight.failures.length > 0) {
+    const detail = preflight.failures[0];
+    post(toUI.ERROR, {
+      message: `Team ${detail.teamId} cannot enter preseason below the 53-player minimum (${detail.rosterCount}/53).`,
+      rosterLegalityFailure: detail,
+    }, id);
+    return;
+  }
+
+  // Schedule construction is also a fatal gate, so complete it before archive,
+  // persona, owner, record, or cap state can be committed.
+  const makeScheduleFn = makeAccurateSchedule || (Scheduler && Scheduler.makeAccurateSchedule);
+  if (!makeScheduleFn) { post(toUI.ERROR, { message: 'Cannot generate schedule' }, id); return; }
+  const teamDefs = cache.getAllTeams();
+  const rawSchedule = makeScheduleFn(teamDefs);
+  let slimSchedule = slimifySchedule(rawSchedule, teamDefs, newSeasonId);
+  let scheduleValidation = validateSlimScheduleReferences(slimSchedule, teamDefs);
+  if (!scheduleValidation.valid) {
+    console.error('[Worker] New-season schedule failed reference validation:',
+      scheduleValidation.errors.slice(0, 8));
+    const fallbackRaw = Scheduler.createSimpleSchedule(teamDefs);
+    const fallbackSlim = slimifySchedule(fallbackRaw, teamDefs, newSeasonId);
+    const fallbackValidation = validateSlimScheduleReferences(fallbackSlim, teamDefs);
+    if (!fallbackValidation.valid) {
+      post(toUI.ERROR, {
+        message: `Cannot generate a valid ${newSeasonId} schedule: ${scheduleValidation.errors[0] ?? 'unknown'}`,
+      }, id);
+      return;
+    }
+    slimSchedule = fallbackSlim;
+    scheduleValidation = fallbackValidation;
+    console.warn('[Worker] Recovered new-season schedule via simple validated fallback.');
+  }
+
+  // Archive only after the roster/cap preflight has proved rollover can commit.
+  if (meta.currentSeasonId) {
+    await archiveSeason(meta.currentSeasonId);
+  }
 
   // ── Front office persona drift (offseason, deterministic) ───────────────────
   // Evaluate once per year before records reset. WIN_NOW + 2 missed postseasons
@@ -13427,37 +13531,6 @@ async function handleStartNewSeason(payload, id) {
     recalculateTeamCap(team.id);
   }
 
-  // Generate a fresh schedule
-  const makeScheduleFn = makeAccurateSchedule || (Scheduler && Scheduler.makeAccurateSchedule);
-  if (!makeScheduleFn) { post(toUI.ERROR, { message: 'Cannot generate schedule' }, id); return; }
-
-  const teamDefs = cache.getAllTeams();
-  const rawSchedule  = makeScheduleFn(teamDefs);
-  let slimSchedule   = slimifySchedule(rawSchedule, teamDefs, newSeasonId);
-
-  // Validate the new schedule's references against the canonical team-ID set
-  // BEFORE it is committed to live league state. A schedule that references an
-  // unknown team, pairs a team with itself, or double-books a team must never
-  // enter the save. On failure, fall back to the simple validated generator
-  // rather than persisting a corrupt schedule.
-  let scheduleValidation = validateSlimScheduleReferences(slimSchedule, teamDefs);
-  if (!scheduleValidation.valid) {
-    console.error('[Worker] New-season schedule failed reference validation:',
-      scheduleValidation.errors.slice(0, 8));
-    const fallbackRaw  = Scheduler.createSimpleSchedule(teamDefs);
-    const fallbackSlim = slimifySchedule(fallbackRaw, teamDefs, newSeasonId);
-    const fallbackValidation = validateSlimScheduleReferences(fallbackSlim, teamDefs);
-    if (!fallbackValidation.valid) {
-      post(toUI.ERROR, {
-        message: `Cannot generate a valid ${newSeasonId} schedule: ${scheduleValidation.errors[0] ?? 'unknown'}`,
-      }, id);
-      return;
-    }
-    slimSchedule = fallbackSlim;
-    scheduleValidation = fallbackValidation;
-    console.warn('[Worker] Recovered new-season schedule via simple validated fallback.');
-  }
-
   // V1 Coaching Carousel: generate coaching market at season start.
   // Collect coaches fired last season from all teams' coachHistory.
   const firedLastSeason = [];
@@ -13502,36 +13575,36 @@ async function handleStartNewSeason(payload, id) {
     }),
   });
 
-  const rolloverBatchSim = typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__;
-  let rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
+  const rolloverTransactions = [];
+  let rolloverReconciliation = await AiLogic.ensureMinimumRosters({
+    includeUserTeam: rolloverBatchSim,
+    transactionSink: rolloverTransactions,
+  });
   if (rolloverReconciliation.failures.length > 0) {
     // Only underfilled teams enter this cap-planning retry. Oversized preseason
     // rosters remain untouched until the later canonical cutdown pass.
     await AiLogic.executeAICapManagement({
       autoManageUserCap: rolloverBatchSim,
       teamIds: rolloverReconciliation.failures.map((failure) => failure.teamId),
-      rosterCompletionReserveByTeam: new Map(
-        rolloverReconciliation.failures
-          .filter((failure) => failure.cheapestActualCompletionCost !== null
-            && failure.cheapestActualCompletionCost !== undefined
-            && Number.isFinite(Number(failure.cheapestActualCompletionCost)))
-          .map((failure) => [failure.teamId, Number(failure.cheapestActualCompletionCost)]),
-      ),
+      rosterCompletionReserveByTeam: rosterCompletionReserveMap(rolloverReconciliation.failures),
+      transactionSink: rolloverTransactions,
     });
-    rolloverReconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: rolloverBatchSim });
+    rolloverReconciliation = await AiLogic.ensureMinimumRosters({
+      includeUserTeam: rolloverBatchSim,
+      transactionSink: rolloverTransactions,
+    });
   }
   if (rolloverReconciliation.failures.length > 0) {
     const detail = rolloverReconciliation.failures[0];
-    // START_NEW_SEASON is only valid from draft/offseason. Restore its lifecycle
-    // metadata before returning a hard reconciliation error so the command can
-    // be retried after the underlying AI roster/cap condition is corrected.
-    // No rollover flush has occurred yet.
-    cache.setMeta(meta);
+    cache.restoreStartNewSeasonState(rolloverSnapshot);
     post(toUI.ERROR, {
       message: `Team ${detail.teamId} cannot enter preseason below the 53-player minimum (${detail.rosterCount}/53).`,
       rosterLegalityFailure: detail,
     }, id);
     return;
+  }
+  if (rolloverTransactions.length > 0) {
+    await Promise.all(rolloverTransactions.map((transaction) => Transactions.add(transaction)));
   }
   for (const team of cache.getAllTeams()) recalculateTeamCap(team.id);
 

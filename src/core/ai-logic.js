@@ -403,7 +403,11 @@ class AiLogic {
      * under-minimum rosters from the existing free-agent pool and never cuts or
      * restructures players.
      */
-    static async ensureMinimumRosters({ includeUserTeam = false, minimum = Constants.ROSTER_LIMITS.REGULAR_SEASON } = {}) {
+    static async ensureMinimumRosters({
+        includeUserTeam = false,
+        minimum = Constants.ROSTER_LIMITS.REGULAR_SEASON,
+        transactionSink = null,
+    } = {}) {
         const meta = cache.getMeta();
         const userTeamId = meta?.userTeamId;
         const allTeams = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
@@ -487,14 +491,16 @@ class AiLogic {
                     cache.updateTeam(team.id, beforeTeam);
                     break;
                 }
-                await Transactions.add({
+                const signingTransaction = {
                     type: 'SIGN',
                     seasonId: meta.currentSeasonId,
                     week: meta.currentWeek,
                     teamId: team.id,
                     playerId: candidate.id,
                     details: { playerId: candidate.id, source: 'minimum_roster_reconciliation', contract, projectedCapRoom: projectedCap?.capRoom },
-                });
+                };
+                if (Array.isArray(transactionSink)) transactionSink.push(signingTransaction);
+                else await Transactions.add(signingTransaction);
                 roster = cache.getPlayersByTeam(team.id);
                 signed += 1;
             }
@@ -777,13 +783,15 @@ class AiLogic {
      * interactive front office.
      *
      * @param {{autoManageUserCap?: boolean, teamIds?: Array<number|string>|null,
-     *   rosterCompletionReserveByTeam?: Map<number|string, number>|Record<string, number>|null}} [opts]
+     *   rosterCompletionReserveByTeam?: Map<number|string, number>|Record<string, number>|null,
+     *   transactionSink?: object[]|null}} [opts]
      * @returns {Promise<{failures: object[], teamsManaged: number}>}
      */
     static async executeAICapManagement({
         autoManageUserCap = false,
         teamIds = null,
         rosterCompletionReserveByTeam = null,
+        transactionSink = null,
     } = {}) {
         const txsToCommit = [];
         const meta        = cache.getMeta();
@@ -891,7 +899,8 @@ class AiLogic {
         }
 
         if (txsToCommit.length > 0) {
-            await Promise.all(txsToCommit.map(tx => Transactions.add(tx)));
+            if (Array.isArray(transactionSink)) transactionSink.push(...txsToCommit);
+            else await Promise.all(txsToCommit.map(tx => Transactions.add(tx)));
         }
 
         if (failures.length > 0) {

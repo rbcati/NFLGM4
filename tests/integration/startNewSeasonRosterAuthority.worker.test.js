@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cache } from '../../src/db/cache.js';
+import { DraftPicks, Meta, Players, Seasons, Teams, Transactions } from '../../src/db/index.js';
 import { toUI, toWorker } from '../../src/worker/protocol.js';
 import AiLogic from '../../src/core/ai-logic.js';
 
@@ -53,6 +54,30 @@ function rosterIds(teamId) {
 
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
+}
+
+async function authoritativeSnapshot() {
+  return clone({
+    meta: cache.getMeta(),
+    teams: cache.getAllTeams().slice().sort((a, b) => Number(a.id) - Number(b.id)),
+    players: cache.getAllPlayers().slice().sort((a, b) => String(a.id).localeCompare(String(b.id))),
+    draftPicks: cache.getAllDraftPicks().slice().sort((a, b) => String(a.id).localeCompare(String(b.id))),
+    seasonStats: cache.getAllSeasonStats().slice().sort((a, b) => String(a.playerId).localeCompare(String(b.playerId))),
+    weekGames: cache.getWeekGames(),
+    transactions: await Transactions.loadRecent(4000),
+    seasons: await Seasons.loadAll(),
+  });
+}
+
+async function persistedSnapshot() {
+  return clone({
+    meta: await Meta.load(),
+    teams: (await Teams.loadAll()).sort((a, b) => Number(a.id) - Number(b.id)),
+    players: (await Players.loadAll()).sort((a, b) => String(a.id).localeCompare(String(b.id))),
+    draftPicks: (await DraftPicks.loadAll()).sort((a, b) => String(a.id).localeCompare(String(b.id))),
+    transactions: await Transactions.loadRecent(4000),
+    seasons: await Seasons.loadAll(),
+  });
 }
 
 function trimRoster(teamId, count) {
@@ -180,6 +205,66 @@ describe('START_NEW_SEASON roster-management authority', () => {
       season: cache.getMeta()?.season,
       currentSeasonId: cache.getMeta()?.currentSeasonId,
     }).toEqual(before);
+  }, TIMEOUT_MS);
+
+  it('makes a failed multi-team rollover fully atomic and allows one clean retry', async () => {
+    const aiTeamIds = cache.getAllTeams()
+      .map((team) => Number(team.id))
+      .filter((teamId) => teamId !== USER_TEAM_ID)
+      .sort((a, b) => a - b);
+    const repairableTeamId = aiTeamIds[0];
+    const legalTeamId = aiTeamIds[1];
+    const impossibleTeamId = aiTeamIds[2];
+    trimRoster(repairableTeamId, 52);
+    trimRoster(impossibleTeamId, 52);
+    const released = cache.getAllPlayers()
+      .filter((player) => player.teamId == null && player.status === 'free_agent')
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+    const firstCandidate = released[0];
+    cache.updatePlayer(firstCandidate.id, { status: 'free_agent', retired: false, ovr: 59, potential: 59, age: 27 });
+    for (const player of released.slice(1)) cache.updatePlayer(player.id, { status: 'retired', retired: true });
+    const initialSave = await send(toWorker.SAVE_NOW);
+    expect(initialSave.type).not.toBe(toUI.ERROR);
+    const before = await authoritativeSnapshot();
+    const persistedBefore = await persistedSnapshot();
+    const beforeYear = Number(before.meta.year);
+    const legalRosterBefore = rosterIds(legalTeamId);
+
+    const failed = await send(toWorker.START_NEW_SEASON);
+
+    expect(failed.type).toBe(toUI.ERROR);
+    expect(payloadOf(failed)?.rosterLegalityFailure?.teamId).toBe(impossibleTeamId);
+    expect(await authoritativeSnapshot()).toEqual(before);
+    expect(rosterIds(repairableTeamId)).toHaveLength(52);
+    expect(rosterIds(legalTeamId)).toEqual(legalRosterBefore);
+    expect(rosterIds(impossibleTeamId)).toHaveLength(52);
+
+    const saved = await send(toWorker.SAVE_NOW);
+    expect(saved.type).not.toBe(toUI.ERROR);
+    expect(await authoritativeSnapshot()).toEqual(before);
+    expect(await persistedSnapshot()).toEqual(persistedBefore);
+
+    const secondCandidate = cache.getAllPlayers()
+      .filter((player) => player.teamId == null && player.status === 'retired' && player.id !== firstCandidate.id)
+      .sort((a, b) => String(a.id).localeCompare(String(b.id)))[0];
+    cache.updatePlayer(secondCandidate.id, { status: 'free_agent', retired: false, ovr: 59, potential: 59, age: 27 });
+    const transactionsBeforeRetry = await Transactions.loadRecent(4000);
+
+    const retried = await send(toWorker.START_NEW_SEASON);
+
+    expect(retried.type, JSON.stringify(payloadOf(retried))).toBe(toUI.FULL_STATE);
+    expect(cache.getMeta()?.phase).toBe('preseason');
+    expect(Number(cache.getMeta()?.year)).toBe(beforeYear + 1);
+    expect(roster(repairableTeamId).length).toBeGreaterThanOrEqual(53);
+    expect(roster(impossibleTeamId).length).toBeGreaterThanOrEqual(53);
+    const transactionsAfterRetry = await Transactions.loadRecent(4000);
+    const newTransactions = transactionsAfterRetry.filter((tx) =>
+      !transactionsBeforeRetry.some((beforeTx) => String(beforeTx.id) === String(tx.id)),
+    );
+    const rolloverSigns = newTransactions.filter((tx) => tx.type === 'SIGN'
+      && [repairableTeamId, impossibleTeamId].includes(Number(tx.teamId)));
+    expect(rolloverSigns).toHaveLength(2);
+    expect(new Set(rolloverSigns.map((tx) => String(tx.playerId ?? tx.details?.playerId))).size).toBe(2);
   }, TIMEOUT_MS);
 
   it('retains the interactive 53-player gate before regular-season entry', async () => {
