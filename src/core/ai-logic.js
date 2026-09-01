@@ -98,6 +98,7 @@ function buildRosterReadySnapshot(team, roster, {
     targetBuffer = 0,
     rosterCompletionReserve = null,
     reserveRosterCount = roster.length,
+    actualCompletionProjection = null,
 } = {}) {
     const cap = buildTeamCapSnapshot({ team, roster, salaryCap: legalCap, targetBuffer });
     const missingRosterSlots = Math.max(0, Constants.ROSTER_LIMITS.REGULAR_SEASON - roster.length);
@@ -108,7 +109,10 @@ function buildRosterReadySnapshot(team, roster, {
         && Number(rosterCompletionReserve) >= 0;
     const initialMissingSlots = Math.max(0, Constants.ROSTER_LIMITS.REGULAR_SEASON - Number(reserveRosterCount));
     const releaseCreatedSlots = Math.max(0, missingRosterSlots - initialMissingSlots);
-    const requiredRosterCompletionRoom = hasActualReserve
+    const hasActualProjection = actualCompletionProjection !== null;
+    const requiredRosterCompletionRoom = hasActualProjection
+        ? (actualCompletionProjection.feasible ? actualCompletionProjection.cost : Number.POSITIVE_INFINITY)
+        : hasActualReserve
         ? Math.round((Number(rosterCompletionReserve) + releaseCreatedSlots * minimumRosterCapHit()) * 100) / 100
         : requiredMinimumRoom;
     const rosterReadyCommitted = Math.round((cap.totalCommitted + requiredRosterCompletionRoom) * 100) / 100;
@@ -118,7 +122,9 @@ function buildRosterReadySnapshot(team, roster, {
         missingRosterSlots,
         requiredMinimumRoom,
         requiredRosterCompletionRoom,
-        rosterCompletionReserveSource: hasActualReserve ? 'actual_completion' : 'minimum_fallback',
+        rosterCompletionReserveSource: hasActualProjection ? 'actual_projection'
+            : hasActualReserve ? 'actual_completion' : 'minimum_fallback',
+        actualCompletionOfferCount: hasActualProjection ? actualCompletionProjection.candidateCount : null,
         rosterReadyCommitted,
         isRosterReadyCompliant: rosterReadyCommitted <= Number(legalCap) + 0.001,
         isRosterReadyWithinPlanningTarget: rosterReadyCommitted <= Number(cap.targetCommitted) + 0.001,
@@ -147,6 +153,28 @@ function cheapestActualCompletion(sortedOffers, slots, excludedPlayerId = null) 
         cost,
         candidateCount: remaining.length,
     };
+}
+
+function buildActualCompletionProjection({ players, team, roster, meta, needs = {}, slots }) {
+    const strategy = buildAiTeamStrategy({
+        team,
+        roster,
+        league: { year: meta?.year, phase: meta?.phase },
+        phase: meta?.phase,
+        year: meta?.year,
+    });
+    const offers = players
+        .filter((player) => isSignableFreeAgent(player) || player.__projectedRelease)
+        .map((player) => ({
+            player,
+            contract: buildMinimumRosterContract(player, team, {
+                year: meta?.year,
+                strategy,
+                capRoom: team?.capRoom,
+                needMultiplier: needs?.[player?.pos] ?? 1,
+            }),
+        }));
+    return cheapestActualCompletion(actualCompletionOffers(offers), slots);
 }
 
 function minimumRosterSigningPatch(contract) {
@@ -414,6 +442,7 @@ class AiLogic {
 
         const failures = [];
         const signedByTeam = [];
+        const completionCandidateIdsByTeam = new Map();
         for (const team of allTeams) {
             if (!includeUserTeam && Number(team.id) === Number(userTeamId)) continue;
 
@@ -530,6 +559,7 @@ class AiLogic {
                         }),
                     }));
                 const completion = cheapestActualCompletion(actualCompletionOffers(actualOffers), remainingSlots);
+                completionCandidateIdsByTeam.set(team.id, actualOffers.map(({ player }) => player.id));
                 failures.push({
                     teamId: team.id,
                     rosterCount: roster.length,
@@ -542,7 +572,7 @@ class AiLogic {
                 });
             }
         }
-        return { failures, signedByTeam };
+        return { failures, signedByTeam, completionCandidateIdsByTeam };
     }
 
     /**
@@ -601,6 +631,9 @@ class AiLogic {
         targetBuffer = 0,
         season = 0,
         rosterCompletionReserve = null,
+        rosterCompletionCandidates = null,
+        rosterCompletionMeta = null,
+        rosterCompletionNeeds = null,
     } = {}) {
         const actions = [];
         let workRoster = roster.map((p) => ({ ...p, contract: { ...(p?.contract ?? {}) } }));
@@ -609,12 +642,27 @@ class AiLogic {
         // back if the player later turns out to be the only cap-legal release.
         const originalContracts = new Map();
         const reserveRosterCount = roster.length;
-        const snap = () => buildRosterReadySnapshot({ deadCap }, workRoster, {
-            legalCap,
-            targetBuffer,
-            rosterCompletionReserve,
-            reserveRosterCount,
-        });
+        const projectedReleasedPlayers = [];
+        const snap = () => {
+            const base = buildTeamCapSnapshot({ team: { ...team, deadCap }, roster: workRoster, salaryCap: legalCap, targetBuffer });
+            const actualCompletionProjection = Array.isArray(rosterCompletionCandidates)
+                ? buildActualCompletionProjection({
+                    players: [...rosterCompletionCandidates, ...projectedReleasedPlayers],
+                    team: { ...team, deadCap, capRoom: base.capRoom },
+                    roster: workRoster,
+                    meta: rosterCompletionMeta,
+                    needs: rosterCompletionNeeds,
+                    slots: Math.max(0, Constants.ROSTER_LIMITS.REGULAR_SEASON - workRoster.length),
+                })
+                : null;
+            return buildRosterReadySnapshot({ ...team, deadCap }, workRoster, {
+                legalCap,
+                targetBuffer,
+                rosterCompletionReserve,
+                reserveRosterCount,
+                actualCompletionProjection,
+            });
+        };
 
         // ── Phase 1: restructures toward the planning target ──────────────────
         const touched = new Set();
@@ -693,6 +741,7 @@ class AiLogic {
 
             const choice = candidates[0];
             workRoster = workRoster.filter((r) => r.id !== choice.p.id);
+            projectedReleasedPlayers.push({ ...choice.p, teamId: null, status: 'free_agent', __projectedRelease: true });
             posCount[choice.p.pos] = (posCount[choice.p.pos] ?? 1) - 1;
             deadCap = Math.round((deadCap + choice.currentYearDead) * 100) / 100;
             actions.push({
@@ -735,6 +784,13 @@ class AiLogic {
             if (rIdx >= 0) actions.splice(rIdx, 1);
             restructuredIds.delete(choice.p.id);
             workRoster = workRoster.filter((r) => r.id !== choice.p.id);
+            projectedReleasedPlayers.push({
+                ...choice.p,
+                contract: originalContracts.get(choice.p.id),
+                teamId: null,
+                status: 'free_agent',
+                __projectedRelease: true,
+            });
             posCount[choice.p.pos] = (posCount[choice.p.pos] ?? 1) - 1;
             deadCap = Math.round((deadCap + choice.currentYearDead) * 100) / 100;
             actions.push({
@@ -784,6 +840,7 @@ class AiLogic {
      *
      * @param {{autoManageUserCap?: boolean, teamIds?: Array<number|string>|null,
      *   rosterCompletionReserveByTeam?: Map<number|string, number>|Record<string, number>|null,
+     *   rosterCompletionCandidateIdsByTeam?: Map<number|string, Array<number|string>>|null,
      *   transactionSink?: object[]|null}} [opts]
      * @returns {Promise<{failures: object[], teamsManaged: number}>}
      */
@@ -791,6 +848,7 @@ class AiLogic {
         autoManageUserCap = false,
         teamIds = null,
         rosterCompletionReserveByTeam = null,
+        rosterCompletionCandidateIdsByTeam = null,
         transactionSink = null,
     } = {}) {
         const txsToCommit = [];
@@ -815,6 +873,12 @@ class AiLogic {
             const rosterCompletionReserve = rosterCompletionReserveByTeam instanceof Map
                 ? [...rosterCompletionReserveByTeam.entries()].find(([teamId]) => Number(teamId) === Number(team.id))?.[1]
                 : rosterCompletionReserveByTeam?.[String(team.id)];
+            const completionCandidateIds = rosterCompletionCandidateIdsByTeam instanceof Map
+                ? [...rosterCompletionCandidateIdsByTeam.entries()].find(([teamId]) => Number(teamId) === Number(team.id))?.[1]
+                : rosterCompletionCandidateIdsByTeam?.[String(team.id)];
+            const rosterCompletionCandidates = Array.isArray(completionCandidateIds)
+                ? completionCandidateIds.map((playerId) => cache.getPlayer(playerId)).filter(Boolean)
+                : null;
             const snapshot = buildRosterReadySnapshot(freshTeam, roster, {
                 legalCap,
                 targetBuffer,
@@ -828,6 +892,9 @@ class AiLogic {
                 targetBuffer,
                 season,
                 rosterCompletionReserve,
+                rosterCompletionCandidates,
+                rosterCompletionMeta: meta,
+                rosterCompletionNeeds: AiLogic.calculateTeamNeeds(team.id),
             });
 
             // If no legal plan exists, do NOT commit partial destructive actions.

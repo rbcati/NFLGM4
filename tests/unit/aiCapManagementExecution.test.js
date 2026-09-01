@@ -128,6 +128,7 @@ describe('executeAICapManagement — legality & structure', () => {
     const managed = await AiLogic.executeAICapManagement({
       teamIds: [31],
       rosterCompletionReserveByTeam: new Map([[31, failure.cheapestActualCompletionCost]]),
+      rosterCompletionCandidateIdsByTeam: first.completionCandidateIdsByTeam,
     });
 
     expect(managed.failures).toEqual([]);
@@ -185,6 +186,7 @@ describe('executeAICapManagement — legality & structure', () => {
     const managed = await AiLogic.executeAICapManagement({
       teamIds: [31],
       rosterCompletionReserveByTeam: new Map([[31, failure.cheapestActualCompletionCost]]),
+      rosterCompletionCandidateIdsByTeam: first.completionCandidateIdsByTeam,
     });
     const retry = await AiLogic.ensureMinimumRosters({ includeUserTeam: false });
 
@@ -243,6 +245,36 @@ describe('executeAICapManagement — legality & structure', () => {
     const releases = plan.actions.filter((action) => action.type === 'RELEASE');
     expect(releases).toHaveLength(2);
     expect(plan.projected.requiredMinimumRoom).toBe(1.6);
+    expect(plan.projected.rosterReadyCommitted).toBeLessThanOrEqual(LIVE_CAP);
+    expect(plan.failure).toBeNull();
+  });
+
+  it('prices every release-created hole from fresh canonical offers', () => {
+    const roster = releaseReserveRoster({ overage: 0, releasableBase: 10 }).slice(0, 52);
+    for (const player of roster) player.ovr = 66;
+    const current = roster.reduce((sum, player) => sum + player.contract.baseAnnual, 0);
+    roster[0].contract.baseAnnual += 100 - current;
+    const freeAgents = [
+      { id: 'market-a', teamId: null, status: 'free_agent', pos: 'RB', ovr: 66, potential: 66, age: 27 },
+      { id: 'market-b', teamId: null, status: 'free_agent', pos: 'CB', ovr: 66, potential: 66, age: 27 },
+    ];
+
+    const plan = AiLogic.buildAiCapCompliancePlan({ id: 9, deadCap: 0 }, roster, {
+      legalCap: LIVE_CAP,
+      season: 2032,
+      rosterCompletionReserve: 3,
+      rosterCompletionCandidates: freeAgents,
+      rosterCompletionMeta: { year: 2032, phase: 'preseason' },
+      rosterCompletionNeeds: {},
+    });
+    const releases = plan.actions.filter((action) => action.type === 'RELEASE');
+
+    expect(releases.length).toBeGreaterThan(0);
+    expect(plan.projected.rosterCompletionReserveSource).toBe('actual_projection');
+    expect(plan.projected.missingRosterSlots).toBe(1 + releases.length);
+    expect(plan.projected.requiredRosterCompletionRoom)
+      .toBeGreaterThan(plan.projected.missingRosterSlots * 0.8);
+    expect(plan.projected.actualCompletionOfferCount).toBe(freeAgents.length + releases.length);
     expect(plan.projected.rosterReadyCommitted).toBeLessThanOrEqual(LIVE_CAP);
     expect(plan.failure).toBeNull();
   });

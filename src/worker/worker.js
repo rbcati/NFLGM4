@@ -13354,6 +13354,7 @@ async function preflightStartNewSeasonRosters({ meta, newYear, newSeason, newSea
         autoManageUserCap: includeUserTeam,
         teamIds: reconciliation.failures.map((failure) => failure.teamId),
         rosterCompletionReserveByTeam: rosterCompletionReserveMap(reconciliation.failures),
+        rosterCompletionCandidateIdsByTeam: reconciliation.completionCandidateIdsByTeam,
         transactionSink: stagedTransactions,
       });
       reconciliation = await AiLogic.ensureMinimumRosters({
@@ -13587,6 +13588,7 @@ async function handleStartNewSeason(payload, id) {
       autoManageUserCap: rolloverBatchSim,
       teamIds: rolloverReconciliation.failures.map((failure) => failure.teamId),
       rosterCompletionReserveByTeam: rosterCompletionReserveMap(rolloverReconciliation.failures),
+      rosterCompletionCandidateIdsByTeam: rolloverReconciliation.completionCandidateIdsByTeam,
       transactionSink: rolloverTransactions,
     });
     rolloverReconciliation = await AiLogic.ensureMinimumRosters({
