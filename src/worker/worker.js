@@ -1944,7 +1944,7 @@ async function createUniqueLeagueId() {
  *   "Failed to store record in an IDBObjectStore: Evaluating the object store's
  *    key path did not yield a value."
  */
-async function flushDirty(forceFlush = false) {
+async function flushDirty(forceFlush = false, { transactions = [] } = {}) {
   const __profileToken = offseasonProfiler.start('persistence.flushDirty', { forceFlush });
   try {
   // PRIMARY iOS GUARD: Never flush until a save has been explicitly loaded or created.
@@ -1955,7 +1955,7 @@ async function flushDirty(forceFlush = false) {
   }
 
   const hasPendingBatchDirty = hasDirtySnapshot(pendingBatchDirty);
-  if (!cache.isDirty() && !hasPendingBatchDirty) return;
+  if (!cache.isDirty() && !hasPendingBatchDirty && transactions.length === 0) return;
 
   // SECONDARY SAFETY CHECK: Never flush if cache isn't fully loaded (prevent empty overwrite)
   if (!cache.isLoaded()) {
@@ -1979,7 +1979,7 @@ async function flushDirty(forceFlush = false) {
     ? mergeDirtySnapshots(pendingBatchDirty, currentDirty)
     : currentDirty;
 
-  if (!hasDirtySnapshot(dirty)) return;
+  if (!hasDirtySnapshot(dirty) && transactions.length === 0) return;
 
   // Resolve dirty IDs → full objects, dropping any that are null (already deleted).
   const teams   = dirty.teams.map(id => cache.getTeam(id)).filter(Boolean);
@@ -2021,33 +2021,30 @@ async function flushDirty(forceFlush = false) {
   // drainDirty() above already cleared the cache's dirty flags. If any write
   // below throws (e.g. a transient WebKit IDB error), restore the drained
   // snapshot so the mutations are retried on the next flush instead of being
-  // silently lost. The draft-pick and Saves writes use their own transactions,
-  // so they are part of the same all-or-restore guard as bulkWrite.
+  // silently lost. Draft picks and staged lifecycle transactions join the same
+  // league-database transaction as the hot state.
   try {
-    // Draft picks are handled separately (small volume, own store not in bulkWrite).
-    if (dirty.draftPicks.length > 0) {
-      const toSave = dirty.draftPicks
-        .map(id => cache.getDraftPick(id))
-        .filter(pk => pk && pk.id != null);
-      if (toSave.length) await DraftPicks.saveBulk(toSave);
-    }
+    const draftPicks = dirty.draftPicks
+      .map(id => cache.getDraftPick(id))
+      .filter(pk => pk && pk.id != null);
 
     // Update Global Save Metadata if league meta changed
-    if (dirty.meta) {
+    const saveManifest = dirty.meta ? (() => {
       const meta = ensureDynastyMeta(cache.getMeta());
       const leagueId = getActiveLeagueId();
       if (leagueId) {
         const userTeam = cache.getTeam(meta.userTeamId);
-        await Saves.save({
+        return {
           id: leagueId,
           name: meta.name || `League ${leagueId}`,
           year: meta.year,
           teamId: meta.userTeamId,
           teamAbbr: userTeam?.abbr || '???',
           lastPlayed: Date.now()
-        });
+        };
       }
-    }
+      return null;
+    })() : null;
 
     // bulkWrite itself also validates before each put — belt-and-suspenders.
     await bulkWrite({
@@ -2057,6 +2054,14 @@ async function flushDirty(forceFlush = false) {
       playerDeletes,
       games:         validGames,
       seasonStats,
+      draftPicks,
+      transactions,
+    });
+    // The save-list manifest lives in a separate database and cannot join the
+    // league transaction. Update it only after the authoritative league commit;
+    // it is an index/heartbeat, not league state.
+    if (saveManifest) await Saves.save(saveManifest).catch((error) => {
+      console.warn('[Worker] save manifest update failed after league commit:', error);
     });
   } catch (writeErr) {
     // `dirty` is the exact set we attempted to write. On the forceFlush path it
@@ -3170,6 +3175,8 @@ async function handleAdvanceWeek(payload, id) {
   // explicit headless lifecycle, the auto-managed user team) enter the regular
   // season legally instead of deadlocking the franchise at the first AI team
   // whose pre-cutdown payroll happens to exceed that season's grown cap.
+  let preseasonSnapshot = null;
+  const preseasonTransactions = [];
   if (meta.phase === 'preseason') {
     const batchSim = typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__;
     const rosterLimit = Constants.ROSTER_LIMITS.REGULAR_SEASON;
@@ -3207,29 +3214,44 @@ async function handleAdvanceWeek(payload, id) {
     // AI roster cutdowns (53-man limit) for all AI teams. Explicit headless
     // durability/batch mode also opts the user team into the same deterministic
     // cutdown pass; interactive skipUserGame/SIM_TO_PHASE does not.
-    await AiLogic.executeAICutdowns({ includeUserTeam: batchSim });
+    preseasonSnapshot = cache.snapshotStartNewSeasonState();
+    await AiLogic.executeAICutdowns({
+      includeUserTeam: batchSim,
+      transactionSink: preseasonTransactions,
+    });
 
     // AI cap management: bring every AI team legally under the LIVE cap using the
     // least-destructive plan. The interactive user team is NEVER auto-managed;
     // only an explicit headless lifecycle (durability batch-sim) opts it in.
-    await AiLogic.executeAICapManagement({ autoManageUserCap: batchSim });
+    await AiLogic.executeAICapManagement({
+      autoManageUserCap: batchSim,
+      transactionSink: preseasonTransactions,
+    });
 
     // Cap management above reserves the exact room needed by an underfilled
     // canonical roster. Complete those existing-FA, minimum-contract
     // transactions before the stable-phase legality gate. The interactive user
     // remains untouched; headless lifecycle runs explicitly opt it in.
-    let reconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: batchSim });
+    let reconciliation = await AiLogic.ensureMinimumRosters({
+      includeUserTeam: batchSim,
+      transactionSink: preseasonTransactions,
+    });
     if (reconciliation.failures.length > 0) {
       await AiLogic.executeAICapManagement({
         autoManageUserCap: batchSim,
         teamIds: reconciliation.failures.map((failure) => failure.teamId),
         rosterCompletionReserveByTeam: rosterCompletionReserveMap(reconciliation.failures),
         rosterCompletionCandidateIdsByTeam: reconciliation.completionCandidateIdsByTeam,
+        transactionSink: preseasonTransactions,
       });
-      reconciliation = await AiLogic.ensureMinimumRosters({ includeUserTeam: batchSim });
+      reconciliation = await AiLogic.ensureMinimumRosters({
+        includeUserTeam: batchSim,
+        transactionSink: preseasonTransactions,
+      });
     }
     if (reconciliation.failures.length > 0) {
       const failure = reconciliation.failures[0];
+      cache.restoreStartNewSeasonState(preseasonSnapshot);
       post(toUI.ERROR, {
         message: `Team ${failure.teamId} cannot reach the 53-player minimum (${failure.rosterCount}/53).`,
         rosterLegalityFailure: failure,
@@ -3245,6 +3267,7 @@ async function handleAdvanceWeek(payload, id) {
 
   const legality = runLegalityValidation({ stage: 'pre-advance' }).issues.filter((issue) => issue.severity === 'error');
   if (legality.length > 0) {
+    if (preseasonSnapshot) cache.restoreStartNewSeasonState(preseasonSnapshot);
     post(toUI.ERROR, { message: legality[0].message }, id);
     return;
   }
@@ -3283,7 +3306,13 @@ async function handleAdvanceWeek(payload, id) {
     // Set phase to Regular Season, keep Week 1.
     // V1 Coaching Carousel: clear the coaching market at end of preseason.
     cache.setMeta({ phase: 'regular', currentWeek: 1, coachingMarket: [] });
-    await flushDirty();
+    try {
+      await flushDirty(true, { transactions: preseasonTransactions });
+    } catch (error) {
+      cache.restoreStartNewSeasonState(preseasonSnapshot);
+      post(toUI.ERROR, { message: `Could not start the regular season: ${error?.message ?? error}` }, id);
+      return;
+    }
 
     // Return state update (no simulation)
     post(toUI.WEEK_COMPLETE, {
@@ -13614,9 +13643,6 @@ async function handleStartNewSeason(payload, id) {
     }, id);
     return;
   }
-  if (rolloverTransactions.length > 0) {
-    await Promise.all(rolloverTransactions.map((transaction) => Transactions.add(transaction)));
-  }
   for (const team of cache.getAllTeams()) recalculateTeamCap(team.id);
 
   // ── Update franchise all-time leaders once per season rollover ──────────
@@ -13633,7 +13659,16 @@ async function handleStartNewSeason(payload, id) {
     console.error('[Worker] All-time leaders update failed (non-fatal):', leadersErr);
   }
 
-  await flushDirty(); // AUTO-SAVE: phase transition — new season initialized to preseason.
+  try {
+    // State and staged roster/cap transactions share one league-IDB transaction.
+    // A failed commit therefore leaves neither half-advanced state nor orphan
+    // transaction rows, and the in-memory snapshot remains safe to retry.
+    await flushDirty(true, { transactions: rolloverTransactions });
+  } catch (error) {
+    cache.restoreStartNewSeasonState(rolloverSnapshot);
+    post(toUI.ERROR, { message: `Could not persist the new season: ${error?.message ?? error}` }, id);
+    return;
+  }
 
   // Broadcast SEASON_START so the UI can force-switch to Standings/Dashboard.
   const updatedMeta = cache.getMeta();

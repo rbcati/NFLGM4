@@ -333,7 +333,7 @@ class AiLogic {
      * Execute AI Roster Cutdowns for Preseason.
      * Forces all AI teams to cut down to 53 players.
      */
-    static async executeAICutdowns({ includeUserTeam = false } = {}) {
+    static async executeAICutdowns({ includeUserTeam = false, transactionSink = null } = {}) {
         const meta = cache.getMeta();
         const userTeamId = meta.userTeamId;
         const allTeams = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
@@ -412,13 +412,15 @@ class AiLogic {
                 }
 
                 // Log Transaction
-                await Transactions.add({
+                const releaseTransaction = {
                     type: 'RELEASE',
                     seasonId: meta.currentSeasonId,
                     week: meta.currentWeek,
                     teamId: team.id,
                     details: { playerId: p.id, deadCap: currentYearDead }
-                });
+                };
+                if (Array.isArray(transactionSink)) transactionSink.push(releaseTransaction);
+                else await Transactions.add(releaseTransaction);
             }
 
             // Re-calc active cap (roster changed)
