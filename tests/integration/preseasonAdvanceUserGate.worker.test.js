@@ -186,6 +186,51 @@ afterAll(() => {
 });
 
 describe('ADVANCE_WEEK preseason user gating', () => {
+  it('rolls back every team and staged transaction when a later AI roster cannot be repaired', async () => {
+    normalizeUserRosterTo(53);
+    const aiTeams = cache.getAllTeams()
+      .filter((team) => Number(team.id) !== USER_TEAM_ID)
+      .sort((a, b) => Number(a.id) - Number(b.id));
+    for (const team of aiTeams) {
+      for (const player of sortedRoster(team.id).slice(53)) {
+        cache.updatePlayer(player.id, { teamId: null, status: 'retired' });
+      }
+    }
+
+    const [repairableTeam, impossibleTeam] = aiTeams;
+    const repairCandidate = sortedRoster(repairableTeam.id).at(-1);
+    const unavailableCandidate = sortedRoster(impossibleTeam.id).at(-1);
+    cache.updatePlayer(repairCandidate.id, {
+      teamId: null,
+      status: 'free_agent',
+      ovr: 50,
+      potential: 50,
+      contract: null,
+    });
+    cache.updatePlayer(unavailableCandidate.id, { teamId: null, status: 'retired' });
+    for (const player of cache.getAllPlayers()) {
+      if (player.teamId == null && player.id !== repairCandidate.id) {
+        cache.updatePlayer(player.id, { status: 'retired' });
+      }
+    }
+    expect(sortedRoster(repairableTeam.id)).toHaveLength(52);
+    expect(sortedRoster(impossibleTeam.id)).toHaveLength(52);
+
+    const before = cache.snapshotStartNewSeasonState();
+    const transactionCount = await transactionCountByTypes(['SIGN', 'RESTRUCTURE', 'RELEASE']);
+
+    const reply = await send(toWorker.ADVANCE_WEEK, {}, { timeoutMs: TEST_TIMEOUT_MS });
+
+    expect(reply.type).toBe(toUI.ERROR);
+    expect(payloadOf(reply)?.rosterLegalityFailure).toEqual(expect.objectContaining({
+      teamId: impossibleTeam.id,
+      rosterCount: 52,
+    }));
+    expect(cache.snapshotStartNewSeasonState()).toEqual(before);
+    expect(await transactionCountByTypes(['SIGN', 'RESTRUCTURE', 'RELEASE'])).toBe(transactionCount);
+    expect(cache.getMeta()?.phase).toBe('preseason');
+  }, TEST_TIMEOUT_MS);
+
   it('repairs an AI release-created hole, enters regular season, and preserves membership through save/reload', async () => {
     const aiTeam = cache.getAllTeams().find((team) => Number(team.id) !== USER_TEAM_ID);
     const aiTeamId = Number(aiTeam.id);

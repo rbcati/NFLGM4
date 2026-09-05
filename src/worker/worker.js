@@ -2046,6 +2046,11 @@ async function flushDirty(forceFlush = false, { transactions = [] } = {}) {
       return null;
     })() : null;
 
+    // Preserve the established generic flush ordering. Lifecycle commits with
+    // staged transaction rows defer this cross-database manifest until after
+    // the authoritative league transaction reaches its commit point.
+    if (saveManifest && transactions.length === 0) await Saves.save(saveManifest);
+
     // bulkWrite itself also validates before each put — belt-and-suspenders.
     await bulkWrite({
       meta:          dirty.meta ? cache.getMeta() : null,
@@ -2060,7 +2065,7 @@ async function flushDirty(forceFlush = false, { transactions = [] } = {}) {
     // The save-list manifest lives in a separate database and cannot join the
     // league transaction. Update it only after the authoritative league commit;
     // it is an index/heartbeat, not league state.
-    if (saveManifest) await Saves.save(saveManifest).catch((error) => {
+    if (saveManifest && transactions.length > 0) await Saves.save(saveManifest).catch((error) => {
       console.warn('[Worker] save manifest update failed after league commit:', error);
     });
   } catch (writeErr) {
