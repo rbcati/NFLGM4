@@ -222,6 +222,34 @@ function resolveLiveCapForMinimumRoster(team = {}, meta = {}) {
     return Constants.SALARY_CAP.HARD_CAP;
 }
 
+function minimumRosterCandidateCount(team, roster, meta) {
+    const legalCap = resolveLiveCapForMinimumRoster(team, meta);
+    const cap = buildTeamCapSnapshot({ team, roster, salaryCap: legalCap });
+    const needs = AiLogic.calculateTeamNeedsFromRoster(team, roster, meta);
+    const strategy = buildAiTeamStrategy({
+        team,
+        roster,
+        league: { year: meta?.year, phase: meta?.phase },
+        phase: meta?.phase,
+        year: meta?.year,
+    });
+    return cache.getAllPlayers().filter((player) => {
+        if (!isSignableFreeAgent(player)) return false;
+        const contract = buildMinimumRosterContract(player, team, {
+            year: meta?.year,
+            strategy,
+            capRoom: cap.capRoom,
+            needMultiplier: needs?.[player?.pos] ?? 1,
+        });
+        const projected = buildTeamCapSnapshot({
+            team,
+            roster: [...roster, { ...player, teamId: team.id, status: 'active', contract }],
+            salaryCap: legalCap,
+        });
+        return projected.isLegallyCompliant !== false;
+    }).length;
+}
+
 class AiLogic {
     static NEED_GROUP_TO_POS = Object.freeze({
         QB: ['QB'],
@@ -441,14 +469,29 @@ class AiLogic {
     } = {}) {
         const meta = cache.getMeta();
         const userTeamId = meta?.userTeamId;
-        const allTeams = cache.getAllTeams().slice().sort((a, b) => stableIdCompare(a?.id, b?.id));
+        const allTeams = cache.getAllTeams()
+            .filter((team) => includeUserTeam || Number(team.id) !== Number(userTeamId))
+            .map((team) => {
+                const roster = cache.getPlayersByTeam(team.id);
+                return {
+                    team,
+                    deficit: Math.max(0, minimum - roster.length),
+                    candidateCount: roster.length < minimum
+                        ? minimumRosterCandidateCount(team, roster, meta)
+                        : Number.POSITIVE_INFINITY,
+                };
+            })
+            // Protect scarce affordable players by serving the most constrained
+            // underfilled team first; stable IDs preserve deterministic ties.
+            .sort((a, b) => (a.candidateCount - b.candidateCount)
+                || (b.deficit - a.deficit)
+                || stableIdCompare(a.team?.id, b.team?.id))
+            .map(({ team }) => team);
 
         const failures = [];
         const signedByTeam = [];
         const completionCandidateIdsByTeam = new Map();
         for (const team of allTeams) {
-            if (!includeUserTeam && Number(team.id) === Number(userTeamId)) continue;
-
             let roster = cache.getPlayersByTeam(team.id);
             if (roster.length >= minimum) continue;
 

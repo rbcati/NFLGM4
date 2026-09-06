@@ -393,6 +393,31 @@ describe('executeAICapManagement — legality & structure', () => {
 });
 
 describe('ensureMinimumRosters — stable rollover legality', () => {
+  it('preserves a scarce affordable replacement for the more constrained team', async () => {
+    h.state.store = {
+      meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's8', currentWeek: 1, year: 2033, phase: 'preseason' },
+      teams: new Map([
+        [1, { id: 1, abbr: 'FLEX', capTotal: LIVE_CAP, deadCap: 0 }],
+        [2, { id: 2, abbr: 'TIGHT', capTotal: LIVE_CAP, deadCap: 0 }],
+      ]),
+      players: new Map(),
+    };
+    for (let i = 0; i < 52; i += 1) {
+      h.state.store.players.set(`flex-${i}`, { id: `flex-${i}`, teamId: 1, pos: 'WR', ovr: 60, status: 'active', contract: contract(1) });
+      h.state.store.players.set(`tight-${i}`, { id: `tight-${i}`, teamId: 2, pos: 'WR', ovr: 60, status: 'active', contract: contract(i === 0 ? LIVE_CAP - 51.9 : 1) });
+    }
+    h.state.store.players.set('scarce-cheap', { id: 'scarce-cheap', teamId: null, pos: 'CB', ovr: 59, potential: 59, age: 27, status: 'free_agent' });
+    h.state.store.players.set('flex-market', { id: 'flex-market', teamId: null, pos: 'WR', ovr: 68, potential: 68, age: 27, status: 'free_agent' });
+
+    const result = await AiLogic.ensureMinimumRosters({ includeUserTeam: true });
+
+    expect(result.failures).toEqual([]);
+    expect(h.mockCache.getPlayersByTeam(1)).toHaveLength(53);
+    expect(h.mockCache.getPlayersByTeam(2)).toHaveLength(53);
+    expect(h.state.store.players.get('scarce-cheap').teamId).toBe(2);
+    expect(h.state.store.players.get('flex-market').teamId).toBe(1);
+  });
+
   it('cap management reserves a legal minimum-contract slot before the production signing pass', async () => {
     h.state.store = {
       meta: { userTeamId: 0, difficulty: 'Normal', economy: { currentSalaryCap: LIVE_CAP }, currentSeasonId: 's7', currentWeek: 1, year: 2032, phase: 'preseason' },

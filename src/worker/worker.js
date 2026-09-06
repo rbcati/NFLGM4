@@ -1852,6 +1852,22 @@ function hydrateAllPlayersForDevelopment() {
 let _saveIsExplicitlyLoaded = false;
 let pendingBatchDirty = createEmptyDirtySnapshot();
 
+function snapshotLifecyclePersistenceState() {
+  return {
+    cache: cache.snapshotStartNewSeasonState(),
+    pendingBatchDirty: mergeDirtySnapshots(createEmptyDirtySnapshot(), pendingBatchDirty),
+  };
+}
+
+function restoreLifecyclePersistenceState(snapshot) {
+  if (!snapshot) return;
+  cache.restoreStartNewSeasonState(snapshot.cache);
+  pendingBatchDirty = mergeDirtySnapshots(createEmptyDirtySnapshot(), snapshot.pendingBatchDirty);
+  if (typeof globalThis !== 'undefined') {
+    globalThis.__DYNASTY_SOAK_PENDING_DIRTY__ = pendingBatchDirty;
+  }
+}
+
 const LEAGUE_DB_PREFIX = 'FootballGM_League_';
 
 function postManifestUpdate(entry) {
@@ -3219,7 +3235,7 @@ async function handleAdvanceWeek(payload, id) {
     // AI roster cutdowns (53-man limit) for all AI teams. Explicit headless
     // durability/batch mode also opts the user team into the same deterministic
     // cutdown pass; interactive skipUserGame/SIM_TO_PHASE does not.
-    preseasonSnapshot = cache.snapshotStartNewSeasonState();
+    preseasonSnapshot = snapshotLifecyclePersistenceState();
     await AiLogic.executeAICutdowns({
       includeUserTeam: batchSim,
       transactionSink: preseasonTransactions,
@@ -3256,7 +3272,7 @@ async function handleAdvanceWeek(payload, id) {
     }
     if (reconciliation.failures.length > 0) {
       const failure = reconciliation.failures[0];
-      cache.restoreStartNewSeasonState(preseasonSnapshot);
+      restoreLifecyclePersistenceState(preseasonSnapshot);
       post(toUI.ERROR, {
         message: `Team ${failure.teamId} cannot reach the 53-player minimum (${failure.rosterCount}/53).`,
         rosterLegalityFailure: failure,
@@ -3272,7 +3288,7 @@ async function handleAdvanceWeek(payload, id) {
 
   const legality = runLegalityValidation({ stage: 'pre-advance' }).issues.filter((issue) => issue.severity === 'error');
   if (legality.length > 0) {
-    if (preseasonSnapshot) cache.restoreStartNewSeasonState(preseasonSnapshot);
+    if (preseasonSnapshot) restoreLifecyclePersistenceState(preseasonSnapshot);
     post(toUI.ERROR, { message: legality[0].message }, id);
     return;
   }
@@ -3314,7 +3330,7 @@ async function handleAdvanceWeek(payload, id) {
     try {
       await flushDirty(true, { transactions: preseasonTransactions });
     } catch (error) {
-      cache.restoreStartNewSeasonState(preseasonSnapshot);
+      restoreLifecyclePersistenceState(preseasonSnapshot);
       post(toUI.ERROR, { message: `Could not start the regular season: ${error?.message ?? error}` }, id);
       return;
     }
@@ -13427,7 +13443,7 @@ async function handleStartNewSeason(payload, id) {
   const newSeasonId = `s${newSeason}`;
   const nextEconomy = projectNextSeasonEconomy(meta?.economy ?? {}, newYear);
   const rolloverBatchSim = typeof globalThis !== 'undefined' && !!globalThis.__FOOTBALL_GM_LITE_BATCH_SIM__;
-  const rolloverSnapshot = cache.snapshotStartNewSeasonState();
+  const rolloverSnapshot = snapshotLifecyclePersistenceState();
   const preflight = await preflightStartNewSeasonRosters({
     meta,
     newYear,
@@ -13641,7 +13657,7 @@ async function handleStartNewSeason(payload, id) {
   }
   if (rolloverReconciliation.failures.length > 0) {
     const detail = rolloverReconciliation.failures[0];
-    cache.restoreStartNewSeasonState(rolloverSnapshot);
+    restoreLifecyclePersistenceState(rolloverSnapshot);
     post(toUI.ERROR, {
       message: `Team ${detail.teamId} cannot enter preseason below the 53-player minimum (${detail.rosterCount}/53).`,
       rosterLegalityFailure: detail,
@@ -13649,6 +13665,11 @@ async function handleStartNewSeason(payload, id) {
     return;
   }
   for (const team of cache.getAllTeams()) recalculateTeamCap(team.id);
+
+  // Targeted cap repair may release a player referenced by the previous
+  // season's chart. Repair through the canonical authority while rollback is
+  // still available, so the repaired chart joins the rollover commit.
+  validateAndRepairAllTeamDepthCharts('post-rollover-roster-reconciliation');
 
   // ── Update franchise all-time leaders once per season rollover ──────────
   try {
@@ -13670,7 +13691,7 @@ async function handleStartNewSeason(payload, id) {
     // transaction rows, and the in-memory snapshot remains safe to retry.
     await flushDirty(true, { transactions: rolloverTransactions });
   } catch (error) {
-    cache.restoreStartNewSeasonState(rolloverSnapshot);
+    restoreLifecyclePersistenceState(rolloverSnapshot);
     post(toUI.ERROR, { message: `Could not persist the new season: ${error?.message ?? error}` }, id);
     return;
   }
